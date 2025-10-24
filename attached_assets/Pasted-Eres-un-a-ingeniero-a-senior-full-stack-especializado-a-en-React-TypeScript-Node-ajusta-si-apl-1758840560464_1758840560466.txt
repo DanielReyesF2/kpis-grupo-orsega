@@ -1,0 +1,177 @@
+Eres un(a) ingeniero(a) senior full-stack especializado(a) en React/TypeScript + Node (ajusta si aplica), con experiencia real en Replit Deployments, Nix, contenedores, CI/CD, CORS, proxies y variables de entorno . Tu tarea es encontrar la causa raíz y proponer cambios concretos (código y configuración) listos para aplicar.
+
+1) Contexto mínimo y objetivo
+
+Repositorio / Proyecto:<nombre o URL interna de Replit>
+
+Pila:<frontend (React/Vite/Next), backend (Express/Fastify), DB (Supabase/Firebase/Postgres), Auth, etc.>
+
+Objetivo del despliegue:<qué debe hacer exactamente en prod>
+
+2) Estados esperados vs. observados (prod)
+
+Esperado (prod): <comportamiento exacto que debe ocurrir>
+
+Observado (prod): <qué ocurre realmente, con mensajes, pantallas, latencias>
+Incluye capturas de consola (navegador y servidor) y pestaña Red (método, URL, estado, carga útil, CORS/OPCIONES), p.ej.:
+
+[Browser console] <timestamp> ERROR <mensaje completo>
+[Network] <GET/POST> <URL> -> <status> <detalle> (timing, CORS)
+[Server logs prod] <líneas relevantes con timestamps>
+
+3) Reproducibilidad
+
+URL del producto:<https://...>
+
+Pasos exactos (numerados) para reproducir el fallo en prod:
+
+<paso>
+
+<paso>
+
+<resultado>
+
+Indica si solo falla en prod o también en dev .
+
+4) Diferencias Dev vs Prod (obligatorio)
+
+Rama/confirmar SHA en producción:<sha>
+
+Comando de compilación prod:<comando real>
+
+Ejecutar comando prod:<comando real>
+
+Versión de nodo / entorno Nix:<versión>
+
+Variables de entorno (sin secretos, solo nombres y patrones ):
+
+Interfaz:<VITE_API_URL=... / NEXT_PUBLIC_...>
+
+Backend:<API_KEY_*, DATABASE_URL, JWT_SECRET, ...>
+
+Rutas y orígenes :
+
+Origen del frontend:<https://...>
+
+URL base del backend:<https://...>
+
+Lista de permitidos de CORS actual:<dominios>
+
+Proxy inverso / base de ruta:<si existe>
+
+Modo de render: <CSR/SSR/SSG>y ruta base en enrutador:<"/app" u otro>
+
+5) Infraestructura Replit/Implementación
+
+Tipo de implementación:<Autoscale/Static/Always on>
+
+Puertos expuestos:<p.ej. 3000>
+
+Comprobación de salud:<endpoint y resultado>
+
+Archivos de configuración presentes y su contenido relevante (fragmentos):
+
+replit.nix
+
+replit.yaml/.replit
+
+Dockerfile(si se aplica)
+
+vite.config.ts/next.config.js
+
+package.json(guiones y versiones)
+
+Permisos y límites:<timeout, memoria, almacenamiento>
+
+6) Dependencias y versiones
+
+node, npm/pnpm, framework ( react, vite/next), servidor ( express), ORM/SDK ( supabase/js, firebase), axios/fetch, etc.
+Copia las líneas exactas de package.jsonrelevantes.
+
+7) Pruebas y resultados ya intentados (conclusiones, no opiniones)
+
+Cambios probados: <commit/flag/config>→ resultado :<éxito/fallo + evidencia>
+
+Ejemplos:
+
+“Habilité cors({ origin: <prod-origin>, credentials:true })→ sigue 401 ”
+
+“Cambié VITE_API_URLen prod de http://localhost:3000a https://api.midominio.com→ 200 OK en /health, pero /auth 403 ”
+
+8) Pistas claves (elija las que apliquen)
+
+CORS/Preflight : Hay OPTIONScon 204/403/bloqueado .
+
+URLs : Frontend llama a http://localhosten prod/falta https.
+
+Env : process.env.Xvacío en prod / variables con prefijo público ausente (VITE_/NEXT_PUBLIC_).
+
+Router/Basepath : 404 al refrescar rutas SPA / faltan rewrites.
+
+SSR : Acceso a windowen servidor / errores de hidración.
+
+Auth : Cookies SameSite=Nonesin Secure/ dominio incorrecto.
+
+Build : assetscon ruta relativa mal resuelta ( /vs ./).
+
+Proxy : Cabeceras X-Forwarded-*y trust proxyno configurados.
+
+Límite/Cuota de tasa : 429 en APIs externas en prod únicamente.
+
+9) Qué necesito de ti (formato de salida requerido)
+
+Devuélveme en este formato exacto :
+
+Hipótesis priorizadas (1-N)
+
+H1: <causa raíz candidata> — Evidencia: <logs/trazas> — Cómo refutar: <prueba rápida>
+
+Plan de verificación paso a paso (mínimo viable, en orden, con comandos exactos):
+
+Paso 1: <comando/acción>— éxito esperado: <salida>
+
+Parche concreto
+
+Diferencias de archivos (bloques diffo fragmentos con ruta):
+
+--- a/server/index.ts
++++ b/server/index.ts
+@@
+- app.use(cors())
++ app.use(cors({ origin: ['<FRONT_PROD>'], credentials: true }))
++ app.set('trust proxy', 1)
+
+
+Cambios de configuración (variables, replit.yaml, vite.config, reescrituras)
+
+Scripts de compilación/ejecución actualizados
+
+Pruebas de aceptación (qué validar manualmente y con qué comandos)
+
+Monitoreo y reversión
+
+Cómo observar ( curl, healthcheck, logs)
+
+Cómo revertir de forma segura si falla
+
+No des explicaciones genéricas. Cada afirmación debe apuntar a una evidencia (línea de registro, captura de red, configuración exacta o diff). Si alguna sección me falta, indica exactamente qué obtener y cómo (comando o captura específica).
+
+Mini-checklist para que tú rellenes antes de correr el aviso
+
+ VITE_/NEXT_PUBLIC_presentes en construcción de producción
+
+ API_URLapunta a https prod , nolocalhost
+
+ CORS: originexacto + credentials:true(cliente y servidor coherentes)
+
+ Rewrites/SPA en Replit (rutas internas no 404)
+
+ trust proxyy cookies Secure; SameSite=Nonesi hay auth
+
+ Healthcheck responde 200 en producción
+
+ Versión de Misma Node en dev y prod
+
+ base/ assetPrefixcorrecto (Vite/Siguiente)
+
+ Registros de la consola del navegador + pestaña Red + producción del servidor adjuntos

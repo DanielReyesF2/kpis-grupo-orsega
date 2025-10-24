@@ -1,0 +1,419 @@
+Rol: actúa como Tech Lead/SRE. Implementa el módulo completo de forma incremental y verificable. Usa la DB de Neon con DATABASE_URL (SSL sslmode=require). No hardcodees datos: todo sale de la base.
+
+0) Preparación (no modificar secretos)
+
+Verifica que existe process.env.DATABASE_URL y agrega ?sslmode=require si falta.
+
+Crea server/db.ts (cliente pg + helper sql()), con SSL:
+
+// server/db.ts
+import { Pool } from 'pg'
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) throw new Error('DATABASE_URL no está definida')
+
+export const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+  max: 8,
+})
+
+export async function sql<T = any>(q: string, params?: any[]) {
+  const c = await pool.connect()
+  try { return await c.query<T>(q, params) } finally { c.release() }
+}
+
+1) Migraciones SQL (tablas normalizadas)
+
+Crea archivos en server/sql/ y script de migración que aplique todas en orden.
+
+Archivos:
+
+server/sql/01_client.sql
+
+server/sql/02_provider.sql
+
+server/sql/03_provider_channel.sql
+
+server/sql/10_shipment.sql
+
+server/sql/11_shipment_event.sql
+
+server/sql/12_shipment_doc.sql
+
+Contenido:
+
+-- 01_client.sql
+CREATE TABLE IF NOT EXISTS client (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  rfc TEXT,
+  email TEXT,
+  phone TEXT,
+  billing_addr TEXT,
+  shipping_addr TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- 02_provider.sql
+CREATE TABLE IF NOT EXISTS provider (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  contact_name TEXT,
+  notes TEXT,
+  rating NUMERIC,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- 03_provider_channel.sql
+CREATE TABLE IF NOT EXISTS provider_channel (
+  id UUID PRIMARY KEY,
+  provider_id UUID NOT NULL REFERENCES provider(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('email','api','portal')),
+  value TEXT NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- 10_shipment.sql
+CREATE TABLE IF NOT EXISTS shipment (
+  id UUID PRIMARY KEY,
+  reference TEXT NOT NULL UNIQUE,
+  client_id UUID NOT NULL REFERENCES client(id),
+  provider_id UUID REFERENCES provider(id),
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  incoterm TEXT,
+  status TEXT NOT NULL DEFAULT 'pendiente'
+    CHECK (status IN ('pendiente','asignando_transporte','confirmado','en_camino','retenido','entregado','cerrado')),
+  etd TIMESTAMP,
+  eta TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_shipment_client ON shipment(client_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_provider ON shipment(provider_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_status ON shipment(status);
+
+-- 11_shipment_event.sql
+CREATE TABLE IF NOT EXISTS shipment_event (
+  id UUID PRIMARY KEY,
+  shipment_id UUID NOT NULL REFERENCES shipment(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('pickup','customs','delay','delivery','note')),
+  at TIMESTAMP NOT NULL,
+  lat NUMERIC,
+  lng NUMERIC,
+  notes TEXT,
+  created_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_event_shipment_at ON shipment_event(shipment_id, at DESC);
+
+-- 12_shipment_doc.sql
+CREATE TABLE IF NOT EXISTS shipment_doc (
+  id UUID PRIMARY KEY,
+  shipment_id UUID NOT NULL REFERENCES shipment(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('bl','factura','foto','otro')),
+  file_url TEXT NOT NULL,
+  uploaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  uploaded_by TEXT
+);
+
+
+Script de migración: server/scripts/migrate.mjs
+
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { Pool } from 'pg'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const sqlDir = path.resolve(__dirname, '../sql')
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+})
+
+async function run() {
+  const files = fs.readdirSync(sqlDir).filter(f => f.endsWith('.sql')).sort()
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    for (const f of files) {
+      const sql = fs.readFileSync(path.join(sqlDir, f), 'utf8')
+      console.log('→', f)
+      await client.query(sql)
+    }
+    await client.query('COMMIT')
+    console.log('OK: migraciones aplicadas')
+  } catch (e) {
+    await client.query('ROLLBACK'); console.error('ERROR:', e.message); process.exit(1)
+  } finally {
+    client.release(); await pool.end()
+  }
+}
+run()
+
+
+Ejecuta migraciones y guarda salida en MIGRATE_LOG.md.
+
+2) Esquemas Zod compartidos (validación full-stack)
+
+Edita shared/schema.ts y agrega:
+
+import { z } from "zod"
+const uuid = () => z.string().uuid()
+const email = z.string().email().optional().or(z.literal("").transform(() => undefined))
+
+export const shipmentStatus = z.enum(["pendiente","asignando_transporte","confirmado","en_camino","retenido","entregado","cerrado"])
+export const eventType = z.enum(["pickup","customs","delay","delivery","note"])
+
+export const clientSchema = z.object({
+  id: uuid(), name: z.string().min(2),
+  rfc: z.string().optional(), email, phone: z.string().optional(),
+  billingAddr: z.string().optional(), shippingAddr: z.string().optional(),
+  isActive: z.boolean().default(true),
+})
+export const createClientSchema = clientSchema.omit({ id: true })
+export const updateClientSchema = clientSchema.partial().extend({ id: uuid() })
+
+export const providerSchema = z.object({
+  id: uuid(), name: z.string().min(2),
+  email, phone: z.string().optional(), contactName: z.string().optional(),
+  notes: z.string().optional(), rating: z.number().min(0).max(5).optional(),
+  isActive: z.boolean().default(true),
+})
+export const createProviderSchema = providerSchema.omit({ id: true })
+export const updateProviderSchema = providerSchema.partial().extend({ id: uuid() })
+
+export const providerChannelSchema = z.object({
+  id: uuid(), providerId: uuid(),
+  type: z.enum(["email","api","portal"]),
+  value: z.string().min(3),
+  isDefault: z.boolean().default(false),
+})
+export const createProviderChannelSchema = providerChannelSchema.omit({ id: true })
+
+export const shipmentSchema = z.object({
+  id: uuid(),
+  reference: z.string().min(2),
+  clientId: uuid(),
+  providerId: uuid().optional(),
+  origin: z.string().min(2),
+  destination: z.string().min(2),
+  incoterm: z.string().optional(),
+  status: shipmentStatus.default("pendiente"),
+  etd: z.string().datetime().optional(),
+  eta: z.string().datetime().optional(),
+})
+export const createShipmentSchema = shipmentSchema
+  .omit({ id: true, status: true })
+  .extend({ notifyClient: z.boolean().default(false), customerEmail: email })
+export const updateShipmentSchema = shipmentSchema.partial().extend({ id: uuid() })
+
+export const shipmentEventSchema = z.object({
+  id: uuid(), shipmentId: uuid(), type: eventType,
+  at: z.string().datetime(),
+  lat: z.number().optional(), lng: z.number().optional(),
+  notes: z.string().optional(),
+})
+export const createShipmentEventSchema = shipmentEventSchema.omit({ id: true })
+
+export const shipmentDocSchema = z.object({
+  id: uuid(), shipmentId: uuid(),
+  kind: z.enum(["bl","factura","foto","otro"]),
+  fileUrl: z.string().url(),
+  uploadedAt: z.string().datetime().optional(),
+  uploadedBy: z.string().optional(),
+})
+export const createShipmentDocSchema = shipmentDocSchema.omit({ id: true })
+
+3) Seeds (demo) — server/scripts/seed.mjs
+
+Inserta 2 clientes, 2 proveedores (+1 canal por proveedor) y 1 shipment “pendiente”.
+
+import { Pool } from 'pg'
+import { randomUUID } from 'node:crypto'
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+async function run() {
+  const c = await pool.connect()
+  try {
+    await c.query('BEGIN')
+    const c1 = randomUUID(), c2 = randomUUID(), p1 = randomUUID(), p2 = randomUUID(), sh = randomUUID()
+    await c.query(`INSERT INTO client (id,name,email,is_active) VALUES ($1,'DIGO','ops@digo.mx',TRUE) ON CONFLICT DO NOTHING`, [c1])
+    await c.query(`INSERT INTO client (id,name,email,is_active) VALUES ($1,'ACME','logistics@acme.com',TRUE) ON CONFLICT DO NOTHING`, [c2])
+    await c.query(`INSERT INTO provider (id,name,email,is_active) VALUES ($1,'TransLog','ops@translog.mx',TRUE) ON CONFLICT DO NOTHING`, [p1])
+    await c.query(`INSERT INTO provider (id,name,email,is_active) VALUES ($1,'ExpressMX','coord@expressmx.com',TRUE) ON CONFLICT DO NOTHING`, [p2])
+    await c.query(`INSERT INTO provider_channel (id,provider_id,type,value,is_default) VALUES ($1,$2,'email','ops@translog.mx',TRUE) ON CONFLICT DO NOTHING`, [randomUUID(), p1])
+    await c.query(`INSERT INTO shipment (id,reference,client_id,origin,destination,status) VALUES ($1,'REF-TEST-001',$2,'Monterrey','CDMX','pendiente') ON CONFLICT DO NOTHING`, [sh, c1])
+    await c.query('COMMIT'); console.log('Seeds OK')
+  } catch(e){ await c.query('ROLLBACK'); throw e } finally { c.release(); await pool.end() }
+}
+run().catch(e=>{ console.error(e); process.exit(1) })
+
+4) Rutas de Catálogo y Logística (Express)
+
+Catálogo (clientes/proveedores) — server/routes.catalog.ts:
+
+GET /api/clients, POST /api/clients, PATCH /api/clients/:id
+
+GET /api/providers, POST /api/providers, PATCH /api/providers/:id
+
+POST /api/providers/:id/channels
+
+(Implementa con sql(); validación ligera de campos requeridos.)
+
+Logística — server/routes.logistics.ts:
+
+GET /api/shipments?status=&q=&clientId=&providerId=&page=&limit=
+
+GET /api/shipments/:id
+
+POST /api/shipments (valida con createShipmentSchema)
+
+PATCH /api/shipments/:id (valida con updateShipmentSchema)
+
+POST /api/shipments/:id/events (valida createShipmentEventSchema)
+
+POST /api/shipments/:id/docs (valida createShipmentDocSchema)
+
+Flujo:
+
+POST /api/shipments/:id/request-transport → status='asignando_transporte', envía correo al proveedor (SendGrid). Guarda audit.
+
+POST /api/shipments/:id/confirm?token=... → guarda pickupAt, status='confirmado'.
+
+POST /api/shipments/:id/reject?token=... → status='pendiente' con nota.
+
+Integración en server/index.ts (API antes de servir estáticos):
+
+import express from 'express'
+import cors from 'cors'
+import path from 'node:path'
+import { catalogRouter } from './routes.catalog'
+import { logisticsRouter } from './routes.logistics'
+
+const app = express()
+const isProd = process.env.NODE_ENV === 'production'
+app.disable('x-powered-by')
+app.use(cors({ origin: true, credentials: true }))
+app.use(express.json({ limit: '2mb' }))
+
+app.use('/api', catalogRouter)
+app.use('/api', logisticsRouter)
+
+if (isProd) {
+  const publicDir = path.resolve(__dirname, '../public')
+  app.use(express.static(publicDir, { maxAge: '1h', index: 'index.html' }))
+  app.get('*', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')))
+}
+
+const port = Number(process.env.PORT || 5000)
+app.listen(port, () => console.log(`server up :${port} prod=${isProd}`))
+
+5) Correo (SendGrid) — plantilla y helper
+
+Usa SENDGRID_API_KEY (secret).
+
+Crea server/email.ts con un helper sendMail(to, subject, html) usando @sendgrid/mail.
+
+Plantilla “Solicitud de transporte” con botones (links con token) a confirm y reject.
+
+6) UI básica (client)
+
+Página /logistica:
+
+Listado/Kanban por status (Pendiente, Asignando, Confirmado, En camino, Retenido, Entregado, Cerrado).
+
+Botón “Nuevo envío” (modal con createShipmentSchema).
+
+En tarjetas de pendiente: botón “Solicitar transporte” → modal: seleccionar proveedor/canal, ventana de pickup, notas → llama POST /request-transport.
+
+Drag-and-drop: al soltar, llama POST /api/shipments/:id/transition (si implementas endpoint) o PATCH /api/shipments/:id y el backend valida guardas.
+
+Usa base API relativa en prod:
+
+const base = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000')
+export const API_BASE = `${base}/api`
+
+7) Pipelines (Build/Run)
+
+Build (en Deployments):
+
+npm --prefix client run build --silent -- --config ../vite.config.mjs && node server/scripts/migrate.mjs && node server/scripts/seed.mjs && npx tsc -p server/tsconfig.json
+
+
+Run:
+
+NODE_ENV=production node server/dist/index.js
+
+8) Pruebas rápidas (curl) — deja AUDIT_LOGISTICA.md con salidas
+# Crear envío
+curl -sS -X POST "$BASE/api/shipments" -H "Content-Type: application/json" -d '{
+  "reference":"REF-2025-0001","clientId":"<UUID_CLIENTE>","origin":"Monterrey","destination":"CDMX","incoterm":"FOB","etd":"2025-09-01T10:00:00Z","eta":"2025-09-05T18:00:00Z","notifyClient":true,"customerEmail":"cliente@digo.mx"
+}'
+
+# Listar por status
+curl -sS "$BASE/api/shipments?status=pendiente"
+
+# Solicitar transporte
+curl -sS -X POST "$BASE/api/shipments/<shipment_id>/request-transport" -H "Content-Type: application/json" -d '{
+  "providerId":"<UUID_PROVIDER>",
+  "pickupWindowFrom":"2025-09-01T08:00:00Z",
+  "pickupWindowTo":"2025-09-01T18:00:00Z",
+  "notes":"Carga paletizada"
+}'
+
+# Confirmar (simulación)
+curl -sS -X POST "$BASE/api/shipments/<shipment_id>/confirm?token=fake" -H "Content-Type: application/json" -d '{"pickupAt":"2025-09-01T09:30:00Z"}'
+
+9) Criterios de aceptación
+
+✅ Migraciones aplicadas (logs en MIGRATE_LOG.md).
+
+✅ Seeds creados (clientes, proveedores, canal email, envío “pendiente”).
+
+✅ Catálogos CRUD funcionales (/api/clients, /api/providers, /api/providers/:id/channels).
+
+✅ Logística CRUD + flujo:
+
+Crear envío → pendiente
+
+Solicitar transporte → asignando_transporte + correo (log SendGrid o simulación)
+
+Confirmar → confirmado (requiere pickupAt)
+
+Registrar evento pickup → en_camino
+
+✅ UI /logistica lista: listado + “Nuevo envío” + “Solicitar transporte”.
+
+✅ Health y build verdes en Replit (prod): GET /api/health y GET /.
+
+10) Guardrails obligatorios
+
+En server importa shared SIEMPRE como relativo (../shared/...).
+
+Validación Zod en todos los POST/PATCH.
+
+Rutas /api/* antes del fallback SPA.
+
+Evitar spam: throttle correos (no más de 1/6h por envío).
+
+Audit log mínimo para transiciones y correos enviados.
+
+Al terminar, publica:
+
+MIGRATE_LOG.md
+
+AUDIT_LOGISTICA.md
+
+Diffs de archivos creados/actualizados
+
+Si algo falla, muestra el error exacto y ajusta hasta cumplir criterios.

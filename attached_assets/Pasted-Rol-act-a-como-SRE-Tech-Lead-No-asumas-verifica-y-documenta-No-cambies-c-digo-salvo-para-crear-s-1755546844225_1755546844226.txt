@@ -1,0 +1,108 @@
+Rol: actúa como SRE/Tech Lead. No asumas; verifica y documenta. No cambies código salvo para crear scripts temporales de verificación. Entrega un reporte breve y accionable.
+
+Objetivos
+
+Confirmar que el rollback quedó sano (front compila, back arranca, /api/health OK).
+
+Detectar riesgos ocultos (alias rotos, ESM/CJS, imports a vite en server, shared mal resuelto, rutas en orden).
+
+Dejar AUDIT_REPORT.md y FIXLIST.md con prioridades.
+
+Tareas (ejecútalas en orden)
+1) Inventario & estructura
+set -euo pipefail
+R=AUDIT_REPORT.md; : > "$R"
+echo "# Auditoría post-rollback — KPIs DIGO" >> "$R"
+echo -e "\n## Versiones" >> "$R"; node -v >> "$R"; npm -v >> "$R"
+
+echo -e "\n## Árbol básico" >> "$R"
+ls -la | sed -n '1,200p' >> "$R"
+echo -e "\nclient/ (top)" >> "$R"; ls -la client | sed -n '1,60p' >> "$R"
+echo -e "\nserver/ (top)" >> "$R"; ls -la server | sed -n '1,60p' >> "$R"
+echo -e "\nshared/ (top)" >> "$R"; ls -la shared | sed -n '1,60p' >> "$R"
+
+2) Configs clave (copias al reporte)
+for f in vite.config.mjs client/package.json server/package.json server/tsconfig.json tsconfig.shared.json .replit.yaml Dockerfile replit.nix; do
+  [ -f "$f" ] && { echo -e "\n## $f" >> "$R"; sed -n '1,200p' "$f" >> "$R"; }
+done
+
+3) Chequeos de acoplamientos peligrosos
+echo -e "\n## Búsquedas de riesgo" >> "$R"
+
+echo -e "\n### (A) Importaciones de Vite en server (debe estar vacío):" >> "$R"
+rg -n "from 'vite'|require\\(['\"]vite['\"]\\)|vite\\.config" server || true >> "$R"
+
+echo -e "\n### (B) Alias '@shared' usados en server (deberían ser relativos ../shared):" >> "$R"
+rg -n "@shared/" server || true >> "$R"
+
+echo -e "\n### (C) Alias faltantes en Vite (componentes/páginas/hooks):" >> "$R"
+rg -n "from '@(components|pages|hooks|lib|ui)/" client/src || true >> "$R"
+
+4) Builds reproducibles
+echo -e "\n## Builds" >> "$R"
+# Frontend
+( npm --prefix client run build --silent -- --config ../vite.config.mjs && echo "Frontend ✅" ) >> "$R" 2>&1 || echo "Frontend ❌" >> "$R"
+
+# Backend
+( npx tsc -p server/tsconfig.json && echo "Server tsc ✅" ) >> "$R" 2>&1 || echo "Server tsc ❌" >> "$R"
+
+# Shared para Node (si existe tsconfig.shared.json)
+[ -f tsconfig.shared.json ] && ( npx tsc -p tsconfig.shared.json && echo "Shared tsc ✅" ) >> "$R" 2>&1 || echo "Shared tsc (skip)" >> "$R"
+
+echo -e "\nserver/dist listing:" >> "$R"; ls -la server/dist >> "$R" 2>&1 || true
+echo -e "\nserver/shared listing:" >> "$R"; ls -la server/shared >> "$R" 2>&1 || true
+
+5) Orden de rutas y serving estático en server
+echo -e "\n## Orden de rutas y estáticos" >> "$R"
+rg -n "express\\.static|app\\.use\\(.*/api|app\\.get\\('\\*'|\\.sendFile" server/index.ts server/routes.ts 2>/dev/null >> "$R" || true
+
+6) Smoke tests locales
+echo -e "\n## Smoke local" >> "$R"
+# Arranca en modo prod pero en puerto local, si hay script
+( NODE_ENV=production node server/dist/index.js & echo $! > /tmp/pid_kpis ) >/dev/null 2>&1 || true
+sleep 2
+BASE="${BASE:-http://localhost:5000}"
+echo "GET $BASE/api/health"  >> "$R";  (curl -sS "$BASE/api/health" || true) >> "$R"
+echo -e "\nGET $BASE/api/db-health" >> "$R"; (curl -sS "$BASE/api/db-health" || true) >> "$R"
+echo -e "\nHEAD $BASE" >> "$R"; (curl -sSI "$BASE" | head -20 || true) >> "$R"
+[ -f /tmp/pid_kpis ] && kill "$(cat /tmp/pid_kpis)" 2>/dev/null || true
+
+7) Dependencias & seguridad
+echo -e "\n## Dependencias" >> "$R"
+npm audit --production --json > audit_results.json 2>/dev/null || true
+jq '.metadata.vulnerabilities' audit_results.json 2>/dev/null >> "$R" || true
+
+8) Checklist de coherencia ESM/CJS
+echo -e "\n## Coherencia ESM/CJS" >> "$R"
+jq '.type? // "(no type field)"' server/package.json 2>/dev/null >> "$R" || true
+rg -n "type\":\\s*\"module\"" server/package.json || true >> "$R"
+rg -n "module\"\\s*:\\s*\"CommonJS\"" server/tsconfig.json || true >> "$R"
+
+9) Resultados y FIXLIST
+echo -e "\n## Resumen rápido" >> "$R"
+echo "- Front build: $(grep -q 'Frontend ✅' $R && echo OK || echo FAIL)" >> "$R"
+echo "- Server tsc:  $(grep -q 'Server tsc ✅' $R && echo OK || echo FAIL)" >> "$R"
+echo "- Health:      $(grep -q '\"status\"' $R && echo OK || echo WARN)" >> "$R"
+
+# Genera FIXLIST priorizada
+F=FIXLIST.md; : > "$F"
+echo "# FIXLIST (prioridades)" >> "$F"
+grep -n "@shared/" "$R" >/dev/null && echo "P0: En server, reemplazar imports '@shared/*' por '../shared/*' (runtime Node no resuelve alias)." >> "$F"
+grep -n "from 'vite'\\|require('vite')" "$R" >/dev/null && echo "P0: Remover imports de Vite en server (solo dev con import dinámico dentro de if !production)." >> "$F"
+grep -n "Frontend ❌" "$R" >/dev/null && echo "P1: Front build falla — revisar alias adicionales (@components/@pages/@hooks/@lib/@ui) en vite.config.mjs." >> "$F"
+grep -n "Server tsc ❌" "$R" >/dev/null && echo "P1: Server tsc falla — revisar outDir='./dist' y errores TS en server/." >> "$F"
+grep -n "server/dist/index.js" "$R" >/dev/null || echo "P0: Falta server/dist/index.js — ajustar server/tsconfig.json (outDir './dist') y comando de Build." >> "$F"
+grep -n "server/shared" "$R" >/dev/null || echo "P1: Falta compilado de shared — usar tsconfig.shared.json (outDir 'server/shared')." >> "$F"
+grep -n "express.static" "$R" >/dev/null || echo "P2: Servir estáticos desde dist/public en prod y SPA fallback al final." >> "$F"
+jq '.metadata.vulnerabilities | to_entries[] | select(.value>0) | "- " + .key + ": " + ( .value|tostring )' audit_results.json 2>/dev/null >> "$F" || true
+
+echo -e "\nListo. Archivos generados:\n- $R\n- $F\n"
+
+
+Criterios de éxito de la auditoría
+
+Se crean AUDIT_REPORT.md y FIXLIST.md con hallazgos y próximos pasos.
+
+El reporte incluye comandos, salidas y listados (evidencias).
+
+No se modificó código productivo (solo scripts/checks).

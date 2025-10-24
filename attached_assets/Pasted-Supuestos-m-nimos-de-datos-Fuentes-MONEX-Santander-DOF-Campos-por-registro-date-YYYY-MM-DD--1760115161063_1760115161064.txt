@@ -1,0 +1,276 @@
+Supuestos mínimos de datos
+
+Fuentes: MONEX, Santander, DOF.
+
+Campos por registro:
+date (YYYY-MM-DD), source, buy (compra MXN/USD), sell (venta MXN/USD).
+
+Zona horaria: America/Mexico_City.
+
+“Últimos 30 días” = 30 días hábiles o naturales (tomaremos naturales y usaremos el último dato disponible por fuente).
+
+Capa 1 — Visual (por fuente)
+Lógica
+
+Para cada source, filtra date >= today-30d.
+
+Muestra dos series por gráfica: buy, sell.
+
+Si faltan días, no rellenar (que el chart muestre huecos). Así evitas “inventar” precios.
+
+Endpoint sugerido
+
+GET /api/fx/source-series?source=MONEX&days=30
+Salida
+
+{
+  "source": "MONEX",
+  "series": [
+    {"date": "2025-09-12", "buy": 18.31, "sell": 18.38},
+    ...
+  ],
+  "last_update": "2025-10-10"
+}
+
+Capa 2 — Comparativa (spreads y snapshot ejecutivo)
+Definiciones
+
+Spread (por fuente y fecha):
+spread = sell - buy
+
+Tendencia simple (7 días) por fuente:
+
+Determina t0 = fecha más reciente con datos para las tres fuentes.
+
+Determina t7 = fecha más cercana a t0 - 7 días con dato para esa fuente (si no hay, marca “N/D”).
+
+trend_pct_7d = ((close_ref(t0) - close_ref(t7)) / close_ref(t7)) * 100
+Donde close_ref = puedes usar sell para vender USD y buy para comprar USD. Para un único indicador simple, usa sell.
+
+Clasificación:
+
+> +0.5% → ↗ Subiendo
+
+< -0.5% → ↘ Bajando
+
+En medio → → Estable
+
+Nota: “close_ref” = último valor disponible ese día (no promedios).
+
+Mejor compra (para comprar USD hoy): la menor buy en t0.
+
+Mejor venta (para vender USD hoy): la mayor sell en t0.
+
+Ahorro potencial mensual (MXN):
+
+Requiere un monto objetivo mensual usd_monthly (por defecto 25,000 USD; editable en UI).
+
+Ahorro vs baseline. Baseline simple inicial: DOF (si hay dato en t0); si no hay, usa el promedio de buy/sell de las tres fuentes ese día.
+
+Si compras USD:
+ahorro_compra_mxn = (baseline_buy - best_buy) * usd_monthly
+
+Si vendes USD:
+ahorro_venta_mxn = (best_sell - baseline_sell) * usd_monthly
+
+Para una sola tarjeta “Ahorro potencial” muestra el mayor entre ambos escenarios o deja un toggle “Compra/Venta”.
+
+Endpoint sugerido
+
+GET /api/fx/compare?days=30&usd_monthly=25000
+Salida
+
+{
+  "as_of": "2025-10-10",
+  "best_buy": {"source": "MONEX", "rate": 18.35},
+  "best_sell": {"source": "Santander", "rate": 18.42},
+  "baseline": {"source": "DOF", "buy": 18.39, "sell": 18.39},
+  "potential_savings": {
+    "buy_usd":  (18.39 - 18.35) * 25000, 
+    "sell_usd": (18.42 - 18.39) * 25000
+  },
+  "spreads_table": [
+    {"source":"MONEX","buy":18.35,"sell":18.42,"spread":0.07,"trend":"↗"},
+    {"source":"Santander","buy":18.37,"sell":18.40,"spread":0.03,"trend":"→"},
+    {"source":"DOF","buy":18.39,"sell":18.39,"spread":0.00,"trend":"↘"}
+  ]
+}
+
+Capa 3 — “Genio” (reglas simples y alertas)
+
+Mantén reglas determinísticas (sin z-scores ni ATR para V1).
+
+Detector de tendencia (7d)
+
+Usa trend_pct_7d (arriba) con umbrales fijos:
+
+≥ +0.5% = Alcista
+
+≤ -0.5% = Bajista
+
+En medio: Estable
+
+Detector de volatilidad (5d)
+
+vol_5d = promedio( abs(r_t - r_{t-1}) / r_{t-1} ) * 100, usando sell como referencia, últimos 5 cambios diarios por fuente (si hay <3, marca N/D).
+
+Clasificación:
+
+> 1.0% = Alta
+
+0.5–1.0% = Media
+
+< 0.5% = Baja
+
+Reglas de recomendación
+
+Compra USD: recomienda fuente con menor buy en t0 si el ahorro vs baseline ≥ min_savings_buy_mxn (config: 1,000 MXN/mes por defecto).
+
+Venta USD: recomienda fuente con mayor sell en t0 si el ahorro vs baseline ≥ min_savings_sell_mxn (default 1,000 MXN/mes).
+
+Si ninguna supera umbral, mostrar: “No hay oportunidad relevante hoy”.
+
+Regla de “spread inusual” simple
+
+Calcula promedio y desviación estándar del spread por fuente en 30 días (solo cuando haya ≥10 puntos).
+
+Marca ALERTA si spread_t0 > mean_30 + 2*std_30. (Si no hay 10 puntos, no evaluar).
+
+Salida del “Genio”
+
+GET /api/fx/insights?usd_monthly=25000&days=30
+Ejemplo
+
+{
+  "as_of": "2025-10-10",
+  "recommendations": [
+    {
+      "action": "BUY_USD",
+      "message": "Usa MONEX para comprar USD (ahorro estimado $2,500 MXN/mes vs DOF).",
+      "best_source": "MONEX",
+      "best_rate": 18.35,
+      "baseline_source": "DOF",
+      "baseline_rate": 18.39,
+      "estimated_savings_mxn": 2500
+    },
+    {
+      "action": "SELL_USD",
+      "message": "Usa Santander para vender USD (ganas $750 MXN/mes vs DOF).",
+      "best_source": "Santander",
+      "best_rate": 18.42,
+      "baseline_source": "DOF",
+      "baseline_rate": 18.39,
+      "estimated_savings_mxn": 750
+    }
+  ],
+  "alerts": [
+    "MONEX: spread de 0.07 es inusualmente alto vs su promedio 30d."
+  ],
+  "classifiers": {
+    "trend_7d": {
+      "MONEX": "Alcista",
+      "Santander": "Estable",
+      "DOF": "Bajista"
+    },
+    "volatility_5d": {
+      "MONEX": "Media",
+      "Santander": "Baja",
+      "DOF": "Baja"
+    }
+  }
+}
+
+Pseudocódigo (implementación directa)
+// Utilidades
+function lastCommonDate(ratesBySource): string {
+  // devuelve la fecha más reciente en la que las 3 fuentes tienen dato
+}
+
+function getSeries(source, days): Array<RatePoint> {
+  // query DB por source y date >= today - days
+}
+
+function trend7d(series, useField='sell'): 'Alcista'|'Bajista'|'Estable'|'N/D' {
+  const t0 = last(series);
+  const t7 = closestDate(series, t0.date - 7d);
+  if (!t7) return 'N/D';
+  const pct = ((t0[useField] - t7[useField]) / t7[useField]) * 100;
+  if (pct >= 0.5) return 'Alcista';
+  if (pct <= -0.5) return 'Bajista';
+  return 'Estable';
+}
+
+function volatility5d(series, useField='sell'): 'Alta'|'Media'|'Baja'|'N/D' {
+  const diffs = dailyPctDiffs(series.sliceLast(6), useField); // 5 difs
+  if (diffs.length < 3) return 'N/D';
+  const mean = avg(abs(diffs)) * 100;
+  if (mean > 1.0) return 'Alta';
+  if (mean >= 0.5) return 'Media';
+  return 'Baja';
+}
+
+function computeSnapshot(ratesBySource, usdMonthly=25000) {
+  const t0 = lastCommonDate(ratesBySource);
+  const buyRates = mapValues(ratesBySource, s => rateAtDate(s, t0).buy);
+  const sellRates = mapValues(ratesBySource, s => rateAtDate(s, t0).sell);
+
+  const bestBuySource = argmin(buyRates);   // menor compra
+  const bestSellSource = argmax(sellRates); // mayor venta
+
+  const baselineBuy  = rateAtDate(ratesBySource['DOF'], t0)?.buy ?? avg(values(buyRates));
+  const baselineSell = rateAtDate(ratesBySource['DOF'], t0)?.sell ?? avg(values(sellRates));
+
+  const savingsBuy  = (baselineBuy  - buyRates[bestBuySource])  * usdMonthly;
+  const savingsSell = (sellRates[bestSellSource] - baselineSell) * usdMonthly;
+
+  return { t0, bestBuySource, bestSellSource, savingsBuy, savingsSell, baselineBuy, baselineSell };
+}
+
+function unusualSpreadAlert(series): string|null {
+  // usa últimos 30 puntos
+  const points = series.sliceLast(30);
+  if (points.length < 10) return null;
+  const spreads = points.map(p => p.sell - p.buy);
+  const s0 = last(points); const spread0 = s0.sell - s0.buy;
+  const mu = avg(spreads), sd = stddev(spreads);
+  if (sd === 0) return null;
+  if (spread0 > mu + 2*sd)
+    return `${series.source}: spread de ${spread0.toFixed(2)} es inusualmente alto vs su promedio 30d.`;
+  return null;
+}
+
+Edge cases que ya quedan cubiertos
+
+Fechas desalineadas entre fuentes → usamos lastCommonDate para el snapshot comparativo.
+
+Datos faltantes → gráficas con huecos; “N/D” en tendencia/volatilidad si no hay suficientes puntos.
+
+DOF faltante → baseline = promedio simple del día.
+
+Poca historia (<10 días) → sin alerta de spread inusual.
+
+División por cero → protegida en volatilidad/estándar.
+
+Validación rápida (tests mínimos)
+
+Mejor compra/venta: con tres valores conocidos, ver que el min/max salgan bien.
+
+Ahorro: ejemplo: baseline_buy=18.39, best_buy=18.35, usd=25,000 → ahorro = 0.04*25000 = 1,000 MXN.
+
+Tendencia: serie con +1% en 7d → “Alcista”.
+
+Volatilidad: serie con cambios 0.2% → “Baja”.
+
+Spread inusual: construye 30 puntos con spread ~0.04 ±0.01 y último con 0.08 → alerta.
+
+Qué construir primero (orden de implementación)
+
+Endpoints: /source-series, /compare.
+
+Componente UI: 3 gráficas apiladas + 3 tarjetas (Mejor Compra, Mejor Venta, Ahorro).
+
+Endpoint /insights con reglas simples (tendencia, volatilidad, alerta spread inusual).
+
+Panel “Historial de alertas” (persistencia la agregas después; por ahora, en memoria o tabla simple).
+
+Con esto ya tienes un módulo funcional y estable. Si quieres, en el siguiente paso te dejo el SQL mínimo y los handlers Express ya listos para pegar en Replit, pero por ahora esta es la lógica exacta para que lo implementes sin fricción.

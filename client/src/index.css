@@ -1,0 +1,66 @@
+/* Importamos las fuentes de Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Ruda:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+      --background: 0 0% 100%;
+--foreground: 20 14.3% 4.1%;
+--muted: 60 4.8% 95.9%;
+--muted-foreground: 25 5.3% 44.7%;
+--popover: 0 0% 100%;
+--popover-foreground: 20 14.3% 4.1%;
+--card: 0 0% 100%;
+--card-foreground: 20 14.3% 4.1%;
+--border: 20 5.9% 90%;
+--input: 20 5.9% 90%;
+--primary: 210 28% 22%; /* Econova azul oscuro #273949 */
+--primary-foreground: 0 0% 100%;
+--secondary: 60 4.8% 95.9%;
+--secondary-foreground: 24 9.8% 10%;
+--accent: 84 76% 62%; /* Econova verde lima #b5e951 */
+--accent-foreground: 210 28% 22%;
+--danger: 0 84.2% 60.2%;
+--danger-foreground: 60 9.1% 97.8%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 210 28% 22%;
+--radius: 0.5rem;
+  }
+  .dark {
+      --background: 210 30% 12%; /* Fondo basado en Econova azul oscuro */
+--foreground: 0 0% 98%;
+--muted: 210 30% 8%;
+--muted-foreground: 240 5% 74.9%;
+--popover: 210 30% 12%;
+--popover-foreground: 0 0% 98%;
+--card: 210 30% 12%;
+--card-foreground: 0 0% 98%;
+--border: 210 30% 18%;
+--input: 210 30% 18%;
+--primary: 210 28% 22%; /* Econova azul oscuro #273949 */
+--primary-foreground: 0 0% 100%;
+--secondary: 210 30% 18%;
+--secondary-foreground: 0 0% 98%;
+--accent: 84 76% 62%; /* Econova verde lima #b5e951 */
+--accent-foreground: 0 0% 100%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--danger: 0 62.8% 30.6%;
+--danger-foreground: 0 0% 98%;
+--ring: 84 76% 62%; /* Econova verde lima para resaltados */
+--radius: 0.5rem;
+  }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+

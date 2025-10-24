@@ -1,0 +1,70 @@
+# ESTRUCTURA DE KPIs PARA DURA INTERNATIONAL Y GRUPO ORSEGA
+
+A continuación se presenta la estructura de KPIs por área para las empresas Dura International y Grupo Orsega. Esta información servirá como base para el desarrollo de la aplicación de seguimiento de KPIs en Replit.
+
+## 1. CONTABILIDAD Y FINANZAS
+
+| ID | KPI | Objetivo Dura | Objetivo Orsega | Método de Medición | Frecuencia | Responsable |
+|----|-----|---------------|-----------------|-------------------|-------------|-------------|
+| CF1 | Precisión en estados financieros | 99% | 99% | Comparación entre errores detectados y totales reportados | Mensual | Gerente Contabilidad |
+| CF2 | Velocidad de rotación de cuentas por cobrar | < 45 días | < 45 días | (Cuentas por cobrar/Ingresos) × 365 | Mensual | Gerente Contabilidad |
+| CF3 | Cumplimiento de obligaciones fiscales | 100% | 100% | Verificación de fechas de presentación y pago de impuestos según calendario | Mensual | Gerente Contabilidad |
+| CF4 | Facturación sin errores | 100% | 100% | Total de facturas correctas emitidas/Total de facturas emitidas | Semanal | Gerente Contabilidad |
+| CF5 | Control de costos (margen bruto) | > Presupuestado | > Presupuestado | % de Utilidad bruta en base a lo preestablecido | Mensual | Gerente Contabilidad |
+
+## 2. COMPRAS
+
+| ID | KPI | Objetivo Dura | Objetivo Orsega | Método de Medición | Frecuencia | Responsable |
+|----|-----|---------------|-----------------|-------------------|-------------|-------------|
+| CO1 | Nivel de inventario óptimo | Máx. 2 meses secantes | Máx. 6 ton metilato | (Inventario Real / Inventario Ideal) × 100 | Mensual | Jefe de Compras |
+| CO2 | Tiempo de respuesta a Ventas | Máx. 4 horas | Máx. 4 horas | Diferencia en horas entre la recepción del pedido y la confirmación al cliente | Semanal | Jefe de Compras |
+| CO3 | Tiempo de entrega de proveedores | 95% cumplimiento | 95% cumplimiento | Promedio de días entre la fecha de pedido y la fecha de recepción versus el plazo acordado con el proveedor | Mensual | Jefe de Compras |
+| CO4 | Optimización de costos de compra | < 5% | < 5% | Comparación de costos actuales versus históricos, porcentaje de descuentos obtenidos | Trimestral | Jefe de Compras |
+
+## 3. VENTAS
+
+| ID | KPI | Objetivo Dura | Objetivo Orsega | Método de Medición | Frecuencia | Responsable |
+|----|-----|---------------|-----------------|-------------------|-------------|-------------|
+| VE1 | Volumen de ventas alcanzado | 100% de cuota | 100% de cuota | Sistema CRM y reportes de ventas trimestrales | Trimestral | Jefe de Ventas |
+| VE2 | Porcentaje de crecimiento en ventas | +10% vs año anterior | +10% vs año anterior | Análisis comparativo de reportes históricos | Mensual | Jefe de Ventas |
+| VE3 | Nuevos clientes adquiridos | 2 nuevos/mes | 2 nuevos/mes | Sistema CRM y registros de clientes nuevos | Mensual | Jefe de Ventas |
+| VE4 | Tasa de retención de clientes | 90% | 90% | Encuestas de satisfacción y repetición de ventas | Mensual | Jefe de Ventas |
+| VE5 | Satisfacción interdepartamental | Retroalimentación continua | Retroalimentación continua | Encuestas internas de evaluación | Trimestral | Jefe de Ventas |
+
+## 4. SOPORTE DE VENTAS
+
+| ID | KPI | Objetivo Dura | Objetivo Orsega | Método de Medición | Frecuencia | Responsable |
+|----|-----|---------------|-----------------|-------------------|-------------|-------------|
+| SV1 | Actualización del CRM | 100% | 100% | Registro de actualizaciones en CRM | Mensual | Soporte de Ventas |
+| SV2 | Tiempo de respuesta a solicitudes | < 24 horas | < 24 horas | Tiempo promedio de respuesta a solicitudes | Semanal | Soporte de Ventas |
+| SV3 | Precisión en documentación de órdenes | 98% | 98% | Verificación de documentación en cada transacción | Trimestral | Soporte de Ventas |
+| SV4 | Eficiencia en reportes de soporte | 100% en plazo | 100% en plazo | Tiempo de entrega de reportes | Mensual | Soporte de Ventas |
+| SV5 | Seguimiento a evaluación de muestras | 100% | 100% | Tiempo de seguimiento con clientes a evaluación | Mensual | Soporte de Ventas |
+| SV6 | Seguimiento a redes sociales | 2 posts/semana | 2 posts/semana | Calendario de contenidos en Monday.com | Semanal | Soporte de Ventas |
+| SV7 | Recuperación de ventas de clientes | % clientes reactivados | % clientes reactivados | Reporte de bajos consumos | Bimestral | Soporte de Ventas |
+
+## 5. LOGÍSTICA
+
+| ID | KPI | Objetivo Dura | Objetivo Orsega | Método de Medición | Frecuencia | Responsable |
+|----|-----|---------------|-----------------|-------------------|-------------|-------------|
+| LO1 | Precisión de inventarios | 100% | 100% | Auditorías de inventario y registro en ERP | Trimestral | Jefe de Logística |
+| LO2 | Cumplimiento de tiempos de entrega | 100% | 100% | Tiempos de entrega registrados en órdenes | Mensual | Jefe de Logística |
+| LO3 | Costos de transporte | < Inflación anual | < Inflación anual | Análisis comparativo de costos de transporte | Anual | Jefe de Logística |
+| LO4 | Satisfacción de clientes internos | 100% | 100% | Encuestas internas de satisfacción | Semestral | Jefe de Logística |
+| LO5 | Tiempo de recuperación de evidencias | < 24 horas | < 24 horas | Análisis de carpetas de evidencia | Mensual | Jefe de Logística |
+
+## ÁREAS PENDIENTES DE DEFINIR KPIs
+- Almacén
+- Tesorería
+- Calidad
+- Dirección
+
+---
+
+### Notas para el desarrollo de la aplicación:
+
+1. Cada KPI tiene un ID único que puede utilizarse como referencia en la base de datos.
+2. Los objetivos son específicos para cada empresa, aunque en muchos casos coinciden.
+3. La estructura permite añadir nuevos KPIs o modificar los existentes según evolucionen las necesidades del negocio.
+4. Para las áreas pendientes, se deberá implementar la funcionalidad que permita añadir nuevos KPIs en el futuro.
+5. La aplicación debe contemplar almacenamiento histórico de los valores para permitir análisis de tendencias.

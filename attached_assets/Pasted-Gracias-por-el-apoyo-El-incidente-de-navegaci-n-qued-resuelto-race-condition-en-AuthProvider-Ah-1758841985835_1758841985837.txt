@@ -1,0 +1,136 @@
+Gracias por el apoyo. El incidente de navegación quedó resuelto (race condition en AuthProvider).
+Ahora les pido una doble verificación completa para asegurar que toda la aplicación funcione correctamente en producción . Abajo va el alcance , checklist , criterios de aceptación y entregables .
+
+Alcance
+
+Entorno: Producción (despliegue actual).
+
+Módulos críticos: Inicio de sesión, Panel de control, KPI, Logística, Pedidos/Pedidos, Configuración/Usuarios.
+
+Roles: admin , manager, collaborator, viewer.
+
+Navegación: enlaces internos, enlaces profundos, recarga completa, atrás/adelante, pestañas múltiples.
+
+Lista de verificación de verificación (con evidencias)
+
+Enrutamiento/Respaldo de SPA
+
+Abrir directamente: /dashboard, /kpis, /logistics, /orders, /settings(enlace profundo y recarga completa).
+
+Confirmar 200 + index.html y 0 errores 404 de assets/*.js.
+
+Entregables: HAR + capturas de Red (estado, tipo de contenido) y consola.
+
+Ciclo de vida de la autenticación
+
+Flujos: iniciar sesión, actualizar el token, expiración simulada, cerrar sesión/iniciar sesión, cambio de rol.
+
+Verificar: sin bucles 302/401 , cookies Secure; SameSite=None, trust proxyactivo.
+
+Entregables: trazas de /auth/*, cookies/headers, captura de consola sin errores.
+
+Guardas de rol
+
+Accesos/Restricciones correctas por rol a cada módulo/acción (crear pedido, editar, exportar, etc.).
+
+Entregables: tabla rápida (rol → módulos/acciones: permitido/denegado) + evidencia.
+
+Errores controlados
+
+Inyectar un error manejado para confirmar AsyncErrorBoundary(UI amigable, sin pantalla en blanco).
+
+Entregables: captura de la UI de error y registros correspondientes.
+
+Rendimiento
+
+Medir TTFB de /health, tiempos de navegación entre 3 módulos, y carga inicial.
+
+Objetivo: TTFB /health≈ ms bajos y navegación sin stutters visibles.
+
+Entregables: Lighthouse resumen + métricas básicas (no se requiere auditoría completa).
+
+Contrato API (humo)
+
+Verificar 3–5 puntos finales críticos por módulo con respuestas 2xx; Manejar 4xx/5xx sin mameluco UI.
+
+Entregables: lista de endpoints probados, solicitud/respuesta (encabezados + fragmentos), resultados.
+
+Estado/memoria
+
+Navegar 10 ciclos Dashboard ↔ KPIs ↔ Logística (sin refresco) y observar Rendimiento/Memoria.
+
+Confirmar que Navigation Cleanupevita fugas (memoria estable).
+
+Entregables: cronograma corto de Performance + nota de estabilidad.
+
+Trabajador de servicio / caché
+
+Confirmar SW desactivado (temporal) o versión correcta; pecado “descalce de activos”.
+
+Entregables: captura de Aplicación → Trabajadores de servicio.
+
+Variables de entorno
+
+Validar que no hay secretos expuestos en el paquete (solo VITE_/NEXT_PUBLIC_); variables de tiempo de ejecución presentes.
+
+Entregables: listado de nombres de env cargados (sin valores sensibles) + verificación de ausencia en paquete.
+
+CORS / Cookies / Proxy
+
+Revisar preflight OPTIONSy CORS originesperado; galletas con Secureen prod.
+
+Entregables: HAR de una petición autenticada y sus comprobaciones previas.
+
+BD / Migraciones
+
+Confirmar que el despliegue ejecuta la versión de esquema correcta; piscina estable, sin tiempos de espera.
+
+Entregables: log breve de migraciones aplicadas y estado del pool.
+
+Encabezados de seguridad / Contenido mixto
+
+Revisar X-Content-Type-Options, X-Frame-Options/ frame-ancestors, CSP básico si aplica, y ausencia de contenido mixto.
+
+Entregables: captura de encabezados de respuesta representativa.
+
+Entre navegadores/dispositivos
+
+Validar en Chrome, Safari, Firefox (escritorio) y un navegador móvil (iOS/Android).
+
+Entregables: nota de compatibilidad y cualquier diferencia encontrada.
+
+Accesibilidad (humo)
+
+Navegación por teclado en pantalla principal y formularios clave.
+
+Entregables: observaciones si hay bloqueos evidentes.
+
+Reproducibilidad del despliegue
+
+Confirmar comandos reales de build/run, versión de nodo, archivo de bloqueo utilizado.
+
+Entregables: extracto de npm run build/start, versión de Node/Nix, confirmación de lockfile.
+
+Criterios de aceptación
+
+0 errores de consola en navegación completa por módulos críticos.
+
+0 404 de assetsy 0 bucles de auth.
+
+Los enlaces profundos y la recarga completa en rutas internas funcionan .
+
+Flujos clave (iniciar sesión, crear pedido, guardar, listar) operativos por rol correspondiente.
+
+Sin regresiones de rendimiento perceptibles.
+
+Sin secretos en el paquete.
+
+Entregables solicitados
+
+HAR de una sesión completa (iniciar sesión → recorrido por módulos).
+
+Capturas : Red (errores/ausencia), consola, Service Worker, encabezados de seguridad.
+
+Resumen en tabla (checklist con ✅/❌ y hallazgos).
+
+Incidencias : si detectan algo, abra un listado con: síntoma → evidencia → causa candidata → parche sugerido (diff/config) .

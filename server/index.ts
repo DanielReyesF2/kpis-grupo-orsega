@@ -1,0 +1,203 @@
+import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
+import { fileURLToPath } from "url";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import { monthlyScheduler } from "./scheduler";
+import { initializeDOFScheduler } from "./dof-scheduler";
+import path from "path";
+import fs from "fs";
+
+// ====================
+// BOOT DIAGNOSTICS - PRODUCTION DEBUGGING
+// ====================
+function logBootDiagnostics() {
+  try {
+    const nodeEnv = process.env.NODE_ENV || 'undefined';
+    const appEnv = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    
+    console.log("\n🔍 === BOOT DIAGNOSTICS ===");
+    console.log(`📊 NODE_ENV: ${nodeEnv}`);
+    console.log(`📊 Express env will be: ${appEnv}`);
+    console.log(`📊 Current working directory: ${process.cwd()}`);
+    
+    // Safe dirname calculation for both dev and production
+    const currentFileUrl = import.meta.url;
+    const currentFileDir = path.dirname(fileURLToPath(currentFileUrl));
+    console.log(`📊 Script directory: ${currentFileDir}`);
+  
+    // Check critical paths for production
+    const distIndexPath = path.resolve(currentFileDir, "index.js");
+    const distPublicPath = path.resolve(currentFileDir, "public");
+    const distPublicIndexPath = path.resolve(distPublicPath, "index.html");
+    
+    // Alternative paths (current build location)
+    const altDistIndexPath = path.resolve(currentFileDir, "..", "server", "dist", "index.js");
+    const altDistPublicPath = path.resolve(currentFileDir, "..", "dist", "public");
+    const altDistPublicIndexPath = path.resolve(altDistPublicPath, "index.html");
+  
+  console.log(`📂 Expected dist/index.js: ${distIndexPath}`);
+  console.log(`📂 Expected dist/public: ${distPublicPath}`);
+  console.log(`📂 Expected dist/public/index.html: ${distPublicIndexPath}`);
+  
+  console.log(`✅ dist/index.js exists: ${fs.existsSync(distIndexPath)} (expected for production)`);
+  console.log(`✅ dist/public exists: ${fs.existsSync(distPublicPath)} (expected for production)`);
+  console.log(`✅ dist/public/index.html exists: ${fs.existsSync(distPublicIndexPath)} (expected for production)`);
+  
+  console.log(`📦 Build artifacts in current locations:`);
+  console.log(`   backend (server/dist/index.js): ${fs.existsSync(altDistIndexPath)}`);
+  console.log(`   frontend (dist/public/index.html): ${fs.existsSync(altDistPublicIndexPath)}`);
+  
+  // Check environment variables (without exposing values)
+  const criticalEnvs = [
+    'DATABASE_URL',
+    'JWT_SECRET', 
+    'SENDGRID_API_KEY',
+    'REPL_ID',
+    'REPL_SLUG'
+  ];
+  
+  console.log("🔒 Environment variables status:");
+  criticalEnvs.forEach(envVar => {
+    const exists = !!process.env[envVar];
+    const length = process.env[envVar]?.length || 0;
+    console.log(`   ${envVar}: ${exists ? '✅ SET' : '❌ MISSING'} ${exists ? `(${length} chars)` : ''}`);
+  });
+  
+    console.log("=== END BOOT DIAGNOSTICS ===\n");
+  } catch (error) {
+    console.error("⚠️ Error in boot diagnostics:", error);
+    console.log("Continuing server startup...\n");
+  }
+}
+
+// Run diagnostics immediately
+logBootDiagnostics();
+
+const app = express();
+
+// Configure trust proxy for .replit.app domain in production
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  console.log("🔒 Trust proxy enabled for production (.replit.app domain)");
+}
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Servir específicamente los archivos estáticos de public
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Security helper: Redact sensitive data from logs
+function redactSensitiveData(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const sensitive = ['password', 'token', 'authorization', 'apiKey', 'secret', 'jwt'];
+  const result: any = Array.isArray(obj) ? [] : {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (sensitive.some(s => key.toLowerCase().includes(s))) {
+      (result as any)[key] = '[REDACTED]';
+    } else if (typeof value === 'object' && value !== null) {
+      (result as any)[key] = redactSensitiveData(value);
+    } else {
+      (result as any)[key] = value;
+    }
+  }
+  
+  return result;
+}
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        const redactedResponse = redactSensitiveData(capturedJsonResponse);
+        logLine += ` :: ${JSON.stringify(redactedResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  // Register API routes BEFORE Vite middleware
+  registerRoutes(app);
+  
+  // Create HTTP server for proper WebSocket support
+  const server = createServer(app);
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  const expressEnv = app.get("env");
+  console.log(`🚀 Express environment detected: ${expressEnv}`);
+  
+  if (expressEnv === "development") {
+    console.log("🔧 Setting up Vite middleware for development...");
+    await setupVite(app, server);
+    console.log("✅ Vite middleware configured");
+  } else {
+    console.log("📦 Setting up static file serving for production...");
+    try {
+      serveStatic(app);
+      console.log("✅ Static file serving configured");
+    } catch (error) {
+      console.error("❌ CRITICAL ERROR setting up static files:", error);
+      throw error;
+    }
+  }
+
+  // Error handling middleware MUST be added AFTER all other middleware
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    // Log error for debugging but don't crash the server
+    console.error(`[Server Error ${status}]:`, err.message);
+    if (status >= 500) {
+      console.error('Full error stack:', err.stack);
+    }
+
+    res.status(status).json({ message });
+    // ✅ No throwing - let the server continue running
+  });
+
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = 5000;
+  server.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
+    
+    // Inicializar el scheduler de auto-cierre mensual
+    // DESACTIVADO: Auto-cierre automático removido por solicitud del usuario
+    // Los números de ventas a veces llegan 1 semana después del cierre del mes
+    // Omar ahora manejará el cierre manualmente cuando tenga todos los datos
+    console.log("⏸️  Auto-cierre automático DESACTIVADO - cierre manual requerido");
+    // monthlyScheduler.start(); // <- COMENTADO
+    console.log("✅ Sistema configurado para cierre manual");
+    
+    // Inicializar el scheduler de actualización automática del DOF
+    initializeDOFScheduler();
+  });
+})();
