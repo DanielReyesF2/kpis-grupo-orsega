@@ -627,4 +627,5 @@ export class MemStorage implements IStorage {
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
       });
-    }
+    }  }
+}

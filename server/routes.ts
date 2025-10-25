@@ -21,6 +21,7 @@ import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueS
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
+import { emailService } from "./email-service";
 
 // Helper to get authenticated user with proper type narrowing
 function getAuthUser(req: AuthRequest): NonNullable<AuthRequest['user']> {
@@ -281,6 +282,77 @@ export function registerRoutes(app: express.Application) {
     });
   });
 
+  // ====================
+  // ADMIN ENDPOINTS
+  // ====================
+
+  // POST /api/admin/seed-clients - Crear clientes de prueba
+  app.post("/api/admin/seed-clients", jwtAuthMiddleware, jwtAdminMiddleware, async (req, res) => {
+    try {
+      const { seedClients } = await import('./seed-clients');
+      const result = await seedClients();
+      
+      res.json(result);
+    } catch (error) {
+      console.error('[Admin] Error seeding clients:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error seeding clients',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // ====================
+  // TREASURY AUTOMATION ENDPOINTS
+  // ====================
+
+  // POST /api/treasury/send-reminder - Enviar recordatorio manual
+  app.post("/api/treasury/send-reminder", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { voucherId, clientId } = req.body;
+      
+      if (!voucherId || !clientId) {
+        return res.status(400).json({ error: 'voucherId y clientId son requeridos' });
+      }
+
+      const { TreasuryAutomation } = await import('./treasury-automation');
+      const result = await TreasuryAutomation.sendComplementReminder(voucherId, clientId);
+      
+      if (result.success) {
+        res.json({ success: true, message: result.message });
+      } else {
+        res.status(400).json({ error: result.message });
+      }
+    } catch (error) {
+      console.error('[Treasury] Error sending reminder:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+
+  // POST /api/treasury/resend-receipt - Reenviar comprobante
+  app.post("/api/treasury/resend-receipt", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { voucherId, clientId, companyId } = req.body;
+      
+      if (!voucherId || !clientId || !companyId) {
+        return res.status(400).json({ error: 'voucherId, clientId y companyId son requeridos' });
+      }
+
+      const { TreasuryAutomation } = await import('./treasury-automation');
+      const result = await TreasuryAutomation.sendPaymentReceiptToSupplier(voucherId, clientId, companyId);
+      
+      if (result.success) {
+        res.json({ success: true, message: result.message });
+      } else {
+        res.status(400).json({ error: result.message });
+      }
+    } catch (error) {
+      console.error('[Treasury] Error resending receipt:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+
   // SPA fallback check endpoint - 🔒 Solo administradores
   app.get('/api/spa-check', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {
     const indexPath = path.resolve(import.meta.dirname, 'public', 'index.html');
@@ -311,6 +383,17 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error("[POST /api/login] Error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // GET /api/user - Obtener información del usuario autenticado
+  app.get("/api/user", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      res.json(user);
+    } catch (error) {
+      console.error('Error getting user:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
 
@@ -2236,9 +2319,9 @@ export function registerRoutes(app: express.Application) {
       const result = await sql(`
         SELECT 
           id, name, email, phone, contact_person, company, address,
-          company_id, client_code, city, state, postal_code, country,
-          requires_receipt, email_notifications, customer_type,
-          payment_terms, is_active, created_at
+          company_id as "companyId", client_code as "clientCode", city, state, postal_code, country,
+          requires_receipt as "requiresReceipt", email_notifications as "emailNotifications", customer_type as "customerType",
+          payment_terms as "paymentTerms", is_active as "isActive", created_at as "createdAt"
         FROM clients 
         ${whereClause}
         ORDER BY name
@@ -2259,9 +2342,9 @@ export function registerRoutes(app: express.Application) {
       const result = await sql(`
         SELECT 
           id, name, email, phone, contact_person, company, address,
-          company_id, client_code, city, state, postal_code, country,
-          requires_receipt, email_notifications, customer_type,
-          payment_terms, is_active, notes, created_at, updated_at
+          company_id as "companyId", client_code as "clientCode", city, state, postal_code, country,
+          requires_receipt as "requiresReceipt", email_notifications as "emailNotifications", customer_type as "customerType",
+          payment_terms as "paymentTerms", is_active as "isActive", notes, created_at as "createdAt", updated_at as "updatedAt"
         FROM clients 
         WHERE id = $1 AND is_active = true
       `, [clientId]);
@@ -3170,7 +3253,29 @@ export function registerRoutes(app: express.Application) {
 
       const voucher = await storage.createPaymentVoucher(newVoucher);
 
-      console.log(`✅ [Upload] Comprobante creado con ID: ${voucher.id}, estado: ${initialStatus}`);
+      // 🏦 AUTOMATIZACIÓN: Enviar comprobante automáticamente al proveedor
+      try {
+        const { TreasuryAutomation } = await import('./treasury-automation');
+        const automationResult = await TreasuryAutomation.processAutomaticFlow(
+          voucher.id, 
+          validatedData.clientId, 
+          validatedData.companyId
+        );
+        
+        console.log(`🤖 [Automation] Flujo automático: ${automationResult.message}`);
+        
+        // Actualizar estado si cambió y es válido
+        const validStatuses = ['factura_pagada', 'pendiente_complemento', 'complemento_recibido', 'cierre_contable'];
+        if (automationResult.nextStatus !== initialStatus && validStatuses.includes(automationResult.nextStatus)) {
+          await storage.updatePaymentVoucherStatus(voucher.id, automationResult.nextStatus);
+          voucher.status = automationResult.nextStatus as any;
+        }
+      } catch (automationError) {
+        console.error('🤖 [Automation] Error en flujo automático:', automationError);
+        // No fallar el upload si la automatización falla
+      }
+
+      console.log(`✅ [Upload] Comprobante creado con ID: ${voucher.id}, estado: ${voucher.status}`);
 
       res.status(201).json({
         voucher,
@@ -3334,6 +3439,218 @@ export function registerRoutes(app: express.Application) {
       res.status(500).json({ 
         error: 'Error al importar tipos de cambio',
         details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // ============================================
+  // IDRALL INTEGRATION - Procesamiento de Excel
+  // ============================================
+
+  // Configurar multer para archivos Excel de IDRALL
+  const idrallUpload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, 'uploads/idrall/');
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `idrall-${uniqueSuffix}-${file.originalname}`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'text/csv' // .csv
+      ];
+      if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.xlsx') || file.originalname.endsWith('.xls')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV'));
+      }
+    },
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  });
+
+  // POST /api/idrall/upload - Procesar Excel de IDRALL y crear pagos
+  app.post("/api/idrall/upload", jwtAuthMiddleware, idrallUpload.single('excel'), async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'No se subió ningún archivo Excel' });
+      }
+
+      // Validar request body
+      const uploadSchema = z.object({
+        companyId: z.string().transform((val) => {
+          const num = Number(val);
+          if (!num || num <= 0) {
+            throw new Error("CompanyId inválido");
+          }
+          return num;
+        }),
+        createAsPending: z.string().optional().transform(v => v === 'true'),
+      });
+
+      const validatedData = uploadSchema.parse(req.body);
+
+      console.log(`📊 [IdrallUpload] Procesando Excel: ${file.originalname} para empresa ${validatedData.companyId}`);
+
+      // Crear directorio si no existe
+      const fs = await import('fs');
+      const path = await import('path');
+      const idrallDir = path.join(process.cwd(), 'uploads', 'idrall');
+      if (!fs.existsSync(idrallDir)) {
+        fs.mkdirSync(idrallDir, { recursive: true });
+      }
+
+      // Procesar Excel con IdrallParser
+      const { IdrallParser } = await import('./idrall-parser');
+      const parseResult = await IdrallParser.parseExcel(file.path);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Error procesando archivo Excel',
+          details: parseResult.errors,
+          totalRows: parseResult.totalRows
+        });
+      }
+
+      console.log(`✅ [IdrallUpload] Excel procesado: ${parseResult.payments.length} pagos válidos`);
+
+      // Crear pagos programados en la base de datos
+      const { storage } = await import('./storage');
+      const createdPayments = [];
+      const errors = [];
+
+      for (const payment of parseResult.payments) {
+        try {
+          // Buscar cliente/proveedor coincidente
+          const clientMatch = await IdrallParser.findMatchingClient(payment, validatedData.companyId);
+          
+          let clientId = null;
+          let clientName = payment.proveedor || payment.cliente || 'Proveedor IDRALL';
+
+          if (clientMatch.found) {
+            clientId = clientMatch.client.id;
+            clientName = clientMatch.client.name;
+            console.log(`🔗 [IdrallUpload] Cliente encontrado: ${clientName} (${clientMatch.matchType})`);
+          } else {
+            console.log(`⚠️ [IdrallUpload] Cliente no encontrado para: ${clientName}`);
+          }
+
+          // Crear pago programado
+          const scheduledPayment = {
+            companyId: validatedData.companyId,
+            clientId: clientId,
+            clientName: clientName,
+            amount: payment.monto || payment.importe || 0,
+            currency: payment.moneda || 'MXN',
+            description: payment.concepto || payment.descripcion || 'Pago IDRALL',
+            dueDate: payment.fecha_pago || payment.fecha ? new Date(payment.fecha_pago || payment.fecha || new Date()) : new Date(),
+            reference: payment.referencia || payment.factura || payment.folio || '',
+            bank: payment.banco || '',
+            account: payment.cuenta || '',
+            status: validatedData.createAsPending ? 'pending' : 'scheduled',
+            source: 'idrall',
+            originalData: payment,
+            createdBy: user.id,
+          };
+
+          const createdPayment = await storage.createScheduledPayment(scheduledPayment);
+          createdPayments.push(createdPayment);
+
+        } catch (error) {
+          const errorMsg = `Error creando pago para ${payment.proveedor || payment.cliente}: ${error instanceof Error ? error.message : 'Error desconocido'}`;
+          errors.push(errorMsg);
+          console.error(`❌ [IdrallUpload] ${errorMsg}`);
+        }
+      }
+
+      // Limpiar archivo temporal
+      try {
+        fs.unlinkSync(file.path);
+      } catch (cleanupError) {
+        console.warn('⚠️ [IdrallUpload] Error limpiando archivo temporal:', cleanupError);
+      }
+
+      console.log(`🎉 [IdrallUpload] Procesamiento completado: ${createdPayments.length} pagos creados, ${errors.length} errores`);
+
+      res.json({
+        success: true,
+        message: `Excel procesado exitosamente`,
+        summary: {
+          totalRows: parseResult.totalRows,
+          validPayments: parseResult.payments.length,
+          createdPayments: createdPayments.length,
+          errors: errors.length
+        },
+        createdPayments: createdPayments.map(p => ({
+          id: p.id,
+          clientName: p.clientName,
+          amount: p.amount,
+          dueDate: p.dueDate,
+          status: p.status
+        })),
+        errors: errors
+      });
+
+    } catch (error) {
+      console.error('❌ [IdrallUpload] Error procesando Excel:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+      }
+      res.status(500).json({ 
+        error: 'Error procesando archivo Excel de IDRALL',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+no  });
+
+  // ============================================
+  // EMAIL TEST ENDPOINT (para probar Resend)
+  // ============================================
+  app.post("/api/test-email", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { to, department = 'treasury' } = req.body;
+      
+      if (!to) {
+        return res.status(400).json({ error: 'Email destination required' });
+      }
+
+      const testResult = await emailService.sendEmail({
+        to,
+        subject: 'Prueba de Email - Sistema Econova',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">✅ Email de Prueba Exitoso</h2>
+            <p>Este es un email de prueba del sistema de Econova.</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Departamento:</strong> ${department}</p>
+              <p><strong>Timestamp:</strong> ${new Date().toLocaleString('es-MX')}</p>
+              <p><strong>Estado:</strong> ✅ Funcionando correctamente</p>
+            </div>
+            <p>El sistema de emails está configurado y funcionando.</p>
+            <p>Saludos,<br>Equipo de Desarrollo - Econova</p>
+          </div>
+        `
+      }, department as 'treasury' | 'logistics');
+
+      res.json({
+        success: testResult.success,
+        message: testResult.success ? 'Email enviado exitosamente' : 'Error enviando email',
+        messageId: testResult.messageId,
+        error: testResult.error
+      });
+
+    } catch (error) {
+      console.error('Error en test de email:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Error interno del servidor' 
       });
     }
   });

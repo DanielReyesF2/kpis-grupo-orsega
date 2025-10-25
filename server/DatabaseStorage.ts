@@ -292,7 +292,7 @@ export class DatabaseStorage implements IStorage {
       
       // Luego eliminar el KPI
       const result = await db.delete(kpis).where(eq(kpis.id, id));
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error deleting KPI:", error);
       return false;
@@ -342,7 +342,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.delete(kpiValues).where(
         and(eq(kpiValues.userId, userId), eq(kpiValues.kpiId, kpiId))
       );
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error deleting KPI values by user:", error);
       return false;
@@ -674,7 +674,7 @@ export class DatabaseStorage implements IStorage {
           eq(notifications.id, id),
           eq(notifications.toUserId, userId)
         ));
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error deleting notification:", error);
       return false;
@@ -1349,8 +1349,7 @@ export class DatabaseStorage implements IStorage {
       const [updated] = await db.update(notifications)
         .set({ 
           read: status === 'sent', 
-          readAt: status === 'sent' ? new Date() : null,
-          comments: error || null 
+          readAt: status === 'sent' ? new Date() : null
         })
         .where(eq(notifications.id, id))
         .returning();
@@ -1551,6 +1550,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Scheduled Payment operations (placeholder for IDRALL integration)
+  async createScheduledPayment(payment: any): Promise<any> {
+    // This is a placeholder method for IDRALL integration
+    // In a real implementation, this would create a scheduled payment record
+    console.log('Creating scheduled payment:', payment);
+    return { id: Date.now(), ...payment };
+  }
+
   async updatePaymentVoucher(id: number, voucherData: Partial<PaymentVoucher>): Promise<PaymentVoucher | undefined> {
     try {
       const [updatedVoucher] = await db
@@ -1576,6 +1583,56 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error updating payment voucher status:", error);
       return undefined;
+    }
+  }
+
+  // Métodos faltantes requeridos por IStorage
+  async getShipmentsByStatus(status: string): Promise<Shipment[]> {
+    try {
+      const result = await db
+        .select()
+        .from(shipments)
+        .where(eq(shipments.status, status as any));
+      return result;
+    } catch (error) {
+      console.error("Error getting shipments by status:", error);
+      return [];
+    }
+  }
+
+  async getShipmentsByCompanyAndStatus(companyId: number, status: string): Promise<Shipment[]> {
+    try {
+      const result = await db
+        .select()
+        .from(shipments)
+        .where(and(
+          eq(shipments.companyId, companyId),
+          eq(shipments.status, status as any)
+        ));
+      return result;
+    } catch (error) {
+      console.error("Error getting shipments by company and status:", error);
+      return [];
+    }
+  }
+
+  async getShipmentUpdatesByShipment(shipmentId: number): Promise<any[]> {
+    try {
+      // Implementar según el esquema de actualizaciones de envíos
+      return [];
+    } catch (error) {
+      console.error("Error getting shipment updates:", error);
+      return [];
+    }
+  }
+
+  async getShipmentNotification(notificationId: number): Promise<any> {
+    try {
+      // Implementar según el esquema de notificaciones
+      return null;
+    } catch (error) {
+      console.error("Error getting shipment notification:", error);
+      return null;
     }
   }
 }

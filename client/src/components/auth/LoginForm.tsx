@@ -71,64 +71,76 @@ export default function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold">Iniciar Sesión</CardTitle>
-        <CardDescription>
-          Ingrese sus credenciales para acceder al dashboard de KPIs
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Usuario</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nombre de usuario" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contraseña</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="******" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Iniciando...
-                </>
-              ) : (
-                "Iniciar Sesión"
-              )}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+    <div className="p-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Iniciar Sesión</h2>
+        <p className="text-gray-500 text-sm">
+          Acceso al sistema de gestión de indicadores
+        </p>
+      </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200 text-red-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-gray-700 font-medium text-sm">Usuario</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="daniel@econova.com.mx" 
+                    className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#00a8a8] focus:ring-[#00a8a8]/20 h-12 rounded-md"
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage className="text-red-500 text-xs" />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-gray-700 font-medium text-sm">Contraseña</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#00a8a8] focus:ring-[#00a8a8]/20 h-12 rounded-md"
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage className="text-red-500 text-xs" />
+              </FormItem>
+            )}
+          />
+          
+          <Button 
+            type="submit" 
+            className="w-full bg-[#00a8a8] hover:bg-[#008080] text-white font-semibold py-3 rounded-md transition-all duration-200 h-12" 
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Accediendo...
+              </>
+            ) : (
+              "Acceder al Sistema"
+            )}
+          </Button>
+        </form>
+      </Form>
+    </div>
   );
 }

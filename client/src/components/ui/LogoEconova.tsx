@@ -14,10 +14,20 @@ export function LogoEconova({ className = "", height = 100 }: LogoEconovaProps) 
       style={{ 
         height: `${height}px`,
         display: 'block',
-        objectFit: 'cover',
+        objectFit: 'contain',
         maxWidth: '100%',
-        width: '100%'
+        width: 'auto'
       }} 
+      onError={(e) => {
+        console.error('Error loading logo:', e);
+        // Fallback: mostrar texto si la imagen no carga
+        const target = e.target as HTMLImageElement;
+        target.style.display = 'none';
+        const parent = target.parentElement;
+        if (parent) {
+          parent.innerHTML = `<div class="text-white text-2xl font-bold">ECONOVA</div>`;
+        }
+      }}
     />
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useLocation, Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigationCleanup } from '@/hooks/use-navigation-cleanup';
 import LoginForm from '@/components/auth/LoginForm';
@@ -38,26 +38,61 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#273949] p-4">
-      <div className="w-full max-w-md mb-8">
-        <div className="text-center mb-8 flex flex-col items-center">
-          <LogoEconova height={120} className="mb-4" />
-          <h1 className="text-3xl font-bold text-[#b5e951]">Grupo Orsega y Dura International</h1>
-          <p className="text-white mt-2">Sistema de gestión de indicadores clave de rendimiento</p>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Minimalist Header - Just Logos */}
+        <div className="text-center mb-12">
+          {/* Logos Container - Protagonistas */}
+          <div className="flex justify-center items-center space-x-16">
+            {/* Grupo Orsega Logo */}
+            <div className="relative">
+              <img 
+                src="/logo orsega.jpg" 
+                alt="Grupo Orsega Logo" 
+                className="w-40 h-40 object-contain"
+                onError={(e) => {
+                  // Fallback si la imagen no carga
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `
+                      <div class="w-40 h-40 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xl font-medium">
+                        ORSEGA
+                      </div>
+                    `;
+                  }
+                }}
+              />
+            </div>
+
+            {/* Dura International Logo */}
+            <div className="relative">
+              <img 
+                src="/logodura.jpg" 
+                alt="Dura International Logo" 
+                className="w-40 h-40 object-contain"
+                onError={(e) => {
+                  // Fallback si la imagen no carga
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `
+                      <div class="w-40 h-40 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-xl font-medium">
+                        DURA
+                      </div>
+                    `;
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
-        <LoginForm />
-        
-        <div className="mt-6 text-center">
-          <p className="text-white text-sm">
-            ¿No tienes cuenta?{' '}
-            <Link 
-              href="/register" 
-              className="text-[#b5e951] hover:text-[#9fd63f] font-medium underline"
-              data-testid="link-register"
-            >
-              Regístrate aquí
-            </Link>
-          </p>
+
+        {/* Minimalist Login Form */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <LoginForm />
         </div>
       </div>
     </div>

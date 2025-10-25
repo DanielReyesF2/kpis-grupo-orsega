@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus, FileSpreadsheet } from "lucide-react";
 import { PaymentVouchersKanban } from "@/components/treasury/PaymentVouchersKanban";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -21,7 +22,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("payments");
+  const [activeTab, setActiveTab] = useState("receipts");
   const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState<number | null>(null);
   const [selectedReceipts, setSelectedReceipts] = useState<number[]>([]);
   const [emailsToSend, setEmailsToSend] = useState("");
@@ -66,10 +67,17 @@ export default function TreasuryPage() {
 
   // Upload Voucher Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedCompanyForVoucher, setSelectedCompanyForVoucher] = useState<number | null>(null);
   const [selectedClientForVoucher, setSelectedClientForVoucher] = useState<number | null>(null);
   const [voucherFile, setVoucherFile] = useState<File | null>(null);
   const [voucherNotes, setVoucherNotes] = useState("");
   const [uploadAnalysis, setUploadAnalysis] = useState<any>(null);
+
+  // IDRALL Integration State
+  const [selectedCompanyForIdrall, setSelectedCompanyForIdrall] = useState<number | null>(null);
+  const [idrallFile, setIdrallFile] = useState<File | null>(null);
+  const [createAsPending, setCreateAsPending] = useState(true);
+  const [idrallResult, setIdrallResult] = useState<any>(null);
   
   // FX Analytics State
   const [fxPeriodDays, setFxPeriodDays] = useState(90);
@@ -108,11 +116,16 @@ export default function TreasuryPage() {
     enabled: activeTab === "receipts",
   });
 
-  // Clients Query for Voucher Upload
+  // Clients Query for Voucher Upload - Filtrar por empresa seleccionada
   const { data: clients = [] } = useQuery<any[]>({
     queryKey: ["/api/clients-db"],
-    enabled: isUploadModalOpen,
+    enabled: isUploadModalOpen && !!selectedCompanyForVoucher,
   });
+
+  // Filtrar clientes por empresa seleccionada
+  const filteredClients = selectedCompanyForVoucher 
+    ? clients.filter((client: any) => client.companyId === selectedCompanyForVoucher)
+    : [];
 
   // FX Analytics Queries
   const { data: fxComparison, isLoading: fxComparisonLoading } = useQuery<any>({
@@ -291,6 +304,64 @@ export default function TreasuryPage() {
     sendReceiptsMutation.mutate({ receiptIds: selectedReceipts, emails });
   };
 
+  // IDRALL Upload Mutation
+  const idrallUploadMutation = useMutation({
+    mutationFn: async ({ file, companyId, createAsPending }: { file: File; companyId: number; createAsPending: boolean }) => {
+      const formData = new FormData();
+      formData.append('excel', file);
+      formData.append('companyId', companyId.toString());
+      formData.append('createAsPending', createAsPending.toString());
+
+      const res = await fetch("/api/idrall/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to process Excel");
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setIdrallResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+      toast({ 
+        title: "Excel procesado exitosamente", 
+        description: `${data.summary.createdPayments} pagos creados` 
+      });
+      // Reset form
+      setIdrallFile(null);
+      setSelectedCompanyForIdrall(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error procesando Excel",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleIdrallUpload = () => {
+    if (!idrallFile || !selectedCompanyForIdrall) {
+      toast({ 
+        title: "Error", 
+        description: "Selecciona empresa y archivo Excel", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    idrallUploadMutation.mutate({
+      file: idrallFile,
+      companyId: selectedCompanyForIdrall,
+      createAsPending: createAsPending,
+    });
+  };
+
   const handleCreateComplement = () => {
     createComplementMutation.mutate({
       ...complementForm,
@@ -301,15 +372,10 @@ export default function TreasuryPage() {
 
   // Upload Payment Voucher Mutation
   const uploadVoucherMutation = useMutation({
-    mutationFn: async ({ file, clientId, notes }: { file: File; clientId: number; notes: string }) => {
-      // Validar que el usuario tenga companyId asignado
-      if (!user?.companyId) {
-        throw new Error("Usuario sin compañía asignada. Contacte al administrador.");
-      }
-
+    mutationFn: async ({ file, clientId, companyId, notes }: { file: File; clientId: number; companyId: number; notes: string }) => {
       const formData = new FormData();
       formData.append('voucher', file);
-      formData.append('companyId', user.companyId.toString());
+      formData.append('companyId', companyId.toString());
       formData.append('clientId', clientId.toString());
       if (notes) formData.append('notes', notes);
 
@@ -334,6 +400,7 @@ export default function TreasuryPage() {
         description: `Estado inicial: ${data.autoStatus === 'factura_pagada' ? 'Factura Pagada' : 'Pendiente Complemento'}` 
       });
       // Reset form
+      setSelectedCompanyForVoucher(null);
       setSelectedClientForVoucher(null);
       setVoucherFile(null);
       setVoucherNotes("");
@@ -348,20 +415,10 @@ export default function TreasuryPage() {
   });
 
   const handleUploadVoucher = () => {
-    // Validar que el usuario tenga companyId
-    if (!user?.companyId) {
-      toast({ 
-        title: "Error de configuración", 
-        description: "Tu usuario no tiene compañía asignada. Contacta al administrador.", 
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    if (!voucherFile || !selectedClientForVoucher) {
+    if (!voucherFile || !selectedClientForVoucher || !selectedCompanyForVoucher) {
       toast({ 
         title: "Error", 
-        description: "Selecciona un cliente y un archivo", 
+        description: "Selecciona empresa, cliente y archivo", 
         variant: "destructive" 
       });
       return;
@@ -370,6 +427,7 @@ export default function TreasuryPage() {
     uploadVoucherMutation.mutate({
       file: voucherFile,
       clientId: selectedClientForVoucher,
+      companyId: selectedCompanyForVoucher,
       notes: voucherNotes,
     });
   };
@@ -499,99 +557,13 @@ export default function TreasuryPage() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">
-            Tesorería
+            ¡Hola Lolita! ¿Con que pagos te ayudamos hoy?
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Gestión de pagos, comprobantes y tipo de cambio
+            
           </p>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Pagos Pendientes
-                  </p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                    {pendingPayments.length}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    ${totalPendingAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Pagado Este Mes
-                  </p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                    ${totalPaidThisMonth.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {paidPayments.length} pagos totales
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                  <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Complementos Pendientes
-                  </p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                    {pendingComplements}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {complements.length} totales
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    TC Actual (USD/MXN)
-                  </p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                    {latestRate ? `$${latestRate.sell_rate}` : 'N/A'}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {latestRate ? `Compra: $${latestRate.buy_rate}` : 'Sin registros'}
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -609,189 +581,151 @@ export default function TreasuryPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab: Pagos Programados */}
-          <TabsContent value="payments" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Formulario */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Programar Pago</CardTitle>
-                  <CardDescription>Registra un nuevo pago pendiente</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Empresa</Label>
-                    <Select
-                      value={paymentForm.companyId}
-                      onValueChange={(value) =>
-                        setPaymentForm({ ...paymentForm, companyId: value })
-                      }
-                    >
-                      <SelectTrigger data-testid="select-company">
-                        <SelectValue placeholder="Selecciona empresa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Dura International</SelectItem>
-                        <SelectItem value="2">Grupo Orsega</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Proveedor</Label>
-                    <Input
-                      value={paymentForm.supplierName}
-                      onChange={(e) =>
-                        setPaymentForm({ ...paymentForm, supplierName: e.target.value })
-                      }
-                      placeholder="Nombre del proveedor"
-                      data-testid="input-supplier"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Monto</Label>
-                      <Input
-                        type="number"
-                        value={paymentForm.amount}
-                        onChange={(e) =>
-                          setPaymentForm({ ...paymentForm, amount: e.target.value })
-                        }
-                        placeholder="0.00"
-                        data-testid="input-amount"
-                      />
-                    </div>
-                    <div>
-                      <Label>Moneda</Label>
-                      <Select
-                        value={paymentForm.currency}
-                        onValueChange={(value) =>
-                          setPaymentForm({ ...paymentForm, currency: value })
-                        }
-                      >
-                        <SelectTrigger data-testid="select-currency">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MXN">MXN</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Fecha de vencimiento</Label>
-                    <Input
-                      type="date"
-                      value={paymentForm.dueDate}
-                      onChange={(e) =>
-                        setPaymentForm({ ...paymentForm, dueDate: e.target.value })
-                      }
-                      data-testid="input-due-date"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Referencia (opcional)</Label>
-                    <Input
-                      value={paymentForm.reference}
-                      onChange={(e) =>
-                        setPaymentForm({ ...paymentForm, reference: e.target.value })
-                      }
-                      placeholder="No. de factura o referencia"
-                      data-testid="input-reference"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleCreatePayment}
-                    disabled={createPaymentMutation.isPending}
-                    className="w-full"
-                    data-testid="button-create-payment"
-                  >
-                    {createPaymentMutation.isPending ? "Guardando..." : "Programar Pago"}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Lista de pagos */}
-              <div className="space-y-4">
-                {/* Campo de búsqueda */}
-                <Input
-                  placeholder="Buscar por proveedor, referencia o monto..."
-                  value={paymentFilter}
-                  onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="w-full"
-                  data-testid="input-payment-search"
-                />
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pendientes ({pendingPayments.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {paymentsLoading ? (
-                      <p className="text-sm text-slate-500">Cargando...</p>
-                    ) : pendingPayments.length === 0 ? (
-                      <p className="text-sm text-slate-500">No hay pagos pendientes</p>
-                    ) : (
-                      pendingPayments.map((payment) => (
-                        <div
-                          key={payment.id}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                          data-testid={`payment-${payment.id}`}
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium">{payment.supplier_name}</p>
-                            <p className="text-sm text-slate-500">
-                              {payment.amount} {payment.currency} •{" "}
-                              {format(new Date(payment.due_date), "dd/MMM", { locale: es })}
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => markAsPaidMutation.mutate(payment.id)}
-                            data-testid={`button-mark-paid-${payment.id}`}
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Marcar pagado
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pagados ({paidPayments.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {paidPayments.slice(0, 5).map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex items-center justify-between p-3 border rounded-lg bg-green-50 dark:bg-green-950/20"
-                        data-testid={`paid-payment-${payment.id}`}
-                      >
-                        <div>
-                          <p className="font-medium text-green-700 dark:text-green-400">
-                            {payment.supplier_name}
-                          </p>
-                          <p className="text-sm text-green-600 dark:text-green-500">
-                            {payment.amount} {payment.currency}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="bg-green-100 dark:bg-green-900">
-                          Pagado
-                        </Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
+          {/* Tab: Integración IDRALL */}
+          <TabsContent value="payments" className="space-y-6">
+            {/* Header con información */}
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                Integración con IDRALL
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                 Descarga y sube tu archivo Excel de IDRALL para crear pagos automáticamente
+              </p>
             </div>
+
+            {/* Upload de Excel IDRALL */}
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  Subir Excel de IDRALL
+                </CardTitle>
+                <CardDescription>
+                  El sistema procesará automáticamente los pagos y los creará en estado "Pendiente"
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Selector de Empresa */}
+                <div className="space-y-2">
+                  <Label htmlFor="idrall-company">Empresa *</Label>
+                  <Select
+                    value={selectedCompanyForIdrall?.toString() || ""}
+                    onValueChange={(value) => setSelectedCompanyForIdrall(parseInt(value))}
+                  >
+                    <SelectTrigger id="idrall-company">
+                      <SelectValue placeholder="Selecciona la empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Dura International</SelectItem>
+                      <SelectItem value="2">Grupo Orsega</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Upload de archivo */}
+                <div className="space-y-2">
+                  <Label htmlFor="idrall-file">Archivo Excel (.xlsx, .xls) *</Label>
+                  <div className="flex items-center gap-4">
+                    <Input
+                      id="idrall-file"
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setIdrallFile(file);
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    {idrallFile && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <FileSpreadsheet className="h-3 w-3" />
+                        {idrallFile.name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Opciones adicionales */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="create-as-pending"
+                    checked={createAsPending}
+                    onCheckedChange={(checked) => setCreateAsPending(checked as boolean)}
+                  />
+                  <Label htmlFor="create-as-pending" className="text-sm">
+                    Crear pagos en estado "Pendiente" (recomendado)
+                  </Label>
+                </div>
+
+                {/* Botón de procesamiento */}
+                <Button
+                  onClick={handleIdrallUpload}
+                  disabled={!idrallFile || !selectedCompanyForIdrall || idrallUploadMutation.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  {idrallUploadMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Procesando Excel...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Procesar Excel de IDRALL
+                    </>
+                  )}
+                </Button>
+
+                {/* Resultado del procesamiento */}
+                {idrallResult && (
+                  <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <h4 className="font-medium text-green-600 dark:text-green-400 mb-2">
+                      ✅ Procesamiento completado
+                    </h4>
+                    <div className="text-sm space-y-1">
+                      <p>📊 Filas procesadas: {idrallResult.summary.totalRows}</p>
+                      <p>✅ Pagos válidos: {idrallResult.summary.validPayments}</p>
+                      <p>🎯 Pagos creados: {idrallResult.summary.createdPayments}</p>
+                      {idrallResult.summary.errors > 0 && (
+                        <p className="text-orange-600">⚠️ Errores: {idrallResult.summary.errors}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Instrucciones */}
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle className="text-lg">📋 Instrucciones</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-blue-600">1.</span>
+                  <span>Descarga tu archivo Excel desde IDRALL con los pagos programados</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-blue-600">2.</span>
+                  <span>Selecciona la empresa correspondiente</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-blue-600">3.</span>
+                  <span>Sube el archivo Excel (.xlsx, .xls o .csv)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-blue-600">4.</span>
+                  <span>El sistema creará automáticamente las tarjetas de pago en estado "Pendiente"</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-blue-600">5.</span>
+                  <span>Los pagos aparecerán en el tablero Kanban para seguimiento</span>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="exchange-rates" className="space-y-6">
@@ -799,10 +733,10 @@ export default function TreasuryPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                  Análisis de Tipo de Cambio
+                  ¡Hola Emilio! Así amaneció el tipo de cambio hoy
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Monitoreo y tendencias del mercado cambiario
+                  Análisis completo del mercado cambiario
                 </p>
               </div>
               
@@ -1515,14 +1449,8 @@ export default function TreasuryPage() {
           </TabsContent>
 
           {/* Tab: Comprobantes */}
-          <TabsContent value="receipts" className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold">Comprobantes Bancarios</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Gestiona el flujo de comprobantes de pago con análisis automático
-                </p>
-              </div>
+          <TabsContent value="receipts" className="space-y-6">
+            <div className="flex justify-end mb-6">
               <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-upload-voucher">
@@ -1539,18 +1467,39 @@ export default function TreasuryPage() {
                   </DialogHeader>
 
                   <div className="space-y-4 py-4">
+                    {/* Selector de Empresa */}
+                    <div className="space-y-2">
+                      <Label htmlFor="company-select">Empresa *</Label>
+                      <Select
+                        value={selectedCompanyForVoucher?.toString() || ""}
+                        onValueChange={(value) => {
+                          setSelectedCompanyForVoucher(parseInt(value));
+                          setSelectedClientForVoucher(null); // Reset cliente al cambiar empresa
+                        }}
+                      >
+                        <SelectTrigger id="company-select" data-testid="select-company-voucher">
+                          <SelectValue placeholder="Selecciona la empresa que está pagando" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Dura International</SelectItem>
+                          <SelectItem value="2">Grupo Orsega</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {/* Selector de Cliente */}
                     <div className="space-y-2">
-                      <Label htmlFor="client-select">Cliente *</Label>
+                      <Label htmlFor="client-select">Cliente/Proveedor *</Label>
                       <Select
                         value={selectedClientForVoucher?.toString() || ""}
                         onValueChange={(value) => setSelectedClientForVoucher(parseInt(value))}
+                        disabled={!selectedCompanyForVoucher}
                       >
                         <SelectTrigger id="client-select" data-testid="select-client-voucher">
-                          <SelectValue placeholder="Selecciona un cliente" />
+                          <SelectValue placeholder={selectedCompanyForVoucher ? "Selecciona un cliente" : "Primero selecciona la empresa"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {clients.map((client: any) => (
+                          {filteredClients.map((client: any) => (
                             <SelectItem key={client.id} value={client.id.toString()}>
                               {client.name}
                               {client.requires_payment_complement && (
@@ -1562,6 +1511,9 @@ export default function TreasuryPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {selectedCompanyForVoucher && filteredClients.length === 0 && (
+                        <p className="text-sm text-slate-500">No hay clientes registrados para esta empresa</p>
+                      )}
                     </div>
 
                     {/* Subir Archivo */}
@@ -1668,14 +1620,13 @@ export default function TreasuryPage() {
               </Dialog>
             </div>
 
-            {/* Filtros y Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              {/* Filtro de Mes */}
-              <Card>
-                <CardContent className="pt-6">
-                  <Label className="text-xs text-slate-500 mb-2 block">Mes</Label>
+            {/* Barra de herramientas minimalista */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                {/* Filtros compactos */}
+                <div className="flex items-center gap-2">
                   <Select value={voucherMonth} onValueChange={setVoucherMonth} disabled={showAllVouchers}>
-                    <SelectTrigger data-testid="select-voucher-month">
+                    <SelectTrigger className="w-32" data-testid="select-voucher-month">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1693,15 +1644,9 @@ export default function TreasuryPage() {
                       <SelectItem value="12">Diciembre</SelectItem>
                     </SelectContent>
                   </Select>
-                </CardContent>
-              </Card>
-
-              {/* Filtro de Año */}
-              <Card>
-                <CardContent className="pt-6">
-                  <Label className="text-xs text-slate-500 mb-2 block">Año</Label>
+                  
                   <Select value={voucherYear} onValueChange={setVoucherYear} disabled={showAllVouchers}>
-                    <SelectTrigger data-testid="select-voucher-year">
+                    <SelectTrigger className="w-20" data-testid="select-voucher-year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1710,53 +1655,29 @@ export default function TreasuryPage() {
                       <SelectItem value="2026">2026</SelectItem>
                     </SelectContent>
                   </Select>
-                </CardContent>
-              </Card>
-
-              {/* Toggle Ver Todos */}
-              <Card>
-                <CardContent className="pt-6">
-                  <Label className="text-xs text-slate-500 mb-2 block">Vista</Label>
+                  
                   <Button
                     variant={showAllVouchers ? "default" : "outline"}
+                    size="sm"
                     onClick={() => setShowAllVouchers(!showAllVouchers)}
-                    className="w-full"
                     data-testid="button-toggle-all-vouchers"
                   >
                     {showAllVouchers ? "Mes Actual" : "Ver Todos"}
                   </Button>
-                </CardContent>
-              </Card>
-
-              {/* Estadística: Total */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500">Total Comprobantes</p>
-                      <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                        {voucherStats.total}
-                      </p>
-                    </div>
-                    <FileText className="h-8 w-8 text-slate-400" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Estadística: Pendientes Complemento */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500">Pendientes</p>
-                      <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                        {voucherStats.pendienteComplemento}
-                      </p>
-                    </div>
-                    <Clock className="h-8 w-8 text-yellow-400" />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
+              
+              {/* Estadísticas compactas */}
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-slate-400"></div>
+                  <span className="text-slate-600 dark:text-slate-400">{voucherStats.total}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-yellow-400"></div>
+                  <span className="text-slate-600 dark:text-slate-400">{voucherStats.pendienteComplemento}</span>
+                </div>
+              </div>
             </div>
 
             {vouchersLoading ? (
@@ -1770,26 +1691,6 @@ export default function TreasuryPage() {
               <PaymentVouchersKanban vouchers={filteredVouchers} />
             )}
 
-            {/* Nota Informativa */}
-            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 mt-6">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
-                      Flujo Automático de Comprobantes
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-                      Al subir un comprobante, el sistema analiza automáticamente el documento con IA para extraer datos clave (monto, fecha, banco, referencia). 
-                      Según el cliente, el comprobante se mueve automáticamente al estado correcto: si requiere complemento de pago, irá a "Pendiente Complemento"; 
-                      si no, quedará en "Factura Pagada" listo para cierre. Arrastra las tarjetas entre columnas para actualizar su estado.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
         </Tabs>

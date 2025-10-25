@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, DollarSign, Calendar, Building2, Receipt, CheckCircle, Clock, FileCheck } from "lucide-react";
+import { FileText, DollarSign, Calendar, Building2, Receipt, CheckCircle, Clock, FileCheck, Mail, RefreshCw, Send } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -174,7 +174,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick }: KanbanColumnProps) {
 
   return (
     <div className="flex-1 min-w-[280px]">
-      <div className={`rounded-lg border-2 ${config.color} p-4 h-full`}>
+      <div className={`rounded-lg border-2 ${config.color} p-4 h-full min-h-[500px] flex flex-col`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Icon className="h-5 w-5" />
@@ -187,7 +187,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick }: KanbanColumnProps) {
           items={vouchers.map((v) => v.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-3 min-h-[200px]">
+          <div className="space-y-3 flex-1 min-h-[400px]">
             {vouchers.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-8">
                 No hay comprobantes
@@ -244,6 +244,69 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
     },
   });
 
+  // Mutación para reenviar comprobante
+  const resendReceiptMutation = useMutation({
+    mutationFn: async (voucher: PaymentVoucher) => {
+      return await apiRequest("/api/treasury/resend-receipt", {
+        method: "POST",
+        body: JSON.stringify({
+          voucherId: voucher.id,
+          clientId: voucher.clientId,
+          companyId: voucher.companyId,
+        }),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+      toast({ 
+        title: "✅ Comprobante reenviado", 
+        description: data.message || "El comprobante ha sido enviado nuevamente al proveedor"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al reenviar",
+        description: error.message || "No se pudo reenviar el comprobante",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutación para enviar recordatorio
+  const sendReminderMutation = useMutation({
+    mutationFn: async (voucher: PaymentVoucher) => {
+      return await apiRequest("/api/treasury/send-reminder", {
+        method: "POST",
+        body: JSON.stringify({
+          voucherId: voucher.id,
+          clientId: voucher.clientId,
+        }),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+      toast({ 
+        title: "📧 Recordatorio enviado", 
+        description: data.message || "Se ha enviado un recordatorio al proveedor"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al enviar recordatorio",
+        description: error.message || "No se pudo enviar el recordatorio",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleResendReceipt = (voucher: PaymentVoucher) => {
+    resendReceiptMutation.mutate(voucher);
+  };
+
+  const handleSendReminder = (voucher: PaymentVoucher) => {
+    sendReminderMutation.mutate(voucher);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const voucher = vouchers.find((v) => v.id === event.active.id);
     setActiveVoucher(voucher || null);
@@ -283,7 +346,7 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
           {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map((status) => (
             <div key={status} id={status} className="flex-1 min-w-[280px]">
               <KanbanColumn
@@ -362,6 +425,38 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Archivo</p>
                 <p className="text-sm">{selectedVoucher.voucherFileName}</p>
+              </div>
+
+              {/* Botones de Automatización para Lolita */}
+              <div className="pt-4 border-t">
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                  🤖 Acciones Automatizadas
+                </h4>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleResendReceipt(selectedVoucher)}
+                    disabled={resendReceiptMutation.isPending}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    {resendReceiptMutation.isPending ? "Enviando..." : "Reenviar Comprobante"}
+                  </Button>
+                  
+                  {selectedVoucher.status === 'pendiente_complemento' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSendReminder(selectedVoucher)}
+                      disabled={sendReminderMutation.isPending}
+                      className="text-orange-600 hover:text-orange-700"
+                    >
+                      <Mail className="h-4 w-4 mr-1" />
+                      {sendReminderMutation.isPending ? "Enviando..." : "Recordatorio"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -89,13 +89,18 @@ Responde SOLO con el JSON, sin texto adicional.`;
       parsedData = JSON.parse(jsonString);
     } catch (parseError) {
       console.error(`❌ [Document Analyzer] Error parseando JSON:`, parseError);
+      // Si no se puede parsear JSON, intentar extraer información básica del texto
+      const amountMatch = rawResponse.match(/\$?[\d,]+\.?\d*/);
+      const bankMatch = rawResponse.match(/(banco|bank|bbva|santander|hsbc|banorte|banamex)/i);
+      const referenceMatch = rawResponse.match(/(referencia|ref|folio|no\.?\s*\d+)/i);
+      
       return {
-        extractedAmount: null,
+        extractedAmount: amountMatch ? parseFloat(amountMatch[0].replace(/[$,]/g, '')) : null,
         extractedDate: null,
-        extractedBank: null,
-        extractedReference: null,
-        extractedCurrency: null,
-        ocrConfidence: 0,
+        extractedBank: bankMatch ? bankMatch[0] : null,
+        extractedReference: referenceMatch ? referenceMatch[0] : null,
+        extractedCurrency: 'MXN',
+        ocrConfidence: 0.3, // Baja confianza para datos extraídos manualmente
         rawResponse,
       };
     }

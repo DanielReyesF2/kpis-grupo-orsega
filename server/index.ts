@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from "url";
@@ -5,6 +6,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { monthlyScheduler } from "./scheduler";
 import { initializeDOFScheduler } from "./dof-scheduler";
+import { securityMonitorMiddleware, loginMonitorMiddleware, uploadMonitorMiddleware, apiAccessMonitorMiddleware } from "./security-monitor";
+import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
 import fs from "fs";
 
@@ -85,6 +88,28 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// 🔒 SECURITY MONITORING (SIN RIESGO - Solo monitoreo)
+app.use('/api', securityMonitorMiddleware);
+app.use('/api/login', loginMonitorMiddleware);
+app.use('/api/upload', uploadMonitorMiddleware);
+app.use('/api', apiAccessMonitorMiddleware);
+
+// 🔒 SECURITY HEADERS (Mejora seguridad sin afectar funcionalidad)
+app.use((req, res, next) => {
+  // Prevenir clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Prevenir MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // XSS Protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Referrer Policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Content Security Policy básico
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+  
+  next();
+});
+
 // Servir específicamente los archivos estáticos de public
 app.use(express.static(path.join(process.cwd(), 'public')));
 
@@ -141,6 +166,13 @@ app.use((req, res, next) => {
 
 (async () => {
   // Register API routes BEFORE Vite middleware
+  // ============================================
+  // HEALTH CHECK ENDPOINTS (antes de autenticación)
+  // ============================================
+  app.get("/api/health", healthCheck);
+  app.get("/api/health/ready", readinessCheck);
+  app.get("/api/health/live", livenessCheck);
+
   registerRoutes(app);
   
   // Create HTTP server for proper WebSocket support
@@ -182,10 +214,10 @@ app.use((req, res, next) => {
     // ✅ No throwing - let the server continue running
   });
 
-  // ALWAYS serve the app on port 5000
+  // ALWAYS serve the app on port 8080
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 8080;
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
     
@@ -200,4 +232,5 @@ app.use((req, res, next) => {
     // Inicializar el scheduler de actualización automática del DOF
     initializeDOFScheduler();
   });
+
 })();
