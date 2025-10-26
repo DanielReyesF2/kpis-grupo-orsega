@@ -1,16 +1,10 @@
 node_modules
-npm-debug.log
 .git
-.gitignore
-README.md
 .env
 .env.local
 .env.development
 .env.test
 .env.production
-.nyc_output
-coverage
-.cache
 dist
 tsconfig.tsbuildinfo
 *.tsbuildinfo
@@ -31,3 +25,6 @@ test-*
 *.txt
 *.js.map
 *.css.map
+coverage
+.nyc_output
+.cache
