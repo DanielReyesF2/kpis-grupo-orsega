@@ -152,7 +152,7 @@ export default function NewShipmentPage() {
   
   // Consulta para obtener productos desde la tabla products, filtrados por empresa
   const { data: products = [], isLoading: isLoadingProducts } = useQuery<any[]>({
-    queryKey: ["/api/products", selectedCompanyId],
+    queryKey: ["/api/products", { companyId: selectedCompanyId }],
     enabled: !!selectedCompanyId, // Solo ejecutar si hay empresa seleccionada
   });
 

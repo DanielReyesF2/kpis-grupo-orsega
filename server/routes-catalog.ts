@@ -83,39 +83,33 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
 // PROVIDERS
 catalogRouter.get('/providers', async (req, res) => {
   try {
+    console.log('🔵 [GET /providers] Endpoint llamado');
     const result = await sql(`
-      SELECT p.*, 
-        array_agg(
-          json_build_object(
-            'id', pc.id,
-            'type', pc.type,
-            'value', pc.value,
-            'isDefault', pc.is_default
-          )
-        ) FILTER (WHERE pc.id IS NOT NULL) as channels
-      FROM provider p
-      LEFT JOIN provider_channel pc ON p.id = pc.provider_id
-      WHERE p.is_active = TRUE
-      GROUP BY p.id
-      ORDER BY p.name
+      SELECT * FROM provider 
+      WHERE is_active = TRUE
+      ORDER BY name
     `)
+    console.log(`📊 [GET /providers] Retornando ${result.rows.length} proveedores`);
+    if (result.rows.length > 0) {
+      console.log(`📋 Primer proveedor:`, JSON.stringify(result.rows[0], null, 2));
+    }
     res.json(result.rows)
   } catch (error) {
-    console.error('Error fetching providers:', error)
+    console.error('❌ Error fetching providers:', error)
     res.status(500).json({ error: 'Failed to fetch providers' })
   }
 })
 
 catalogRouter.post('/providers', async (req, res) => {
   try {
-    const validated = createProviderSchema.parse(req.body)
+    const { name, email, phone, contactName, notes, rating, isActive, shortName, companyId, location, requiresRep, repFrequency, reminderEmail } = req.body
     const id = randomUUID()
     
     const result = await sql(`
-      INSERT INTO provider (id, name, email, phone, contact_name, notes, rating, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO provider (id, name, email, phone, contact_name, notes, rating, is_active, short_name, company_id, location, requires_rep, rep_frequency, reminder_email)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
-    `, [id, validated.name, validated.email, validated.phone, validated.contactName, validated.notes, validated.rating, validated.isActive])
+    `, [id, name, email, phone || null, contactName || null, notes || null, rating || null, isActive ?? true, shortName || null, companyId || null, location || null, requiresRep ?? true, repFrequency || 7, reminderEmail || null])
     
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -126,16 +120,32 @@ catalogRouter.post('/providers', async (req, res) => {
 
 catalogRouter.patch('/providers/:id', async (req, res) => {
   try {
-    const validated = updateProviderSchema.parse({ ...req.body, id: req.params.id })
+    const { name, email, phone, contactName, notes, rating, isActive, shortName, companyId, location, requiresRep, repFrequency, reminderEmail } = req.body
     
     const fields: string[] = []
     const values: any[] = []
     let index = 1
     
-    Object.entries(validated).forEach(([key, value]) => {
-      if (key !== 'id' && value !== undefined) {
-        const dbField = key === 'contactName' ? 'contact_name' : 
-                       key === 'isActive' ? 'is_active' : key
+    // Mapear campos de JavaScript a nombres de columna en DB
+    const fieldMap: Record<string, string> = {
+      name: 'name',
+      email: 'email',
+      phone: 'phone',
+      contactName: 'contact_name',
+      shortName: 'short_name',
+      companyId: 'company_id',
+      location: 'location',
+      requiresRep: 'requires_rep',
+      repFrequency: 'rep_frequency',
+      reminderEmail: 'reminder_email',
+      notes: 'notes',
+      rating: 'rating',
+      isActive: 'is_active'
+    }
+    
+    Object.entries({ name, email, phone, contactName, shortName, companyId, location, requiresRep, repFrequency, reminderEmail, notes, rating, isActive }).forEach(([key, value]) => {
+      if (value !== undefined) {
+        const dbField = fieldMap[key] || key
         fields.push(`${dbField} = $${index}`)
         values.push(value)
         index++
@@ -161,6 +171,27 @@ catalogRouter.patch('/providers/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating provider:', error)
     res.status(400).json({ error: 'Failed to update provider' })
+  }
+})
+
+// PROVIDER CHANNELS
+// DELETE provider
+catalogRouter.delete('/providers/:id', async (req, res) => {
+  try {
+    const result = await sql(`
+      UPDATE provider SET is_active = FALSE, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [req.params.id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' })
+    }
+    
+    res.json({ message: 'Provider deleted successfully', provider: result.rows[0] })
+  } catch (error) {
+    console.error('Error deleting provider:', error)
+    res.status(500).json({ error: 'Failed to delete provider' })
   }
 })
 

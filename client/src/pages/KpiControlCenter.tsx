@@ -14,7 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
+import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
+import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -46,7 +48,8 @@ import {
   ArrowDown,
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FolderTree
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -473,6 +476,7 @@ export default function KpiControlCenter() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(2);
   const [selectedKpiId, setSelectedKpiId] = useState<number | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isExtendedDetailsModalOpen, setIsExtendedDetailsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'overview' | 'team' | 'historico'>('overview');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -617,14 +621,41 @@ export default function KpiControlCenter() {
         new Date(b.date!).getTime() - new Date(a.date!).getTime()
       )[0];
 
+      // Obtener datos históricos para el gráfico (últimos valores ordenados por fecha)
+      const historicalData = values
+        .sort((a: KpiValue, b: KpiValue) => 
+          new Date(a.date!).getTime() - new Date(b.date!).getTime()
+        )
+        .map((v: KpiValue) => ({
+          value: parseFloat(v.value?.toString() || '0'),
+          recordedAt: v.date || new Date().toISOString()
+        }));
+
+      // Calcular área del KPI
+      const area = areas.find((a: Area) => a.id === kpi.areaId);
+
+      // Convertir compliancePercentage a número
+      const complianceNum = parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0');
+
+      // Determinar status visual mejorado
+      let visualStatus: 'excellent' | 'good' | 'warning' | 'critical' = 'warning';
+      if (complianceNum >= 90) visualStatus = 'excellent';
+      else if (complianceNum >= 70) visualStatus = 'good';
+      else if (complianceNum >= 50) visualStatus = 'warning';
+      else visualStatus = 'critical';
+
       return {
         ...kpi,
-        value: latestValue.value || 'Sin datos',
+        value: parseFloat(latestValue.value?.toString() || '0'),
         status: latestValue.status as 'complies' | 'alert' | 'not_compliant',
-        compliancePercentage: latestValue.compliancePercentage || '0%',
+        visualStatus,
+        compliancePercentage: complianceNum,
         date: latestValue.date,
         comments: latestValue.comments || undefined,
-        period: latestValue.period
+        period: latestValue.period,
+        historicalData,
+        areaName: area?.name,
+        responsible: kpi.responsible
       };
     });
   }, [kpis, kpiValues, areas, selectedCompanyId]);
@@ -745,6 +776,11 @@ export default function KpiControlCenter() {
   const handleUpdateKpi = (kpiId: number) => {
     setSelectedKpiId(kpiId);
     setIsUpdateModalOpen(true);
+  };
+
+  const handleViewExtendedDetails = (kpiId: number) => {
+    setSelectedKpiId(kpiId);
+    setIsExtendedDetailsModalOpen(true);
   };
 
   // Mutaciones para edición de KPIs
@@ -1021,151 +1057,6 @@ export default function KpiControlCenter() {
               </Card>
             </div>
 
-            {/* Análisis de Rendimiento - Nueva sección mejorada */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Gráfica de Rendimiento por Categorías */}
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-purple-600" />
-                    📈 Análisis de Rendimiento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 flex items-center justify-center">
-                    {performanceData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={performanceData}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={85}
-                            innerRadius={40}
-                            dataKey="value"
-                            paddingAngle={2}
-                            label={({ name, percent, value }) => 
-                              value > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : ''
-                            }
-                            labelLine={false}
-                          >
-                            {performanceData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} KPIs`, name]}
-                            contentStyle={{ 
-                              backgroundColor: 'white', 
-                              border: '1px solid #ccc', 
-                              borderRadius: '8px',
-                              fontSize: '14px'
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="text-center text-gray-500">
-                        <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Sin datos para mostrar</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Resumen numérico debajo del gráfico */}
-                  {performanceData.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {performanceData.map((entry, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: entry.color }}
-                            ></div>
-                            <span className="text-sm font-medium">{entry.name}</span>
-                          </div>
-                          <span className="text-sm text-gray-600 font-semibold">
-                            {entry.value} KPIs
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Top Performers simplificado para Vista General */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-yellow-600" />
-                    🏆 Top 3 Áreas con Mejor Rendimiento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {loadingTopPerformers ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                    </div>
-                  ) : topPerformers.length > 0 ? (
-                    <div className="space-y-3">
-                      {topPerformers.slice(0, 3).map((performer: any, index: number) => {
-                        const isWinner = index === 0;
-                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-                        
-                        return (
-                          <div 
-                            key={performer.area_id}
-                            className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 ${
-                              isWinner 
-                                ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-yellow-300 dark:border-yellow-700 ring-1 ring-yellow-400 ring-opacity-50' 
-                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-xl">{medal}</span>
-                              <div>
-                                <h3 className={`font-semibold ${isWinner ? 'text-yellow-800 dark:text-yellow-200' : 'text-gray-900 dark:text-gray-100'}`}>
-                                  {performer.area_name}
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {performer.compliant_kpis}/{performer.total_kpis} KPIs
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`text-xl font-bold ${
-                                performer.compliance_percentage >= 90 ? 'text-green-600' :
-                                performer.compliance_percentage >= 70 ? 'text-yellow-600' :
-                                'text-red-600'
-                              }`}>
-                                {performer.compliance_percentage}%
-                              </div>
-                              <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
-                                <div 
-                                  className={`h-1.5 rounded-full transition-all duration-500 ${
-                                    performer.compliance_percentage >= 90 ? 'bg-green-500' :
-                                    performer.compliance_percentage >= 70 ? 'bg-yellow-500' :
-                                    'bg-red-500'
-                                  }`}
-                                  style={{ width: `${performer.compliance_percentage}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <Award className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>No hay datos de rendimiento disponibles</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
@@ -1205,49 +1096,25 @@ export default function KpiControlCenter() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {displayedKpis.map((kpi: any) => (
-                    <Card key={kpi.id} className="border hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-sm leading-tight">{kpi.name}</h3>
-                            <Badge className={`text-xs ${getStatusColor(kpi.status)}`}>
-                              {getStatusIcon(kpi.status)}
-                              <span className="ml-1">{getStatusText(kpi.status)}</span>
-                            </Badge>
-                          </div>
-                          
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Valor Actual:</span>
-                              <span className="font-semibold">
-                                {kpi.value !== null ? `${kpi.value} ${kpi.unit}` : 'Sin datos'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Meta:</span>
-                              <span>{kpi.target} {kpi.unit}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Cumplimiento:</span>
-                              <span className="font-semibold">
-                                {kpi.compliancePercentage > 0 ? `${kpi.compliancePercentage}%` : 'Sin datos'}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => handleUpdateKpi(kpi.id)}
-                            className="w-full"
-                          >
-                            <Edit3 className="h-3 w-3 mr-1" />
-                            Actualizar
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {displayedKpis.map((kpi: any, index: number) => (
+                    <EnhancedKpiCard
+                      key={kpi.id}
+                      kpi={{
+                        id: kpi.id,
+                        name: kpi.name,
+                        value: kpi.value,
+                        target: kpi.target,
+                        unit: kpi.unit,
+                        compliancePercentage: kpi.compliancePercentage,
+                        status: kpi.visualStatus || 'warning',
+                        areaName: kpi.areaName,
+                        responsible: kpi.responsible,
+                        historicalData: kpi.historicalData
+                      }}
+                      onClick={() => handleUpdateKpi(kpi.id)}
+                      onViewDetails={() => handleViewExtendedDetails(kpi.id)}
+                      delay={index * 0.05}
+                    />
                   ))}
                 </div>
                 
@@ -1269,176 +1136,88 @@ export default function KpiControlCenter() {
               </CardContent>
             </Card>
 
-            {/* Comparación de Progreso entre Empresas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5 text-blue-600" />
-                  Comparación entre Empresas
-                </CardTitle>
-                <CardDescription>
-                  Rendimiento comparativo en tiempo real
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Gráfico de Comparación */}
-                  <div className="h-64">
-                    <h3 className="font-semibold mb-4 text-center">📊 KPIs por Empresa</h3>
-                    {companies && companies.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={companies.map((company: Company) => {
-                          const companyKpis = processedKpis.filter(kpi => kpi.companyId === company.id);
-                          const compliantKpis = companyKpis.filter(kpi => kpi.status === 'complies').length;
-                          const alertKpis = companyKpis.filter(kpi => kpi.status === 'alert').length;
-                          const nonCompliantKpis = companyKpis.filter(kpi => kpi.status === 'not_compliant').length;
-                          
-                          return {
-                            name: company.name.includes('Dura') ? 'Dura Intl.' : 'Grupo Orsega',
-                            'Cumpliendo': compliantKpis,
-                            'En Alerta': alertKpis,
-                            'No Cumple': nonCompliantKpis,
-                            total: companyKpis.length
-                          };
-                        })}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} KPIs`, name]}
-                            labelFormatter={(label) => `Empresa: ${label}`}
-                          />
-                          <Legend />
-                          <Bar dataKey="Cumpliendo" fill="#10b981" radius={[2, 2, 0, 0]} />
-                          <Bar dataKey="En Alerta" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                          <Bar dataKey="No Cumple" fill="#ef4444" radius={[2, 2, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-500">
-                        <div className="text-center">
-                          <Building className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p>Cargando datos de empresas...</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Métricas Comparativas */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-center">🏆 Métricas Comparativas</h3>
-                    {companies && companies.map((company: Company) => {
-                      const companyKpis = processedKpis.filter(kpi => kpi.companyId === company.id);
-                      const compliantKpis = companyKpis.filter(kpi => kpi.status === 'complies').length;
-                      const totalKpis = companyKpis.length;
-                      const complianceRate = totalKpis > 0 ? Math.round((compliantKpis / totalKpis) * 100) : 0;
-                      
-                      const isDuraInternational = company.name.includes('Dura');
-                      const displayName = isDuraInternational ? 'Dura International' : 'Grupo Orsega';
-                      const companyColor = isDuraInternational ? 'from-blue-500 to-blue-600' : 'from-green-500 to-green-600';
+            {/* KPIs que Requieren Atención - Versión Simplificada */}
+            {(() => {
+              const criticalKpis = processedKpis
+                .filter((kpi: any) => kpi.status === 'alert' || kpi.status === 'not_compliant')
+                .sort((a: any, b: any) => parseFloat(a.compliancePercentage || '0') - parseFloat(b.compliancePercentage || '0'))
+                .slice(0, 3);
+              
+              if (criticalKpis.length === 0) return null;
                       
                       return (
-                        <div 
-                          key={company.id} 
-                          className={`bg-gradient-to-r ${companyColor} text-white rounded-lg p-4 shadow-md`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-lg">{displayName}</h4>
-                            <Badge 
-                              variant="secondary" 
-                              className={`${
-                                complianceRate >= 80 ? 'bg-green-100 text-green-800' :
-                                complianceRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {complianceRate}% Cumplimiento
-                            </Badge>
+                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
+                      {criticalKpis.length} {criticalKpis.length === 1 ? 'KPI requiere atención' : 'KPIs requieren atención'}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {criticalKpis.map((kpi: any) => (
+                      <div 
+                        key={kpi.id}
+                        className="flex items-center justify-between text-sm cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/20 rounded px-2 py-1 transition-colors"
+                        onClick={() => handleUpdateKpi(kpi.id)}
+                      >
+                        <span className="text-gray-700 dark:text-gray-300 truncate flex-1">{kpi.name}</span>
+                        <span className={`font-semibold ml-2 ${
+                          kpi.status === 'not_compliant' ? 'text-red-600' : 'text-yellow-600'
+                        }`}>
+                          {kpi.compliancePercentage}%
+                        </span>
                           </div>
-                          
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div className="text-center">
-                              <div className="text-2xl font-bold">{totalKpis}</div>
-                              <div className="text-blue-100">Total KPIs</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-green-200">{compliantKpis}</div>
-                              <div className="text-blue-100">Cumpliendo</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-yellow-200">
-                                {companyKpis.filter(kpi => kpi.status === 'alert').length}
-                              </div>
-                              <div className="text-blue-100">En Alerta</div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-3">
-                            <div className="flex justify-between text-xs mb-1">
-                              <span>Progreso General</span>
-                              <span>{complianceRate}%</span>
-                            </div>
-                            <div className="w-full bg-white bg-opacity-30 rounded-full h-2">
-                              <div 
-                                className="bg-white h-2 rounded-full transition-all duration-500" 
-                                style={{ width: `${complianceRate}%` }}
-                              ></div>
-                            </div>
+                    ))}
                           </div>
                         </div>
                       );
-                    })}
-                    
-                    {/* Resumen Comparativo */}
-                    {companies && companies.length > 1 && (
-                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mt-4">
-                        <h4 className="font-semibold mb-2 text-center">📈 Análisis Comparativo</h4>
-                        <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+            })()}
+
+            {/* Resumen por Área - Versión Compacta */}
                           {(() => {
-                            const duraKpis = processedKpis.filter(kpi => 
-                              companies.find((c: Company) => c.id === kpi.companyId)?.name.includes('Dura')
-                            );
-                            const orsegaKpis = processedKpis.filter(kpi => 
-                              companies.find((c: Company) => c.id === kpi.companyId)?.name.includes('Orsega')
-                            );
-                            
-                            const duraCompliance = duraKpis.length > 0 ? 
-                              Math.round((duraKpis.filter(kpi => kpi.status === 'complies').length / duraKpis.length) * 100) : 0;
-                            const orsegaCompliance = orsegaKpis.length > 0 ? 
-                              Math.round((orsegaKpis.filter(kpi => kpi.status === 'complies').length / orsegaKpis.length) * 100) : 0;
-                            
-                            const leader = duraCompliance > orsegaCompliance ? 'Dura International' : 
-                                          orsegaCompliance > duraCompliance ? 'Grupo Orsega' : 'Empate';
-                            const difference = Math.abs(duraCompliance - orsegaCompliance);
+              if (!areas || areas.length === 0) return null;
+              
+              const areaStats = areas.map((area: Area) => {
+                const areaKpis = processedKpis.filter((kpi: any) => kpi.areaId === area.id);
+                const compliant = areaKpis.filter((k: any) => k.status === 'complies').length;
+                const total = areaKpis.length;
+                const complianceRate = total > 0 ? Math.round((compliant / total) * 100) : 0;
+                
+                return {
+                  areaId: area.id,
+                  areaName: area.name,
+                  total,
+                  compliant,
+                  complianceRate,
+                  kpis: areaKpis
+                };
+              }).filter(stat => stat.total > 0).sort((a, b) => b.complianceRate - a.complianceRate).slice(0, 4);
+              
+              if (areaStats.length === 0) return null;
                             
                             return (
-                              <>
-                                <p className="text-center">
-                                  <span className="font-semibold text-blue-600">
-                                    {leader === 'Empate' ? '🤝 Ambas empresas tienen el mismo rendimiento' : 
-                                     `🏆 ${leader} lidera con ${difference}% de ventaja`}
-                                  </span>
-                                </p>
-                                <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                                  <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
-                                    <div className="font-semibold">Dura Intl.</div>
-                                    <div>{duraCompliance}% cumplimiento</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {areaStats.map((stat) => (
+                    <div key={stat.areaId} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 mb-1 truncate">{stat.areaName}</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stat.complianceRate}%</span>
+                        <span className="text-xs text-gray-500">{stat.compliant}/{stat.total}</span>
                                   </div>
-                                  <div className="text-center p-2 bg-green-100 dark:bg-green-900/30 rounded">
-                                    <div className="font-semibold">Grupo Orsega</div>
-                                    <div>{orsegaCompliance}% cumplimiento</div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
+                        <div 
+                          className={`h-1.5 rounded-full ${
+                            stat.complianceRate >= 90 ? 'bg-green-500' :
+                            stat.complianceRate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${stat.complianceRate}%` }}
+                        />
                                   </div>
                                 </div>
-                              </>
+                  ))}
+                </div>
                             );
                           })()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
@@ -1722,6 +1501,18 @@ export default function KpiControlCenter() {
             isOpen={isUpdateModalOpen}
             onClose={() => {
               setIsUpdateModalOpen(false);
+              setSelectedKpiId(null);
+            }}
+          />
+        )}
+
+        {/* Modal de Detalles Extendidos (12 atributos) */}
+        {selectedKpiId && (
+          <KpiExtendedDetailsModal
+            kpiId={selectedKpiId}
+            isOpen={isExtendedDetailsModalOpen}
+            onClose={() => {
+              setIsExtendedDetailsModalOpen(false);
               setSelectedKpiId(null);
             }}
           />

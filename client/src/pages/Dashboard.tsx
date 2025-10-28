@@ -8,6 +8,8 @@ import type { Company, Kpi, KpiValue, KpiDetail } from '@shared/schema';
 import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { FilteredKpisModal } from '@/components/kpis/FilteredKpisModal';
 import { SalesSummary } from '@/components/dashboard/SalesSummary';
+import { ExchangeRateCards } from '@/components/dashboard/ExchangeRateCards';
+import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
 import { CompanySelector } from '@/components/dashboard/CompanySelector';
@@ -54,6 +56,17 @@ export default function Dashboard() {
   // Estado para el modal de KPIs filtrados
   const [isFilteredKpisModalOpen, setIsFilteredKpisModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<'complies' | 'alert' | 'not_compliant' | 'all' | undefined>(undefined);
+  
+  // Estado para el onboarding del dashboard
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  
+  // Verificar si el usuario ya completó el onboarding
+  useEffect(() => {
+    const completed = localStorage.getItem('dashboard_onboarding_completed');
+    if (!completed) {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
 
   // Fetch all companies with optimized refresh
   const { data: companies, isLoading: isLoadingCompanies } = useQuery<Company[]>({
@@ -204,21 +217,18 @@ export default function Dashboard() {
       {/* Filters Bar (Oculto) */}
       <FiltersBar onFilterChange={handleFilterChange} />
       
-      {/* Título principal del sistema */}
-      <div className="mb-4 sm:mb-6 text-center">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#273949] dark:text-white">Sistema de Gestion Integral</h1>
-      </div>
-
       {/* Header con stats rápidas */}
       <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-r from-[#273949] to-[#1a2a36] p-4 sm:p-8 shadow-lg dark:from-[#15202b] dark:to-[#0d1117]">
         <div className="absolute inset-0 bg-grid-white/10 bg-[length:20px_20px] [mask-image:linear-gradient(to_bottom,white_20%,transparent_60%)]"></div>
         <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#b5e951]/20 to-transparent"></div>
         
         <div className="relative">
-          <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-white">Panel de Control</h2>
-          <p className="mb-4 sm:mb-6 max-w-xl text-sm sm:text-base text-white/80">
-            Visualiza el rendimiento de tu negocio con nuestros tableros interactivos de ventas
-            y trazabilidad de envíos.
+          <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-white">
+            Hola {user?.name?.split(' ')[0] || 'Usuario'}, bienvenido a tu Sistema Digital de Gestión
+          </h2>
+          <p className="mb-4 sm:mb-6 max-w-2xl text-sm sm:text-base text-white/90 leading-relaxed">
+            Aquí podrás ver los KPIs de tus colaboradores y tener acceso a datos en tiempo real 
+            para que puedas tomar decisiones informadas. <span className="font-semibold text-white">¿Qué te gustaría ver hoy?</span>
           </p>
           
           {/* Selector de empresa ahora visible en la cabecera */}
@@ -232,7 +242,7 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="mt-4 sm:mt-8 grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
+          <div className="mt-4 sm:mt-8 grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 md:gap-4" data-onboarding="kpi-stats">
             <div className="bg-white/10 p-3 rounded-lg backdrop-blur-sm text-white">
               <p className="text-xs text-white/70">Volumen de ventas (último mes)</p>
               <p className="text-2xl font-bold">
@@ -258,9 +268,16 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Tipos de Cambio - Prioridad para Emilio */}
+      <div className="mb-6 sm:mb-12" data-onboarding="exchange-rates">
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-md mx-2 sm:mx-0">
+          <ExchangeRateCards />
+        </div>
+      </div>
       
       {/* Reporte de Ventas */}
-      <div className="mb-6 sm:mb-12">
+      <div className="mb-6 sm:mb-12" data-onboarding="sales-report">
         <div className="bg-slate-50 dark:bg-primary-950/50 p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-md mx-2 sm:mx-0">
           <div className="flex items-center gap-2 mb-3 sm:mb-6">
             <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -292,6 +309,12 @@ export default function Dashboard() {
         status={selectedStatus}
         kpis={filteredKpis}
         onViewKpiDetails={handleViewKpiDetails}
+      />
+      
+      {/* Dashboard Onboarding */}
+      <DashboardOnboardingDialog
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
       </div>
     </AppLayout>

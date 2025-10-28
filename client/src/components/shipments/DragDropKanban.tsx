@@ -729,6 +729,21 @@ export function DragDropKanban() {
     queryKey: ['/api/clients'],
   });
 
+  // Obtener productos filtrados por empresa desde la base de datos
+  const selectedCompanyId = newShipmentForm.companyId;
+  const companyIdNum = selectedCompanyId ? parseInt(selectedCompanyId) : null;
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<any[]>({
+    queryKey: ['/api/products', { companyId: companyIdNum }],
+    enabled: !!companyIdNum,
+  });
+
+  // Debug: Ver qué productos se están recibiendo
+  useEffect(() => {
+    if (products.length > 0) {
+      console.log(`🔵 [DragDropKanban] Productos recibidos (companyId=${companyIdNum}):`, products.map(p => p.name));
+    }
+  }, [products, companyIdNum]);
+
   // Generar código automáticamente cuando cambie la empresa
   useEffect(() => {
     if (newShipmentForm.companyId && shipments) {
@@ -1236,114 +1251,15 @@ export function DragDropKanban() {
                         setShipmentProducts(newProducts);
                       }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un producto" />
+                      <SelectTrigger disabled={isLoadingProducts || products.length === 0}>
+                        <SelectValue placeholder={isLoadingProducts ? "Cargando productos..." : products.length === 0 ? "No hay productos disponibles" : "Selecciona un producto"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {newShipmentForm.companyId === '1' ? (
-                          <>
-                            <SelectItem value="ACETATO DE ZINC">ACETATO DE ZINC</SelectItem>
-                            <SelectItem value="DUROCT POTASIO 10%">DUROCT POTASIO 10%</SelectItem>
-                            <SelectItem value="DURASTABIL 2">DURASTABIL 2</SelectItem>
-                            <SelectItem value="DURASTABIL 3">DURASTABIL 3</SelectItem>
-                            <SelectItem value="DURANAP COBRE 8%">DURANAP COBRE 8%</SelectItem>
-                            <SelectItem value="DUROCT CALCICO">DUROCT CALCICO</SelectItem>
-                            <SelectItem value="DUROCT COBALTO 12">DUROCT COBALTO 12</SelectItem>
-                            <SelectItem value="DUROCT COBRE">DUROCT COBRE</SelectItem>
-                            <SelectItem value="DUROCT COBALTO 6%">DUROCT COBALTO 6%</SelectItem>
-                            <SelectItem value="DUROK 12Y32">DUROK 12Y32</SelectItem>
-                            <SelectItem value="DURASPERS 57">DURASPERS 57</SelectItem>
-                            <SelectItem value="DUROCT ZINC 26%">DUROCT ZINC 26%</SelectItem>
-                            <SelectItem value="DUROCT POTASIO 15%">DUROCT POTASIO 15%</SelectItem>
-                            <SelectItem value="HEXOL">HEXOL</SelectItem>
-                            <SelectItem value="DUROCT MANGANESO 6%">DUROCT MANGANESO 6%</SelectItem>
-                            <SelectItem value="DUROCT MANGANESO 3%">DUROCT MANGANESO 3%</SelectItem>
-                            <SelectItem value="DUROCT ESTANOL 52%">DUROCT ESTANOL 52%</SelectItem>
-                            <SelectItem value="MCLON">MCLON</SelectItem>
-                            <SelectItem value="DUROCT ZINC 4.5%">DUROCT ZINC 4.5%</SelectItem>
-                            <SelectItem value="DUROCT ZINC 16%">DUROCT ZINC 16%</SelectItem>
-                            <SelectItem value="DUROCT ZINC 8%">DUROCT ZINC 8%</SelectItem>
-                            <SelectItem value="DUROCT ZINC 6%">DUROCT ZINC 6%</SelectItem>
-                            <SelectItem value="DUROCT ZIRCONIO 18%">DUROCT ZIRCONIO 18%</SelectItem>
-                            <SelectItem value="DUROCT ZIRCONIO 24%">DUROCT ZIRCONIO 24%</SelectItem>
-                            <SelectItem value="ANTISKIN DI MTPBEE">ANTISKIN DI MTPBEE</SelectItem>
-                            <SelectItem value="DIFOVIR AL507">DIFOVIR AL507</SelectItem>
-                            <SelectItem value="DIFOKM 552">DIFOKM 552</SelectItem>
-                            <SelectItem value="DIFOKM 556">DIFOKM 556</SelectItem>
-                            <SelectItem value="DIFOVAL 1">DIFOVAL 1</SelectItem>
-                            <SelectItem value="DIFOVAL 5">DIFOVAL 5</SelectItem>
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem value="AGD GO 42">AGD GO 42</SelectItem>
-                            <SelectItem value="ÁCIDO ESTEÁRICO STD">ÁCIDO ESTEÁRICO STD</SelectItem>
-                            <SelectItem value="GO MATSOL 112 OD">GO MATSOL 112 OD</SelectItem>
-                            <SelectItem value="I 100">I 100</SelectItem>
-                            <SelectItem value="KALCAT 10201">KALCAT 10201</SelectItem>
-                            <SelectItem value="MONCAT 2021">MONCAT 2021</SelectItem>
-                            <SelectItem value="METILATO DE SODIO 25%">METILATO DE SODIO 25%</SelectItem>
-                            <SelectItem value="POLIESTER EXPANDIBLE">POLIESTER EXPANDIBLE</SelectItem>
-                            <SelectItem value="NAFTA LIGERA">NAFTA LIGERA</SelectItem>
-                            <SelectItem value="KALCAT 6215">KALCAT 6215</SelectItem>
-                            <SelectItem value="ACEITE DE PINO 55%">ACEITE DE PINO 55%</SelectItem>
-                            <SelectItem value="ÁCIDO OLEICO TOFÁ">ÁCIDO OLEICO TOFÁ</SelectItem>
-                            <SelectItem value="ÁCIDO OLEICO">ÁCIDO OLEICO</SelectItem>
-                            <SelectItem value="CLORURO DE METILENO">CLORURO DE METILENO</SelectItem>
-                            <SelectItem value="COMBUSTIBLE ALTERNO">COMBUSTIBLE ALTERNO</SelectItem>
-                            <SelectItem value="LECITINA DE SOYA">LECITINA DE SOYA</SelectItem>
-                            <SelectItem value="METILATO DE SODIO 30%">METILATO DE SODIO 30%</SelectItem>
-                            <SelectItem value="MONCAT 1991">MONCAT 1991</SelectItem>
-                            <SelectItem value="NAFTA AQ">NAFTA AQ</SelectItem>
-                            <SelectItem value="NAFTA S1">NAFTA S1</SelectItem>
-                            <SelectItem value="SEBO DE RES">SEBO DE RES</SelectItem>
-                            <SelectItem value="TOLUENO">TOLUENO</SelectItem>
-                            <SelectItem value="GLICERINA 799 IOG">GLICERINA 799 IOG</SelectItem>
-                            <SelectItem value="EQUIPOS TRASVASE AIR 1 GRG">EQUIPOS TRASVASE AIR 1 GRG</SelectItem>
-                            <SelectItem value="EQUIPOS TRASVASE AIR 1 BIDON">EQUIPOS TRASVASE AIR 1 BIDON</SelectItem>
-                            <SelectItem value="EQUIPOS TRASVASE AIR 1 BOMBA MANUAL">EQUIPOS TRASVASE AIR 1 BOMBA MANUAL</SelectItem>
-                            <SelectItem value="EQUIPOS TRASVASE AIR 1 BOMBA MANUAL CON CARRETE">EQUIPOS TRASVASE AIR 1 BOMBA MANUAL CON CARRETE</SelectItem>
-                            <SelectItem value="BOMBA MANUAL PALANCA AIR 1">BOMBA MANUAL PALANCA AIR 1</SelectItem>
-                            <SelectItem value="BOMBA TRASVASE AIR 1 12/24/110/220 V">BOMBA TRASVASE AIR 1 12/24/110/220 V</SelectItem>
-                            <SelectItem value="BOMBA ROTATIVA MANUAL AIR1">BOMBA ROTATIVA MANUAL AIR1</SelectItem>
-                            <SelectItem value="CONTADOR DIGITAL AIR 1">CONTADOR DIGITAL AIR 1</SelectItem>
-                            <SelectItem value="PISTOLA MANUAL AIR 1">PISTOLA MANUAL AIR 1</SelectItem>
-                            <SelectItem value="PISTOLA AUTOMÁTICA AIR 1 BASIC">PISTOLA AUTOMÁTICA AIR 1 BASIC</SelectItem>
-                            <SelectItem value="CARRETE PARA AIR 1">CARRETE PARA AIR 1</SelectItem>
-                            <SelectItem value="SURTIDORES CON CONTADOR">SURTIDORES CON CONTADOR</SelectItem>
-                            <SelectItem value="BLUEBOX PARA GASOLINERAS">BLUEBOX PARA GASOLINERAS</SelectItem>
-                            <SelectItem value="EQUIPO PARA DEPÓSITOS GRG">EQUIPO PARA DEPÓSITOS GRG</SelectItem>
-                            <SelectItem value="EQUIPO PARA BIDONES">EQUIPO PARA BIDONES</SelectItem>
-                            <SelectItem value="CONECTORES">CONECTORES</SelectItem>
-                            <SelectItem value="PISTOLA AUTOMÁTICA">PISTOLA AUTOMÁTICA</SelectItem>
-                            <SelectItem value="PISTOLA MANUAL">PISTOLA MANUAL</SelectItem>
-                            <SelectItem value="PISTOLA DIGITAL CONTADORA">PISTOLA DIGITAL CONTADORA</SelectItem>
-                            <SelectItem value="ANCLAJE PARA PARED">ANCLAJE PARA PARED</SelectItem>
-                            <SelectItem value="MOSTO CONCENTRADO RECTIFICADO">MOSTO CONCENTRADO RECTIFICADO</SelectItem>
-                            <SelectItem value="MOSTO CONCENTRADO">MOSTO CONCENTRADO</SelectItem>
-                            <SelectItem value="FINE TALC POWDER">FINE TALC POWDER</SelectItem>
-                            <SelectItem value="MATTING AGENT 6601">MATTING AGENT 6601</SelectItem>
-                            <SelectItem value="GLICERINA USP">GLICERINA USP</SelectItem>
-                            <SelectItem value="GLICERINA KOSHER">GLICERINA KOSHER</SelectItem>
-                            <SelectItem value="ÁCIDO GRASO DE COCO">ÁCIDO GRASO DE COCO</SelectItem>
-                            <SelectItem value="ÁCIDO GRASO DE PALMA PH">ÁCIDO GRASO DE PALMA PH</SelectItem>
-                            <SelectItem value="GO MATSOL 101 OD">GO MATSOL 101 OD</SelectItem>
-                            <SelectItem value="ACRILONITRILO">ACRILONITRILO</SelectItem>
-                            <SelectItem value="METILATO DE SODIO SOLUCIÓN 21-30%">METILATO DE SODIO SOLUCIÓN 21-30%</SelectItem>
-                            <SelectItem value="METILATO DE SODIO SOLUCIÓN 21% EN ETANOL">METILATO DE SODIO SOLUCIÓN 21% EN ETANOL</SelectItem>
-                            <SelectItem value="METILATO DE SODIO EN POLVO">METILATO DE SODIO EN POLVO</SelectItem>
-                            <SelectItem value="SOLVENTE S1">SOLVENTE S1</SelectItem>
-                            <SelectItem value="GO WAX 35">GO WAX 35</SelectItem>
-                            <SelectItem value="GO WAX 60">GO WAX 60</SelectItem>
-                            <SelectItem value="GO WAX 600">GO WAX 600</SelectItem>
-                            <SelectItem value="PALE OIL 40">PALE OIL 40</SelectItem>
-                            <SelectItem value="PALE VI1">PALE VI1</SelectItem>
-                            <SelectItem value="PALE OIL 100">PALE OIL 100</SelectItem>
-                            <SelectItem value="SN 70 GII">SN 70 GII</SelectItem>
-                            <SelectItem value="SN 100 GII">SN 100 GII</SelectItem>
-                            <SelectItem value="SN 230 GII">SN 230 GII</SelectItem>
-                            <SelectItem value="GO TINTAS 40">GO TINTAS 40</SelectItem>
-                          </>
-                        )}
+                        {products.map((product: any) => (
+                          <SelectItem key={product.id} value={product.name}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

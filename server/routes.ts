@@ -2385,12 +2385,18 @@ export function registerRoutes(app: express.Application) {
   app.get("/api/products", jwtAuthMiddleware, async (req, res) => {
     try {
       const { companyId } = req.query;
+      console.log(`🔵 [GET /api/products] companyId recibido:`, companyId);
+      
       let whereClause = "WHERE is_active = true";
       const params: any[] = [];
       
       if (companyId) {
+        const companyIdNum = parseInt(companyId as string);
         whereClause += " AND company_id = $1";
-        params.push(parseInt(companyId as string));
+        params.push(companyIdNum);
+        console.log(`🔵 [GET /api/products] Filtrando por company_id = ${companyIdNum}`);
+      } else {
+        console.log(`⚠️  [GET /api/products] No se recibió companyId, retornando todos los productos activos`);
       }
       
       const result = await sql(`
@@ -2400,6 +2406,7 @@ export function registerRoutes(app: express.Application) {
         ORDER BY name
       `, params);
       
+      console.log(`📊 [GET /api/products] Retornando ${result.length} productos`);
       res.json(result);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -2407,23 +2414,23 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/providers - Obtener proveedores de transporte
-  app.get("/api/providers", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const result = await sql(`
-        SELECT 
-          id, name, email, phone, contact_name, rating, is_active
-        FROM provider 
-        WHERE is_active = true
-        ORDER BY name
-      `);
-      
-      res.json(result);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-      res.status(500).json({ error: 'Failed to fetch providers' });
-    }
-  });
+  // GET /api/providers - Obtener proveedores de transporte (COMENTADO: usando catalogRouter)
+  // app.get("/api/providers", jwtAuthMiddleware, async (req, res) => {
+  //   try {
+  //     const result = await sql(`
+  //       SELECT 
+  //         id, name, email, phone, contact_name, rating, is_active
+  //       FROM provider 
+  //       WHERE is_active = true
+  //       ORDER BY name
+  //     `);
+  //     
+  //     res.json(result);
+  //   } catch (error) {
+  //     console.error('Error fetching providers:', error);
+  //     res.status(500).json({ error: 'Failed to fetch providers' });
+  //   }
+  // });
 
   // POST /api/clients - Crear un nuevo cliente
   app.post("/api/clients", jwtAuthMiddleware, async (req, res) => {
@@ -2474,39 +2481,39 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // POST /api/providers - Crear un nuevo proveedor de transporte
-  app.post("/api/providers", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const validatedData = insertProviderSchema.parse(req.body);
-      const providerId = crypto.randomUUID(); // Generate UUID in Node.js
-      
-      const result = await sql(`
-        INSERT INTO provider (
-          id, name, email, phone, contact_name, notes, rating, is_active
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8
-        )
-        RETURNING *
-      `, [
-        providerId,
-        validatedData.name,
-        validatedData.email || null,
-        validatedData.phone || null,
-        validatedData.contactName || null,
-        validatedData.notes || null,
-        validatedData.rating || null,
-        validatedData.isActive ?? true,
-      ]);
-      
-      res.status(201).json(result[0]);
-    } catch (error) {
-      console.error('Error creating provider:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
-      }
-      res.status(500).json({ error: 'Failed to create provider' });
-    }
-  });
+  // POST /api/providers - Crear un nuevo proveedor de transporte (COMENTADO: usando catalogRouter)
+  // app.post("/api/providers", jwtAuthMiddleware, async (req, res) => {
+  //   try {
+  //     const validatedData = insertProviderSchema.parse(req.body);
+  //     const providerId = crypto.randomUUID(); // Generate UUID in Node.js
+  //     
+  //     const result = await sql(`
+  //       INSERT INTO provider (
+  //         id, name, email, phone, contact_name, notes, rating, is_active
+  //       ) VALUES (
+  //         $1, $2, $3, $4, $5, $6, $7, $8
+  //       )
+  //       RETURNING *
+  //     `, [
+  //       providerId,
+  //       validatedData.name,
+  //       validatedData.email || null,
+  //       validatedData.phone || null,
+  //       validatedData.contactName || null,
+  //       validatedData.notes || null,
+  //       validatedData.rating || null,
+  //       validatedData.isActive ?? true,
+  //     ]);
+  //     
+  //     res.status(201).json(result[0]);
+  //   } catch (error) {
+  //     console.error('Error creating provider:', error);
+  //     if (error instanceof z.ZodError) {
+  //       return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+  //     }
+  //     res.status(500).json({ error: 'Failed to create provider' });
+  //   }
+  // });
 
   // =============================================
   // 🔐 USER ACTIVATION SYSTEM ENDPOINTS
@@ -3608,7 +3615,7 @@ export function registerRoutes(app: express.Application) {
         details: error instanceof Error ? error.message : String(error)
       });
     }
-no  });
+  });
 
   // ============================================
   // EMAIL TEST ENDPOINT (para probar Resend)

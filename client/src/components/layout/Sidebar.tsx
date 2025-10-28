@@ -14,7 +14,6 @@ import {
   Truck,
   TrendingUp,
   BarChart2,
-  LineChart,
   Crown,
   Users,
   Settings,
@@ -66,7 +65,7 @@ const NavItem = ({
 
 function Sidebar() {
   const [location] = useLocation();
-  const { user, isAdmin, isMarioOrAdmin, hasLogisticsAccess, hasSalesAccess, logout } = useAuth();
+  const { user, isAdmin, isMarioOrAdmin, hasLogisticsAccess, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
 
@@ -154,19 +153,7 @@ function Sidebar() {
             Centro de Control KPIs
           </NavItem>
 
-          
-          {/* Actualizar Ventas - Solo para área de ventas */}
-          {hasSalesAccess && (
-            <NavItem
-              href="/sales-update"
-              icon={<LineChart className="mr-3 h-5 w-5 text-emerald-400 group-hover:scale-110 transition-transform duration-200" />}
-              active={location === "/sales-update"}
-              onClick={closeMenu}
-            >
-              Actualizar Ventas
-            </NavItem>
-          )}
-          
+
           {/* Módulo de Logística - Solo para Mario, admin y Thalia (logística) */}
           {hasLogisticsAccess && (
             <NavItem

@@ -456,6 +456,12 @@ export const providers = pgTable("provider", {
   notes: text("notes"),
   rating: real("rating"),
   isActive: boolean("is_active").notNull().default(true),
+  shortName: text("short_name"),
+  companyId: integer("company_id"),
+  location: text("location"), // NAC, EXT
+  requiresRep: boolean("requires_rep").default(false),
+  repFrequency: integer("rep_frequency"), // días
+  reminderEmail: text("reminder_email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -1,0 +1,24 @@
+# Variables de entorno para Railway
+# Copia estas variables y configúralas en Railway
+
+# Base de datos (se configura automáticamente con Railway PostgreSQL)
+# DATABASE_URL - Railway la configura automáticamente
+
+# Seguridad (CONFIGURAR MANUALMENTE)
+JWT_SECRET=tu-clave-secreta-super-segura-aqui-cambiar-por-una-real
+SESSION_SECRET=tu-clave-de-sesion-secreta-cambiar-por-una-real
+
+# Email (CONFIGURAR MANUALMENTE)
+SENDGRID_API_KEY=tu-clave-de-sendgrid-aqui
+FROM_EMAIL=noreply@grupoorsega.com
+
+# OpenAI (OPCIONAL - para análisis de documentos)
+OPENAI_API_KEY=tu-clave-de-openai-aqui
+
+# Configuración de la aplicación
+NODE_ENV=production
+PORT=3000
+
+# Configuración de la empresa
+COMPANY_NAME=Grupo Orsega
+COMPANY_EMAIL=admin@grupoorsega.com

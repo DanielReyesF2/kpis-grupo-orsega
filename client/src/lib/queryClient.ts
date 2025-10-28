@@ -66,7 +66,12 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  const res = await fetch(url, {
+  // Asegurar que la URL sea absoluta si no lo es
+  const absoluteUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+  
+  console.log(`🔵 [apiRequest] ${method} ${absoluteUrl}`);
+  
+  const res = await fetch(absoluteUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -95,10 +100,21 @@ export const getQueryFn: <T>(options: {
         }
       });
       
-      const res = await apiRequest('GET', url.pathname + url.search);
+      const requestUrl = url.pathname + url.search;
+      console.log(`🔵 [QueryClient] Requesting: ${requestUrl}`);
+      
+      const res = await apiRequest('GET', requestUrl);
       
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
         return null;
+      }
+      
+      // Verificar que la respuesta es JSON antes de parsear
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error(`❌ [QueryClient] Non-JSON response for ${requestUrl}:`, text.substring(0, 200));
+        throw new Error(`Expected JSON but received ${contentType}`);
       }
       
       return await res.json();

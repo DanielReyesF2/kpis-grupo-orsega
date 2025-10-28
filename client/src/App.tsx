@@ -10,7 +10,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import LogisticsPage from "@/pages/LogisticsPage";
 import TrendsAnalysisPage from "@/pages/TrendsAnalysisPage";
-import SalesUpdatePage from "@/pages/SalesUpdatePage";
+
 import KpiControlCenter from "@/pages/KpiControlCenter";
 import SystemAdminPage from "@/pages/SystemAdminPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -62,13 +62,6 @@ function Router() {
           <TrendsAnalysisPage />
         </ProtectedRoute>
       </Route>
-
-      <Route path="/sales-update">
-        <ProtectedRoute salesOnly>
-          <SalesUpdatePage />
-        </ProtectedRoute>
-      </Route>
-
 
 
       <Route path="/kpi-control">

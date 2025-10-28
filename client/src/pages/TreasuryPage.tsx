@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus, FileSpreadsheet } from "lucide-react";
+import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus, FileSpreadsheet, User, Edit, Trash2, Mail, Phone } from "lucide-react";
 import { PaymentVouchersKanban } from "@/components/treasury/PaymentVouchersKanban";
+import { DashboardCard } from "@/components/ui/dashboard-card";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -22,7 +23,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("receipts");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState<number | null>(null);
   const [selectedReceipts, setSelectedReceipts] = useState<number[]>([]);
   const [emailsToSend, setEmailsToSend] = useState("");
@@ -89,6 +90,23 @@ export default function TreasuryPage() {
   const [showSantander, setShowSantander] = useState(true);
   const [showDOF, setShowDOF] = useState(true);
 
+  // Provider Modal State
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<any | null>(null);
+  const [providerForm, setProviderForm] = useState({
+    name: "",
+    shortName: "",
+    email: "",
+    phone: "",
+    contactName: "",
+    companyId: "",
+    location: "",
+    requiresRep: true,
+    repFrequency: 7,
+    reminderEmail: "",
+    notes: "",
+  });
+
   // Consultas
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<any[]>({
     queryKey: ["/api/treasury/payments"],
@@ -125,7 +143,28 @@ export default function TreasuryPage() {
   // Filtrar clientes por empresa seleccionada
   const filteredClients = selectedCompanyForVoucher 
     ? clients.filter((client: any) => client.companyId === selectedCompanyForVoucher)
-    : [];
+    : clients;
+
+  // Providers Query
+  const { data: providers = [], isLoading: providersLoading, error: providersError } = useQuery<any[]>({
+    queryKey: ["/api/providers"],
+    enabled: true,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  // Debug providers
+  useEffect(() => {
+    console.log("📦 Providers query state:", { 
+      providers: providers.length, 
+      isLoading: providersLoading, 
+      error: providersError, 
+      isArray: Array.isArray(providers),
+      firstProvider: providers[0],
+      data: providers
+    });
+  }, [providers, providersLoading, providersError]);
+
 
   // FX Analytics Queries
   const { data: fxComparison, isLoading: fxComparisonLoading } = useQuery<any>({
@@ -456,6 +495,142 @@ export default function TreasuryPage() {
     }
   };
 
+  // Provider Mutations
+  const createProviderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to create provider");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      toast({ title: "Proveedor creado exitosamente" });
+      setIsProviderModalOpen(false);
+      setProviderForm({
+        name: "",
+        shortName: "",
+        email: "",
+        phone: "",
+        contactName: "",
+        companyId: "",
+        location: "",
+        requiresRep: true,
+        repFrequency: 7,
+        reminderEmail: "",
+        notes: "",
+      });
+      setEditingProvider(null);
+    },
+  });
+
+  const updateProviderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/providers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update provider");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      toast({ title: "Proveedor actualizado exitosamente" });
+      setIsProviderModalOpen(false);
+      setEditingProvider(null);
+    },
+  });
+
+  const deleteProviderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/providers/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete provider");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      toast({ title: "Proveedor eliminado exitosamente" });
+    },
+  });
+
+  const handleSaveProvider = () => {
+    if (!providerForm.name || !providerForm.email) {
+      toast({ title: "Error", description: "Nombre y email son requeridos", variant: "destructive" });
+      return;
+    }
+
+    const data = {
+      name: providerForm.name,
+      shortName: providerForm.shortName,
+      email: providerForm.email,
+      phone: providerForm.phone || undefined,
+      contactName: providerForm.contactName || undefined,
+      companyId: providerForm.companyId ? parseInt(providerForm.companyId) : undefined,
+      location: providerForm.location || undefined,
+      requiresRep: providerForm.requiresRep,
+      repFrequency: providerForm.repFrequency,
+      reminderEmail: providerForm.reminderEmail || undefined,
+      notes: providerForm.notes || undefined,
+    };
+
+    if (editingProvider) {
+      updateProviderMutation.mutate({ id: editingProvider.id, data });
+    } else {
+      createProviderMutation.mutate(data);
+    }
+  };
+
+  const handleEditProvider = (provider: any) => {
+    setEditingProvider(provider);
+    setProviderForm({
+      name: provider.name || "",
+      shortName: provider.short_name || "",
+      email: provider.email || "",
+      phone: provider.phone || "",
+      contactName: provider.contact_name || "",
+      companyId: provider.company_id?.toString() || "",
+      location: provider.location || "",
+      requiresRep: provider.requires_rep ?? true,
+      repFrequency: provider.rep_frequency || 7,
+      reminderEmail: provider.reminder_email || "",
+      notes: provider.notes || "",
+    });
+    setIsProviderModalOpen(true);
+  };
+
+  const handleDeleteProvider = (id: string) => {
+    if (window.confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {
+      deleteProviderMutation.mutate(id);
+    }
+  };
+
+  const handleOpenNewProvider = () => {
+    setEditingProvider(null);
+    setProviderForm({
+      name: "",
+      shortName: "",
+      email: "",
+      phone: "",
+      contactName: "",
+      companyId: "",
+      location: "",
+      requiresRep: true,
+      repFrequency: 7,
+      reminderEmail: "",
+      notes: "",
+    });
+    setIsProviderModalOpen(true);
+  };
+
   // Filtrar pagos por búsqueda
   const filteredPayments = payments.filter(p => {
     if (!paymentFilter) return true;
@@ -553,48 +728,143 @@ export default function TreasuryPage() {
 
   return (
     <AppLayout title="Tesorería">
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-200">
-            ¡Hola Lolita! ¿Con que pagos te ayudamos hoy?
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
+      <div className="p-6 max-w-7xl mx-auto space-y-8">
+        {/* Hero Header con gradiente premium */}
+        <div className="relative bg-gradient-to-br from-[#273949] via-[#1f2f3f] to-[#273949] rounded-2xl p-8 shadow-2xl overflow-hidden">
+          {/* Patrón decorativo de fondo */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute inset-0" style={{
+              backgroundImage: 'repeating-linear-gradient(45deg, #b5e951 0, #b5e951 2px, transparent 0, transparent 30px)'
+            }}></div>
+          </div>
+          
+          <div className="relative">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-gradient-to-br from-accent to-accent/80 p-3 rounded-xl shadow-lg">
+                <DollarSign className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">
+                  ¡Hola Lolita! 👋
+                </h1>
+                <p className="text-white/90 text-lg">
+                  ¿Con qué pagos te ayudamos hoy?
+                </p>
+              </div>
+            </div>
             
-          </p>
+            {/* Mini stats rápidas */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-5 w-5 text-accent" />
+                  <span className="text-sm text-white/80">Pendientes</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{pendingPayments.length}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="h-5 w-5 text-green-400" />
+                  <span className="text-sm text-white/80">Este mes</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{paidPayments.length}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-5 w-5 text-blue-400" />
+                  <span className="text-sm text-white/80">Comprobantes</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{filteredVouchers.length}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="payments" data-testid="tab-payments">
-              <Calendar className="h-4 w-4 mr-2" />
-              Pagos
-            </TabsTrigger>
-            <TabsTrigger value="receipts" data-testid="tab-receipts">
-              <Upload className="h-4 w-4 mr-2" />
-              Comprobantes
-            </TabsTrigger>
-            <TabsTrigger value="exchange-rates" data-testid="tab-exchange-rates">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Tipo de Cambio
-            </TabsTrigger>
+          {activeTab === "dashboard" ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Módulos de Tesorería</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <DashboardCard
+                  title="Pagos Programados"
+                  description={`${pendingPayments.length} pendientes`}
+                  value={pendingPayments.length}
+                  icon={Calendar}
+                  onClick={() => setActiveTab("payments")}
+                  gradient="from-blue-500 to-indigo-600"
+                  dataOnboarding="treasury-payments"
+                />
+                <DashboardCard
+                  title="Comprobantes"
+                  description={`${filteredVouchers.length} en total`}
+                  value={filteredVouchers.length}
+                  icon={Upload}
+                  onClick={() => setActiveTab("receipts")}
+                  gradient="from-green-500 to-emerald-600"
+                  dataOnboarding="treasury-receipts"
+                />
+                <DashboardCard
+                  title="Tipo de Cambio"
+                  description="Cotizaciones actualizadas"
+                  value={exchangeRates.length > 0 ? `${exchangeRates[0]?.buy_rate?.toFixed(2)}` : "0"}
+                  icon={TrendingUp}
+                  onClick={() => setActiveTab("exchange-rates")}
+                  gradient="from-purple-500 to-pink-600"
+                  dataOnboarding="treasury-exchange-rates"
+                />
+                <DashboardCard
+                  title="Proveedores"
+                  description={`${providers.length} registrados`}
+                  value={providers.length}
+                  icon={User}
+                  onClick={() => setActiveTab("providers")}
+                  gradient="from-orange-500 to-red-600"
+                  dataOnboarding="treasury-providers"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("dashboard")}
+                className="mb-4"
+              >
+                ← Volver al Dashboard
+              </Button>
+            </div>
+          )}
+          
+          <TabsList className="hidden">
+            <TabsTrigger value="payments" />
+            <TabsTrigger value="receipts" />
+            <TabsTrigger value="exchange-rates" />
+            <TabsTrigger value="providers" />
           </TabsList>
 
           {/* Tab: Integración IDRALL */}
-          <TabsContent value="payments" className="space-y-6">
+          <TabsContent value="payments" className="space-y-6 mt-8">
             {/* Header con información */}
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-                Integración con IDRALL
-              </h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                 Descarga y sube tu archivo Excel de IDRALL para crear pagos automáticamente
-              </p>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-4">
+                <div className="bg-blue-500 p-3 rounded-xl shadow-lg">
+                  <FileSpreadsheet className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+                    Integración con IDRALL
+                  </h2>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Descarga y sube tu archivo Excel de IDRALL para crear pagos automáticamente
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Upload de Excel IDRALL */}
-            <Card className="max-w-2xl mx-auto">
+            <Card className="max-w-2xl mx-auto shadow-xl border-2 border-slate-200 dark:border-slate-700">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileSpreadsheet className="h-5 w-5" />
@@ -1691,6 +1961,378 @@ export default function TreasuryPage() {
               <PaymentVouchersKanban vouchers={filteredVouchers} />
             )}
 
+          </TabsContent>
+
+          {/* Tab: Proveedores */}
+          <TabsContent value="providers" className="space-y-6">
+            {/* Header con gradiente */}
+            <div className="relative bg-gradient-to-r from-[#273949] via-[#2a4055] to-[#273949] rounded-xl p-8 shadow-2xl overflow-hidden">
+              {/* Patrón de fondo decorativo */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, #b5e951 0, #b5e951 2px, transparent 0, transparent 25%)'
+                }}></div>
+              </div>
+              
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold text-white mb-2">
+                    Gestión de Proveedores
+                  </h2>
+                  <p className="text-white/80 text-base">
+                    Administra proveedores y configura recordatorios de pago (REP)
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleOpenNewProvider} 
+                  size="lg" 
+                  className="bg-accent hover:bg-accent/90 text-primary font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Nuevo Proveedor
+                </Button>
+              </div>
+            </div>
+
+            {/* Tabla de Proveedores */}
+            {providersLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            ) : providers.length === 0 ? (
+              <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                <CardContent className="py-16 text-center">
+                  <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center mb-6 shadow-xl">
+                    <User className="h-12 w-12 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+                    No hay proveedores registrados
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
+                    Comienza agregando tu primer proveedor para gestionar recordatorios de pago y mantener un registro organizado.
+                  </p>
+                  <Button 
+                    onClick={handleOpenNewProvider} 
+                    className="bg-gradient-to-r from-[#273949] to-[#2a4055] hover:from-[#2a4055] hover:to-[#273949] text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    size="lg"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Agregar Primer Proveedor
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="shadow-lg border-0">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gradient-to-r from-slate-800 to-slate-700">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Empresa</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Proveedor</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Contacto</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Ubicación</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">REP</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Frecuencia</th>
+                          <th className="px-6 py-4 text-center text-xs font-bold text-white uppercase tracking-wider">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {providers.map((provider: any, index: number) => (
+                          <tr 
+                            key={provider.id} 
+                            className="transition-colors hover:bg-gradient-to-r hover:from-accent/5 hover:to-accent/10 group border-b border-slate-200 dark:border-slate-700"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge 
+                                className={`font-semibold shadow-sm ${
+                                  provider.company_id === 1 
+                                    ? "bg-blue-500 hover:bg-blue-600 text-white" 
+                                    : provider.company_id === 2
+                                    ? "bg-purple-500 hover:bg-purple-600 text-white"
+                                    : "bg-slate-500"
+                                }`}
+                              >
+                                {provider.company_id === 1 ? "Dura" : provider.company_id === 2 ? "Orsega" : "N/A"}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center text-white font-bold shadow-md">
+                                  {provider.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {provider.name}
+                                  </div>
+                                  {provider.short_name && (
+                                    <div className="text-xs text-slate-500 font-medium">{provider.short_name}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                <Mail className="h-3 w-3 inline mr-1 text-slate-400" />
+                                {provider.email}
+                              </div>
+                              {provider.phone && (
+                                <div className="text-xs text-slate-500 mt-1">
+                                  <Phone className="h-3 w-3 inline mr-1" />
+                                  {provider.phone}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge variant="outline" className="font-medium">
+                                {provider.location === "NAC" ? "🇲🇽 Nacional" : provider.location === "EXT" ? "🌍 Exterior" : "-"}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {provider.requires_rep ? (
+                                <Badge className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-sm">
+                                  ✓ Activado
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="font-medium">-</Badge>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {provider.requires_rep ? (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-accent" />
+                                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                    {provider.rep_frequency || 7} días
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditProvider(provider)}
+                                  disabled={deleteProviderMutation.isPending}
+                                  className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 transition-colors"
+                                  title="Editar proveedor"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteProvider(provider.id)}
+                                  disabled={deleteProviderMutation.isPending}
+                                  className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 transition-colors"
+                                  title="Eliminar proveedor"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Modal de Proveedor */}
+            <Dialog open={isProviderModalOpen} onOpenChange={setIsProviderModalOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-primary/20">
+                <DialogHeader className="pb-4 border-b border-slate-200 dark:border-slate-700">
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-[#273949] to-[#2a4055] bg-clip-text text-transparent">
+                    {editingProvider ? "✏️ Editar Proveedor" : "➕ Nuevo Proveedor"}
+                  </DialogTitle>
+                  <DialogDescription className="text-base mt-2">
+                    {editingProvider ? "Modifica los datos del proveedor" : "Completa la información del nuevo proveedor"}
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  {/* Empresa */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-company">Empresa *</Label>
+                      <Select
+                        value={providerForm.companyId}
+                        onValueChange={(value) => setProviderForm({ ...providerForm, companyId: value })}
+                      >
+                        <SelectTrigger id="provider-company">
+                          <SelectValue placeholder="Selecciona empresa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Dura International</SelectItem>
+                          <SelectItem value="2">Grupo Orsega</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-location">Ubicación</Label>
+                      <Select
+                        value={providerForm.location}
+                        onValueChange={(value) => setProviderForm({ ...providerForm, location: value })}
+                      >
+                        <SelectTrigger id="provider-location">
+                          <SelectValue placeholder="Selecciona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NAC">Nacional</SelectItem>
+                          <SelectItem value="EXT">Exterior</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Nombre */}
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-name">Nombre Completo *</Label>
+                    <Input
+                      id="provider-name"
+                      value={providerForm.name}
+                      onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
+                      placeholder="Transportes Potosinos"
+                    />
+                  </div>
+
+                  {/* Nombre Corto */}
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-short-name">Nombre Corto</Label>
+                    <Input
+                      id="provider-short-name"
+                      value={providerForm.shortName}
+                      onChange={(e) => setProviderForm({ ...providerForm, shortName: e.target.value })}
+                      placeholder="Potosinos"
+                    />
+                  </div>
+
+                  {/* Contacto */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-email">Email *</Label>
+                      <Input
+                        id="provider-email"
+                        type="email"
+                        value={providerForm.email}
+                        onChange={(e) => setProviderForm({ ...providerForm, email: e.target.value })}
+                        placeholder="contacto@proveedor.com"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-phone">Teléfono</Label>
+                      <Input
+                        id="provider-phone"
+                        value={providerForm.phone}
+                        onChange={(e) => setProviderForm({ ...providerForm, phone: e.target.value })}
+                        placeholder="+52 55 1234 5678"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Persona de Contacto */}
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-contact">Persona de Contacto</Label>
+                    <Input
+                      id="provider-contact"
+                      value={providerForm.contactName}
+                      onChange={(e) => setProviderForm({ ...providerForm, contactName: e.target.value })}
+                      placeholder="Juan Pérez"
+                    />
+                  </div>
+
+                  {/* Configuración REP */}
+                  <div className="space-y-4 border-t border-slate-200 dark:border-slate-700 pt-4 bg-gradient-to-br from-accent/5 to-accent/10 p-4 rounded-lg">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-accent" />
+                      Configuración REP (Recordatorios de Pago)
+                    </h4>
+                    
+                    <div className="flex items-center space-x-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <Checkbox
+                        id="provider-requires-rep"
+                        checked={providerForm.requiresRep}
+                        onCheckedChange={(checked) => setProviderForm({ ...providerForm, requiresRep: checked as boolean })}
+                      />
+                      <Label htmlFor="provider-requires-rep" className="font-semibold cursor-pointer">
+                        Activar recordatorios automáticos de pago
+                      </Label>
+                    </div>
+
+                    {providerForm.requiresRep && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="provider-rep-frequency">Frecuencia (días)</Label>
+                          <Input
+                            id="provider-rep-frequency"
+                            type="number"
+                            min="1"
+                            value={providerForm.repFrequency}
+                            onChange={(e) => setProviderForm({ ...providerForm, repFrequency: parseInt(e.target.value) || 7 })}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="provider-reminder-email">Email para Recordatorios</Label>
+                          <Input
+                            id="provider-reminder-email"
+                            type="email"
+                            value={providerForm.reminderEmail}
+                            onChange={(e) => setProviderForm({ ...providerForm, reminderEmail: e.target.value })}
+                            placeholder="recordatorios@proveedor.com"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notas */}
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-notes">Notas</Label>
+                    <textarea
+                      id="provider-notes"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md min-h-[80px]"
+                      value={providerForm.notes}
+                      onChange={(e) => setProviderForm({ ...providerForm, notes: e.target.value })}
+                      placeholder="Información adicional..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsProviderModalOpen(false)}
+                    className="font-semibold"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSaveProvider}
+                    disabled={createProviderMutation.isPending || updateProviderMutation.isPending}
+                    className="bg-gradient-to-r from-[#273949] to-[#2a4055] hover:from-[#2a4055] hover:to-[#273949] text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    {createProviderMutation.isPending || updateProviderMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        {editingProvider ? "Actualizar Proveedor" : "Guardar Proveedor"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
         </Tabs>
