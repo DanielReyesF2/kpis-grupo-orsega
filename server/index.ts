@@ -3,7 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+// Vite imports will be loaded dynamically in development only
 import { monthlyScheduler } from "./scheduler";
 import { initializeDOFScheduler } from "./dof-scheduler";
 import { securityMonitorMiddleware, loginMonitorMiddleware, uploadMonitorMiddleware, apiAccessMonitorMiddleware } from "./security-monitor";
@@ -186,11 +186,17 @@ app.use((req, res, next) => {
   
   if (expressEnv === "development") {
     console.log("🔧 Setting up Vite middleware for development...");
-    await setupVite(app, server);
-    console.log("✅ Vite middleware configured");
+    try {
+      const { setupVite } = await import("./vite");
+      await setupVite(app, server);
+      console.log("✅ Vite middleware configured");
+    } catch (error) {
+      console.error("❌ Failed to load Vite middleware:", error);
+    }
   } else {
     console.log("📦 Setting up static file serving for production...");
     try {
+      const { serveStatic } = await import("./vite");
       serveStatic(app);
       console.log("✅ Static file serving configured");
     } catch (error) {
