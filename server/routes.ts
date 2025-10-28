@@ -177,27 +177,28 @@ export function registerRoutes(app: express.Application) {
   // ========================================
   
   // Health check endpoint - 🔒 Solo administradores
-  app.get('/health', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {
-    const nodeEnv = process.env.NODE_ENV || 'undefined';
-    const expressEnv = app.get('env');
-    
-    const health = {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      environment: {
-        NODE_ENV: nodeEnv,
-        express_env: expressEnv,
-        is_production: expressEnv === 'production'
-      },
-      server: {
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        port: 5000
-      }
-    };
-    
-    res.json(health);
-  });
+  // COMENTADO: Interfiere con Railway healthcheck
+  // app.get('/health', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {
+  //   const nodeEnv = process.env.NODE_ENV || 'undefined';
+  //   const expressEnv = app.get('env');
+  //   
+  //   const health = {
+  //     status: 'ok',
+  //     timestamp: new Date().toISOString(),
+  //     environment: {
+  //       NODE_ENV: nodeEnv,
+  //       express_env: expressEnv,
+  //       is_production: expressEnv === 'production'
+  //     },
+  //     server: {
+  //       uptime: process.uptime(),
+  //       memory: process.memoryUsage(),
+  //       port: 5000
+  //     }
+  //   };
+  //   
+  //   res.json(health);
+  // });
   
   // Environment check endpoint (más detallado) - 🔒 Solo administradores
   app.get('/env-check', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {

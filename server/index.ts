@@ -85,6 +85,16 @@ if (process.env.NODE_ENV === 'production') {
   console.log("🔒 Trust proxy enabled for production (.replit.app domain)");
 }
 
+// RAILWAY HEALTHCHECK - DEBE IR ANTES DE CUALQUIER MIDDLEWARE
+app.get("/health", (req, res) => {
+  // Railway solo necesita HTTP 200 - sin dependencias externas
+  res.status(200).json({ 
+    status: "healthy",
+    service: "kpis-grupo-orsega",
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -172,11 +182,6 @@ app.use((req, res, next) => {
   app.get("/api/health", healthCheck);
   app.get("/api/health/ready", readinessCheck);
   app.get("/api/health/live", livenessCheck);
-  
-  // ULTRA SIMPLE HEALTHCHECK for Railway
-  app.get("/health", (req, res) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-  });
 
   registerRoutes(app);
   
