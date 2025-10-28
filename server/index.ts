@@ -172,6 +172,11 @@ app.use((req, res, next) => {
   app.get("/api/health", healthCheck);
   app.get("/api/health/ready", readinessCheck);
   app.get("/api/health/live", livenessCheck);
+  
+  // ULTRA SIMPLE HEALTHCHECK for Railway
+  app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   registerRoutes(app);
   
@@ -228,6 +233,9 @@ app.use((req, res, next) => {
   console.log(`🚀 Starting server on port: ${port}`);
   console.log(`🔍 PORT environment variable: ${process.env.PORT || 'not set'}`);
   console.log(`🌐 Server will listen on: 0.0.0.0:${port}`);
+  console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+  console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
   
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
