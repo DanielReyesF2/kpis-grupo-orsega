@@ -220,10 +220,9 @@ app.use((req, res, next) => {
     // ✅ No throwing - let the server continue running
   });
 
-  // ALWAYS serve the app on port 8080
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 8080;
+  // Use Railway's PORT environment variable or fallback to 8080
+  // Railway injects PORT environment variable for health checks
+  const port = process.env.PORT || 8080;
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
     
