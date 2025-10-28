@@ -223,6 +223,12 @@ app.use((req, res, next) => {
   // Use Railway's PORT environment variable or fallback to 8080
   // Railway injects PORT environment variable for health checks
   const port = process.env.PORT || 8080;
+  
+  // Log port configuration for debugging
+  console.log(`🚀 Starting server on port: ${port}`);
+  console.log(`🔍 PORT environment variable: ${process.env.PORT || 'not set'}`);
+  console.log(`🌐 Server will listen on: 0.0.0.0:${port}`);
+  
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
     
