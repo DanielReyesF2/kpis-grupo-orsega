@@ -54,8 +54,11 @@ export async function healthCheck(req: Request, res: Response) {
       if (health.status === 'healthy') health.status = 'degraded';
     }
 
-    // Verificar SendGrid
-    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your-sendgrid-api-key') {
+    // Verificar SendGrid o Resend
+    const hasSendGrid = process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'your-sendgrid-api-key';
+    const hasResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'your-resend-api-key';
+    
+    if (hasSendGrid || hasResend) {
       health.services.sendgrid = 'up';
     } else {
       health.services.sendgrid = 'not_configured';
