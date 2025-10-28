@@ -169,6 +169,10 @@ app.use((req, res, next) => {
   // ============================================
   // HEALTH CHECK ENDPOINTS (antes de autenticación)
   // ============================================
+  // Simple liveness endpoint for Railway healthcheck (responds with 200)
+  app.get("/health", livenessCheck);
+  
+  // Detailed health endpoints
   app.get("/api/health", healthCheck);
   app.get("/api/health/ready", readinessCheck);
   app.get("/api/health/live", livenessCheck);
@@ -220,10 +224,9 @@ app.use((req, res, next) => {
     // ✅ No throwing - let the server continue running
   });
 
-  // ALWAYS serve the app on port 8080
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 8080;
+  // Railway injects PORT environment variable for health checks
+  // Default to 8080 for local development
+  const port = parseInt(process.env.PORT || "8080", 10);
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
     
