@@ -14,7 +14,6 @@ import {
   Plus, 
   Clock,
   ArrowLeft,
-  Home,
   X,
   Trash2,
   Save,
