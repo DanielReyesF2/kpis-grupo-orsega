@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, TrendingUp, TrendingDown, Minus, Clock, RefreshCw } from 'lucide-react';
+import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -38,12 +38,6 @@ export function DofChart() {
 
   const isLoading = monexLoading || santanderLoading || dofLoading;
 
-  // Obtener todos los tipos de cambio para encontrar la última actualización de Lolita
-  const { data: allRates } = useQuery<any[]>({
-    queryKey: ['/api/treasury/exchange-rates', { limit: 10 }],
-    staleTime: 1 * 60 * 1000,
-  });
-
   // Mutación para solicitar actualización
   const requestUpdateMutation = useMutation({
     mutationFn: async () => {
@@ -65,61 +59,6 @@ export function DofChart() {
       });
     },
   });
-
-  // Encontrar última actualización de Lolita
-  const getLastLolitaUpdate = () => {
-    if (!allRates || allRates.length === 0) return null;
-    
-    const lolitaRates = allRates.filter((rate: any) => {
-      const name = rate.created_by_name?.toLowerCase() || '';
-      const email = rate.created_by_email?.toLowerCase() || '';
-      return name.includes('lolita') || name.includes('lola') || email.includes('lolita');
-    });
-    
-    if (lolitaRates.length > 0) {
-      const latest = lolitaRates.sort((a: any, b: any) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      )[0];
-      
-      return {
-        date: new Date(latest.date),
-        source: latest.source,
-        userName: latest.created_by_name || 'Lolita',
-      };
-    }
-    
-    const latest = allRates.sort((a: any, b: any) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
-    
-    return {
-      date: new Date(latest.date),
-      source: latest.source,
-      userName: latest.created_by_name || 'Usuario',
-    };
-  };
-
-  const lastUpdate = getLastLolitaUpdate();
-  
-  const formatUpdateTime = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (diffHours === 0 && diffMinutes < 60) {
-      return `hace ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
-    } else if (diffHours < 24) {
-      return `hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
-    } else {
-      return date.toLocaleDateString('es-MX', { 
-        day: '2-digit', 
-        month: 'short', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    }
-  };
 
   // Obtener los últimos valores de cada fuente
   const getLatestData = (series: any, sourceName: string) => {
@@ -227,51 +166,35 @@ export function DofChart() {
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                 ¡Hola {user?.name?.split(' ')[0] || 'Emilio'}! 👋
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-base">
-                Así amaneció el tipo de cambio hoy
-                {dofData && (
-                  <span className="ml-2 font-bold text-gray-900 dark:text-white">
+              {dofData && (
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
                     ${dofData.buy.toFixed(4)}
-                    {dofData.buyChange !== 0 && (
-                      <span className={`ml-2 text-sm ${
-                        dofData.buyChange > 0 ? 'text-green-600' : 
-                        dofData.buyChange < 0 ? 'text-red-600' : 
-                        'text-gray-500'
-                      }`}>
-                        {dofData.buyChange > 0 ? '+' : ''}{dofData.buyChange.toFixed(4)}
-                      </span>
-                    )}
                   </span>
-                )}
-              </p>
-            </div>
-
-            {/* Última actualización y botón */}
-            <div className="flex flex-col items-start sm:items-end gap-3">
-              {lastUpdate && (
-                <div className="text-right">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    La última actualización de {lastUpdate.userName} fue
-                  </div>
-                  <div className="flex items-center justify-end gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-medium">
-                      {formatUpdateTime(lastUpdate.date)}
+                  {dofData.buyChange !== 0 && (
+                    <span className={`text-lg font-semibold ${
+                      dofData.buyChange > 0 ? 'text-green-600' : 
+                      dofData.buyChange < 0 ? 'text-red-600' : 
+                      'text-gray-500'
+                    }`}>
+                      {dofData.buyChange > 0 ? '+' : ''}{dofData.buyChange.toFixed(4)}
                     </span>
-                  </div>
+                  )}
                 </div>
               )}
-              
+            </div>
+
+            {/* Botón prominente */}
+            <div className="flex items-center">
               <Button
                 onClick={() => requestUpdateMutation.mutate()}
                 disabled={requestUpdateMutation.isPending}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 whitespace-nowrap"
-                size="sm"
+                className="bg-[#1e3a5f] hover:bg-[#2a4a6f] text-white font-semibold px-6 py-3 text-base shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                size="lg"
               >
                 {requestUpdateMutation.isPending ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
                     Enviando...
                   </>
                 ) : (
