@@ -11,6 +11,7 @@ import { SalesSummary } from '@/components/dashboard/SalesSummary';
 import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
 import { DofChart } from '@/components/dashboard/DofChart';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
+import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
@@ -254,6 +255,16 @@ export default function Dashboard() {
       {/* Comparativa de Tipos de Cambio */}
       <div className="mb-6 sm:mb-12" data-onboarding="dof-chart">
         <DofChart />
+      </div>
+
+      {/* Gráfica de Barras de Ventas */}
+      <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
+        <SalesVolumeChart 
+          companyId={Number(filters.companyId) || 2}
+          kpiId={Number(filters.companyId) === 1 ? 39 : 10}
+          limit={6}
+          showControls={true}
+        />
       </div>
 
       {/* Preview de Logística */}
