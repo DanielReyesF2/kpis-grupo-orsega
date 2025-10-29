@@ -97,13 +97,24 @@ export function jwtAdminMiddleware(req: Request, res: Response, next: NextFuncti
 // Función para verificar contraseñas de manera segura
 async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
   try {
-    // Si la contraseña está hasheada con bcrypt, usar bcrypt.compare
-    if (stored.startsWith('$2b$')) {
-      return await bcrypt.compare(supplied, stored);
+    if (!stored || !supplied) {
+      console.error("[Auth] Password o stored password vacío");
+      return false;
+    }
+
+    // Si la contraseña está hasheada con bcrypt (diferentes variantes)
+    if (stored.startsWith('$2a$') || stored.startsWith('$2b$') || stored.startsWith('$2y$')) {
+      console.log("[Auth] Comparando con bcrypt (hash detectado)");
+      const result = await bcrypt.compare(supplied, stored);
+      console.log(`[Auth] Resultado bcrypt.compare: ${result}`);
+      return result;
     }
     
-    // Para contraseñas sin hashear (fallback)
-    return supplied === stored;
+    // Para contraseñas sin hashear (fallback - desarrollo/migración)
+    console.log("[Auth] Comparando texto plano (fallback)");
+    const result = supplied === stored;
+    console.log(`[Auth] Resultado comparación texto plano: ${result} (supplied="${supplied}", stored="${stored}")`);
+    return result;
   } catch (error) {
     console.error("[Auth] Error comparando contraseñas:", error);
     return false;
@@ -112,6 +123,7 @@ async function comparePasswords(supplied: string, stored: string): Promise<boole
 
 export async function loginUser(username: string, password: string): Promise<{ token: string, user: any } | null> {
   try {
+    console.log(`[Auth] Intento de login para: ${username}`);
     const user = await storage.getUserByUsername(username);
     
     if (!user) {
@@ -119,9 +131,14 @@ export async function loginUser(username: string, password: string): Promise<{ t
       return null;
     }
     
+    console.log(`[Auth] Usuario encontrado: ID=${user.id}, Email=${user.email}, Password hash starts with: ${user.password?.substring(0, 10)}`);
+    
     const passwordMatches = await comparePasswords(password, user.password);
+    console.log(`[Auth] Comparación de contraseña: ${passwordMatches ? '✅ MATCH' : '❌ NO MATCH'}`);
+    
     if (!passwordMatches) {
       console.log(`[Auth] Contraseña incorrecta para usuario: ${username}`);
+      console.log(`[Auth] Detalles: Password proporcionada length=${password.length}, Stored password starts with=${user.password?.substring(0, 10)}`);
       return null;
     }
     
