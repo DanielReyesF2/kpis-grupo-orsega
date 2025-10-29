@@ -18,6 +18,7 @@ import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
+import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -1143,6 +1144,31 @@ export default function KpiControlCenter() {
         {/* Contenido Dinámico según Vista Seleccionada */}
         {viewMode === 'overview' && (
           <div className="space-y-6">
+            {/* Actualización de Ventas Mensuales - Formulario prominente */}
+            <Card className="relative border-0 shadow-xl bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-indigo-950/30 overflow-hidden">
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
+              
+              <CardHeader className="relative pb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-white">
+                      ✨ Actualizar Ventas Mensuales
+                    </CardTitle>
+                    <CardDescription className="text-blue-100 mt-1">
+                      Selecciona el período (mes y año) y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="relative pt-6 bg-transparent">
+                <SalesWeeklyUpdateForm showHeader={false} />
+              </CardContent>
+            </Card>
+
             {/* Panel de métricas en tiempo real */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
