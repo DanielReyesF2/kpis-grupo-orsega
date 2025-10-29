@@ -12,7 +12,7 @@ export const clientSchema = z.object({
   name: z.string().min(2),
   rfc: z.string().optional(), 
   email, 
-  phone: z.string().optional(),
+  // phone removido - no se usa en la tabla clients
   billingAddr: z.string().optional(), 
   shippingAddr: z.string().optional(),
   isActive: z.boolean().default(true),

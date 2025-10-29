@@ -32,7 +32,11 @@ catalogRouter.post('/clients', async (req, res) => {
   try {
     console.log('🔵 [POST /clients] Creando nuevo cliente');
     console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
-    const validated = createClientSchema.parse(req.body)
+    
+    // Remover phone del body antes de validar (no se usa en la tabla)
+    const { phone, ...bodyWithoutPhone } = req.body;
+    
+    const validated = createClientSchema.parse(bodyWithoutPhone)
     console.log('✅ Validated data:', JSON.stringify(validated, null, 2));
     
     // Mapear billingAddr y shippingAddr a address si existen
