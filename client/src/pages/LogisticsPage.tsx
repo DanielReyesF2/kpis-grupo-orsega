@@ -142,12 +142,15 @@ export default function LogisticsPage() {
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
             <CardContent className="p-6">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-800">En Tránsito</p>
+                  <p className="text-4xl font-bold text-orange-900">
+                    {shipments.filter((s: Shipment) => s.status === 'in_transit').length}
+                  </p>
+                </div>
                 <div className="bg-orange-200 p-3 rounded-full">
                   <Package className="w-10 h-10 text-orange-700" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-orange-800">En Tránsito</p>
                 </div>
               </div>
             </CardContent>
@@ -155,12 +158,15 @@ export default function LogisticsPage() {
 
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
             <CardContent className="p-6">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-800">Pendientes</p>
+                  <p className="text-4xl font-bold text-purple-900">
+                    {shipments.filter((s: Shipment) => s.status === 'pending').length}
+                  </p>
+                </div>
                 <div className="bg-purple-200 p-3 rounded-full">
                   <Clock className="w-10 h-10 text-purple-700" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-purple-800">Pendientes</p>
                 </div>
               </div>
             </CardContent>
@@ -172,18 +178,24 @@ export default function LogisticsPage() {
         <div className="space-y-4">
           <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('clients')}>
             <CardContent className="p-4">
-              <div className="flex items-center">
-                <Users className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="text-sm text-gray-600">Clientes</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Users className="w-5 h-5 text-blue-600 mr-2" />
+                  <span className="text-sm text-gray-600">Clientes</span>
+                </div>
+                <span className="text-lg font-semibold text-gray-900">{clients.length}</span>
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('providers')}>
             <CardContent className="p-4">
-              <div className="flex items-center">
-                <Truck className="w-5 h-5 text-green-600 mr-2" />
-                <span className="text-sm text-gray-600">Proveedores</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Truck className="w-5 h-5 text-green-600 mr-2" />
+                  <span className="text-sm text-gray-600">Proveedores</span>
+                </div>
+                <span className="text-lg font-semibold text-gray-900">{providers.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -200,7 +212,7 @@ export default function LogisticsPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
-                Clientes
+                Clientes ({clients.length})
               </DialogTitle>
               <Button 
                 data-testid="button-new-client"
@@ -301,7 +313,7 @@ export default function LogisticsPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-green-600" />
-                Proveedores de Transporte
+                Proveedores de Transporte ({providers.length})
               </DialogTitle>
               <Button 
                 data-testid="button-new-provider"
