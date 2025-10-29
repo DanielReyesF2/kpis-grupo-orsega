@@ -127,29 +127,14 @@ export default function LogisticsPage() {
 
   return (
     <AppLayout title="Módulo de Logística">
-      {/* Navigation breadcrumb */}
-      <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600">
-        <Link href="/" className="flex items-center hover:text-blue-600 transition-colors">
-          <Home className="w-4 h-4 mr-1" />
-          Dashboard
+      {/* Botón Dashboard */}
+      <div className="flex justify-start items-center mb-6">
+        <Link href="/">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Dashboard
+          </Button>
         </Link>
-        <span>/</span>
-        <span className="text-gray-900 font-medium">Módulo de Logística</span>
-      </div>
-
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Link href="/" className="text-blue-600 hover:text-blue-800 transition-colors">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Dashboard
-              </Button>
-            </Link>
-            <span className="text-gray-300">|</span>
-            
-          </div>
-        </div>
       </div>
 
       {/* Main Stats - Shipments Focus */}
@@ -192,27 +177,20 @@ export default function LogisticsPage() {
 
         {/* Secondary Stats - Database Info */}
         <div className="space-y-4">
-          <div className="text-sm font-medium text-gray-500 mb-3">Base de Datos</div>
           <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('clients')}>
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-sm text-gray-600">Clientes</span>
-                </div>
-                <span className="text-lg font-semibold text-gray-900">{clients.length}</span>
+              <div className="flex items-center">
+                <Users className="w-5 h-5 text-blue-600 mr-2" />
+                <span className="text-sm text-gray-600">Clientes</span>
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('providers')}>
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Truck className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-sm text-gray-600">Proveedores</span>
-                </div>
-                <span className="text-lg font-semibold text-gray-900">{providers.length}</span>
+              <div className="flex items-center">
+                <Truck className="w-5 h-5 text-green-600 mr-2" />
+                <span className="text-sm text-gray-600">Proveedores</span>
               </div>
             </CardContent>
           </Card>
@@ -330,7 +308,7 @@ export default function LogisticsPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-green-600" />
-                Proveedores de Transporte ({providers.length})
+                Proveedores de Transporte
               </DialogTitle>
               <Button 
                 data-testid="button-new-provider"
