@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -20,6 +19,23 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamically import viteConfig only in development to avoid bundling issues
+  // This import happens at runtime using string path to avoid esbuild analysis
+  // Use createRequire or direct import based on environment
+  let viteConfig;
+  try {
+    // Try to import dynamically - will only work if vite.config.js exists
+    const configPath = "../vite.config.js";
+    viteConfig = (await import(/* @vite-ignore */ configPath)).default;
+  } catch (error) {
+    // If import fails, create a minimal config for development
+    console.warn("⚠️ Could not load vite.config, using minimal config");
+    viteConfig = {
+      root: path.resolve(import.meta.dirname, "..", "client"),
+      server: {},
+    };
+  }
+  
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
