@@ -533,7 +533,19 @@ function ClientFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof clientFormSchema>) => {
-      const response = await apiRequest('POST', '/api/clients', data);
+      // Mapear campos del formulario a los campos esperados por la API
+      const apiData = {
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        isActive: data.is_active,
+        // Campos adicionales que podrían estar en la BD
+        address: data.billing_addr || null,
+        billing_addr: data.billing_addr || null,
+        shipping_addr: data.shipping_addr || null,
+        rfc: data.rfc || null,
+      };
+      const response = await apiRequest('POST', '/api/clients', apiData);
       return await response.json();
     },
     onSuccess: () => {
@@ -555,7 +567,18 @@ function ClientFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof clientFormSchema>) => {
-      const response = await apiRequest('PATCH', `/api/clients/${client?.id}`, data);
+      // Mapear campos del formulario a los campos esperados por la API
+      const apiData = {
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        isActive: data.is_active,
+        address: data.billing_addr || null,
+        billing_addr: data.billing_addr || null,
+        shipping_addr: data.shipping_addr || null,
+        rfc: data.rfc || null,
+      };
+      const response = await apiRequest('PATCH', `/api/clients/${client?.id}`, apiData);
       return await response.json();
     },
     onSuccess: () => {
