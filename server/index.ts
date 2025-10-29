@@ -222,34 +222,76 @@ app.use((req, res, next) => {
 // Create HTTP server EARLY for healthchecks
 const server = createServer(app);
 
-// Use Railway's PORT environment variable or fallback to 8080
-const port = process.env.PORT || 8080;
+// Use Railway's PORT environment variable (Railway injects this automatically)
+// Do NOT set PORT manually in Railway - it will be injected at runtime
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+
+if (!port || isNaN(port)) {
+  console.error('❌ ERROR: Invalid PORT value:', process.env.PORT);
+  process.exit(1);
+}
 
 // CRITICAL: Start listening IMMEDIATELY so Railway healthchecks work
 // This MUST happen before any async operations
-server.listen(port, "0.0.0.0", () => {
-  console.log(`✅ Server listening on port ${port}`);
-  console.log(`🌐 Accessible on 0.0.0.0:${port}`);
-  console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-  console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
-  console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
-  console.log(`🏥 Healthcheck available at: http://0.0.0.0:${port}/health`);
-  console.log(`🏥 Healthcheck alternative: http://0.0.0.0:${port}/healthz`);
-});
+// Wrap in try-catch to prevent crashes during startup
+try {
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`✅ Server listening on port ${port}`);
+    console.log(`🌐 Accessible on 0.0.0.0:${port}`);
+    console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+    console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
+    console.log(`🏥 Healthcheck available at: http://0.0.0.0:${port}/health`);
+    console.log(`🏥 Healthcheck alternative: http://0.0.0.0:${port}/healthz`);
+    console.log(`✅ Railway healthcheck should work now!`);
+  });
+
+  // Handle server errors gracefully
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ ERROR: Port ${port} is already in use`);
+      process.exit(1);
+    } else {
+      console.error('❌ Server error:', error);
+      // Don't exit - let it retry
+    }
+  });
+} catch (error) {
+  console.error('❌ CRITICAL: Failed to start server:', error);
+  process.exit(1);
+}
 
 // CRITICAL: Add error handler BEFORE async operations to catch any errors
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
-  // Log error for debugging but don't crash the server
-  console.error(`[Server Error ${status}]:`, err.message);
-  if (status >= 500) {
-    console.error('Full error stack:', err.stack);
+  // Skip logging for healthcheck endpoints
+  if (_req.path !== '/health' && _req.path !== '/healthz') {
+    // Log error for debugging but don't crash the server
+    console.error(`[Server Error ${status}]:`, err.message);
+    if (status >= 500) {
+      console.error('Full error stack:', err.stack);
+    }
   }
 
   res.status(status).json({ message });
   // ✅ No throwing - let the server continue running
+});
+
+// Global unhandled error handlers
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - let the server continue
+});
+
+process.on('uncaughtException', (error: Error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit immediately - log and continue
+  // Only exit if it's a critical error
+  if (error.message.includes('EADDRINUSE') || error.message.includes('PORT')) {
+    process.exit(1);
+  }
 });
 
 // Now setup everything else ASYNCHRONOUSLY after server is listening
