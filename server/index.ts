@@ -74,8 +74,12 @@ function logBootDiagnostics() {
   }
 }
 
-// Run diagnostics immediately
-logBootDiagnostics();
+// Run diagnostics immediately (but don't block if it fails)
+try {
+  logBootDiagnostics();
+} catch (error) {
+  console.error('⚠️ Boot diagnostics failed (non-critical):', error);
+}
 
 const app = express();
 
@@ -93,41 +97,30 @@ if (process.env.NODE_ENV === 'production') {
 // DEBE estar ANTES de cualquier middleware o inicialización pesada
 // Railway usa hostname: healthcheck.railway.app
 // ULTRA SIMPLE - solo retorna 200 OK siempre
+// NO usar ninguna operación que pueda fallar - responder inmediatamente
 app.get("/health", (req, res) => {
-  try {
-    // Respuesta mínima y rápida para Railway
-    // No usar req.hostname porque puede no estar disponible
-    // No usar operaciones complejas que puedan fallar
-    res.status(200).json({ 
-      status: "healthy",
-      service: "kpis-grupo-orsega"
-    });
-  } catch (error) {
-    // Si algo falla, aún así retornar 200 OK
-    // Railway necesita 200 para considerar el servicio vivo
-    try {
-      res.status(200).json({ 
-        status: "healthy",
-        service: "kpis-grupo-orsega",
-        note: "response_simplified"
-      });
-    } catch (e) {
-      // Último recurso - solo enviar texto plano
-      res.status(200).send("OK");
-    }
-  }
+  // No usar try-catch para evitar overhead
+  // Simplemente responder con 200 OK siempre
+  res.status(200).json({ 
+    status: "healthy",
+    service: "kpis-grupo-orsega"
+  });
+});
+
+// Healthcheck HEAD method (Railway también puede usar HEAD)
+app.head("/health", (req, res) => {
+  res.status(200).end();
 });
 
 // Healthcheck alternativo para Railway - aún más simple
 app.get("/healthz", (req, res) => {
-  try {
-    res.status(200).json({ 
-      status: "ok"
-    });
-  } catch (error) {
-    // Fallback simple
-    res.status(200).send("OK");
-  }
+  res.status(200).json({ 
+    status: "ok"
+  });
+});
+
+app.head("/healthz", (req, res) => {
+  res.status(200).end();
 });
 
 app.use(express.json());
