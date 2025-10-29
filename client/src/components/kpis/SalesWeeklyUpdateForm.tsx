@@ -24,9 +24,10 @@ type FormValues = z.infer<typeof salesFormSchema>;
 
 interface SalesWeeklyUpdateFormProps {
   showHeader?: boolean;
+  defaultCompanyId?: number;
 }
 
-export default function SalesWeeklyUpdateForm({ showHeader = true }: SalesWeeklyUpdateFormProps = {}) {
+export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompanyId }: SalesWeeklyUpdateFormProps = {}) {
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "success" | "error">("idle");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<number>(1);
@@ -45,11 +46,19 @@ export default function SalesWeeklyUpdateForm({ showHeader = true }: SalesWeekly
     resolver: zodResolver(salesFormSchema),
     defaultValues: {
       value: "",
-      companyId: 1,
+      companyId: defaultCompanyId || 1,
       month: currentMonth,
       year: currentYear
     }
   });
+
+  // Actualizar companyId cuando cambie defaultCompanyId
+  useEffect(() => {
+    if (defaultCompanyId && defaultCompanyId !== form.getValues('companyId')) {
+      form.setValue('companyId', defaultCompanyId);
+      setSelectedCompanyId(defaultCompanyId);
+    }
+  }, [defaultCompanyId, form]);
 
   // Consulta para obtener las compañías
   const { data: companies = [] } = useQuery<any[]>({
