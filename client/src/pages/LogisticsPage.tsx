@@ -207,7 +207,7 @@ export default function LogisticsPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
-                Clientes ({clients.length})
+                Clientes
               </DialogTitle>
               <Button 
                 data-testid="button-new-client"
