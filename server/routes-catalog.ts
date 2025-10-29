@@ -43,7 +43,11 @@ catalogRouter.post('/clients', async (req, res) => {
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('❌ Error creating client:', error)
-    res.status(400).json({ error: 'Failed to create client' })
+    if (error instanceof z.ZodError) {
+      console.error('❌ Validation errors:', JSON.stringify(error.errors, null, 2))
+      return res.status(400).json({ error: 'Validation failed', details: error.errors })
+    }
+    res.status(400).json({ error: 'Failed to create client', message: error instanceof Error ? error.message : String(error) })
   }
 })
 

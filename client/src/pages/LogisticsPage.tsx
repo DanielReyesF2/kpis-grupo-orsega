@@ -533,17 +533,15 @@ function ClientFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof clientFormSchema>) => {
-      // Mapear campos del formulario a los campos esperados por la API
+      // Mapear campos del formulario a los campos esperados por createClientSchema
       const apiData = {
         name: data.name,
-        email: data.email || null,
-        phone: data.phone || null,
-        isActive: data.is_active,
-        // Campos adicionales que podrían estar en la BD
-        address: data.billing_addr || null,
-        billing_addr: data.billing_addr || null,
-        shipping_addr: data.shipping_addr || null,
-        rfc: data.rfc || null,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        rfc: data.rfc || undefined,
+        billingAddr: data.billing_addr || undefined,
+        shippingAddr: data.shipping_addr || undefined,
+        isActive: data.is_active ?? true,
       };
       const response = await apiRequest('POST', '/api/clients', apiData);
       return await response.json();
@@ -567,16 +565,15 @@ function ClientFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof clientFormSchema>) => {
-      // Mapear campos del formulario a los campos esperados por la API
+      // Mapear campos del formulario a los campos esperados por updateClientSchema
       const apiData = {
         name: data.name,
-        email: data.email || null,
-        phone: data.phone || null,
-        isActive: data.is_active,
-        address: data.billing_addr || null,
-        billing_addr: data.billing_addr || null,
-        shipping_addr: data.shipping_addr || null,
-        rfc: data.rfc || null,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        rfc: data.rfc || undefined,
+        billingAddr: data.billing_addr || undefined,
+        shippingAddr: data.shipping_addr || undefined,
+        isActive: data.is_active ?? true,
       };
       const response = await apiRequest('PATCH', `/api/clients/${client?.id}`, apiData);
       return await response.json();
