@@ -99,27 +99,60 @@ export function SalesVolumeChart({
   showControls?: boolean;
 }) {
   
-  // Datos de tendencia con datos estáticos para la presentación
+  // Obtener datos reales de la API
+  const { data: kpiHistoryData, isLoading: isLoadingHistory } = useQuery<any[]>({
+    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
+    enabled: !!kpiId && kpiId > 0,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+    refetchInterval: 30000, // Refrescar cada 30 segundos
+  });
+
+  // Procesar datos históricos de la API
   const chartData = useMemo(() => {
-    // Usar datos fijos específicos para cada compañía
-    if (companyId === 1) {
-      // Dura International (en KG)
-      return [
-        { period: "Enero 2025", value: 58750, compliancePercentage: 105.8, status: "success", unit: 'KG' },
-        { period: "Febrero 2025", value: 61240, compliancePercentage: 110.2, status: "success", unit: 'KG' },
-        { period: "Marzo 2025", value: 59680, compliancePercentage: 107.4, status: "success", unit: 'KG' },
-        { period: "Abril 2025", value: 52430, compliancePercentage: 94.3, status: "warning", unit: 'KG' }
-      ];
-    } else {
-      // Grupo Orsega (en unidades)
-      return [
-        { period: "Enero 2025", value: 202450, compliancePercentage: 94.1, status: "warning", unit: 'unidades' },
-        { period: "Febrero 2025", value: 198670, compliancePercentage: 92.3, status: "warning", unit: 'unidades' },
-        { period: "Marzo 2025", value: 213840, compliancePercentage: 99.4, status: "warning", unit: 'unidades' },
-        { period: "Abril 2025", value: 204461, compliancePercentage: 95.0, status: "warning", unit: 'unidades' }
-      ];
+    if (!kpiHistoryData || kpiHistoryData.length === 0) {
+      // Si no hay datos, retornar array vacío
+      return [];
     }
-  }, [companyId]);
+
+    // Mapeo de nombres de meses para ordenamiento
+    const monthOrder: { [key: string]: number } = {
+      'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4,
+      'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8,
+      'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12,
+      'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+      'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+      'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
+    };
+
+    // Procesar y ordenar los datos
+    const processedData = kpiHistoryData
+      .map((item: any) => {
+        // Extraer mes y año del periodo (formato: "Enero 2025" o "ENERO 2025")
+        const periodParts = (item.period || '').split(' ');
+        const month = periodParts[0] || '';
+        const year = periodParts[1] || new Date().getFullYear().toString();
+        const value = parseFloat(item.value?.toString() || '0');
+
+        return {
+          period: item.period,
+          value: value,
+          date: item.date ? new Date(item.date) : new Date(`${year}-${monthOrder[month] || 1}-01`),
+          monthOrder: monthOrder[month] || 0,
+          year: parseInt(year) || new Date().getFullYear(),
+          unit: companyId === 1 ? 'KG' : 'unidades'
+        };
+      })
+      .sort((a, b) => {
+        // Ordenar por año, luego por mes
+        if (a.year !== b.year) {
+          return a.year - b.year;
+        }
+        return a.monthOrder - b.monthOrder;
+      })
+      .slice(-limit); // Tomar solo los últimos N meses según el limit
+
+    return processedData;
+  }, [kpiHistoryData, companyId, limit]);
 
   // Extraer el valor objetivo (target) quitando "KG" y convirtiendo a número
   const targetValue = target ? parseInt(target.replace(/[^0-9]/g, ''), 10) : 0;
@@ -214,6 +247,27 @@ export function SalesVolumeChart({
   };
 
   const trendData = getTrendData();
+
+  // Mostrar skeleton mientras carga
+  if (isLoadingHistory) {
+    return (
+      <Card className="shadow-md bg-white dark:bg-slate-900">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-semibold text-slate-800 dark:text-slate-200">
+            {title}
+          </CardTitle>
+          <CardDescription className="text-slate-500 dark:text-slate-400">
+            {subtitle}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px] flex items-center justify-center">
+            <p className="text-gray-500">Cargando datos...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="shadow-md bg-white dark:bg-slate-900">
