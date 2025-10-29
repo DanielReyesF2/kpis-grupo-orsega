@@ -283,7 +283,7 @@ export function DofChart() {
 
                       {/* Fecha y hora */}
                       <div className="text-xs text-gray-500 text-center">
-                        Actualizado: {new Date(data.date).toLocaleDateString('es-MX', { 
+                        Actualizado: {new Date(data.date).toLocaleString('es-MX', { 
                           day: '2-digit', 
                           month: 'short', 
                           year: 'numeric',
