@@ -1,11 +1,21 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+// Lazy load vite dependencies only in development
+let viteLogger: any = null;
+let createViteServer: any = null;
+
+async function getViteDeps() {
+  if (!viteLogger || !createViteServer) {
+    const viteModule = await import("vite");
+    viteLogger = viteModule.createLogger();
+    createViteServer = viteModule.createServer;
+  }
+  return { viteLogger, createViteServer };
+}
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -19,9 +29,10 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamically import all vite dependencies to avoid bundling in production
+  const { viteLogger, createViteServer } = await getViteDeps();
+  
   // Dynamically import viteConfig only in development to avoid bundling issues
-  // This import happens at runtime using string path to avoid esbuild analysis
-  // Use createRequire or direct import based on environment
   let viteConfig;
   try {
     // Try to import dynamically - will only work if vite.config.js exists
