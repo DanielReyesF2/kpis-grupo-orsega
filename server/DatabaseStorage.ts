@@ -1001,8 +1001,32 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (!kpiInfo) {
-        console.error(`[getKPIHistory] KPI ${kpiId} not found in kpis_dura or kpis_orsega`);
-        return [];
+        console.error(`[getKPIHistory] ❌ KPI ${kpiId} no encontrado en kpis_dura ni kpis_orsega`);
+        console.error(`[getKPIHistory] Intentando buscar en tabla antigua kpi_values como fallback...`);
+        // Fallback: buscar en tabla antigua kpi_values
+        try {
+          const fallbackResult = await sql`
+            SELECT 
+              id,
+              kpi_id as "kpiId",
+              value,
+              date,
+              period,
+              compliance_percentage as "compliancePercentage",
+              status,
+              comments,
+              updated_by as "updatedBy"
+            FROM kpi_values
+            WHERE kpi_id = ${kpiId}
+            ORDER BY date DESC
+            LIMIT ${months}
+          `;
+          console.log(`[getKPIHistory] Fallback - Encontrados ${fallbackResult.length} registros en kpi_values`);
+          return fallbackResult;
+        } catch (error) {
+          console.error(`[getKPIHistory] Error en fallback:`, error);
+          return [];
+        }
       }
 
       // Buscar valores históricos usando el mismo kpi_id

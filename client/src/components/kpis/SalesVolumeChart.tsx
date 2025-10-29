@@ -100,11 +100,22 @@ export function SalesVolumeChart({
 }) {
   
   // Obtener datos reales de la API
-  const { data: kpiHistoryData, isLoading: isLoadingHistory } = useQuery<any[]>({
+  const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
     enabled: !!kpiId && kpiId > 0,
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
     refetchInterval: 30000, // Refrescar cada 30 segundos
+  });
+
+  // Debug: Log del estado de la query
+  console.log("[SalesVolumeChart] Estado de query:", {
+    kpiId,
+    companyId,
+    enabled: !!kpiId && kpiId > 0,
+    isLoading: isLoadingHistory,
+    hasData: !!kpiHistoryData,
+    dataLength: kpiHistoryData?.length || 0,
+    error: kpiHistoryError
   });
 
   // Procesar datos históricos de la API
@@ -522,8 +533,14 @@ export function SalesVolumeChart({
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="flex justify-center items-center h-[250px] sm:h-[300px] text-secondary-500">
-            No hay datos suficientes para mostrar la tendencia de volumen de ventas
+          <div className="flex flex-col justify-center items-center h-[250px] sm:h-[300px] text-secondary-500 gap-2">
+            <p className="text-sm font-medium">No hay datos suficientes para mostrar la tendencia de volumen de ventas</p>
+            {kpiHistoryError && (
+              <p className="text-xs text-red-500">Error: {kpiHistoryError instanceof Error ? kpiHistoryError.message : 'Error desconocido'}</p>
+            )}
+            {!kpiHistoryError && !isLoadingHistory && kpiHistoryData && kpiHistoryData.length === 0 && (
+              <p className="text-xs text-gray-400">KPI ID: {kpiId} | Company ID: {companyId} | No se encontraron registros en la base de datos</p>
+            )}
           </div>
         )}
         
