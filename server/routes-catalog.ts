@@ -40,8 +40,7 @@ catalogRouter.post('/clients', async (req, res) => {
     
     // La tabla clients usa serial (integer) para id, no UUID
     // No especificamos id, la base de datos lo genera automáticamente
-    // Verificar estructura real de la tabla antes de insertar
-    // NOTA: Si la tabla no tiene columna 'phone', solo usamos los campos que existen
+    // Solo email es obligatorio según requerimientos
     const result = await sql(`
       INSERT INTO clients (
         name, 
@@ -68,7 +67,7 @@ catalogRouter.post('/clients', async (req, res) => {
       RETURNING *
     `, [
       validated.name, 
-      validated.email || null,
+      validated.email || null, // Email es el único campo obligatorio
       null, // contactPerson
       null, // company
       address, // address (from billingAddr or shippingAddr)
@@ -87,17 +86,6 @@ catalogRouter.post('/clients', async (req, res) => {
       null, // customerType
       false // requiresPaymentComplement (default)
     ])
-    
-    // Si phone existe en el schema validado, intentar actualizarlo después
-    if (validated.phone) {
-      try {
-        await sql(`
-          UPDATE clients SET phone = $1 WHERE id = $2
-        `, [validated.phone, result.rows[0].id])
-      } catch (phoneError) {
-        console.warn('⚠️ [POST /clients] No se pudo guardar phone (columna puede no existir):', (phoneError as Error).message)
-      }
-    }
     
     console.log(`✅ [POST /clients] Cliente creado: ${result.rows[0].name}`)
     res.status(201).json(result.rows[0])
