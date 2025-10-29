@@ -527,6 +527,7 @@ export default function KpiControlCenter() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('all');
   const [selectedAreaFilter, setSelectedAreaFilter] = useState('all');
+  const [executiveTab, setExecutiveTab] = useState<string>('dashboard'); // Estado para pestañas ejecutivas
 
 
   // Obtener empresas
@@ -1484,7 +1485,7 @@ export default function KpiControlCenter() {
             </div>
 
             {/* Executive Tabs */}
-            <Tabs value="dashboard" className="space-y-6">
+            <Tabs value={executiveTab} onValueChange={setExecutiveTab} className="space-y-6">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
                 <TabsTrigger value="equipo">Equipo</TabsTrigger>
