@@ -1,33 +1,56 @@
+# Dependencies
 node_modules
 npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Development files
 .git
 .gitignore
-README.md
-.env
 .env.local
-.env.development
-.env.test
-.env.production
-.nyc_output
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
 coverage
-.cache
-dist
-tsconfig.tsbuildinfo
-*.tsbuildinfo
-.DS_Store
-*.log
+.nyc_output
+
+# Logs
 logs
-uploads
-attached_assets
-*.zip
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.pdf
-*.sql
+*.log
+
+# Temporary files
+tmp
+temp
+.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep only essential)
 *.md
-test-*
-*.txt
-*.js.map
-*.css.map
+!README.md
+
+# Assets (may not be needed in image)
+attached_assets
+
+# Railway specific
+.railway
+
+# CI/CD
+.github

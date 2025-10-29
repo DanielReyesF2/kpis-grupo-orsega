@@ -84,27 +84,35 @@ const app = express();
 // ============================================================
 // Este endpoint DEBE responder inmediatamente sin dependencias
 // Railway lo usa para determinar si el servicio está vivo
-app.get("/health", (_req, res) => {
-  try {
-    // Respuesta mínima y rápida - sin dependencias
-    res.status(200).json({ 
-      status: "healthy",
-      service: "kpis-grupo-orsega",
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    // Si algo falla, aún así responder 200 para no bloquear Railway
-    res.status(200).json({ 
-      status: "healthy",
-      timestamp: new Date().toISOString()
-    });
-  }
+// DEBE estar ANTES de cualquier middleware o inicialización pesada
+// Railway usa hostname: healthcheck.railway.app
+app.get("/health", (req, res) => {
+  // Permitir explícitamente healthcheck.railway.app
+  // Aceptar cualquier hostname para healthcheck (no validar)
+  res.status(200).json({ 
+    status: "healthy",
+    service: "kpis-grupo-orsega",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    hostname: req.hostname || req.headers.host
+  });
 });
 
-// Configure trust proxy for .replit.app domain in production
+// Healthcheck alternativo para Railway
+app.get("/healthz", (req, res) => {
+  // Permitir explícitamente healthcheck.railway.app
+  res.status(200).json({ 
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    hostname: req.hostname || req.headers.host
+  });
+});
+
+// Configure trust proxy for Railway and production domains
+// Railway uses healthcheck.railway.app for healthchecks
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
-  console.log("🔒 Trust proxy enabled for production (.replit.app domain)");
+  console.log("🔒 Trust proxy enabled for production (Railway & .replit.app domains)");
 }
 
 app.use(express.json());
@@ -186,87 +194,89 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  // Register API routes BEFORE Vite middleware
-  // ============================================
-  // HEALTH CHECK ENDPOINTS (antes de autenticación)
-  // ============================================
-  app.get("/api/health", healthCheck);
-  app.get("/api/health/ready", readinessCheck);
-  app.get("/api/health/live", livenessCheck);
+// Create HTTP server EARLY for healthchecks
+const server = createServer(app);
 
-  registerRoutes(app);
-  
-  // Create HTTP server for proper WebSocket support
-  const server = createServer(app);
+// Use Railway's PORT environment variable or fallback to 8080
+const port = process.env.PORT || 8080;
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  const expressEnv = app.get("env");
-  console.log(`🚀 Express environment detected: ${expressEnv}`);
-  
-  if (expressEnv === "development") {
-    console.log("🔧 Setting up Vite middleware for development...");
-    try {
-      const { setupVite } = await import("./vite");
-      await setupVite(app, server);
-      console.log("✅ Vite middleware configured");
-    } catch (error) {
-      console.error("❌ Failed to load Vite middleware:", error);
-    }
-  } else {
-    console.log("📦 Setting up static file serving for production...");
-    try {
-      const { serveStatic } = await import("./vite");
-      serveStatic(app);
-      console.log("✅ Static file serving configured");
-    } catch (error) {
-      console.error("❌ CRITICAL ERROR setting up static files:", error);
-      throw error;
-    }
-  }
-
-  // Error handling middleware MUST be added AFTER all other middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    // Log error for debugging but don't crash the server
-    console.error(`[Server Error ${status}]:`, err.message);
-    if (status >= 500) {
-      console.error('Full error stack:', err.stack);
-    }
-
-    res.status(status).json({ message });
-    // ✅ No throwing - let the server continue running
-  });
-
-  // Use Railway's PORT environment variable or fallback to 8080
-  // Railway injects PORT environment variable for health checks
-  const port = process.env.PORT || 8080;
-  
-  // Log port configuration for debugging
-  console.log(`🚀 Starting server on port: ${port}`);
-  console.log(`🔍 PORT environment variable: ${process.env.PORT || 'not set'}`);
-  console.log(`🌐 Server will listen on: 0.0.0.0:${port}`);
+// CRITICAL: Start listening IMMEDIATELY so Railway healthchecks work
+// This MUST happen before any async operations
+server.listen(port, "0.0.0.0", () => {
+  console.log(`✅ Server listening on port ${port}`);
+  console.log(`🌐 Accessible on 0.0.0.0:${port}`);
   console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
   console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
   console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
-  
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`serving on port ${port}`);
+});
+
+// Now setup everything else ASYNCHRONOUSLY after server is listening
+(async () => {
+  try {
+    // Register API routes BEFORE Vite middleware
+    // ============================================
+    // HEALTH CHECK ENDPOINTS (antes de autenticación)
+    // ============================================
+    app.get("/api/health", healthCheck);
+    app.get("/api/health/ready", readinessCheck);
+    app.get("/api/health/live", livenessCheck);
+
+    registerRoutes(app);
+    
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    const expressEnv = app.get("env");
+    console.log(`🚀 Express environment detected: ${expressEnv}`);
+    
+    if (expressEnv === "development") {
+      console.log("🔧 Setting up Vite middleware for development...");
+      try {
+        const { setupVite } = await import("./vite");
+        await setupVite(app, server);
+        console.log("✅ Vite middleware configured");
+      } catch (error) {
+        console.error("❌ Failed to load Vite middleware:", error);
+      }
+    } else {
+      console.log("📦 Setting up static file serving for production...");
+      try {
+        const { serveStatic } = await import("./vite");
+        serveStatic(app);
+        console.log("✅ Static file serving configured");
+      } catch (error) {
+        console.error("⚠️ Warning: Failed to setup static files (non-critical):", error);
+        // Don't throw - server is already listening
+      }
+    }
+
+    // Error handling middleware MUST be added AFTER all other middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+
+      // Log error for debugging but don't crash the server
+      console.error(`[Server Error ${status}]:`, err.message);
+      if (status >= 500) {
+        console.error('Full error stack:', err.stack);
+      }
+
+      res.status(status).json({ message });
+      // ✅ No throwing - let the server continue running
+    });
     
     // Inicializar el scheduler de auto-cierre mensual
     // DESACTIVADO: Auto-cierre automático removido por solicitud del usuario
-    // Los números de ventas a veces llegan 1 semana después del cierre del mes
-    // Omar ahora manejará el cierre manualmente cuando tenga todos los datos
     console.log("⏸️  Auto-cierre automático DESACTIVADO - cierre manual requerido");
     // monthlyScheduler.start(); // <- COMENTADO
     console.log("✅ Sistema configurado para cierre manual");
     
     // Inicializar el scheduler de actualización automática del DOF
     initializeDOFScheduler();
-  });
-
+    
+    console.log("✅ All server initialization completed");
+  } catch (error) {
+    console.error("⚠️ Error during async initialization (server is still running):", error);
+    // Don't crash - server is already listening
+  }
 })();
