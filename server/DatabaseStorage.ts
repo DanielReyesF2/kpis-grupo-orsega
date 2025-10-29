@@ -1006,10 +1006,11 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Buscar valores históricos usando el mismo kpi_id
+      // CONSULTAR TODAS LAS TABLAS Y COMBINAR RESULTADOS
       let result: any[] = [];
       
       if (isOrsega) {
-        // Orsega - primero intentar en kpi_values_orsega (tabla nueva) por ID directo
+        // Orsega - buscar en kpi_values_orsega (tabla nueva) por ID directo
         let rawResult = await sql`
           SELECT 
             id,
@@ -1033,73 +1034,60 @@ export class DatabaseStorage implements IStorage {
         
         console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${rawResult.length} registros en kpi_values_orsega por ID directo`);
         
-        // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
-        if (rawResult.length === 0 && kpiInfo?.kpi_name) {
-          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
-          const joinResult = await sql`
-            SELECT 
-              kv.id,
-              kv.kpi_id as "kpiId",
-              kv.month,
-              kv.year,
-              kv.value,
-              kv.created_at as "date"
-            FROM kpi_values_orsega kv
-            INNER JOIN kpis_orsega k ON kv.kpi_id = k.id
-            WHERE k.kpi_name = ${kpiInfo.kpi_name}
-            ORDER BY kv.year DESC,
-              CASE kv.month
-                WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
-                WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
-                WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
-                WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
-                ELSE 13
-              END DESC
-            LIMIT ${months}
-          `;
-          
-          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${joinResult.length} registros por nombre usando JOIN`);
-          rawResult = joinResult;
-        }
+        // Convertir datos de tabla nueva a formato estándar
+        const newTableData = rawResult.map((row: any) => ({
+          id: row.id,
+          value: row.value?.toString() || '0',
+          date: row.date || new Date(),
+          period: `${row.month} ${row.year}`,
+          compliancePercentage: null,
+          status: null,
+          comments: null,
+          updatedBy: null
+        }));
         
-        if (rawResult.length > 0) {
-          // Hay datos en la tabla nueva - usarlos
-          result = rawResult.map((row: any) => ({
-            id: row.id,
-            value: row.value?.toString() || '0',
-            date: row.date || new Date(),
-            period: `${row.month} ${row.year}`,
-            compliancePercentage: null,
-            status: null,
-            comments: null,
-            updatedBy: null
-          }));
-        } else {
-          // No hay datos en tabla nueva - buscar en kpi_values (tabla antigua)
-          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando en tabla antigua kpi_values...`);
-          const legacyResult = await sql`
-            SELECT 
-              id,
-              kpi_id as "kpiId",
-              value,
-              date,
-              period,
-              compliance_percentage as "compliancePercentage",
-              status,
-              comments,
-              updated_by as "updatedBy"
-            FROM kpi_values
-            WHERE kpi_id = ${kpiId}
-            ORDER BY date DESC
-            LIMIT ${months}
-          `;
-          
-          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
-          
-          result = legacyResult;
-        }
+        // TAMBIÉN buscar en kpi_values (tabla antigua) y combinar
+        console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando también en tabla kpi_values...`);
+        const legacyResult = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            value,
+            date,
+            period,
+            compliance_percentage as "compliancePercentage",
+            status,
+            comments,
+            updated_by as "updatedBy"
+          FROM kpi_values
+          WHERE kpi_id = ${kpiId}
+          ORDER BY date DESC
+          LIMIT ${months * 2}
+        `;
+        
+        console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
+        
+        // Combinar resultados, usando un Map para evitar duplicados por período
+        const periodMap = new Map<string, any>();
+        
+        // Agregar datos de tabla nueva primero
+        newTableData.forEach((item: any) => {
+          periodMap.set(item.period, item);
+        });
+        
+        // Agregar datos de tabla antigua (sobrescribir si hay duplicados por período)
+        legacyResult.forEach((item: any) => {
+          periodMap.set(item.period, item);
+        });
+        
+        // Convertir Map a array y ordenar
+        result = Array.from(periodMap.values()).sort((a: any, b: any) => {
+          const dateA = new Date(a.date || a.period).getTime();
+          const dateB = new Date(b.date || b.period).getTime();
+          return dateB - dateA; // Más reciente primero
+        }).slice(0, months); // Limitar a los meses solicitados
       } else {
-        // Dura - primero intentar en kpi_values_dura (tabla nueva) por ID directo
+        // Dura - buscar en kpi_values_dura (tabla nueva) por ID directo
         let rawResult = await sql`
           SELECT 
             id,
@@ -1123,71 +1111,58 @@ export class DatabaseStorage implements IStorage {
         
         console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${rawResult.length} registros en kpi_values_dura por ID directo`);
         
-        // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
-        if (rawResult.length === 0 && kpiInfo?.kpi_name) {
-          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
-          const joinResult = await sql`
-            SELECT 
-              kv.id,
-              kv.kpi_id as "kpiId",
-              kv.month,
-              kv.year,
-              kv.value,
-              kv.created_at as "date"
-            FROM kpi_values_dura kv
-            INNER JOIN kpis_dura k ON kv.kpi_id = k.id
-            WHERE k.kpi_name = ${kpiInfo.kpi_name}
-            ORDER BY kv.year DESC,
-              CASE kv.month
-                WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
-                WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
-                WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
-                WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
-                ELSE 13
-              END DESC
-            LIMIT ${months}
-          `;
-          
-          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${joinResult.length} registros por nombre usando JOIN`);
-          rawResult = joinResult;
-        }
+        // Convertir datos de tabla nueva a formato estándar
+        const newTableData = rawResult.map((row: any) => ({
+          id: row.id,
+          value: row.value?.toString() || '0',
+          date: row.date || new Date(),
+          period: `${row.month} ${row.year}`,
+          compliancePercentage: null,
+          status: null,
+          comments: null,
+          updatedBy: null
+        }));
         
-        if (rawResult.length > 0) {
-          // Hay datos en la tabla nueva - usarlos
-          result = rawResult.map((row: any) => ({
-            id: row.id,
-            value: row.value?.toString() || '0',
-            date: row.date || new Date(),
-            period: `${row.month} ${row.year}`,
-            compliancePercentage: null,
-            status: null,
-            comments: null,
-            updatedBy: null
-          }));
-        } else {
-          // No hay datos en tabla nueva - buscar en kpi_values (tabla antigua)
-          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando en tabla antigua kpi_values...`);
-          const legacyResult = await sql`
-            SELECT 
-              id,
-              kpi_id as "kpiId",
-              value,
-              date,
-              period,
-              compliance_percentage as "compliancePercentage",
-              status,
-              comments,
-              updated_by as "updatedBy"
-            FROM kpi_values
-            WHERE kpi_id = ${kpiId}
-            ORDER BY date DESC
-            LIMIT ${months}
-          `;
-          
-          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
-          
-          result = legacyResult;
-        }
+        // TAMBIÉN buscar en kpi_values (tabla antigua) y combinar
+        console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando también en tabla kpi_values...`);
+        const legacyResult = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            value,
+            date,
+            period,
+            compliance_percentage as "compliancePercentage",
+            status,
+            comments,
+            updated_by as "updatedBy"
+          FROM kpi_values
+          WHERE kpi_id = ${kpiId}
+          ORDER BY date DESC
+          LIMIT ${months * 2}
+        `;
+        
+        console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
+        
+        // Combinar resultados, usando un Map para evitar duplicados por período
+        const periodMap = new Map<string, any>();
+        
+        // Agregar datos de tabla nueva primero
+        newTableData.forEach((item: any) => {
+          periodMap.set(item.period, item);
+        });
+        
+        // Agregar datos de tabla antigua (sobrescribir si hay duplicados por período)
+        legacyResult.forEach((item: any) => {
+          periodMap.set(item.period, item);
+        });
+        
+        // Convertir Map a array y ordenar
+        result = Array.from(periodMap.values()).sort((a: any, b: any) => {
+          const dateA = new Date(a.date || a.period).getTime();
+          const dateB = new Date(b.date || b.period).getTime();
+          return dateB - dateA; // Más reciente primero
+        }).slice(0, months); // Limitar a los meses solicitados
       }
 
       console.log(`[getKPIHistory] KPI ${kpiId} (${isOrsega ? 'Orsega' : 'Dura'}) history:`, result.length, 'records');
