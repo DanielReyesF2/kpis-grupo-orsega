@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import { sql } from './db-logistics.js'
 import { createClientSchema, updateClientSchema, createProviderSchema, updateProviderSchema, createProviderChannelSchema } from '../shared/logistics-schema.js'
 import { insertSupplierSchema } from '../shared/schema.js'
