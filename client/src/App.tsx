@@ -72,7 +72,7 @@ function Router() {
 
       <Route path="/team-management">
         <ProtectedRoute>
-          <TeamManagement />
+          <KpiControlCenter />
         </ProtectedRoute>
       </Route>
 

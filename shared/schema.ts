@@ -68,6 +68,67 @@ export const insertAreaSchema = createInsertSchema(areas).omit({ id: true });
 export type InsertArea = z.infer<typeof insertAreaSchema>;
 export type Area = typeof areas.$inferSelect;
 
+// KPI schema específicos por empresa
+export const kpisDura = pgTable("kpis_dura", {
+  id: serial("id").primaryKey(),
+  area: text("area").notNull(),
+  kpiName: text("kpi_name").notNull(),
+  description: text("description"),
+  calculationMethod: text("calculation_method"),
+  goal: text("goal"),
+  unit: text("unit"),
+  frequency: text("frequency"),
+  source: text("source"),
+  responsible: text("responsible"),
+  period: text("period"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const kpisOrsega = pgTable("kpis_orsega", {
+  id: serial("id").primaryKey(),
+  area: text("area").notNull(),
+  kpiName: text("kpi_name").notNull(),
+  description: text("description"),
+  calculationMethod: text("calculation_method"),
+  goal: text("goal"),
+  unit: text("unit"),
+  frequency: text("frequency"),
+  source: text("source"),
+  responsible: text("responsible"),
+  period: text("period"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertKpiDuraSchema = createInsertSchema(kpisDura).omit({ id: true, createdAt: true });
+export const insertKpiOrsegaSchema = createInsertSchema(kpisOrsega).omit({ id: true, createdAt: true });
+
+export type InsertKpiDura = z.infer<typeof insertKpiDuraSchema>;
+export type InsertKpiOrsega = z.infer<typeof insertKpiOrsegaSchema>;
+export type KpiDura = typeof kpisDura.$inferSelect;
+export type KpiOrsega = typeof kpisOrsega.$inferSelect;
+
+// KPI Values schema específicos por empresa
+export const kpiValuesDura = pgTable("kpi_values_dura", {
+  id: serial("id").primaryKey(),
+  kpi_id: integer("kpi_id").notNull(),
+  month: text("month").notNull(),
+  year: integer("year").notNull(),
+  value: real("value").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const kpiValuesOrsega = pgTable("kpi_values_orsega", {
+  id: serial("id").primaryKey(),
+  kpi_id: integer("kpi_id").notNull(),
+  month: text("month").notNull(),
+  year: integer("year").notNull(),
+  value: real("value").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export type KpiValueDura = typeof kpiValuesDura.$inferSelect;
+export type KpiValueOrsega = typeof kpiValuesOrsega.$inferSelect;
+
 // KPI schema
 export const kpis = pgTable("kpis", {
   id: serial("id").primaryKey(),
@@ -470,6 +531,26 @@ export const insertProviderSchema = createInsertSchema(providers).omit({ id: tru
 export type InsertProvider = z.infer<typeof insertProviderSchema>;
 export type Provider = typeof providers.$inferSelect;
 
+// Suppliers schema - Proveedores de Tesorería (REP - Recordatorios de Pago)
+export const suppliers = pgTable("suppliers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // Proveedor (ej: "Transportes Potosinos")
+  shortName: text("short_name"), // Nombre Corto (ej: "Potosinos")
+  email: text("email"), // Contacto (correo)
+  location: text("location"), // Ubicación (NAC, EXT)
+  requiresRep: boolean("requires_rep").default(false), // REP (SI/NO)
+  repFrequency: integer("rep_frequency"), // Frecuencia de recordatorio de REP (días)
+  companyId: integer("company_id"), // 1 = Dura, 2 = Orsega
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"), // Notas adicionales
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type Supplier = typeof suppliers.$inferSelect;
+
 // Products schema - Catálogo de productos de Dura y Orsega
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
@@ -500,7 +581,8 @@ export const voucherStatusEnum = pgEnum('voucher_status', [
 export const scheduledPayments = pgTable("scheduled_payments", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").notNull(),
-  supplierName: text("supplier_name").notNull(),
+  supplierId: integer("supplier_id").references(() => suppliers.id), // Nueva relación a suppliers
+  supplierName: text("supplier_name"), // Mantener por retrocompatibilidad
   amount: real("amount").notNull(),
   currency: text("currency").notNull().default("MXN"), // MXN o USD
   dueDate: timestamp("due_date").notNull(),

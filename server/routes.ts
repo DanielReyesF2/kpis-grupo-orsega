@@ -142,6 +142,12 @@ export function registerRoutes(app: express.Application) {
   const server = app.listen;
 
   // ========================================
+  // REGISTER CATALOG ROUTES FIRST (NO AUTH REQUIRED)
+  // ========================================
+  app.use("/api", catalogRouter);
+  app.use("/api", logisticsRouter);
+
+  // ========================================
   // RATE LIMITERS - Protección contra abuso
   // ========================================
   
@@ -732,17 +738,99 @@ export function registerRoutes(app: express.Application) {
       const user = getAuthUser(req as AuthRequest);
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : null;
       
-      let kpis;
-      if (companyId) {
-        // Filtrar KPIs por companyId si se proporciona
-        kpis = await storage.getKpisByCompany(companyId);
+      console.log('🔵 [GET /api/kpis] Endpoint llamado');
+      console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId}`);
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      let result = [];
+      
+      if (companyId === 1) {
+        // Dura
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Dura' as "company"
+          FROM kpis_dura 
+          ORDER BY area, kpi_name
+        `);
+      } else if (companyId === 2) {
+        // Orsega
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Orsega' as "company"
+          FROM kpis_orsega 
+          ORDER BY area, kpi_name
+        `);
       } else {
-        // ✅ ACCESO UNIVERSAL: Devolver todos los KPIs si no se especifica companyId
-        kpis = await storage.getKpis();
+        // Sin filtro de empresa - mostrar ambos
+        const duraKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Dura' as "company"
+          FROM kpis_dura 
+          ORDER BY area, kpi_name
+        `);
+        
+        const orsegaKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Orsega' as "company"
+          FROM kpis_orsega 
+          ORDER BY area, kpi_name
+        `);
+        
+        result = [...duraKpis, ...orsegaKpis];
       }
       
-      res.json(kpis);
+      console.log(`📊 [GET /api/kpis] Retornando ${result.length} KPIs`);
+      res.json(result);
     } catch (error) {
+      console.error('❌ Error fetching KPIs:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -847,6 +935,206 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // ========================================
+  // ENDPOINTS ESPECÍFICOS PARA KPIs POR EMPRESA
+  // ========================================
+
+  // GET /api/kpis-dura - Obtener KPIs de Dura
+  app.get("/api/kpis-dura", jwtAuthMiddleware, async (req, res) => {
+    try {
+      console.log('🔵 [GET /api/kpis-dura] Endpoint llamado');
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      const result = await sql(`
+        SELECT 
+          id,
+          area,
+          kpi_name as "kpiName",
+          description,
+          calculation_method as "calculationMethod",
+          goal,
+          unit,
+          frequency,
+          source,
+          responsible,
+          period,
+          created_at as "createdAt"
+        FROM kpis_dura 
+        ORDER BY area, kpi_name
+      `);
+      
+      console.log(`📊 [GET /api/kpis-dura] Retornando ${result.length} KPIs de Dura`);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ Error fetching Dura KPIs:', error);
+      res.status(500).json({ error: 'Failed to fetch Dura KPIs' });
+    }
+  });
+
+  // GET /api/kpis-orsega - Obtener KPIs de Orsega
+  app.get("/api/kpis-orsega", jwtAuthMiddleware, async (req, res) => {
+    try {
+      console.log('🔵 [GET /api/kpis-orsega] Endpoint llamado');
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      const result = await sql(`
+        SELECT 
+          id,
+          area,
+          kpi_name as "kpiName",
+          description,
+          calculation_method as "calculationMethod",
+          goal,
+          unit,
+          frequency,
+          source,
+          responsible,
+          period,
+          created_at as "createdAt"
+        FROM kpis_orsega 
+        ORDER BY area, kpi_name
+      `);
+      
+      console.log(`📊 [GET /api/kpis-orsega] Retornando ${result.length} KPIs de Orsega`);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ Error fetching Orsega KPIs:', error);
+      res.status(500).json({ error: 'Failed to fetch Orsega KPIs' });
+    }
+  });
+
+  // GET /api/kpis-by-company/:companyId - Obtener KPIs por empresa (1=Dura, 2=Orsega)
+  app.get("/api/kpis-by-company/:companyId", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      console.log(`🔵 [GET /api/kpis-by-company/${companyId}] Endpoint llamado`);
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      let result;
+      
+      if (companyId === 1) {
+        // Dura
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Dura' as "company"
+          FROM kpis_dura 
+          ORDER BY area, kpi_name
+        `);
+      } else if (companyId === 2) {
+        // Orsega
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Orsega' as "company"
+          FROM kpis_orsega 
+          ORDER BY area, kpi_name
+        `);
+      } else {
+        return res.status(400).json({ error: 'Invalid company ID. Use 1 for Dura or 2 for Orsega' });
+      }
+      
+      console.log(`📊 [GET /api/kpis-by-company/${companyId}] Retornando ${result.length} KPIs`);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ Error fetching KPIs by company:', error);
+      res.status(500).json({ error: 'Failed to fetch KPIs by company' });
+    }
+  });
+
+  // GET /api/kpis-by-user/:userId - Obtener KPIs específicos de un usuario
+  app.get("/api/kpis-by-user/:userId", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      console.log(`🔵 [GET /api/kpis-by-user/${userId}] Endpoint llamado`);
+      
+      // Primero obtener información del usuario
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      let result: any[] = [];
+      
+      // Determinar qué tabla usar basado en el nombre del usuario
+      if (user.name.toLowerCase().includes('omar') || user.name.toLowerCase().includes('thalia')) {
+        // Buscar en ambas tablas y filtrar por responsable
+        const duraKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Dura' as "company"
+          FROM kpis_dura 
+          WHERE responsible ILIKE '%${user.name.split(' ')[0]}%'
+          ORDER BY area, kpi_name
+        `);
+        
+        const orsegaKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            'Orsega' as "company"
+          FROM kpis_orsega 
+          WHERE responsible ILIKE '%${user.name.split(' ')[0]}%'
+          ORDER BY area, kpi_name
+        `);
+        
+        result = [...duraKpis, ...orsegaKpis];
+      }
+      
+      console.log(`📊 [GET /api/kpis-by-user/${userId}] Retornando ${result.length} KPIs para ${user.name}`);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ Error fetching KPIs by user:', error);
+      res.status(500).json({ error: 'Failed to fetch KPIs by user' });
+    }
+  });
+
+  // ========================================
+
   // Nueva ruta para eliminar KPI específico del usuario
   app.delete("/api/user-kpis/:kpiId", jwtAuthMiddleware, async (req, res) => {
     try {
@@ -934,17 +1222,82 @@ export function registerRoutes(app: express.Application) {
           res.json(kpiValues);
         }
       } else {
+        // NUEVA LÓGICA: Combinar valores de tabla antigua + tablas nuevas
+        const sql = neon(process.env.DATABASE_URL!);
+        
+        let allValues: any[] = [];
+        
+        // 1. Obtener valores de tabla antigua kpi_values
+        const oldValues = await storage.getKpiValues();
+        allValues.push(...oldValues);
+        
+        // 2. Obtener valores de kpi_values_orsega y convertirlos al formato esperado
+        const orsegaValues = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            NULL as "userId",
+            value::text,
+            created_at as "date",
+            month || ' ' || year as "period",
+            NULL as "compliancePercentage",
+            NULL as "status",
+            NULL as "comments",
+            NULL as "updatedBy"
+          FROM kpi_values_orsega
+          ORDER BY year DESC,
+            CASE month
+              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+              ELSE 13
+            END DESC
+          LIMIT 100
+        `;
+        
+        allValues.push(...orsegaValues);
+        
+        // 3. Obtener valores de kpi_values_dura y convertirlos al formato esperado
+        const duraValues = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            NULL as "userId",
+            value::text,
+            created_at as "date",
+            month || ' ' || year as "period",
+            NULL as "compliancePercentage",
+            NULL as "status",
+            NULL as "comments",
+            NULL as "updatedBy"
+          FROM kpi_values_dura
+          ORDER BY year DESC,
+            CASE month
+              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+              ELSE 13
+            END DESC
+          LIMIT 100
+        `;
+        
+        allValues.push(...duraValues);
+        
+        console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores (${oldValues.length} antiguos + ${orsegaValues.length} orsega + ${duraValues.length} dura)`);
+        
         if (user.role === 'collaborator') {
           // Colaboradores solo ven sus propios KPIs
-          const kpiValues = await storage.getKpiValuesByUser(user.id);
-          res.json(kpiValues);
+          const userKpiValues = allValues.filter(kv => kv.userId === user.id);
+          res.json(userKpiValues);
         } else {
           // Managers/admins ven todos los KPIs
-          const kpiValues = await storage.getKpiValues();
-          res.json(kpiValues);
+          res.json(allValues);
         }
       }
     } catch (error) {
+      console.error("[GET /api/kpi-values] Error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2749,8 +3102,8 @@ export function registerRoutes(app: express.Application) {
   });
 
   // Integrate Logistics Routes
-  app.use("/api", catalogRouter);
-  app.use("/api", logisticsRouter);
+  // app.use("/api", catalogRouter);
+  // app.use("/api", logisticsRouter);
 
   // TEMPORARY: Production database seeding endpoint
   app.post("/api/seed-production", async (req, res) => {

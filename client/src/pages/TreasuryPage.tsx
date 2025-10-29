@@ -93,6 +93,8 @@ export default function TreasuryPage() {
   // Provider Modal State
   const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<any | null>(null);
+  const [showAllSuppliers, setShowAllSuppliers] = useState(false); // Nuevo estado para mostrar todos los proveedores
+  const [supplierCompanyFilter, setSupplierCompanyFilter] = useState("all"); // Filtro por empresa
   const [providerForm, setProviderForm] = useState({
     name: "",
     shortName: "",
@@ -145,25 +147,31 @@ export default function TreasuryPage() {
     ? clients.filter((client: any) => client.companyId === selectedCompanyForVoucher)
     : clients;
 
-  // Providers Query
-  const { data: providers = [], isLoading: providersLoading, error: providersError } = useQuery<any[]>({
-    queryKey: ["/api/providers"],
+  // Suppliers Query (Treasury)
+  const { data: suppliers = [], isLoading: suppliersLoading, error: suppliersError } = useQuery<any[]>({
+    queryKey: ["/api/suppliers"],
     enabled: true,
     staleTime: 0,
     refetchOnMount: true,
   });
 
-  // Debug providers
+  // Filtrar proveedores por empresa
+  const filteredSuppliers = suppliers.filter((supplier: any) => {
+    if (supplierCompanyFilter === "all") return true;
+    return supplier.company_id === parseInt(supplierCompanyFilter);
+  });
+
+  // Debug suppliers
   useEffect(() => {
-    console.log("📦 Providers query state:", { 
-      providers: providers.length, 
-      isLoading: providersLoading, 
-      error: providersError, 
-      isArray: Array.isArray(providers),
-      firstProvider: providers[0],
-      data: providers
+    console.log("📦 Suppliers query state:", { 
+      suppliers: suppliers.length, 
+      isLoading: suppliersLoading, 
+      error: suppliersError, 
+      isArray: Array.isArray(suppliers),
+      firstSupplier: suppliers[0],
+      data: suppliers
     });
-  }, [providers, providersLoading, providersError]);
+  }, [suppliers, suppliersLoading, suppliersError]);
 
 
   // FX Analytics Queries
@@ -495,20 +503,20 @@ export default function TreasuryPage() {
     }
   };
 
-  // Provider Mutations
-  const createProviderMutation = useMutation({
+  // Supplier Mutations (Treasury)
+  const createSupplierMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/providers", {
+      const res = await fetch("/api/suppliers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to create provider");
+      if (!res.ok) throw new Error("Failed to create supplier");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       toast({ title: "Proveedor creado exitosamente" });
       setIsProviderModalOpen(false);
       setProviderForm({
@@ -528,36 +536,36 @@ export default function TreasuryPage() {
     },
   });
 
-  const updateProviderMutation = useMutation({
+  const updateSupplierMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const res = await fetch(`/api/providers/${id}`, {
+      const res = await fetch(`/api/suppliers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to update provider");
+      if (!res.ok) throw new Error("Failed to update supplier");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       toast({ title: "Proveedor actualizado exitosamente" });
       setIsProviderModalOpen(false);
       setEditingProvider(null);
     },
   });
 
-  const deleteProviderMutation = useMutation({
+  const deleteSupplierMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/providers/${id}`, {
+      const res = await fetch(`/api/suppliers/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to delete provider");
+      if (!res.ok) throw new Error("Failed to delete supplier");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/providers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
       toast({ title: "Proveedor eliminado exitosamente" });
     },
   });
@@ -583,9 +591,9 @@ export default function TreasuryPage() {
     };
 
     if (editingProvider) {
-      updateProviderMutation.mutate({ id: editingProvider.id, data });
+      updateSupplierMutation.mutate({ id: editingProvider.id, data });
     } else {
-      createProviderMutation.mutate(data);
+      createSupplierMutation.mutate(data);
     }
   };
 
@@ -609,7 +617,7 @@ export default function TreasuryPage() {
 
   const handleDeleteProvider = (id: string) => {
     if (window.confirm("¿Estás seguro de que quieres eliminar este proveedor?")) {
-      deleteProviderMutation.mutate(id);
+      deleteSupplierMutation.mutate(id);
     }
   };
 
@@ -729,56 +737,58 @@ export default function TreasuryPage() {
   return (
     <AppLayout title="Tesorería">
       <div className="p-6 max-w-7xl mx-auto space-y-8">
-        {/* Hero Header con gradiente premium */}
-        <div className="relative bg-gradient-to-br from-[#273949] via-[#1f2f3f] to-[#273949] rounded-2xl p-8 shadow-2xl overflow-hidden">
-          {/* Patrón decorativo de fondo */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, #b5e951 0, #b5e951 2px, transparent 0, transparent 30px)'
-            }}></div>
-          </div>
-          
-          <div className="relative">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-gradient-to-br from-accent to-accent/80 p-3 rounded-xl shadow-lg">
-                <DollarSign className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-white mb-2">
-                  ¡Hola Lolita! 👋
-                </h1>
-                <p className="text-white/90 text-lg">
-                  ¿Con qué pagos te ayudamos hoy?
-                </p>
-              </div>
+        {/* Hero Header con gradiente premium - Solo en dashboard */}
+        {activeTab === "dashboard" && (
+          <div className="relative bg-gradient-to-br from-[#273949] via-[#1f2f3f] to-[#273949] rounded-2xl p-8 shadow-2xl overflow-hidden">
+            {/* Patrón decorativo de fondo */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute inset-0" style={{
+                backgroundImage: 'repeating-linear-gradient(45deg, #b5e951 0, #b5e951 2px, transparent 0, transparent 30px)'
+              }}></div>
             </div>
             
-            {/* Mini stats rápidas */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
-              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-5 w-5 text-accent" />
-                  <span className="text-sm text-white/80">Pendientes</span>
+            <div className="relative">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="bg-gradient-to-br from-accent to-accent/80 p-3 rounded-xl shadow-lg">
+                  <DollarSign className="h-8 w-8 text-primary" />
                 </div>
-                <p className="text-3xl font-bold text-white">{pendingPayments.length}</p>
+                <div>
+                  <h1 className="text-4xl font-bold text-white mb-2">
+                    ¡Hola Lolita! 👋
+                  </h1>
+                  <p className="text-white/90 text-lg">
+                    ¿Con qué pagos te ayudamos hoy?
+                  </p>
+                </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Check className="h-5 w-5 text-green-400" />
-                  <span className="text-sm text-white/80">Este mes</span>
+              
+              {/* Mini stats rápidas */}
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-accent" />
+                    <span className="text-sm text-white/80">Pendientes</span>
+                  </div>
+                  <p className="text-3xl font-bold text-white">{pendingPayments.length}</p>
                 </div>
-                <p className="text-3xl font-bold text-white">{paidPayments.length}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="h-5 w-5 text-blue-400" />
-                  <span className="text-sm text-white/80">Comprobantes</span>
+                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Check className="h-5 w-5 text-green-400" />
+                    <span className="text-sm text-white/80">Este mes</span>
+                  </div>
+                  <p className="text-3xl font-bold text-white">{paidPayments.length}</p>
                 </div>
-                <p className="text-3xl font-bold text-white">{filteredVouchers.length}</p>
+                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-5 w-5 text-blue-400" />
+                    <span className="text-sm text-white/80">Comprobantes</span>
+                  </div>
+                  <p className="text-3xl font-bold text-white">{filteredVouchers.length}</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {activeTab === "dashboard" ? (
@@ -816,8 +826,8 @@ export default function TreasuryPage() {
                 />
                 <DashboardCard
                   title="Proveedores"
-                  description={`${providers.length} registrados`}
-                  value={providers.length}
+                  description={`${suppliers.length} registrados`}
+                  value={suppliers.length}
                   icon={User}
                   onClick={() => setActiveTab("providers")}
                   gradient="from-orange-500 to-red-600"
@@ -825,17 +835,7 @@ export default function TreasuryPage() {
                 />
               </div>
             </div>
-          ) : (
-            <div className="mb-4">
-              <Button
-                variant="outline"
-                onClick={() => setActiveTab("dashboard")}
-                className="mb-4"
-              >
-                ← Volver al Dashboard
-              </Button>
-            </div>
-          )}
+          ) : null}
           
           <TabsList className="hidden">
             <TabsTrigger value="payments" />
@@ -846,6 +846,18 @@ export default function TreasuryPage() {
 
           {/* Tab: Integración IDRALL */}
           <TabsContent value="payments" className="space-y-6 mt-8">
+            {/* Botón Volver al Dashboard */}
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("dashboard")}
+                className="flex items-center gap-2"
+              >
+                <ArrowUp className="h-4 w-4 rotate-90" />
+                Volver al Dashboard
+              </Button>
+            </div>
+
             {/* Header con información */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-4">
@@ -999,6 +1011,18 @@ export default function TreasuryPage() {
           </TabsContent>
 
           <TabsContent value="exchange-rates" className="space-y-6">
+            {/* Botón Volver al Dashboard */}
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("dashboard")}
+                className="flex items-center gap-2"
+              >
+                <ArrowUp className="h-4 w-4 rotate-90" />
+                Volver al Dashboard
+              </Button>
+            </div>
+
             {/* Header con Botón de Registro */}
             <div className="flex items-center justify-between">
               <div>
@@ -1695,6 +1719,29 @@ export default function TreasuryPage() {
                 </CardContent>
               </Card>
             )}
+            
+            {/* Botón Ver más / Ver menos - Solo si hay proveedores */}
+            {filteredSuppliers.length > 0 && filteredSuppliers.length > 5 && (
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAllSuppliers(!showAllSuppliers)}
+                  className="flex items-center gap-2 px-6 py-2"
+                >
+                  {showAllSuppliers ? (
+                    <>
+                      <ArrowUp className="h-4 w-4" />
+                      Ver menos ({filteredSuppliers.length - 5} ocultos)
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown className="h-4 w-4" />
+                      Ver más ({filteredSuppliers.length - 5} adicionales)
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Nota Informativa */}
             <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
@@ -1720,6 +1767,18 @@ export default function TreasuryPage() {
 
           {/* Tab: Comprobantes */}
           <TabsContent value="receipts" className="space-y-6">
+            {/* Botón Volver al Dashboard */}
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("dashboard")}
+                className="flex items-center gap-2"
+              >
+                <ArrowUp className="h-4 w-4 rotate-90" />
+                Volver al Dashboard
+              </Button>
+            </div>
+
             <div className="flex justify-end mb-6">
               <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
                 <DialogTrigger asChild>
@@ -1965,6 +2024,18 @@ export default function TreasuryPage() {
 
           {/* Tab: Proveedores */}
           <TabsContent value="providers" className="space-y-6">
+            {/* Botón Volver al Dashboard */}
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("dashboard")}
+                className="flex items-center gap-2"
+              >
+                <ArrowUp className="h-4 w-4 rotate-90" />
+                Volver al Dashboard
+              </Button>
+            </div>
+
             {/* Header con gradiente */}
             <div className="relative bg-gradient-to-r from-[#273949] via-[#2a4055] to-[#273949] rounded-xl p-8 shadow-2xl overflow-hidden">
               {/* Patrón de fondo decorativo */}
@@ -1994,12 +2065,34 @@ export default function TreasuryPage() {
               </div>
             </div>
 
+            {/* Filtros */}
+            <div className="flex items-center gap-4 mb-6 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Filtrar por empresa:
+                </label>
+                <Select value={supplierCompanyFilter} onValueChange={setSupplierCompanyFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Seleccionar empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="1">Dura</SelectItem>
+                    <SelectItem value="2">Orsega</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Mostrando {filteredSuppliers.length} de {suppliers.length} proveedores
+              </div>
+            </div>
+
             {/* Tabla de Proveedores */}
-            {providersLoading ? (
+            {suppliersLoading ? (
               <div className="flex items-center justify-center h-64">
                 <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
               </div>
-            ) : providers.length === 0 ? (
+            ) : filteredSuppliers.length === 0 ? (
               <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
                 <CardContent className="py-16 text-center">
                   <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center mb-6 shadow-xl">
@@ -2038,35 +2131,35 @@ export default function TreasuryPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {providers.map((provider: any, index: number) => (
+                        {(showAllSuppliers ? filteredSuppliers : filteredSuppliers.slice(0, 5)).map((supplier: any, index: number) => (
                           <tr 
-                            key={provider.id} 
+                            key={supplier.id} 
                             className="transition-colors hover:bg-gradient-to-r hover:from-accent/5 hover:to-accent/10 group border-b border-slate-200 dark:border-slate-700"
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <Badge 
                                 className={`font-semibold shadow-sm ${
-                                  provider.company_id === 1 
+                                  supplier.company_id === 1 
                                     ? "bg-blue-500 hover:bg-blue-600 text-white" 
-                                    : provider.company_id === 2
+                                    : supplier.company_id === 2
                                     ? "bg-purple-500 hover:bg-purple-600 text-white"
                                     : "bg-slate-500"
                                 }`}
                               >
-                                {provider.company_id === 1 ? "Dura" : provider.company_id === 2 ? "Orsega" : "N/A"}
+                                {supplier.company_id === 1 ? "Dura" : supplier.company_id === 2 ? "Orsega" : "N/A"}
                               </Badge>
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center text-white font-bold shadow-md">
-                                  {provider.name.charAt(0)}
+                                  {supplier.name.charAt(0)}
                                 </div>
                                 <div>
                                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {provider.name}
+                                    {supplier.name}
                                   </div>
-                                  {provider.short_name && (
-                                    <div className="text-xs text-slate-500 font-medium">{provider.short_name}</div>
+                                  {supplier.short_name && (
+                                    <div className="text-xs text-slate-500 font-medium">{supplier.short_name}</div>
                                   )}
                                 </div>
                               </div>
@@ -2074,22 +2167,22 @@ export default function TreasuryPage() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                 <Mail className="h-3 w-3 inline mr-1 text-slate-400" />
-                                {provider.email}
+                                {supplier.email}
                               </div>
-                              {provider.phone && (
+                              {supplier.phone && (
                                 <div className="text-xs text-slate-500 mt-1">
                                   <Phone className="h-3 w-3 inline mr-1" />
-                                  {provider.phone}
+                                  {supplier.phone}
                                 </div>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <Badge variant="outline" className="font-medium">
-                                {provider.location === "NAC" ? "🇲🇽 Nacional" : provider.location === "EXT" ? "🌍 Exterior" : "-"}
+                                {supplier.location === "NAC" ? "🇲🇽 Nacional" : supplier.location === "EXT" ? "🌍 Exterior" : "-"}
                               </Badge>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {provider.requires_rep ? (
+                              {supplier.requires_rep ? (
                                 <Badge className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-sm">
                                   ✓ Activado
                                 </Badge>
@@ -2098,11 +2191,11 @@ export default function TreasuryPage() {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {provider.requires_rep ? (
+                              {supplier.requires_rep ? (
                                 <div className="flex items-center gap-2">
                                   <Clock className="h-4 w-4 text-accent" />
                                   <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                    {provider.rep_frequency || 7} días
+                                    {supplier.rep_frequency || 7} días
                                   </span>
                                 </div>
                               ) : (
@@ -2114,8 +2207,8 @@ export default function TreasuryPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleEditProvider(provider)}
-                                  disabled={deleteProviderMutation.isPending}
+                                  onClick={() => handleEditProvider(supplier)}
+                                  disabled={deleteSupplierMutation.isPending}
                                   className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 transition-colors"
                                   title="Editar proveedor"
                                 >
@@ -2124,8 +2217,8 @@ export default function TreasuryPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleDeleteProvider(provider.id)}
-                                  disabled={deleteProviderMutation.isPending}
+                                  onClick={() => handleDeleteProvider(supplier.id)}
+                                  disabled={deleteSupplierMutation.isPending}
                                   className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 transition-colors"
                                   title="Eliminar proveedor"
                                 >
@@ -2315,10 +2408,10 @@ export default function TreasuryPage() {
                   </Button>
                   <Button
                     onClick={handleSaveProvider}
-                    disabled={createProviderMutation.isPending || updateProviderMutation.isPending}
+                    disabled={createSupplierMutation.isPending || updateSupplierMutation.isPending}
                     className="bg-gradient-to-r from-[#273949] to-[#2a4055] hover:from-[#2a4055] hover:to-[#273949] text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                   >
-                    {createProviderMutation.isPending || updateProviderMutation.isPending ? (
+                    {createSupplierMutation.isPending || updateSupplierMutation.isPending ? (
                       <>
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                         Guardando...

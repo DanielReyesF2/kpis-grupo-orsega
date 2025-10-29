@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -87,7 +88,7 @@ export default function LogisticsPage() {
 
 
   return (
-    <div className="container mx-auto p-6">
+    <AppLayout title="Módulo de Logística">
       {/* Navigation breadcrumb */}
       <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600">
         <Link href="/" className="flex items-center hover:text-blue-600 transition-colors">
@@ -329,6 +330,6 @@ export default function LogisticsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppLayout>
   );
 }

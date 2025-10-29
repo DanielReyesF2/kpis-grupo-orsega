@@ -16,41 +16,41 @@
 --card-foreground: 20 14.3% 4.1%;
 --border: 20 5.9% 90%;
 --input: 20 5.9% 90%;
---primary: 210 28% 22%; /* Econova azul oscuro #273949 */
+--primary: 220 39% 25%; /* Grupo Orsega azul corporativo #1e3a5f */
 --primary-foreground: 0 0% 100%;
 --secondary: 60 4.8% 95.9%;
 --secondary-foreground: 24 9.8% 10%;
---accent: 84 76% 62%; /* Econova verde lima #b5e951 */
---accent-foreground: 210 28% 22%;
+--accent: 200 100% 50%; /* Azul profesional #0080ff */
+--accent-foreground: 0 0% 100%;
 --danger: 0 84.2% 60.2%;
 --danger-foreground: 60 9.1% 97.8%;
 --destructive: 0 84.2% 60.2%;
 --destructive-foreground: 60 9.1% 97.8%;
---ring: 210 28% 22%;
+--ring: 220 39% 25%;
 --radius: 0.5rem;
   }
   .dark {
-      --background: 210 30% 12%; /* Fondo basado en Econova azul oscuro */
+      --background: 220 30% 8%; /* Fondo basado en Grupo Orsega azul */
 --foreground: 0 0% 98%;
---muted: 210 30% 8%;
+--muted: 220 30% 6%;
 --muted-foreground: 240 5% 74.9%;
---popover: 210 30% 12%;
+--popover: 220 30% 8%;
 --popover-foreground: 0 0% 98%;
---card: 210 30% 12%;
+--card: 220 30% 8%;
 --card-foreground: 0 0% 98%;
---border: 210 30% 18%;
---input: 210 30% 18%;
---primary: 210 28% 22%; /* Econova azul oscuro #273949 */
+--border: 220 30% 15%;
+--input: 220 30% 15%;
+--primary: 220 39% 25%; /* Grupo Orsega azul corporativo #1e3a5f */
 --primary-foreground: 0 0% 100%;
---secondary: 210 30% 18%;
+--secondary: 220 30% 15%;
 --secondary-foreground: 0 0% 98%;
---accent: 84 76% 62%; /* Econova verde lima #b5e951 */
+--accent: 200 100% 50%; /* Azul profesional #0080ff */
 --accent-foreground: 0 0% 100%;
 --destructive: 0 62.8% 30.6%;
 --destructive-foreground: 0 0% 98%;
 --danger: 0 62.8% 30.6%;
 --danger-foreground: 0 0% 98%;
---ring: 84 76% 62%; /* Econova verde lima para resaltados */
+--ring: 200 100% 50%; /* Azul profesional para resaltados */
 --radius: 0.5rem;
   }
 

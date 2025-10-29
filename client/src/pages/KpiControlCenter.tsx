@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
@@ -19,7 +20,9 @@ import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useLocation } from 'wouter';
 import { 
   TrendingUp, 
   Building, 
@@ -48,8 +51,12 @@ import {
   ArrowDown,
   Clock,
   ChevronDown,
+  Crown,
+  Star,
+  Eye,
   ChevronUp,
-  FolderTree
+  FolderTree,
+  Search
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -471,6 +478,7 @@ export default function KpiControlCenter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isMarioOrAdmin } = useAuth();
+  const [location] = useLocation();
   
   // Estados para KPIs - 🔧 FORZAR Grupo Orsega por defecto
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(2);
@@ -478,8 +486,15 @@ export default function KpiControlCenter() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isExtendedDetailsModalOpen, setIsExtendedDetailsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'overview' | 'team' | 'historico'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'team'>('overview');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  
+  // Detectar si viene de la ruta de team-management
+  useEffect(() => {
+    if (location === '/team-management' && isMarioOrAdmin) {
+      setViewMode('team');
+    }
+  }, [location, isMarioOrAdmin]);
   
   // Estados para vistas históricas (nueva funcionalidad)
   const [selectedUserIdForHistory, setSelectedUserIdForHistory] = useState<number | null>(null);
@@ -488,6 +503,12 @@ export default function KpiControlCenter() {
   // Estados para Vista General mejorada
   const [showAllKpis, setShowAllKpis] = useState(false);
   const [showAllCharts, setShowAllCharts] = useState(false);
+  
+  // Estados para gestión de equipo
+  const [teamSearchTerm, setTeamSearchTerm] = useState('');
+  const [teamCompanyFilter, setTeamCompanyFilter] = useState('all');
+  const [teamPerformanceFilter, setTeamPerformanceFilter] = useState('all');
+  const [selectedTeamUser, setSelectedTeamUser] = useState<any>(null);
   
   // Estados para edición de KPIs desde modal de usuario
   const [showEditKpiDialog, setShowEditKpiDialog] = useState(false);
@@ -520,8 +541,8 @@ export default function KpiControlCenter() {
   });
 
   // Obtener todos los KPIs (con actualización optimizada)
-  const { data: kpis, isLoading: kpisLoading } = useQuery<Kpi[]>({
-    queryKey: ['/api/kpis'],
+  const { data: kpis, isLoading: kpisLoading } = useQuery<any[]>({
+    queryKey: ['/api/kpis', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
     refetchInterval: 30000, // Actualizar cada 30 segundos
     enabled: !!user,
@@ -596,14 +617,14 @@ export default function KpiControlCenter() {
   const processedKpis = useMemo(() => {
     if (!kpis || !kpiValues || !areas) return [];
 
-    // Filtrar KPIs por empresa seleccionada
-    const filteredKpis = selectedCompanyId 
-      ? kpis.filter((kpi: Kpi) => kpi.companyId === selectedCompanyId)
-      : kpis;
-
-    return filteredKpis.map((kpi: Kpi) => {
+    // Los KPIs ya vienen filtrados por companyId desde el backend, solo mapearlos
+    return kpis.map((kpi: any) => {
+      // La estructura nueva tiene kpiName en lugar de name
+      const kpiId = kpi.id;
+      const kpiName = kpi.kpiName || kpi.name;
+      
       // Encontrar valores para este KPI
-      const values = kpiValues.filter((value: KpiValue) => value.kpiId === kpi.id);
+      const values = kpiValues.filter((value: KpiValue) => value.kpiId === kpiId);
       
       if (!values || values.length === 0) {
         return {
@@ -621,18 +642,20 @@ export default function KpiControlCenter() {
         new Date(b.date!).getTime() - new Date(a.date!).getTime()
       )[0];
 
-      // Obtener datos históricos para el gráfico (últimos valores ordenados por fecha)
+      // Los datos históricos completos se cargarán desde el endpoint cuando se expanda la tarjeta
+      // Por ahora, usar los valores disponibles de kpiValues para el mini gráfico
       const historicalData = values
         .sort((a: KpiValue, b: KpiValue) => 
           new Date(a.date!).getTime() - new Date(b.date!).getTime()
         )
         .map((v: KpiValue) => ({
           value: parseFloat(v.value?.toString() || '0'),
-          recordedAt: v.date || new Date().toISOString()
+          recordedAt: v.date || new Date().toISOString(),
+          period: v.period || ''
         }));
 
-      // Calcular área del KPI
-      const area = areas.find((a: Area) => a.id === kpi.areaId);
+      // Calcular área del KPI (nueva estructura usa 'area' como string)
+      const areaName = kpi.area || 'Sin área';
 
       // Convertir compliancePercentage a número
       const complianceNum = parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0');
@@ -646,6 +669,8 @@ export default function KpiControlCenter() {
 
       return {
         ...kpi,
+        id: kpiId,
+        name: kpiName,
         value: parseFloat(latestValue.value?.toString() || '0'),
         status: latestValue.status as 'complies' | 'alert' | 'not_compliant',
         visualStatus,
@@ -654,8 +679,9 @@ export default function KpiControlCenter() {
         comments: latestValue.comments || undefined,
         period: latestValue.period,
         historicalData,
-        areaName: area?.name,
-        responsible: kpi.responsible
+        areaName: areaName,
+        responsible: kpi.responsible,
+        company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
       };
     });
   }, [kpis, kpiValues, areas, selectedCompanyId]);
@@ -889,6 +915,89 @@ export default function KpiControlCenter() {
     return kpis || [];
   };
 
+  // Función para calcular rendimiento del equipo
+  const getUserEnhancedPerformance = () => {
+    if (!users || !Array.isArray(users)) return [];
+
+    return users.map((user: any) => {
+      // ✅ ACCESO UNIVERSAL DE LECTURA: Todos ven todos los KPIs
+      const userKpis = kpis || [];
+      const userKpiValues = kpiValues?.filter((value: any) => 
+        userKpis.some((kpi: any) => kpi.id === value.kpiId) && value.updatedBy === user.id
+      ) || [];
+
+      const totalKpis = userKpis.length;
+      const completedKpis = userKpiValues.length;
+      const completionRate = totalKpis > 0 ? (completedKpis / totalKpis) * 100 : 0;
+
+      // Calculate performance score
+      const compliantKpis = userKpiValues.filter(v => v.status === 'compliant' || v.status === 'complies').length;
+      const performanceScore = completedKpis > 0 ? (compliantKpis / completedKpis) * 100 : 0;
+
+      // Last activity
+      const lastActivity = userKpiValues.length > 0 ? 
+        Math.max(...userKpiValues.map(v => new Date(v.date).getTime())) : 
+        (user.lastLogin ? new Date(user.lastLogin).getTime() : 0);
+
+      const daysSinceActivity = lastActivity > 0 ? 
+        Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24)) : 999;
+
+      // Status determination
+      let status = 'needs_attention';
+      if (performanceScore >= 85 && daysSinceActivity <= 7) status = 'excellent';
+      else if (performanceScore >= 70 && daysSinceActivity <= 14) status = 'good';
+
+      return {
+        ...user,
+        totalKpis,
+        completedKpis,
+        completionRate,
+        performanceScore,
+        daysSinceActivity,
+        status,
+        compliantKpis
+      };
+    });
+  };
+
+  // Métricas del equipo
+  const teamMetrics = useMemo(() => {
+    const enhancedUsers = getUserEnhancedPerformance();
+    const totalUsers = enhancedUsers.length;
+    const activeUsers = enhancedUsers.filter(u => u.daysSinceActivity <= 7).length;
+    const avgPerformance = enhancedUsers.length > 0 
+      ? enhancedUsers.reduce((sum, u) => sum + u.performanceScore, 0) / enhancedUsers.length 
+      : 0;
+    const needsAttention = enhancedUsers.filter(u => u.status === 'needs_attention').length;
+
+    return {
+      totalUsers,
+      activeUsers,
+      avgPerformance: Math.round(avgPerformance),
+      needsAttention
+    };
+  }, [users, kpis, kpiValues]);
+
+  // Filtrar usuarios para gestión de equipo
+  const filteredTeamUsers = useMemo(() => {
+    const enhancedUsers = getUserEnhancedPerformance();
+    
+    return enhancedUsers.filter((user: any) => {
+      const matchesSearch = teamSearchTerm === '' || 
+        user.name.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(teamSearchTerm.toLowerCase());
+      
+      const matchesCompany = teamCompanyFilter === 'all' || user.companyId === parseInt(teamCompanyFilter);
+      
+      const matchesPerformance = teamPerformanceFilter === 'all' || 
+        (teamPerformanceFilter === 'excellent' && user.status === 'excellent') ||
+        (teamPerformanceFilter === 'good' && user.status === 'good') ||
+        (teamPerformanceFilter === 'needs_attention' && user.status === 'needs_attention');
+      
+      return matchesSearch && matchesCompany && matchesPerformance;
+    });
+  }, [users, kpis, kpiValues, teamSearchTerm, teamCompanyFilter, teamPerformanceFilter]);
+
   // Filtrar usuarios por empresa y área
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -956,14 +1065,6 @@ export default function KpiControlCenter() {
           >
             <BarChart3 className="h-4 w-4" />
             Vista General
-          </Button>
-          <Button
-            variant={viewMode === 'historico' ? 'default' : 'ghost'}
-            onClick={() => setViewMode('historico')}
-            className="flex items-center gap-2"
-          >
-            <TrendingUp className="h-4 w-4" />
-            Histórico
           </Button>
           {isMarioOrAdmin && (
             <Button
@@ -1109,7 +1210,8 @@ export default function KpiControlCenter() {
                         status: kpi.visualStatus || 'warning',
                         areaName: kpi.areaName,
                         responsible: kpi.responsible,
-                        historicalData: kpi.historicalData
+                        historicalData: kpi.historicalData,
+                        company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
                       }}
                       onClick={() => handleUpdateKpi(kpi.id)}
                       onViewDetails={() => handleViewExtendedDetails(kpi.id)}
@@ -1221,138 +1323,177 @@ export default function KpiControlCenter() {
           </div>
         )}
 
-        {viewMode === 'historico' && (
+
+        {viewMode === 'team' && isMarioOrAdmin && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-blue-600" />
-                  Evolución Individual por Usuario
-                </CardTitle>
-                <CardDescription>
-                  Analiza el desempeño histórico de cada colaborador en sus KPIs asignados
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!selectedUserIdForHistory ? (
-                  <div className="space-y-6">
-                    {/* Selector visual de usuario con tarjetas */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Selecciona un colaborador</h3>
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="months-selector-top" className="text-sm">Período:</Label>
-                          <Select 
-                            value={historicalMonths.toString()} 
-                            onValueChange={(value) => setHistoricalMonths(parseInt(value))}
-                          >
-                            <SelectTrigger id="months-selector-top" className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="3">3 meses</SelectItem>
-                              <SelectItem value="6">6 meses</SelectItem>
-                              <SelectItem value="12">12 meses</SelectItem>
-                            </SelectContent>
-                          </Select>
+            {/* Executive Header */}
+            <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-6 rounded-xl text-white shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <Crown className="h-8 w-8 text-yellow-400" />
+                <div>
+                  <h1 className="text-2xl font-bold">Panel de Control Ejecutivo</h1>
+                  <p className="text-white/80">Administra usuarios, roles y permisos del sistema</p>
+                </div>
+              </div>
+
+              {/* Key Executive Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-emerald-300" />
+                    <span className="text-sm">Total Colaboradores</span>
+              </div>
+                  <p className="text-3xl font-bold mt-2">{teamMetrics.totalUsers}</p>
+                  <p className="text-xs text-white/70">Activos en plataforma</p>
+                </div>
+
+                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-[#0080ff]" />
+                    <span className="text-sm">Usuarios Activos</span>
+                  </div>
+                  <p className="text-3xl font-bold mt-2">{teamMetrics.activeUsers}</p>
+                  <p className="text-xs text-white/70">Últimos 7 días</p>
+                </div>
+
+                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-[#0080ff]" />
+                    <span className="text-sm">Rendimiento Promedio</span>
+                  </div>
+                  <p className="text-3xl font-bold mt-2">{teamMetrics.avgPerformance}%</p>
+                  <p className="text-xs text-white/70">Basado en KPIs</p>
+                </div>
+
+                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-300" />
+                    <span className="text-sm">Requieren Atención</span>
+                  </div>
+                  <p className="text-3xl font-bold mt-2">{teamMetrics.needsAttention}</p>
+                  <p className="text-xs text-white/70">Bajo rendimiento</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Executive Tabs */}
+            <Tabs value="dashboard" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                <TabsTrigger value="equipo">Equipo</TabsTrigger>
+                <TabsTrigger value="rendimiento">Rendimiento</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="dashboard" className="space-y-6">
+                {/* Top Performers y Requieren Atención */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Top Performers */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Star className="h-5 w-5 text-yellow-500" />
+                        Top Performers
+                      </CardTitle>
+                      <CardDescription>Usuarios con mejor rendimiento</CardDescription>
+            </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {filteredTeamUsers
+                          .filter((user: any) => user.status === 'excellent')
+                          .slice(0, 5)
+                          .map((user: any) => (
+                            <div key={user.id} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold">
+                                  {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p className="font-semibold">{user.name}</p>
+                                <p className="text-sm text-gray-600">{user.email}</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-green-600">{user.performanceScore}%</div>
+                                <div className="text-xs text-gray-500">{user.daysSinceActivity} días</div>
+                              </div>
+                            </div>
+                          ))}
+                        {filteredTeamUsers.filter((user: any) => user.status === 'excellent').length === 0 && (
+                          <div className="text-center py-8 text-gray-500">
+                            <Star className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                            <p>No hay top performers en este momento</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Requieren Atención */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-500" />
+                        Requieren Atención
+                      </CardTitle>
+                      <CardDescription>Usuarios que necesitan supervisión</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {filteredTeamUsers
+                          .filter((user: any) => user.status === 'needs_attention')
+                          .slice(0, 5)
+                          .map((user: any) => (
+                            <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className="bg-gradient-to-br from-[#1e3a5f] to-[#0080ff] text-white font-bold">
+                                  {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                <div className="flex-1">
+                                <p className="font-semibold">{user.name}</p>
+                                <p className="text-sm text-gray-600">{user.email}</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-[#0080ff]">{user.performanceScore}%</div>
+                                <div className="text-xs text-gray-500">{user.daysSinceActivity} días</div>
+                              </div>
+                            </div>
+                          ))}
+                        {filteredTeamUsers.filter((user: any) => user.status === 'needs_attention').length === 0 && (
+                          <div className="text-center py-8 text-gray-500">
+                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                            <p>¡Excelente! Todos los usuarios están funcionando bien</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="equipo" className="space-y-6">
+                {/* Filtros */}
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="search">Buscar</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            id="search"
+                            placeholder="Buscar por nombre o email..."
+                            value={teamSearchTerm}
+                            onChange={(e) => setTeamSearchTerm(e.target.value)}
+                            className="pl-10"
+                          />
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {users.filter(u => u.id !== 1).map((u) => (
-                          <Card 
-                            key={u.id} 
-                            className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-2 hover:border-blue-400"
-                            onClick={() => setSelectedUserIdForHistory(u.id)}
-                          >
-                            <CardContent className="p-6">
-                              <div className="flex items-center gap-4">
-                                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
-                                  {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-semibold text-lg">{u.name}</h4>
-                                  <p className="text-sm text-gray-500">{u.role === 'admin' ? 'Administrador' : u.role === 'manager' ? 'Gerente' : 'Colaborador'}</p>
-                                </div>
-                                <User className="h-5 w-5 text-blue-500" />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Header con botón de regreso */}
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b">
-                      <div className="flex items-center gap-3">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedUserIdForHistory(null)}
-                          className="gap-2"
-                        >
-                          ← Volver
-                        </Button>
-                        <div>
-                          <h3 className="text-lg font-semibold">
-                            {users.find(u => u.id === selectedUserIdForHistory)?.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">Historial de desempeño</p>
-                        </div>
-                      </div>
-                      <Select 
-                        value={historicalMonths.toString()} 
-                        onValueChange={(value) => setHistoricalMonths(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3">3 meses</SelectItem>
-                          <SelectItem value="6">6 meses</SelectItem>
-                          <SelectItem value="12">12 meses</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <UserHistoryView 
-                      userId={selectedUserIdForHistory} 
-                      months={historicalMonths}
-                      users={users}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {viewMode === 'team' && isMarioOrAdmin && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <CardTitle className="text-lg">Gestión del Equipo</CardTitle>
-              </div>
-              <Button
-                onClick={handleCreateUser}
-                className="flex items-center gap-2"
-                data-testid="button-create-user"
-              >
-                <UserPlus className="h-4 w-4" />
-                Agregar Usuario
-              </Button>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {/* Filtros */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="company-filter">Filtrar por Empresa</Label>
-                  <Select value={selectedCompanyFilter} onValueChange={setSelectedCompanyFilter}>
-                    <SelectTrigger id="company-filter" data-testid="select-company-filter">
+                      <div>
+                        <Label htmlFor="company-filter">Empresa</Label>
+                        <Select value={teamCompanyFilter} onValueChange={setTeamCompanyFilter}>
+                          <SelectTrigger>
                       <SelectValue placeholder="Todas las empresas" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1366,34 +1507,27 @@ export default function KpiControlCenter() {
                   </Select>
                 </div>
                 
-                <div className="flex-1">
-                  <Label htmlFor="area-filter">Filtrar por Área</Label>
-                  <Select value={selectedAreaFilter} onValueChange={setSelectedAreaFilter}>
-                    <SelectTrigger id="area-filter" data-testid="select-area-filter">
-                      <SelectValue placeholder="Todas las áreas" />
+                      <div>
+                        <Label htmlFor="performance-filter">Rendimiento</Label>
+                        <Select value={teamPerformanceFilter} onValueChange={setTeamPerformanceFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todos los niveles" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas las áreas</SelectItem>
-                      {areas?.map((area: any) => (
-                        <SelectItem key={area.id} value={area.id.toString()}>
-                          {area.name}
-                        </SelectItem>
-                      ))}
+                            <SelectItem value="all">Todos los niveles</SelectItem>
+                            <SelectItem value="excellent">Excelente</SelectItem>
+                            <SelectItem value="good">Bueno</SelectItem>
+                            <SelectItem value="needs_attention">Requiere atención</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+                  </CardContent>
+                </Card>
 
               {/* Lista de usuarios */}
-              {usersLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-gray-600">Cargando usuarios...</span>
-                </div>
-              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredUsers.map((user: UserType) => {
-                    const userKpis = getUserKpis(user.id);
+                  {filteredTeamUsers.map((user: any) => {
                     const userCompany = companies?.find((c: any) => c.id === user.companyId);
                     const userArea = areas?.find((a: any) => a.id === user.areaId);
                     
@@ -1405,8 +1539,13 @@ export default function KpiControlCenter() {
                               <User className="h-4 w-4 text-blue-600" />
                               {user.name}
                             </CardTitle>
-                            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'}>
-                              {user.role}
+                            <Badge variant={
+                              user.status === 'excellent' ? 'default' : 
+                              user.status === 'good' ? 'secondary' : 
+                              'destructive'
+                            }>
+                              {user.status === 'excellent' ? 'Excelente' : 
+                               user.status === 'good' ? 'Bueno' : 'Requiere atención'}
                             </Badge>
                           </div>
                         </CardHeader>
@@ -1422,8 +1561,21 @@ export default function KpiControlCenter() {
                             </div>
                             <div className="flex items-center gap-1 mt-1">
                               <Target className="h-3 w-3" />
-                              {userKpis.length} KPIs asignados
+                              {user.completedKpis} de {user.totalKpis} KPIs completados
                             </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Rendimiento</span>
+                              <span className="font-semibold">{user.performanceScore}%</span>
+                            </div>
+                            <Progress value={user.performanceScore} className="h-2" />
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>Última actividad</span>
+                            <span>{user.daysSinceActivity} días</span>
                           </div>
                           
                           {/* Acciones */}
@@ -1431,20 +1583,11 @@ export default function KpiControlCenter() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleViewUserKpis(user)}
-                              data-testid="button-view-user-kpis"
+                              onClick={() => setSelectedTeamUser(user)}
+                              data-testid="button-view-user-details"
                             >
-                              <BarChart3 className="h-3 w-3 mr-1" />
-                              KPIs
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSendMessage(user)}
-                              data-testid="button-send-message"
-                            >
-                              <Mail className="h-3 w-3 mr-1" />
-                              Mensaje
+                              <Eye className="h-3 w-3 mr-1" />
+                              Ver
                             </Button>
                             <Button
                               size="sm"
@@ -1455,43 +1598,85 @@ export default function KpiControlCenter() {
                               <Edit className="h-3 w-3 mr-1" />
                               Editar
                             </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  data-testid="button-delete-user"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción eliminará permanentemente el usuario "{user.name}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteUser(user.id)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Eliminar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   })}
                 </div>
-              )}
+              </TabsContent>
+
+              <TabsContent value="rendimiento" className="space-y-6">
+                {/* Gráficos de rendimiento */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Distribución de Rendimiento
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span>Excelente</span>
+                          </div>
+                          <span className="font-semibold">
+                            {filteredTeamUsers.filter((u: any) => u.status === 'excellent').length}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span>Bueno</span>
+                          </div>
+                          <span className="font-semibold">
+                            {filteredTeamUsers.filter((u: any) => u.status === 'good').length}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                            <span>Requiere Atención</span>
+                          </div>
+                          <span className="font-semibold">
+                            {filteredTeamUsers.filter((u: any) => u.status === 'needs_attention').length}
+                          </span>
+                        </div>
+                      </div>
             </CardContent>
           </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Actividad Reciente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span>Usuarios activos (7 días)</span>
+                          <span className="font-semibold">{teamMetrics.activeUsers}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Rendimiento promedio</span>
+                          <span className="font-semibold">{teamMetrics.avgPerformance}%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Total colaboradores</span>
+                          <span className="font-semibold">{teamMetrics.totalUsers}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
 
         {/* Modal de Actualización KPI */}

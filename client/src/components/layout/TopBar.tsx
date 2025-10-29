@@ -7,10 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-
-export interface TopBarProps {
-  title?: string;
-}
+import { OrsegaTitle } from "@/components/ui/OrsegaTitle";
 
 export function TopBar({ title }: TopBarProps) {
   const [showSearch, setShowSearch] = useState(false);
@@ -73,7 +70,7 @@ export function TopBar({ title }: TopBarProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2 hover:bg-gray-100">
                   <Avatar className="h-7 w-7">
-                    <AvatarFallback className="text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                    <AvatarFallback className="text-xs bg-gradient-to-r from-[#1e3a5f] to-[#0080ff] text-white">
                       {getUserInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>

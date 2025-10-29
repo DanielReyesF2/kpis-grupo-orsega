@@ -1,5 +1,5 @@
 import { 
-  users, companies, areas, kpis, kpiValues, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, jobProfiles, shipmentCycleTimes, userActivationTokens, clients, paymentVouchers 
+  users, companies, areas, kpis, kpiValues, kpiValuesDura, kpiValuesOrsega, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, jobProfiles, shipmentCycleTimes, userActivationTokens, clients, paymentVouchers 
 } from "@shared/schema";
 import type { 
   User, InsertUser, 
@@ -964,26 +964,234 @@ export class DatabaseStorage implements IStorage {
 
   async getKPIHistory(kpiId: number, months: number = 12): Promise<any[]> {
     try {
-      const kpiHistory = await db.select({
-        id: kpiValues.id,
-        value: kpiValues.value,
-        date: kpiValues.date,
-        period: kpiValues.period,
-        compliancePercentage: kpiValues.compliancePercentage,
-        status: kpiValues.status,
-        comments: kpiValues.comments,
-        updatedBy: kpiValues.updatedBy
-      })
-      .from(kpiValues)
-      .where(and(
-        eq(kpiValues.kpiId, kpiId),
-        isNull(kpiValues.userId) // Solo datos a nivel empresa, no de usuarios específicos
-      ))
-      .orderBy(desc(kpiValues.date))
-      .limit(months);
+      // Usar neon directamente para consultar las tablas específicas
+      const { neon } = await import('@neondatabase/serverless');
+      const sql = neon(process.env.DATABASE_URL!);
+      
+      // Primero buscar en qué tabla está el KPI (kpis_dura o kpis_orsega)
+      let kpiInfo: any = null;
+      let isOrsega = false;
+      
+      // Intentar buscar en kpis_orsega primero
+      const orsegaResult = await sql`
+        SELECT id, area, kpi_name, responsible
+        FROM kpis_orsega
+        WHERE id = ${kpiId}
+        LIMIT 1
+      `;
+      
+      if (orsegaResult && orsegaResult.length > 0) {
+        kpiInfo = orsegaResult[0];
+        isOrsega = true;
+        console.log(`[getKPIHistory] KPI ${kpiId} encontrado en kpis_orsega: ${kpiInfo.kpi_name}`);
+      } else {
+        // Buscar en kpis_dura
+        const duraResult = await sql`
+          SELECT id, area, kpi_name, responsible
+          FROM kpis_dura
+          WHERE id = ${kpiId}
+          LIMIT 1
+        `;
+        
+        if (duraResult && duraResult.length > 0) {
+          kpiInfo = duraResult[0];
+          isOrsega = false;
+          console.log(`[getKPIHistory] KPI ${kpiId} encontrado en kpis_dura: ${kpiInfo.kpi_name}`);
+        }
+      }
+      
+      if (!kpiInfo) {
+        console.error(`[getKPIHistory] KPI ${kpiId} not found in kpis_dura or kpis_orsega`);
+        return [];
+      }
 
-      console.log(`[getKPIHistory] KPI ${kpiId} history:`, kpiHistory);
-      return kpiHistory;
+      // Buscar valores históricos usando el mismo kpi_id
+      let result: any[] = [];
+      
+      if (isOrsega) {
+        // Orsega - primero intentar en kpi_values_orsega (tabla nueva) por ID directo
+        let rawResult = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            month,
+            year,
+            value,
+            created_at as "date"
+          FROM kpi_values_orsega
+          WHERE kpi_id = ${kpiId}
+          ORDER BY year DESC, 
+            CASE month
+              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+              ELSE 13
+            END DESC
+          LIMIT ${months}
+        `;
+        
+        console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${rawResult.length} registros en kpi_values_orsega por ID directo`);
+        
+        // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
+        if (rawResult.length === 0 && kpiInfo?.kpi_name) {
+          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
+          const joinResult = await sql`
+            SELECT 
+              kv.id,
+              kv.kpi_id as "kpiId",
+              kv.month,
+              kv.year,
+              kv.value,
+              kv.created_at as "date"
+            FROM kpi_values_orsega kv
+            INNER JOIN kpis_orsega k ON kv.kpi_id = k.id
+            WHERE k.kpi_name = ${kpiInfo.kpi_name}
+            ORDER BY kv.year DESC,
+              CASE kv.month
+                WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+                WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+                WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+                WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+                ELSE 13
+              END DESC
+            LIMIT ${months}
+          `;
+          
+          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${joinResult.length} registros por nombre usando JOIN`);
+          rawResult = joinResult;
+        }
+        
+        if (rawResult.length > 0) {
+          // Hay datos en la tabla nueva - usarlos
+          result = rawResult.map((row: any) => ({
+            id: row.id,
+            value: row.value?.toString() || '0',
+            date: row.date || new Date(),
+            period: `${row.month} ${row.year}`,
+            compliancePercentage: null,
+            status: null,
+            comments: null,
+            updatedBy: null
+          }));
+        } else {
+          // No hay datos en tabla nueva - buscar en kpi_values (tabla antigua)
+          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando en tabla antigua kpi_values...`);
+          const legacyResult = await sql`
+            SELECT 
+              id,
+              kpi_id as "kpiId",
+              value,
+              date,
+              period,
+              compliance_percentage as "compliancePercentage",
+              status,
+              comments,
+              updated_by as "updatedBy"
+            FROM kpi_values
+            WHERE kpi_id = ${kpiId}
+            ORDER BY date DESC
+            LIMIT ${months}
+          `;
+          
+          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
+          
+          result = legacyResult;
+        }
+      } else {
+        // Dura - primero intentar en kpi_values_dura (tabla nueva) por ID directo
+        let rawResult = await sql`
+          SELECT 
+            id,
+            kpi_id as "kpiId",
+            month,
+            year,
+            value,
+            created_at as "date"
+          FROM kpi_values_dura
+          WHERE kpi_id = ${kpiId}
+          ORDER BY year DESC,
+            CASE month
+              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+              ELSE 13
+            END DESC
+          LIMIT ${months}
+        `;
+        
+        console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${rawResult.length} registros en kpi_values_dura por ID directo`);
+        
+        // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
+        if (rawResult.length === 0 && kpiInfo?.kpi_name) {
+          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
+          const joinResult = await sql`
+            SELECT 
+              kv.id,
+              kv.kpi_id as "kpiId",
+              kv.month,
+              kv.year,
+              kv.value,
+              kv.created_at as "date"
+            FROM kpi_values_dura kv
+            INNER JOIN kpis_dura k ON kv.kpi_id = k.id
+            WHERE k.kpi_name = ${kpiInfo.kpi_name}
+            ORDER BY kv.year DESC,
+              CASE kv.month
+                WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+                WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+                WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+                WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+                ELSE 13
+              END DESC
+            LIMIT ${months}
+          `;
+          
+          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${joinResult.length} registros por nombre usando JOIN`);
+          rawResult = joinResult;
+        }
+        
+        if (rawResult.length > 0) {
+          // Hay datos en la tabla nueva - usarlos
+          result = rawResult.map((row: any) => ({
+            id: row.id,
+            value: row.value?.toString() || '0',
+            date: row.date || new Date(),
+            period: `${row.month} ${row.year}`,
+            compliancePercentage: null,
+            status: null,
+            comments: null,
+            updatedBy: null
+          }));
+        } else {
+          // No hay datos en tabla nueva - buscar en kpi_values (tabla antigua)
+          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando en tabla antigua kpi_values...`);
+          const legacyResult = await sql`
+            SELECT 
+              id,
+              kpi_id as "kpiId",
+              value,
+              date,
+              period,
+              compliance_percentage as "compliancePercentage",
+              status,
+              comments,
+              updated_by as "updatedBy"
+            FROM kpi_values
+            WHERE kpi_id = ${kpiId}
+            ORDER BY date DESC
+            LIMIT ${months}
+          `;
+          
+          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${legacyResult.length} registros en kpi_values (legacy)`);
+          
+          result = legacyResult;
+        }
+      }
+
+      console.log(`[getKPIHistory] KPI ${kpiId} (${isOrsega ? 'Orsega' : 'Dura'}) history:`, result.length, 'records');
+      return result;
     } catch (error) {
       console.error("Error getting KPI history:", error);
       return [];

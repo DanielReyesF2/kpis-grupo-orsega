@@ -129,7 +129,7 @@ export default function ExecutiveDashboard() {
     <AppLayout title="Panel Ejecutivo - Mario Reynoso">
       <div className="space-y-6">
         {/* Executive Header */}
-        <div className="bg-gradient-to-r from-[#273949] to-[#1a2a36] p-6 rounded-xl text-white">
+        <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-6 rounded-xl text-white shadow-lg">
           <div className="flex items-center gap-3 mb-4">
             <Crown className="h-8 w-8 text-yellow-400" />
             <div>
@@ -142,7 +142,7 @@ export default function ExecutiveDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
             <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-green-400" />
+                <Target className="h-5 w-5 text-emerald-300" />
                 <span className="text-sm">Cumplimiento Global</span>
               </div>
               <p className="text-3xl font-bold mt-2">{metrics.complianceRate}%</p>
@@ -151,7 +151,7 @@ export default function ExecutiveDashboard() {
             
             <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-blue-400" />
+                <Building2 className="h-5 w-5 text-[#0080ff]" />
                 <span className="text-sm">Empresas</span>
               </div>
               <p className="text-3xl font-bold mt-2">{metrics.totalCompanies}</p>
@@ -160,7 +160,7 @@ export default function ExecutiveDashboard() {
             
             <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-400" />
+                <AlertTriangle className="h-5 w-5 text-yellow-300" />
                 <span className="text-sm">Alertas Críticas</span>
               </div>
               <p className="text-3xl font-bold mt-2">{metrics.nonCompliantKpis + metrics.alertKpis}</p>
@@ -169,7 +169,7 @@ export default function ExecutiveDashboard() {
             
             <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-400" />
+                <Users className="h-5 w-5 text-[#0080ff]" />
                 <span className="text-sm">Colaboradores</span>
               </div>
               <p className="text-3xl font-bold mt-2">{metrics.activeUsers}</p>
@@ -201,7 +201,7 @@ export default function ExecutiveDashboard() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                         <span>Cumpliendo</span>
                       </div>
                       <span className="font-semibold">{metrics.compliantKpis}</span>
@@ -308,7 +308,7 @@ export default function ExecutiveDashboard() {
                       <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            alert.severity === 'high' ? 'bg-red-500' : 'bg-orange-500'
+                            alert.severity === 'high' ? 'bg-red-500' : 'bg-yellow-500'
                           }`}></div>
                           <div>
                             <p className="font-medium">{alert.kpiName}</p>

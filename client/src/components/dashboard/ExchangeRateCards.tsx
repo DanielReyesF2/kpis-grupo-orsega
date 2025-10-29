@@ -176,14 +176,6 @@ export function ExchangeRateCards() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-            Tipos de Cambio
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Cotizaciones en tiempo real
-          </p>
-        </div>
         {isLoading && (
           <div className="flex items-center gap-2 text-gray-400">
             <RefreshCw className="h-4 w-4 animate-spin" />

@@ -516,9 +516,9 @@ export default function TeamManagement() {
                       .filter(u => u.status === 'needs_attention')
                       .slice(0, 5)
                       .map((user: any) => (
-                        <div key={user.id} className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
+                        <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                           <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold">
+                            <AvatarFallback className="bg-gradient-to-br from-[#1e3a5f] to-[#0080ff] text-white font-bold">
                               {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
@@ -527,7 +527,7 @@ export default function TeamManagement() {
                             <div className="text-sm text-gray-500">{user.company?.name}</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold text-amber-600">{user.performanceScore}%</div>
+                            <div className="font-bold text-[#0080ff]">{user.performanceScore}%</div>
                             <div className="text-xs text-gray-500">
                               {user.daysSinceActivity} días
                             </div>

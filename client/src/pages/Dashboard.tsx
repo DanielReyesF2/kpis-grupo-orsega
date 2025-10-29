@@ -28,7 +28,8 @@ import {
   BadgeCheck,
   Clock,
   MapPin,
-  Leaf
+  Leaf,
+  Target
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -218,9 +219,9 @@ export default function Dashboard() {
       <FiltersBar onFilterChange={handleFilterChange} />
       
       {/* Header con stats rápidas */}
-      <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-r from-[#273949] to-[#1a2a36] p-4 sm:p-8 shadow-lg dark:from-[#15202b] dark:to-[#0d1117]">
+      <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-4 sm:p-8 shadow-lg">
         <div className="absolute inset-0 bg-grid-white/10 bg-[length:20px_20px] [mask-image:linear-gradient(to_bottom,white_20%,transparent_60%)]"></div>
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#b5e951]/20 to-transparent"></div>
+        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#0080ff]/20 to-transparent"></div>
         
         <div className="relative">
           <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-white">
@@ -242,48 +243,91 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="mt-4 sm:mt-8 grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 md:gap-4" data-onboarding="kpi-stats">
-            <div className="bg-white/10 p-3 rounded-lg backdrop-blur-sm text-white">
-              <p className="text-xs text-white/70">Volumen de ventas (último mes)</p>
-              <p className="text-2xl font-bold">
-                {Number(filters.companyId) === 2 ? "237,464 Unidades" : "59,680 KG"}
-              </p>
-              <p className="text-xs flex items-center text-emerald-400">
-                <ArrowUp className="h-3 w-3 mr-1" />
-                <span>{Number(filters.companyId) === 2 ? "+26%" : "+4.2%"} vs mes anterior</span>
-              </p>
-            </div>
+          <div className="mt-4 sm:mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" data-onboarding="kpi-stats">
+            <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#2a4a6f] border-0 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80 mb-1">Volumen de Ventas</p>
+                    <p className="text-2xl font-bold">
+                      {Number(filters.companyId) === 2 ? "237,464 Unidades" : "59,680 KG"}
+                    </p>
+                    <p className="text-xs flex items-center text-emerald-300 mt-2">
+                      <ArrowUp className="h-3 w-3 mr-1" />
+                      <span>{Number(filters.companyId) === 2 ? "+26%" : "+4.2%"} vs mes anterior</span>
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white/10 rounded-full">
+                    <DollarSign className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
-            <div className="bg-white/10 p-3 rounded-lg backdrop-blur-sm text-white">
-              <p className="text-xs text-white/70">KPIs en seguimiento</p>
-              <p className="text-2xl font-bold">{filteredKpis.length}</p>
-              <p className="text-xs text-white/70">{filteredKpis.filter((kpi: KpiDetail) => kpi.status === 'complies').length} cumpliendo objetivo</p>
-            </div>
+            <Card className="bg-gradient-to-br from-[#0080ff] to-[#0066cc] border-0 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80 mb-1">KPIs en Seguimiento</p>
+                    <p className="text-2xl font-bold">{filteredKpis.length}</p>
+                    <p className="text-xs text-white/70 mt-2">
+                      {filteredKpis.filter((kpi: KpiDetail) => kpi.status === 'complies').length} cumpliendo objetivo
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white/10 rounded-full">
+                    <Target className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
-            <div className="bg-white/10 p-3 rounded-lg backdrop-blur-sm text-white">
-              <p className="text-xs text-white/70">Última actualización</p>
-              <p className="text-xl font-bold">{getLastUpdatedDate()}</p>
-              <p className="text-xs text-white/70">Datos en tiempo real</p>
-            </div>
+            <Card className="bg-gradient-to-br from-[#2a4a6f] to-[#1e3a5f] border-0 text-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80 mb-1">Última Actualización</p>
+                    <p className="text-xl font-bold">{getLastUpdatedDate()}</p>
+                    <p className="text-xs text-white/70 mt-2">Datos en tiempo real</p>
+                  </div>
+                  <div className="p-3 bg-white/10 rounded-full">
+                    <Clock className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
 
       {/* Tipos de Cambio - Prioridad para Emilio */}
       <div className="mb-6 sm:mb-12" data-onboarding="exchange-rates">
-        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-md mx-2 sm:mx-0">
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tipos de Cambio</h3>
+            <Badge variant="secondary" className="bg-[#0080ff]/10 text-[#0080ff] border-[#0080ff]/20">
+              Tiempo Real
+            </Badge>
+          </div>
           <ExchangeRateCards />
         </div>
       </div>
       
       {/* Reporte de Ventas */}
       <div className="mb-6 sm:mb-12" data-onboarding="sales-report">
-        <div className="bg-slate-50 dark:bg-primary-950/50 p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-md mx-2 sm:mx-0">
-          <div className="flex items-center gap-2 mb-3 sm:mb-6">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#0080ff]/10 rounded-lg">
+                <DollarSign className="h-5 w-5 text-[#0080ff]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reporte de Ventas</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Resumen mensual de ventas</p>
+              </div>
             </div>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Reporte de Ventas</h2>
+            <Badge variant="outline" className="border-[#0080ff]/20 text-[#0080ff]">
+              {Number(filters.companyId) === 2 ? "Orsega" : "Dura"}
+            </Badge>
           </div>
           <SalesSummary key={`sales-summary-${filters.companyId}`} companyId={Number(filters.companyId) || 1} />
         </div>

@@ -9,11 +9,16 @@ import {
   ArrowUp,
   ArrowDown,
   Activity,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMemo } from 'react';
-import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
 interface KpiValue {
   value: number;
@@ -32,6 +37,7 @@ interface EnhancedKpiCardProps {
     areaName?: string;
     responsible?: string;
     historicalData?: KpiValue[];
+    company?: string; // Nueva propiedad para identificar la empresa
   };
   onClick?: () => void;
   onViewDetails?: () => void;
@@ -69,7 +75,18 @@ const getStatusIcon = (status: string) => {
 };
 
 export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: EnhancedKpiCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const statusColors = getStatusColor(kpi.status);
+  
+  // Cargar historial completo cuando se expanda
+  // Usar endpoint genérico que automáticamente busca en las tablas correctas
+  const historyEndpoint = `/api/kpi-history/${kpi.id}`;
+  
+  const { data: fullHistory, isLoading: isLoadingHistory } = useQuery<any[]>({
+    queryKey: [historyEndpoint, { months: 12 }],
+    enabled: isExpanded && !!kpi.id,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+  });
   
   // Preparar datos para el gráfico de tendencia (últimos 6 puntos)
   const chartData = useMemo(() => {
@@ -83,6 +100,25 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
     }));
   }, [kpi.historicalData]);
 
+  // Preparar datos históricos completos para gráfica expandida
+  const fullHistoryData = useMemo(() => {
+    if (!fullHistory || fullHistory.length === 0) return [];
+    
+    // Ordenar por fecha ascendente para visualización correcta
+    return fullHistory
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.date || a.period).getTime();
+        const dateB = new Date(b.date || b.period).getTime();
+        return dateA - dateB;
+      })
+      .map((item: any, index: number) => ({
+        name: item.period || `Periodo ${index + 1}`,
+        value: parseFloat(item.value?.toString() || '0'),
+        period: item.period || '',
+        date: item.date ? new Date(item.date).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }) : ''
+      }));
+  }, [fullHistory]);
+  
   // Calcular tendencia (último vs penúltimo)
   const trend = useMemo(() => {
     if (!kpi.historicalData || kpi.historicalData.length < 2) return null;
@@ -106,8 +142,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
       className="h-full"
     >
       <Card 
-        className={`h-full cursor-pointer transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
-        onClick={onClick}
+        className={`h-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
         data-onboarding="kpi-card"
       >
         <CardContent className="p-5">
@@ -204,23 +239,113 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
               </div>
             )}
 
-            {/* Botón de Detalles Extendidos */}
-            {onViewDetails && (
-              <div className="pt-3 border-t border-gray-200">
+            {/* Componente expandible para historial completo */}
+            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs justify-between"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(!isExpanded);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-3 w-3" />
+                    <span>Ver Historial Completo</span>
+                  </div>
+                  {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4 border-t border-gray-200">
+                {isLoadingHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Activity className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-sm text-gray-500">Cargando historial...</span>
+                  </div>
+                ) : fullHistoryData.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={fullHistoryData} margin={{ top: 5, right: 20, bottom: 60, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis 
+                            dataKey="name" 
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                            tick={{ fontSize: 10 }}
+                            interval={0}
+                          />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'white', 
+                              border: `1px solid ${statusColors.border.replace('border-', '')}`,
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              padding: '6px 10px'
+                            }}
+                            formatter={(value: any) => [`${value} ${kpi.unit}`, 'Valor']}
+                            labelFormatter={(label) => `Periodo: ${label}`}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke={statusColors.chartColor}
+                            strokeWidth={3}
+                            dot={{ r: 4, fill: statusColors.chartColor }}
+                            activeDot={{ r: 6 }}
+                            name={`${kpi.name} (${kpi.unit})`}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="text-xs text-gray-500 text-center">
+                      Mostrando {fullHistoryData.length} puntos de datos históricos
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    No hay datos históricos disponibles
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Botones de acción */}
+            <div className="flex gap-2 pt-3 border-t border-gray-200">
+              {onClick && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full text-xs"
+                  className="flex-1 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClick();
+                  }}
+                >
+                  <Activity className="h-3 w-3 mr-1" />
+                  Actualizar
+                </Button>
+              )}
+              {onViewDetails && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     onViewDetails();
                   }}
                 >
                   <Info className="h-3 w-3 mr-1" />
-                  Ver Detalles Extendidos
+                  Detalles
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

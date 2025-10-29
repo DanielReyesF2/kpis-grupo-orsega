@@ -167,7 +167,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     }
   });
 
@@ -243,7 +243,7 @@ app.use((req, res, next) => {
   console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
   
   server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
+    console.log(`serving on port ${port}`);
     
     // Inicializar el scheduler de auto-cierre mensual
     // DESACTIVADO: Auto-cierre automático removido por solicitud del usuario

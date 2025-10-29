@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { EconovaTitle } from "@/components/ui/econova-title";
-import { LogoEconova } from "@/components/ui/LogoEconova";
+import { OrsegaTitle } from "@/components/ui/OrsegaTitle";
+import { LogoOrsega } from "@/components/ui/LogoOrsega";
 import {
   Building,
   LayoutDashboard,
@@ -100,7 +100,7 @@ function Sidebar() {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "lg:flex lg:flex-col w-64 bg-gradient-to-b from-[#1a2633] via-[#273949] to-[#1a2633] shadow-2xl z-[1001] h-screen overflow-y-auto transition-all duration-300",
+          "lg:flex lg:flex-col w-64 bg-gradient-to-b from-[#1e3a5f] via-[#2a4a6f] to-[#1e3a5f] shadow-2xl z-[1001] h-screen overflow-y-auto transition-all duration-300",
           isMobileOpen ? "fixed inset-y-0 left-0 transform translate-x-0" : "fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0"
         )}
         style={{ width: "250px" }}
@@ -110,7 +110,7 @@ function Sidebar() {
           <Button
             variant="ghost"
             size="sm"
-            className="absolute top-2 right-2 text-white hover:bg-[#3a4d5d] lg:hidden"
+            className="absolute top-2 right-2 text-white hover:bg-[#3a5a7f] lg:hidden"
             onClick={closeMenu}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -120,9 +120,9 @@ function Sidebar() {
           </Button>
         )}
 
-        <div className="px-4 py-6 border-b border-[#3a4d5d]/60 flex items-center justify-center from-[#b5e951]/10 to-[#b5e951]/5 backdrop-blur-sm bg-[#253646]">
+        <div className="px-4 py-6 border-b border-[#3a5a7f]/60 flex items-center justify-center from-[#0080ff]/10 to-[#0080ff]/5 backdrop-blur-sm bg-[#1e3a5f]">
           <div className="flex flex-shrink-0 items-center">
-            <LogoEconova height={55} />
+            <LogoOrsega height={55} showText={false} />
           </div>
         </div>
 
@@ -165,16 +165,6 @@ function Sidebar() {
               Módulo de Logística
             </NavItem>
           )}
-
-          {/* Gestión de Equipo */}
-          <NavItem
-            href="/team-management"
-            icon={<Users className="mr-3 h-5 w-5 text-purple-400 group-hover:scale-110 transition-transform duration-200" />}
-            active={location === "/team-management"}
-            onClick={closeMenu}
-          >
-            Gestión de Equipo
-          </NavItem>
 
           {/* Tesorería */}
           <NavItem
