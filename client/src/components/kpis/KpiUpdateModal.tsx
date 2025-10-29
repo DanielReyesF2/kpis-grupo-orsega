@@ -412,6 +412,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                 </div>
               </form>
             </Form>
+              </>
+            )}
           </div>
         )}
       </DialogContent>
