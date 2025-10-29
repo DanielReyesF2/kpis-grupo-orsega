@@ -6,10 +6,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files first for better caching
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json* ./
 
 # Install ALL dependencies (including devDependencies for build)
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copy source code
 COPY . .
@@ -24,10 +25,15 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json* ./
 
 # Install ONLY production dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=dev && npm cache clean --force; \
+    else \
+      npm install --omit=dev && npm cache clean --force; \
+    fi
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
