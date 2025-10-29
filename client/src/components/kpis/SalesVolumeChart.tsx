@@ -80,7 +80,7 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
 };
 
 export function SalesVolumeChart({
-  kpiId,
+  kpiId: providedKpiId,
   companyId,
   kpiValues = [],
   target,
@@ -99,6 +99,30 @@ export function SalesVolumeChart({
   showControls?: boolean;
 }) {
   
+  // Buscar el KPI de Volumen de Ventas por nombre si no se proporciona kpiId
+  const { data: allKpis } = useQuery<any[]>({
+    queryKey: ['/api/kpis', { companyId }],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const salesKpi = allKpis?.find((kpi: any) => {
+    const name = (kpi.kpiName || kpi.name || '').toLowerCase();
+    return (name.includes('volumen') && name.includes('ventas')) || 
+           name.includes('ventas') || 
+           name.includes('sales');
+  });
+
+  // Usar kpiId proporcionado o buscar por nombre, con fallback a IDs conocidos
+  const kpiId = providedKpiId || salesKpi?.id || (companyId === 1 ? 39 : 10);
+  
+  console.log("[SalesVolumeChart] KPI seleccionado:", {
+    providedKpiId,
+    foundKpiId: salesKpi?.id,
+    finalKpiId: kpiId,
+    companyId,
+    kpiName: salesKpi?.name || salesKpi?.kpiName
+  });
+  
   // Obtener datos reales de la API
   const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
@@ -115,7 +139,8 @@ export function SalesVolumeChart({
     isLoading: isLoadingHistory,
     hasData: !!kpiHistoryData,
     dataLength: kpiHistoryData?.length || 0,
-    error: kpiHistoryError
+    error: kpiHistoryError,
+    sampleData: kpiHistoryData?.slice(0, 2)
   });
 
   // Procesar datos históricos de la API
