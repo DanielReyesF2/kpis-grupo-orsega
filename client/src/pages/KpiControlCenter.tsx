@@ -1196,17 +1196,26 @@ export default function KpiControlCenter() {
             </div>
 
             {/* Actualización de Ventas Mensuales */}
-            <Card className="border-2 border-blue-200 dark:border-blue-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
-                  Actualizar Ventas Mensuales
-                </CardTitle>
-                <CardDescription>
-                  Actualiza las ventas mensuales de cualquier período. Los cambios se guardarán en la base de datos y actualizarán automáticamente las métricas del dashboard.
-                </CardDescription>
+            <Card className="relative border-0 shadow-xl bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-indigo-950/30 overflow-hidden">
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
+              
+              <CardHeader className="relative pb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-white">
+                      Actualizar Ventas Mensuales
+                    </CardTitle>
+                    <CardDescription className="text-blue-100 mt-1">
+                      Registra las ventas de cualquier período y actualiza automáticamente las métricas
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="relative pt-6 bg-transparent">
                 <SalesWeeklyUpdateForm />
               </CardContent>
             </Card>

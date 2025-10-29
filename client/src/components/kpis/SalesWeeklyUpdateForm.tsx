@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Building2, Calendar, DollarSign, Sparkles } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -139,23 +139,18 @@ export default function SalesWeeklyUpdateForm() {
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
-      {/* Encabezado */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Actualizar Ventas Mensuales</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Selecciona el mes y registra las ventas totales
-        </p>
-      </div>
-
+    <div className="max-w-lg mx-auto">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
             control={form.control}
             name="companyId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-medium text-gray-700 dark:text-gray-300">Compañía</FormLabel>
+                <FormLabel className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200 text-sm mb-2">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  Compañía
+                </FormLabel>
                 <Select
                   onValueChange={(value) => {
                     field.onChange(parseInt(value));
@@ -164,7 +159,7 @@ export default function SalesWeeklyUpdateForm() {
                   defaultValue={field.value.toString()}
                 >
                   <FormControl>
-                    <SelectTrigger className="h-12 text-base">
+                    <SelectTrigger className="h-12 text-base border-2 hover:border-blue-400 transition-colors bg-white dark:bg-slate-800">
                       <SelectValue placeholder="Selecciona una compañía" />
                     </SelectTrigger>
                   </FormControl>
@@ -188,13 +183,16 @@ export default function SalesWeeklyUpdateForm() {
               name="month"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-medium text-gray-700 dark:text-gray-300">Mes</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200 text-sm mb-2">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    Mes
+                  </FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className="h-12 text-base border-2 hover:border-blue-400 transition-colors bg-white dark:bg-slate-800">
                         <SelectValue placeholder="Mes" />
                       </SelectTrigger>
                     </FormControl>
@@ -216,13 +214,16 @@ export default function SalesWeeklyUpdateForm() {
               name="year"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-medium text-gray-700 dark:text-gray-300">Año</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200 text-sm mb-2">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    Año
+                  </FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
                     value={field.value?.toString()}
                   >
                     <FormControl>
-                      <SelectTrigger className="h-12">
+                      <SelectTrigger className="h-12 text-base border-2 hover:border-blue-400 transition-colors bg-white dark:bg-slate-800">
                         <SelectValue placeholder="Año" />
                       </SelectTrigger>
                     </FormControl>
@@ -240,41 +241,52 @@ export default function SalesWeeklyUpdateForm() {
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="value"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-medium text-gray-700 dark:text-gray-300 text-lg">
-                  {getUnitLabel()}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder={getUnitPlaceholder()}
-                    type="text"
-                    className="h-14 text-xl text-center font-semibold border-2 focus:border-blue-500"
-                    onChange={(e) => {
-                      // Permitir solo números
-                      const value = e.target.value.replace(/[^0-9]/g, '');
-                      // Formatear con separador de miles
-                      const formattedValue = value ? parseInt(value).toLocaleString('es-MX') : '';
-                      field.onChange(formattedValue);
-                    }}
-                  />
-                </FormControl>
-                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                  Ingresa el valor total del mes
-                </p>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Campo de valor destacado */}
+          <div className="relative">
+            <FormField
+              control={form.control}
+              name="value"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center justify-center gap-2 font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+                      <DollarSign className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-lg">{getUnitLabel()}</span>
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        {...field}
+                        placeholder={getUnitPlaceholder()}
+                        type="text"
+                        className="h-16 text-2xl text-center font-bold border-3 border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-900/30 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 transition-all duration-200"
+                        onChange={(e) => {
+                          // Permitir solo números
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          // Formatear con separador de miles
+                          const formattedValue = value ? parseInt(value).toLocaleString('es-MX') : '';
+                          field.onChange(formattedValue);
+                        }}
+                      />
+                      <div className="absolute -top-2 -right-2">
+                        <Sparkles className="h-5 w-5 text-blue-400 animate-pulse" />
+                      </div>
+                    </div>
+                  </FormControl>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                    Ingresa el valor total del mes seleccionado
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {submissionStatus === "success" && (
-            <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+            <Alert variant="default" className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 dark:bg-green-900/30 dark:border-green-700 animate-in slide-in-from-top-2">
               <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-              <AlertTitle className="text-green-800 dark:text-green-300 text-base">Actualización completada</AlertTitle>
+              <AlertTitle className="text-green-800 dark:text-green-300 text-base font-semibold">¡Actualización completada!</AlertTitle>
               <AlertDescription className="text-green-700 dark:text-green-400">
                 {submissionMessage}
               </AlertDescription>
@@ -282,26 +294,33 @@ export default function SalesWeeklyUpdateForm() {
           )}
 
           {submissionStatus === "error" && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="animate-in slide-in-from-top-2">
               <AlertCircle className="h-5 w-5" />
-              <AlertTitle className="text-base">Error</AlertTitle>
+              <AlertTitle className="text-base font-semibold">Error</AlertTitle>
               <AlertDescription>{submissionMessage}</AlertDescription>
             </Alert>
           )}
 
           <Button 
             type="submit"
-            className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
+            className="w-full h-16 text-lg font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl group relative overflow-hidden"
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                Actualizando...
-              </>
-            ) : (
-              `Actualizar ${form.watch('month')} ${form.watch('year')}`
-            )}
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>Actualizando...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-5 w-5 group-hover:animate-pulse" />
+                  <span>Actualizar {form.watch('month')} {form.watch('year')}</span>
+                </>
+              )}
+            </span>
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
           </Button>
         </form>
       </Form>
