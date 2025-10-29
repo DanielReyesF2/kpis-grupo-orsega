@@ -145,7 +145,13 @@ export function registerRoutes(app: express.Application) {
   // REGISTER CATALOG ROUTES FIRST (NO AUTH REQUIRED)
   // ========================================
   app.use("/api", catalogRouter);
-  app.use("/api", logisticsRouter);
+  // IMPORTANTE: logisticsRouter tiene POST /api/shipments que entra en conflicto
+  // con el endpoint principal de shipments en esta misma línea 1949.
+  // El endpoint principal usa insertShipmentSchema y maneja items, fechas, etc.
+  // El endpoint de logisticsRouter usa createShipmentSchema (schema legacy diferente).
+  // Se mantiene montado pero debería deshabilitarse si causa conflictos.
+  // app.use("/api", logisticsRouter); // Temporalmente deshabilitado - causa conflictos con POST /api/shipments
+  app.use("/api/logistics-legacy", logisticsRouter); // Montado en ruta diferente para evitar conflictos
 
   // ========================================
   // RATE LIMITERS - Protección contra abuso

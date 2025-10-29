@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import { sql } from './db-logistics.js'
 import { createShipmentSchema, updateShipmentSchema, createShipmentEventSchema, createShipmentDocSchema } from '../shared/logistics-schema.js'
 import { sendTransportRequest } from './email-logistics.js'
@@ -106,9 +107,15 @@ logisticsRouter.get('/shipments/:id', async (req, res) => {
 })
 
 // POST /api/shipments
+// NOTA: Esta ruta está duplicada con server/routes.ts
+// El endpoint principal está en routes.ts que usa insertShipmentSchema
+// Este endpoint usa un schema diferente (createShipmentSchema) y se mantiene
+// solo para compatibilidad legacy. Si falla, debe revisarse routes.ts
 logisticsRouter.post('/shipments', async (req, res) => {
   try {
+    console.log('[POST /api/shipments (logistics)] Datos recibidos:', JSON.stringify(req.body, null, 2));
     const validated = createShipmentSchema.parse(req.body)
+    console.log('[POST /api/shipments (logistics)] Datos validados:', JSON.stringify(validated, null, 2));
     const id = randomUUID()
     
     const result = await sql(`
@@ -117,10 +124,20 @@ logisticsRouter.post('/shipments', async (req, res) => {
       RETURNING *
     `, [id, validated.reference, validated.clientId, validated.providerId, validated.origin, validated.destination, validated.incoterm, validated.etd, validated.eta])
     
+    console.log('[POST /api/shipments (logistics)] Envío creado exitosamente');
     res.status(201).json(result.rows[0])
   } catch (error) {
-    console.error('Error creating shipment:', error)
-    res.status(400).json({ error: 'Failed to create shipment' })
+    console.error('[POST /api/shipments (logistics)] Error completo:', error);
+    if (error instanceof z.ZodError) {
+      console.error('[POST /api/shipments (logistics)] Errores de validación:', JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ 
+        error: 'Failed to create shipment',
+        message: 'Validation error',
+        details: error.errors 
+      });
+    }
+    console.error('[POST /api/shipments (logistics)] Error desconocido:', error);
+    res.status(400).json({ error: 'Failed to create shipment', details: (error as Error).message })
   }
 })
 
