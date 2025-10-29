@@ -9,23 +9,38 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface Shipment {
   id: number;
   status: string;
-  origin: string;
-  destination: string;
-  scheduled_date: string;
+  origin?: string;
+  destination?: string;
+  scheduled_date?: string;
+  estimatedDeliveryDate?: string;
+  createdAt?: string;
   items_count?: number;
 }
 
 export function LogisticsPreview() {
   const [, navigate] = useLocation();
 
-  // Obtener envíos recientes
-  const { data: shipments = [], isLoading } = useQuery<Shipment[]>({
-    queryKey: ['/api/logistics/shipments'],
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 30000,
+  // Obtener envíos recientes - usar el mismo endpoint que el resto de la app
+  const { data: shipmentsResponse, isLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
+    queryKey: ['/api/shipments'],
+    staleTime: 1 * 60 * 1000, // 1 minuto
+    refetchInterval: 15000, // Refrescar cada 15 segundos para ver actualizaciones más rápido
+    refetchOnWindowFocus: true, // Refrescar cuando se vuelve a la ventana
   });
 
-  const recentShipments = shipments.slice(0, 3);
+  // Manejar ambos formatos de respuesta (array directo o objeto con shipments)
+  const shipments = Array.isArray(shipmentsResponse) 
+    ? shipmentsResponse 
+    : (shipmentsResponse?.shipments || []);
+
+  // Ordenar por fecha más reciente y tomar los primeros 3
+  const recentShipments = shipments
+    .sort((a: Shipment, b: Shipment) => {
+      const dateA = a.scheduled_date || a.createdAt || '';
+      const dateB = b.scheduled_date || b.createdAt || '';
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    })
+    .slice(0, 3);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -118,12 +133,18 @@ export function LogisticsPreview() {
                     <MapPin className="h-3 w-3" />
                     <span>{shipment.destination || 'N/A'}</span>
                   </div>
-                  {shipment.scheduled_date && (
+                  {(shipment.scheduled_date || shipment.estimatedDeliveryDate || shipment.createdAt) && (
                     <>
                       <span className="mx-1">•</span>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        <span>{new Date(shipment.scheduled_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                        <span>
+                          {new Date(
+                            shipment.scheduled_date || 
+                            shipment.estimatedDeliveryDate || 
+                            shipment.createdAt || ''
+                          ).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                        </span>
                       </div>
                     </>
                   )}
@@ -149,4 +170,5 @@ export function LogisticsPreview() {
     </Card>
   );
 }
+
 
