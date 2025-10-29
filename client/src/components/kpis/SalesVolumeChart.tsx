@@ -147,11 +147,15 @@ export function SalesVolumeChart({
   const chartData = useMemo(() => {
     if (!kpiHistoryData || kpiHistoryData.length === 0) {
       // Si no hay datos, retornar array vacío
-      console.log("[SalesVolumeChart] No hay datos históricos disponibles");
+      console.log("[SalesVolumeChart] ⚠️ No hay datos históricos disponibles");
+      console.log("[SalesVolumeChart] kpiHistoryData:", kpiHistoryData);
+      console.log("[SalesVolumeChart] kpiId usado:", kpiId);
+      console.log("[SalesVolumeChart] companyId:", companyId);
       return [];
     }
 
-    console.log("[SalesVolumeChart] Datos recibidos de API:", kpiHistoryData.length, "registros");
+    console.log("[SalesVolumeChart] ✅ Datos recibidos de API:", kpiHistoryData.length, "registros");
+    console.log("[SalesVolumeChart] Muestra de datos raw:", JSON.stringify(kpiHistoryData.slice(0, 3), null, 2));
 
     // Mapeo de nombres de meses para ordenamiento
     const monthOrder: { [key: string]: number } = {
@@ -191,7 +195,18 @@ export function SalesVolumeChart({
       });
 
     console.log("[SalesVolumeChart] Datos procesados:", processedData.length, "registros");
-    console.log("[SalesVolumeChart] Períodos:", processedData.map((d: any) => d.period));
+    console.log("[SalesVolumeChart] Períodos encontrados:", processedData.map((d: any) => d.period));
+    console.log("[SalesVolumeChart] Primeros datos procesados:", JSON.stringify(processedData.slice(0, 2), null, 2));
+
+    // Si después del filtro no hay datos, mostrar por qué
+    if (processedData.length === 0) {
+      console.warn("[SalesVolumeChart] ⚠️ Después del filtro de meses válidos, quedaron 0 registros");
+      console.warn("[SalesVolumeChart] Datos antes del filtro:", kpiHistoryData.map((d: any) => ({
+        period: d.period,
+        month: (d.period || '').split(' ')[0],
+        value: d.value
+      })));
+    }
 
     // NO aplicar slice aquí - mostrar todos los datos disponibles
     // El limit se usará solo si es necesario para mostrar los últimos N meses
@@ -200,6 +215,9 @@ export function SalesVolumeChart({
       : processedData;
 
     console.log("[SalesVolumeChart] Datos finales para gráfica:", finalData.length, "registros");
+    if (finalData.length > 0) {
+      console.log("[SalesVolumeChart] Muestra de datos finales:", JSON.stringify(finalData.slice(0, 2), null, 2));
+    }
     return finalData;
   }, [kpiHistoryData, companyId, limit]);
 
