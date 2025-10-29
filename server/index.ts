@@ -210,9 +210,27 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
 });
 
+// CRITICAL: Add error handler BEFORE async operations to catch any errors
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  // Log error for debugging but don't crash the server
+  console.error(`[Server Error ${status}]:`, err.message);
+  if (status >= 500) {
+    console.error('Full error stack:', err.stack);
+  }
+
+  res.status(status).json({ message });
+  // ✅ No throwing - let the server continue running
+});
+
 // Now setup everything else ASYNCHRONOUSLY after server is listening
+// This runs in the background and doesn't block the server from responding
 (async () => {
   try {
+    console.log("🔄 Starting async initialization...");
+    
     // Register API routes BEFORE Vite middleware
     // ============================================
     // HEALTH CHECK ENDPOINTS (antes de autenticación)
@@ -220,8 +238,15 @@ server.listen(port, "0.0.0.0", () => {
     app.get("/api/health", healthCheck);
     app.get("/api/health/ready", readinessCheck);
     app.get("/api/health/live", livenessCheck);
+    console.log("✅ Health check endpoints registered");
 
-    registerRoutes(app);
+    // Register routes (this might take time but won't block /health)
+    try {
+      registerRoutes(app);
+      console.log("✅ API routes registered");
+    } catch (error) {
+      console.error("⚠️ Warning: Error registering routes (server still running):", error);
+    }
     
     // importantly only setup vite in development and after
     // setting up all the other routes so the catch-all route
@@ -236,7 +261,7 @@ server.listen(port, "0.0.0.0", () => {
         await setupVite(app, server);
         console.log("✅ Vite middleware configured");
       } catch (error) {
-        console.error("❌ Failed to load Vite middleware:", error);
+        console.error("❌ Failed to load Vite middleware (non-critical):", error);
       }
     } else {
       console.log("📦 Setting up static file serving for production...");
@@ -246,24 +271,9 @@ server.listen(port, "0.0.0.0", () => {
         console.log("✅ Static file serving configured");
       } catch (error) {
         console.error("⚠️ Warning: Failed to setup static files (non-critical):", error);
-        // Don't throw - server is already listening
+        // Don't throw - server is already listening and /health works
       }
     }
-
-    // Error handling middleware MUST be added AFTER all other middleware
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      // Log error for debugging but don't crash the server
-      console.error(`[Server Error ${status}]:`, err.message);
-      if (status >= 500) {
-        console.error('Full error stack:', err.stack);
-      }
-
-      res.status(status).json({ message });
-      // ✅ No throwing - let the server continue running
-    });
     
     // Inicializar el scheduler de auto-cierre mensual
     // DESACTIVADO: Auto-cierre automático removido por solicitud del usuario
@@ -272,11 +282,17 @@ server.listen(port, "0.0.0.0", () => {
     console.log("✅ Sistema configurado para cierre manual");
     
     // Inicializar el scheduler de actualización automática del DOF
-    initializeDOFScheduler();
+    try {
+      initializeDOFScheduler();
+      console.log("✅ DOF scheduler initialized");
+    } catch (error) {
+      console.error("⚠️ Warning: Failed to initialize DOF scheduler (non-critical):", error);
+    }
     
     console.log("✅ All server initialization completed");
   } catch (error) {
-    console.error("⚠️ Error during async initialization (server is still running):", error);
-    // Don't crash - server is already listening
+    console.error("⚠️ CRITICAL: Error during async initialization:", error);
+    console.error("⚠️ But server is still running and /health should work");
+    // Don't crash - server is already listening and /health works
   }
 })();
