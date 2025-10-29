@@ -34,6 +34,7 @@ import { formatDate } from '@/lib/utils/dates';
 import { calculateKpiStatus, calculateCompliance } from '@/lib/utils/kpi-status';
 import { Loader2 } from 'lucide-react';
 import KpiHistoryChart from '@/components/dashboard/KpiHistoryChart';
+import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 
 interface KpiDetailDialogProps {
   kpiId: number | null;
@@ -280,6 +281,16 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     }
     return acc;
   }, []);
+
+  // Detectar si este es el KPI de Volumen de Ventas
+  const isSalesKpi = kpi && (
+    kpi.id === 39 || // Dura Volumen de ventas
+    kpi.id === 10 || // Orsega Volumen de ventas
+    (kpi.name && (
+      kpi.name.toLowerCase().includes('volumen') && 
+      kpi.name.toLowerCase().includes('ventas')
+    ))
+  );
 
   if (!isOpen) return null;
 
@@ -533,13 +544,30 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
               </TabsContent>
               
               <TabsContent value="update" className="pt-2 sm:pt-4">
-                <Card className="shadow-sm">
-                  <CardHeader className="pb-2 sm:pb-4">
-                    <CardTitle className="text-sm sm:text-base">Registrar Nueva Actualización</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Complete el formulario para registrar una nueva actualización del KPI</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+                {isSalesKpi ? (
+                  // Formulario especializado para actualización de ventas
+                  <Card className="shadow-sm border-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-indigo-950/30">
+                    <CardHeader className="pb-2 sm:pb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0 rounded-t-lg">
+                      <CardTitle className="text-sm sm:text-base text-white flex items-center gap-2">
+                        <span>✨ Actualizar Ventas Mensuales</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm text-blue-100">
+                        Selecciona el período y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-4 sm:pt-6">
+                      <SalesWeeklyUpdateForm />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  // Formulario genérico para otros KPIs
+                  <Card className="shadow-sm">
+                    <CardHeader className="pb-2 sm:pb-4">
+                      <CardTitle className="text-sm sm:text-base">Registrar Nueva Actualización</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Complete el formulario para registrar una nueva actualización del KPI</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                         <div className="space-y-1 sm:space-y-2">
                           <Label htmlFor="value" className="text-xs sm:text-sm">Valor Actual</Label>
@@ -628,6 +656,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
                     </form>
                   </CardContent>
                 </Card>
+                )}
               </TabsContent>
             </Tabs>
           </>

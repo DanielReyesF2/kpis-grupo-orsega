@@ -22,7 +22,11 @@ const salesFormSchema = z.object({
 
 type FormValues = z.infer<typeof salesFormSchema>;
 
-export default function SalesWeeklyUpdateForm() {
+interface SalesWeeklyUpdateFormProps {
+  showHeader?: boolean;
+}
+
+export default function SalesWeeklyUpdateForm({ showHeader = true }: SalesWeeklyUpdateFormProps = {}) {
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "success" | "error">("idle");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<number>(1);
@@ -139,7 +143,7 @@ export default function SalesWeeklyUpdateForm() {
   };
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className={showHeader ? "max-w-lg mx-auto" : "w-full"}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
