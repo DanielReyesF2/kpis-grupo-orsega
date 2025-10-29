@@ -31,14 +31,41 @@ catalogRouter.get('/clients', async (req, res) => {
 catalogRouter.post('/clients', async (req, res) => {
   try {
     console.log('🔵 [POST /clients] Creando nuevo cliente');
+    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
     const validated = createClientSchema.parse(req.body)
+    console.log('✅ Validated data:', JSON.stringify(validated, null, 2));
     const id = randomUUID()
+    
+    // Mapear billingAddr y shippingAddr a address si existen
+    const address = validated.billingAddr || validated.shippingAddr || null;
     
     const result = await sql(`
       INSERT INTO clients (id, name, email, phone, contact_person, company, address, payment_terms, requires_receipt, reminder_frequency, is_active, company_id, client_code, secondary_email, city, state, postal_code, country, email_notifications, customer_type, requires_payment_complement)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING *
-    `, [id, validated.name, validated.email, validated.phone, validated.contactPerson, validated.company, validated.address, validated.paymentTerms, validated.requiresReceipt, validated.reminderFrequency, validated.isActive, validated.companyId, validated.clientCode, validated.secondaryEmail, validated.city, validated.state, validated.postalCode, validated.country, validated.emailNotifications, validated.customerType, validated.requiresPaymentComplement])
+    `, [
+      id, 
+      validated.name, 
+      validated.email || null, 
+      validated.phone || null, 
+      null, // contactPerson
+      null, // company
+      address, // address (from billingAddr or shippingAddr)
+      null, // paymentTerms
+      true, // requiresReceipt (default)
+      null, // reminderFrequency
+      validated.isActive ?? true, 
+      null, // companyId
+      null, // clientCode
+      null, // secondaryEmail
+      null, // city
+      null, // state
+      null, // postalCode
+      'México', // country (default)
+      true, // emailNotifications (default)
+      null, // customerType
+      false // requiresPaymentComplement (default)
+    ])
     
     console.log(`✅ [POST /clients] Cliente creado: ${result.rows[0].name}`)
     res.status(201).json(result.rows[0])
