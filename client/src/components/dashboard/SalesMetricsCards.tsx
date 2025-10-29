@@ -105,18 +105,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-blue-900 dark:text-blue-100 mb-1 font-medium">Volumen Total</p>
-              <p className="text-lg font-bold text-blue-700 dark:text-blue-100 mb-2">
-                {formatNumber(totalSales)}
-              </p>
-              <div className="flex items-center text-emerald-600 dark:text-emerald-400 mb-3">
-                <ArrowUp className="h-3 w-3 mr-1" />
-                <span className="text-xs font-medium">{growthRate}% vs mes anterior</span>
-              </div>
-              <div className="text-xs text-blue-600 dark:text-blue-300 mb-2 flex justify-between">
-                <span>Progreso</span>
-                <span className="font-medium">{compliancePercentage}%</span>
-              </div>
-              <div className="w-full h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden mt-4">
                 <div 
                   className="h-full bg-blue-600 dark:bg-blue-400 rounded-full transition-all duration-500"
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
@@ -137,19 +126,13 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
             <div className="flex-1">
               <p className="text-sm text-amber-900 dark:text-amber-100 mb-1 font-medium">Avance del Objetivo Anual</p>
               <div className="flex items-center mb-2">
-                <p className="text-lg font-bold text-amber-700 dark:text-amber-100">
-                  {compliancePercentage}%
-                </p>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
                   {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
                    compliancePercentage >= 75 ? 'Buen progreso' :
                    compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
                 </span>
               </div>
-              <div className="text-xs text-amber-600 dark:text-amber-300 mb-2">
-                <span className="font-medium">Ventas: {formatNumber(totalSales)}</span> / <span>{formatNumber(totalTarget)}</span>
-              </div>
-              <div className="w-full h-2 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden mt-4">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${
                     compliancePercentage >= 100 ? 'bg-green-600' : 'bg-amber-600 dark:bg-amber-400'
