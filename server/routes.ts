@@ -1287,6 +1287,10 @@ export function registerRoutes(app: express.Application) {
         
         console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores (${oldValues.length} antiguos + ${orsegaValues.length} orsega + ${duraValues.length} dura)`);
         
+        if (allValues.length > 0) {
+          console.log(`[GET /api/kpi-values] Primeros 3 valores de ejemplo:`, allValues.slice(0, 3).map(v => ({ kpiId: v.kpiId, value: v.value, period: v.period })));
+        }
+        
         if (user.role === 'collaborator') {
           // Colaboradores solo ven sus propios KPIs
           const userKpiValues = allValues.filter(kv => kv.userId === user.id);
@@ -3240,8 +3244,13 @@ export function registerRoutes(app: express.Application) {
       const { limit = 30 } = req.query;
       
       const result = await sql(`
-        SELECT * FROM exchange_rates
-        ORDER BY date DESC
+        SELECT 
+          er.*,
+          u.name as created_by_name,
+          u.email as created_by_email
+        FROM exchange_rates er
+        LEFT JOIN users u ON er.created_by = u.id
+        ORDER BY er.date DESC
         LIMIT $1
       `, [parseInt(limit as string)]);
 

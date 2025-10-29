@@ -8,7 +8,9 @@ import type { Company, Kpi, KpiValue, KpiDetail } from '@shared/schema';
 import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { FilteredKpisModal } from '@/components/kpis/FilteredKpisModal';
 import { SalesSummary } from '@/components/dashboard/SalesSummary';
-import { ExchangeRateCards } from '@/components/dashboard/ExchangeRateCards';
+import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
+import { DofChart } from '@/components/dashboard/DofChart';
+import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
@@ -243,94 +245,20 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="mt-4 sm:mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" data-onboarding="kpi-stats">
-            <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#2a4a6f] border-0 text-white shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-white/80 mb-1">Volumen de Ventas</p>
-                    <p className="text-2xl font-bold">
-                      {Number(filters.companyId) === 2 ? "237,464 Unidades" : "59,680 KG"}
-                    </p>
-                    <p className="text-xs flex items-center text-emerald-300 mt-2">
-                      <ArrowUp className="h-3 w-3 mr-1" />
-                      <span>{Number(filters.companyId) === 2 ? "+26%" : "+4.2%"} vs mes anterior</span>
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/10 rounded-full">
-                    <DollarSign className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-[#0080ff] to-[#0066cc] border-0 text-white shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-white/80 mb-1">KPIs en Seguimiento</p>
-                    <p className="text-2xl font-bold">{filteredKpis.length}</p>
-                    <p className="text-xs text-white/70 mt-2">
-                      {filteredKpis.filter((kpi: KpiDetail) => kpi.status === 'complies').length} cumpliendo objetivo
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/10 rounded-full">
-                    <Target className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-[#2a4a6f] to-[#1e3a5f] border-0 text-white shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-white/80 mb-1">Última Actualización</p>
-                    <p className="text-xl font-bold">{getLastUpdatedDate()}</p>
-                    <p className="text-xs text-white/70 mt-2">Datos en tiempo real</p>
-                  </div>
-                  <div className="p-3 bg-white/10 rounded-full">
-                    <Clock className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="mt-4 sm:mt-8" data-onboarding="kpi-stats">
+            <SalesMetricsCards companyId={Number(filters.companyId) || 1} />
           </div>
         </div>
       </div>
 
-      {/* Tipos de Cambio - Prioridad para Emilio */}
-      <div className="mb-6 sm:mb-12" data-onboarding="exchange-rates">
-        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tipos de Cambio</h3>
-            <Badge variant="secondary" className="bg-[#0080ff]/10 text-[#0080ff] border-[#0080ff]/20">
-              Tiempo Real
-            </Badge>
-          </div>
-          <ExchangeRateCards />
-        </div>
+      {/* Comparativa de Tipos de Cambio */}
+      <div className="mb-6 sm:mb-12" data-onboarding="dof-chart">
+        <DofChart />
       </div>
-      
-      {/* Reporte de Ventas */}
-      <div className="mb-6 sm:mb-12" data-onboarding="sales-report">
-        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#0080ff]/10 rounded-lg">
-                <DollarSign className="h-5 w-5 text-[#0080ff]" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reporte de Ventas</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Resumen mensual de ventas</p>
-              </div>
-            </div>
-            <Badge variant="outline" className="border-[#0080ff]/20 text-[#0080ff]">
-              {Number(filters.companyId) === 2 ? "Orsega" : "Dura"}
-            </Badge>
-          </div>
-          <SalesSummary key={`sales-summary-${filters.companyId}`} companyId={Number(filters.companyId) || 1} />
-        </div>
+
+      {/* Preview de Logística */}
+      <div className="mb-6 sm:mb-12" data-onboarding="logistics-preview">
+        <LogisticsPreview />
       </div>
       
 
