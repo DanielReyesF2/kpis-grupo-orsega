@@ -247,7 +247,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4 sm:pt-6">
-                  <SalesWeeklyUpdateForm showHeader={false} />
+                  <SalesWeeklyUpdateForm showHeader={false} defaultCompanyId={kpi.companyId} />
                 </CardContent>
               </Card>
             ) : (
