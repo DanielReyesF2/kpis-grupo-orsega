@@ -12,10 +12,12 @@ catalogRouter.get('/clients', async (req, res) => {
   try {
     console.log('🔵 [GET /clients] Endpoint llamado');
     const result = await sql(`
-      SELECT id, code, name, contact, email, company_id, is_active, notes, created_at, updated_at 
-      FROM clients 
-      WHERE is_active = TRUE 
-      ORDER BY name
+      SELECT c.id, c.code, c.name, c.contact, c.email, c.company_id, c.is_active, c.notes, c.created_at, c.updated_at,
+             comp.name as company_name
+      FROM clients c
+      LEFT JOIN companies comp ON c.company_id = comp.id
+      WHERE c.is_active = TRUE 
+      ORDER BY c.name
     `)
     console.log(`📊 [GET /clients] Retornando ${result.rows.length} clientes`);
     if (result.rows.length > 0) {
@@ -44,8 +46,9 @@ catalogRouter.post('/clients', async (req, res) => {
     
     // La tabla clients usa serial (integer) para id, no UUID
     // No especificamos id, la base de datos lo genera automáticamente
-    // company_id es NOT NULL según el error, usar valor por defecto
-    // Por defecto usar company_id = 2 (Orsega) si no se especifica
+    // company_id es NOT NULL - usar el proporcionado o 2 (Orsega) por defecto
+    const companyId = (req.body as any).companyId ? parseInt((req.body as any).companyId) : 2;
+    
     const result = await sql(`
       INSERT INTO clients (name, email, is_active, company_id)
       VALUES ($1, $2, $3, $4)
@@ -54,7 +57,7 @@ catalogRouter.post('/clients', async (req, res) => {
       validated.name, 
       validated.email || null, // Email es el único campo obligatorio
       validated.isActive ?? true,
-      2 // company_id: 1=Dura, 2=Orsega. Usar 2 por defecto (Grupo Orsega)
+      companyId // Usar companyId proporcionado o 2 (Grupo Orsega) por defecto
     ])
     
     console.log(`✅ [POST /clients] Cliente creado: ${result.rows[0].name}`)

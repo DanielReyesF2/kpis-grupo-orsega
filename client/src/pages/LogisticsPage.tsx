@@ -25,6 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import React from 'react';
@@ -39,6 +40,7 @@ interface Client {
   billing_addr?: string;
   shipping_addr?: string;
   is_active: boolean;
+  company_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +77,7 @@ const clientFormSchema = z.object({
   billing_addr: z.string().optional(),
   shipping_addr: z.string().optional(),
   is_active: z.boolean().default(true),
+  company_id: z.string().min(1, 'Debe seleccionar una empresa'),
 });
 
 // Schema para formulario de proveedores
@@ -95,6 +98,11 @@ export default function LogisticsPage() {
   const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Consulta para obtener empresas
+  const { data: companies = [] } = useQuery<any[]>({
+    queryKey: ['/api/companies'],
+  });
 
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/clients'],
@@ -243,7 +251,14 @@ export default function LogisticsPage() {
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-gray-900">{client.name}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-lg text-gray-900">{client.name}</h3>
+                          {client.company_id && (
+                            <Badge variant="outline" className="text-xs">
+                              {companies.find((c: any) => c.id === client.company_id)?.name || `Empresa ${client.company_id}`}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
                           {client.rfc && <p><span className="font-medium">RFC:</span> {client.rfc}</p>}
                           {client.email && <p><span className="font-medium">Email:</span> {client.email}</p>}
@@ -476,6 +491,11 @@ function ClientFormDialog({
   queryClient: any;
   toast: any;
 }) {
+  // Obtener empresas para el selector
+  const { data: companies = [] } = useQuery<any[]>({
+    queryKey: ['/api/companies'],
+  });
+
   const form = useForm<z.infer<typeof clientFormSchema>>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -486,6 +506,7 @@ function ClientFormDialog({
       billing_addr: client?.billing_addr || '',
       shipping_addr: client?.shipping_addr || '',
       is_active: client?.is_active ?? true,
+      company_id: client?.company_id?.toString() || '',
     },
   });
 
@@ -500,6 +521,7 @@ function ClientFormDialog({
         billing_addr: client.billing_addr || '',
         shipping_addr: client.shipping_addr || '',
         is_active: client.is_active ?? true,
+        company_id: client.company_id?.toString() || '',
       });
     } else {
       form.reset({
@@ -510,6 +532,7 @@ function ClientFormDialog({
         billing_addr: '',
         shipping_addr: '',
         is_active: true,
+        company_id: '',
       });
     }
   }, [client, form]);
@@ -525,6 +548,7 @@ function ClientFormDialog({
         billingAddr: data.billing_addr || undefined,
         shippingAddr: data.shipping_addr || undefined,
         isActive: data.is_active ?? true,
+        companyId: parseInt(data.company_id) || undefined,
       };
       const response = await apiRequest('POST', '/api/clients', apiData);
       return await response.json();
@@ -557,6 +581,7 @@ function ClientFormDialog({
         billingAddr: data.billing_addr || undefined,
         shippingAddr: data.shipping_addr || undefined,
         isActive: data.is_active ?? true,
+        companyId: parseInt(data.company_id) || undefined,
       };
       const response = await apiRequest('PATCH', `/api/clients/${client?.id}`, apiData);
       return await response.json();
@@ -603,6 +628,31 @@ function ClientFormDialog({
                   <FormControl>
                     <Input placeholder="Nombre del cliente" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="company_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Empresa *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una empresa" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {companies.map((company: any) => (
+                        <SelectItem key={company.id} value={company.id.toString()}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
