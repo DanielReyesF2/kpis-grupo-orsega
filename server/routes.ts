@@ -2000,14 +2000,30 @@ export function registerRoutes(app: express.Application) {
       console.error("[POST /api/shipments] Stack trace:", (error as Error)?.stack);
       
       if (error instanceof z.ZodError) {
-        console.error("[POST /api/shipments] Errores de validación:", error.errors);
+        console.error("[POST /api/shipments] ❌ Errores de validación:");
+        error.errors.forEach((err) => {
+          console.error(`  - Campo: ${err.path.join('.')}, Error: ${err.message}`);
+        });
         return res.status(400).json({ 
-          message: "Validation error", 
-          errors: error.errors 
+          error: "Validation error",
+          message: "Los datos enviados no son válidos",
+          errors: error.errors,
+          details: error.errors.map((e) => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
         });
       }
       
-      res.status(500).json({ message: "Internal server error", details: (error as Error).message });
+      // Si es un error de base de datos, dar más detalles
+      if ((error as any)?.code) {
+        console.error("[POST /api/shipments] ❌ Error de base de datos:", (error as any).code, (error as any).detail);
+      }
+      
+      res.status(500).json({ 
+        error: "Internal server error",
+        message: (error as Error).message || "Error al crear el embarque. Por favor, verifica los datos e intenta nuevamente."
+      });
     }
   });
 
