@@ -983,8 +983,9 @@ export class DatabaseStorage implements IStorage {
       if (orsegaResult && orsegaResult.length > 0) {
         kpiInfo = orsegaResult[0];
         isOrsega = true;
-        console.log(`[getKPIHistory] KPI ${kpiId} encontrado en kpis_orsega: ${kpiInfo.kpi_name}`);
+        console.log(`[getKPIHistory] ✅ KPI ${kpiId} encontrado en kpis_orsega: ${kpiInfo.kpi_name}`);
       } else {
+        console.log(`[getKPIHistory] KPI ${kpiId} no encontrado en kpis_orsega, buscando en kpis_dura...`);
         // Buscar en kpis_dura
         const duraResult = await sql`
           SELECT id, area, kpi_name, responsible
@@ -996,7 +997,9 @@ export class DatabaseStorage implements IStorage {
         if (duraResult && duraResult.length > 0) {
           kpiInfo = duraResult[0];
           isOrsega = false;
-          console.log(`[getKPIHistory] KPI ${kpiId} encontrado en kpis_dura: ${kpiInfo.kpi_name}`);
+          console.log(`[getKPIHistory] ✅ KPI ${kpiId} encontrado en kpis_dura: ${kpiInfo.kpi_name}`);
+        } else {
+          console.log(`[getKPIHistory] ⚠️ KPI ${kpiId} no encontrado en kpis_dura ni kpis_orsega`);
         }
       }
       
@@ -1056,11 +1059,14 @@ export class DatabaseStorage implements IStorage {
           LIMIT ${months}
         `;
         
-        console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${rawResult.length} registros en kpi_values_orsega`);
+        console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Encontrados ${rawResult.length} registros en kpi_values_orsega por kpi_id=${kpiId}`);
+        if (rawResult.length > 0) {
+          console.log(`[getKPIHistory] Muestra de registros encontrados:`, JSON.stringify(rawResult.slice(0, 2), null, 2));
+        }
         
         // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
         if (rawResult.length === 0 && kpiInfo?.kpi_name) {
-          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
+          console.log(`[getKPIHistory] KPI ${kpiId} Orsega - No se encontraron registros por ID, buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
           const joinResult = await sql`
             SELECT 
               kv.id,
@@ -1121,11 +1127,14 @@ export class DatabaseStorage implements IStorage {
           LIMIT ${months}
         `;
         
-        console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${rawResult.length} registros en kpi_values_dura`);
+        console.log(`[getKPIHistory] KPI ${kpiId} Dura - Encontrados ${rawResult.length} registros en kpi_values_dura por kpi_id=${kpiId}`);
+        if (rawResult.length > 0) {
+          console.log(`[getKPIHistory] Muestra de registros encontrados:`, JSON.stringify(rawResult.slice(0, 2), null, 2));
+        }
         
         // Si no encuentra por ID, buscar por nombre de KPI usando JOIN
         if (rawResult.length === 0 && kpiInfo?.kpi_name) {
-          console.log(`[getKPIHistory] KPI ${kpiId} Dura - Buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
+          console.log(`[getKPIHistory] KPI ${kpiId} Dura - No se encontraron registros por ID, buscando por nombre "${kpiInfo.kpi_name}" usando JOIN...`);
           const joinResult = await sql`
             SELECT 
               kv.id,
