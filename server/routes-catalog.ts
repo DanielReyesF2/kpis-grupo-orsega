@@ -44,16 +44,17 @@ catalogRouter.post('/clients', async (req, res) => {
     
     // La tabla clients usa serial (integer) para id, no UUID
     // No especificamos id, la base de datos lo genera automáticamente
-    // Usar solo campos esenciales que seguramente existen en la tabla de producción
-    // El GET muestra que usa campos simples, así que usemos lo mínimo necesario
+    // company_id es NOT NULL según el error, usar valor por defecto
+    // Por defecto usar company_id = 2 (Orsega) si no se especifica
     const result = await sql(`
-      INSERT INTO clients (name, email, is_active)
-      VALUES ($1, $2, $3)
+      INSERT INTO clients (name, email, is_active, company_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
     `, [
       validated.name, 
       validated.email || null, // Email es el único campo obligatorio
-      validated.isActive ?? true
+      validated.isActive ?? true,
+      2 // company_id: 1=Dura, 2=Orsega. Usar 2 por defecto (Grupo Orsega)
     ])
     
     console.log(`✅ [POST /clients] Cliente creado: ${result.rows[0].name}`)
