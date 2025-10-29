@@ -15,6 +15,9 @@ interface Shipment {
   estimatedDeliveryDate?: string;
   createdAt?: string;
   items_count?: number;
+  purchaseOrder?: string;
+  purchase_order?: string;
+  trackingCode?: string;
 }
 
 export function LogisticsPreview() {
@@ -116,7 +119,7 @@ export function LogisticsPreview() {
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-gray-500" />
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Envío #{shipment.id}
+                      {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
                     </span>
                   </div>
                   <Badge variant="outline" className={getStatusColor(shipment.status)}>
