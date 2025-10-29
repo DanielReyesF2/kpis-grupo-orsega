@@ -231,7 +231,9 @@ export default function NewShipmentPage() {
         title: "Envío creado",
         description: "El envío se ha creado correctamente",
       });
+      // Invalidar todas las queries relacionadas con shipments para actualizar el dashboard
       queryClient.invalidateQueries({ queryKey: ["/api/shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/logistics/shipments"] }); // Por compatibilidad
       navigate("/shipments");
     },
     onError: (error: any) => {

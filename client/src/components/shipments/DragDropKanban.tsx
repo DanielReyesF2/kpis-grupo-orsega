@@ -828,7 +828,9 @@ export function DragDropKanban() {
         title: "Envío creado",
         description: "El nuevo envío se ha registrado correctamente",
       });
+      // Invalidar todas las queries relacionadas con shipments para actualizar el dashboard
       queryClient.invalidateQueries({ queryKey: ['/api/shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/logistics/shipments'] }); // Por compatibilidad
       setNewShipmentDialog(false);
       // Generar nuevo código automáticamente para el siguiente envío
       const autoCode = generateTrackingCode('1', shipments || []);
