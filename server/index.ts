@@ -79,6 +79,12 @@ logBootDiagnostics();
 
 const app = express();
 
+// Configure trust proxy for Railway FIRST (before healthcheck)
+// Railway uses healthcheck.railway.app for healthchecks
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // ============================================================
 // RAILWAY HEALTHCHECK - PRIMERO, ANTES DE TODO
 // ============================================================
@@ -86,34 +92,43 @@ const app = express();
 // Railway lo usa para determinar si el servicio está vivo
 // DEBE estar ANTES de cualquier middleware o inicialización pesada
 // Railway usa hostname: healthcheck.railway.app
+// ULTRA SIMPLE - solo retorna 200 OK siempre
 app.get("/health", (req, res) => {
-  // Permitir explícitamente healthcheck.railway.app
-  // Aceptar cualquier hostname para healthcheck (no validar)
-  res.status(200).json({ 
-    status: "healthy",
-    service: "kpis-grupo-orsega",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    hostname: req.hostname || req.headers.host
-  });
+  try {
+    // Respuesta mínima y rápida para Railway
+    // No usar req.hostname porque puede no estar disponible
+    // No usar operaciones complejas que puedan fallar
+    res.status(200).json({ 
+      status: "healthy",
+      service: "kpis-grupo-orsega"
+    });
+  } catch (error) {
+    // Si algo falla, aún así retornar 200 OK
+    // Railway necesita 200 para considerar el servicio vivo
+    try {
+      res.status(200).json({ 
+        status: "healthy",
+        service: "kpis-grupo-orsega",
+        note: "response_simplified"
+      });
+    } catch (e) {
+      // Último recurso - solo enviar texto plano
+      res.status(200).send("OK");
+    }
+  }
 });
 
-// Healthcheck alternativo para Railway
+// Healthcheck alternativo para Railway - aún más simple
 app.get("/healthz", (req, res) => {
-  // Permitir explícitamente healthcheck.railway.app
-  res.status(200).json({ 
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    hostname: req.hostname || req.headers.host
-  });
+  try {
+    res.status(200).json({ 
+      status: "ok"
+    });
+  } catch (error) {
+    // Fallback simple
+    res.status(200).send("OK");
+  }
 });
-
-// Configure trust proxy for Railway and production domains
-// Railway uses healthcheck.railway.app for healthchecks
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-  console.log("🔒 Trust proxy enabled for production (Railway & .replit.app domains)");
-}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -126,6 +141,11 @@ app.use('/api', apiAccessMonitorMiddleware);
 
 // 🔒 SECURITY HEADERS (Mejora seguridad sin afectar funcionalidad)
 app.use((req, res, next) => {
+  // Skip security headers for healthcheck - they need to be fast
+  if (req.path === '/health' || req.path === '/healthz') {
+    return next();
+  }
+
   // Prevenir clickjacking
   res.setHeader('X-Frame-Options', 'DENY');
   // Prevenir MIME type sniffing
@@ -164,6 +184,11 @@ function redactSensitiveData(obj: any): any {
 }
 
 app.use((req, res, next) => {
+  // Skip logging for healthcheck endpoints - they need to be fast
+  if (req.path === '/health' || req.path === '/healthz') {
+    return next();
+  }
+
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -208,6 +233,8 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
   console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
   console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
+  console.log(`🏥 Healthcheck available at: http://0.0.0.0:${port}/health`);
+  console.log(`🏥 Healthcheck alternative: http://0.0.0.0:${port}/healthz`);
 });
 
 // CRITICAL: Add error handler BEFORE async operations to catch any errors
