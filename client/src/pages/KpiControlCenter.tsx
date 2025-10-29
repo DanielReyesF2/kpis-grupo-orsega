@@ -18,6 +18,7 @@ import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
+import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -486,6 +487,8 @@ export default function KpiControlCenter() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isExtendedDetailsModalOpen, setIsExtendedDetailsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
+  const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
   const [viewMode, setViewMode] = useState<'overview' | 'team'>('overview');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
@@ -686,11 +689,45 @@ export default function KpiControlCenter() {
     });
   }, [kpis, kpiValues, areas, selectedCompanyId]);
 
-  // Filtrar KPIs por estado
+  // Extraer responsables únicos de los KPIs
+  const uniqueResponsibles = useMemo(() => {
+    if (!processedKpis) return [];
+    const responsibles = processedKpis
+      .map((kpi: any) => kpi.responsible)
+      .filter((r: string | undefined): r is string => !!r && r.trim() !== '');
+    return Array.from(new Set(responsibles)).sort();
+  }, [processedKpis]);
+
+  // Extraer empresas únicas de los KPIs
+  const uniqueCompanies = useMemo(() => {
+    if (!processedKpis) return [];
+    const companiesList = processedKpis
+      .map((kpi: any) => kpi.company)
+      .filter((c: string | undefined): c is string => !!c && c.trim() !== '');
+    return Array.from(new Set(companiesList)).sort();
+  }, [processedKpis]);
+
+  // Filtrar KPIs por estado, responsable y empresa
   const filteredKpis = useMemo(() => {
-    if (statusFilter === 'all') return processedKpis;
-    return processedKpis.filter((kpi: any) => kpi.status === statusFilter);
-  }, [processedKpis, statusFilter]);
+    let filtered = processedKpis;
+
+    // Filtro por estado
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((kpi: any) => kpi.status === statusFilter);
+    }
+
+    // Filtro por responsable
+    if (responsibleFilter !== 'all') {
+      filtered = filtered.filter((kpi: any) => kpi.responsible === responsibleFilter);
+    }
+
+    // Filtro por empresa
+    if (companyFilter !== 'all') {
+      filtered = filtered.filter((kpi: any) => kpi.company === companyFilter);
+    }
+
+    return filtered;
+  }, [processedKpis, statusFilter, responsibleFilter, companyFilter]);
 
   // Estadísticas de KPIs
   const kpiStats = useMemo(() => {
@@ -736,15 +773,15 @@ export default function KpiControlCenter() {
   
   const loadingTopPerformers = false; // Ya no es una query externa
 
-  // KPIs ordenados por fecha de actualización para Vista General
+  // KPIs ordenados por fecha de actualización para Vista General (después de aplicar filtros)
   const sortedKpis = useMemo(() => {
-    if (!processedKpis) return [];
-    return [...processedKpis].sort((a, b) => {
+    if (!filteredKpis) return [];
+    return [...filteredKpis].sort((a, b) => {
       const dateA = a.date ? new Date(a.date).getTime() : 0;
       const dateB = b.date ? new Date(b.date).getTime() : 0;
       return dateB - dateA; // Más recientes primero
     });
-  }, [processedKpis]);
+  }, [filteredKpis]);
 
   // KPIs a mostrar en Vista General (limitados o todos)
   const displayedKpis = useMemo(() => {
@@ -1158,6 +1195,22 @@ export default function KpiControlCenter() {
               </Card>
             </div>
 
+            {/* Actualización de Ventas Mensuales */}
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  Actualizar Ventas Mensuales
+                </CardTitle>
+                <CardDescription>
+                  Actualiza las ventas mensuales de cualquier período. Los cambios se guardarán en la base de datos y actualizarán automáticamente las métricas del dashboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SalesWeeklyUpdateForm />
+              </CardContent>
+            </Card>
+
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
@@ -1166,10 +1219,10 @@ export default function KpiControlCenter() {
                     <Award className="h-5 w-5" />
                     📊 KPIs Actualizados Recientemente
                     <Badge variant="outline" className="ml-2">
-                      {displayedKpis.length} de {sortedKpis.length}
+                      {displayedKpis.length} de {sortedKpis.length} {filteredKpis.length < processedKpis.length ? `(${filteredKpis.length} filtrados)` : ''}
                     </Badge>
                   </CardTitle>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     {sortedKpis.length > 6 && (
                       <Button 
                         variant="outline" 
@@ -1181,17 +1234,62 @@ export default function KpiControlCenter() {
                         <Activity className="h-4 w-4" />
                       </Button>
                     )}
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los Estados</SelectItem>
-                        <SelectItem value="complies">Solo Cumpliendo</SelectItem>
-                        <SelectItem value="alert">Solo en Alerta</SelectItem>
-                        <SelectItem value="not_compliant">Solo No Cumpliendo</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {/* Filtros */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Todos los responsables" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">👤 Todos los responsables</SelectItem>
+                          {uniqueResponsibles.map((responsible) => (
+                            <SelectItem key={responsible} value={responsible}>
+                              {responsible}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Todas las empresas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">🏢 Todas las empresas</SelectItem>
+                          {uniqueCompanies.map((company) => (
+                            <SelectItem key={company} value={company}>
+                              {company}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder="Todos los estados" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los Estados</SelectItem>
+                          <SelectItem value="complies">✅ Solo Cumpliendo</SelectItem>
+                          <SelectItem value="alert">⚠️ Solo en Alerta</SelectItem>
+                          <SelectItem value="not_compliant">❌ Solo No Cumpliendo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {/* Botón para limpiar filtros */}
+                      {(responsibleFilter !== 'all' || companyFilter !== 'all' || statusFilter !== 'all') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setResponsibleFilter('all');
+                            setCompanyFilter('all');
+                            setStatusFilter('all');
+                          }}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <Filter className="h-4 w-4 mr-1" />
+                          Limpiar
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
