@@ -79,21 +79,33 @@ logBootDiagnostics();
 
 const app = express();
 
+// ============================================================
+// RAILWAY HEALTHCHECK - PRIMERO, ANTES DE TODO
+// ============================================================
+// Este endpoint DEBE responder inmediatamente sin dependencias
+// Railway lo usa para determinar si el servicio está vivo
+app.get("/health", (_req, res) => {
+  try {
+    // Respuesta mínima y rápida - sin dependencias
+    res.status(200).json({ 
+      status: "healthy",
+      service: "kpis-grupo-orsega",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    // Si algo falla, aún así responder 200 para no bloquear Railway
+    res.status(200).json({ 
+      status: "healthy",
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Configure trust proxy for .replit.app domain in production
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
   console.log("🔒 Trust proxy enabled for production (.replit.app domain)");
 }
-
-// RAILWAY HEALTHCHECK - DEBE IR ANTES DE CUALQUIER MIDDLEWARE
-app.get("/health", (req, res) => {
-  // Railway solo necesita HTTP 200 - sin dependencias externas
-  res.status(200).json({ 
-    status: "healthy",
-    service: "kpis-grupo-orsega",
-    timestamp: new Date().toISOString()
-  });
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
