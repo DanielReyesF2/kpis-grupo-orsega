@@ -160,16 +160,13 @@ export function DofChart() {
     <Card className="border-0 shadow-lg">
       <CardHeader>
         <div className="space-y-4">
-          {/* Saludo integrado en el header */}
+          {/* Valor del tipo de cambio */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
             <div className="flex-1">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                ¡Hola {user?.name?.split(' ')[0] || 'Emilio'}! 👋
-              </h2>
               {dofData && (
                 <div className="flex items-center gap-3">
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    ${dofData.buy.toFixed(4)}
+                    {dofData.buy.toFixed(4)}
                   </span>
                   {dofData.buyChange !== 0 && (
                     <span className={`text-lg font-semibold ${
