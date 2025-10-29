@@ -34,6 +34,8 @@ import {
   Save,
   Info
 } from 'lucide-react';
+import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const updateKpiSchema = z.object({
   value: z.string().min(1, "El valor es requerido"),
@@ -69,6 +71,16 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   // Obtener el valor más reciente
   const latestValue = kpiValues?.filter((v: any) => v.kpiId === kpiId)
     .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  // Detectar si este es el KPI de Volumen de Ventas
+  const isSalesKpi = kpi && (
+    kpi.id === 39 || // Dura Volumen de ventas
+    kpi.id === 10 || // Orsega Volumen de ventas
+    (kpi.name && (
+      kpi.name.toLowerCase().includes('volumen') && 
+      kpi.name.toLowerCase().includes('ventas')
+    ))
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(updateKpiSchema),
@@ -223,71 +235,89 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
         {kpi && (
           <div className="space-y-6">
-            {/* Información del KPI */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <Info className="h-4 w-4 text-blue-600" />
-                Información del KPI
-              </h3>
-              
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Nombre:</span>
-                  <div className="font-semibold text-gray-900">{kpi.name}</div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm font-medium text-gray-600">Meta:</span>
-                    <div className="text-lg font-bold text-blue-600">{kpi.target || 'Sin meta definida'}</div>
-                  </div>
+            {isSalesKpi ? (
+              // Formulario especializado para actualización de ventas
+              <Card className="shadow-sm border-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-indigo-950/30">
+                <CardHeader className="pb-2 sm:pb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0 rounded-t-lg">
+                  <CardTitle className="text-sm sm:text-base text-white flex items-center gap-2">
+                    <span>✨ Actualizar Ventas Mensuales</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm text-blue-100">
+                    Selecciona el período y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 sm:pt-6">
+                  <SalesWeeklyUpdateForm showHeader={false} />
+                </CardContent>
+              </Card>
+            ) : (
+              // Formulario genérico para otros KPIs
+              <>
+                {/* Información del KPI */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    Información del KPI
+                  </h3>
                   
-                  {latestValue && (
+                  <div className="space-y-2">
                     <div>
-                      <span className="text-sm font-medium text-gray-600">Valor Actual:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-900">{latestValue.value}</span>
-                        <Badge className={`text-xs ${getStatusColor(latestValue.status)}`}>
-                          <div className="flex items-center gap-1">
-                            {getStatusIcon(latestValue.status)}
-                            {getStatusText(latestValue.status)}
-                          </div>
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {latestValue && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">Cumplimiento:</span>
-                      <div className="text-lg font-bold text-green-600">{latestValue.compliancePercentage}%</div>
+                      <span className="text-sm font-medium text-gray-600">Nombre:</span>
+                      <div className="font-semibold text-gray-900">{kpi.name}</div>
                     </div>
                     
-                    <div>
-                      <span className="text-sm font-medium text-gray-600">Última actualización:</span>
-                      <div className="text-sm text-gray-700 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(latestValue.date).toLocaleDateString()}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm font-medium text-gray-600">Meta:</span>
+                        <div className="text-lg font-bold text-blue-600">{kpi.target || 'Sin meta definida'}</div>
                       </div>
+                      
+                      {latestValue && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Valor Actual:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-gray-900">{latestValue.value}</span>
+                            <Badge className={`text-xs ${getStatusColor(latestValue.status)}`}>
+                              <div className="flex items-center gap-1">
+                                {getStatusIcon(latestValue.status)}
+                                {getStatusText(latestValue.status)}
+                              </div>
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
 
-                {latestValue?.comments && (
-                  <div className="pt-2">
-                    <span className="text-sm font-medium text-gray-600">Comentarios anteriores:</span>
-                    <div className="text-sm text-gray-700 bg-white p-2 rounded border mt-1">
-                      {latestValue.comments}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                    {latestValue && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Cumplimiento:</span>
+                          <div className="text-lg font-bold text-green-600">{latestValue.compliancePercentage}%</div>
+                        </div>
+                        
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Última actualización:</span>
+                          <div className="text-sm text-gray-700 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(latestValue.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-            {/* Formulario de actualización */}
-            <Form {...form}>
+                    {latestValue?.comments && (
+                      <div className="pt-2">
+                        <span className="text-sm font-medium text-gray-600">Comentarios anteriores:</span>
+                        <div className="text-sm text-gray-700 bg-white p-2 rounded border mt-1">
+                          {latestValue.comments}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Formulario de actualización */}
+                <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
