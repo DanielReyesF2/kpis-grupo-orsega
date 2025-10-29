@@ -262,6 +262,7 @@ export default function Dashboard() {
         <SalesVolumeChart 
           companyId={Number(filters.companyId) || 2}
           kpiId={Number(filters.companyId) === 1 ? 39 : 10}
+          target={Number(filters.companyId) === 1 ? "55620" : "858373"}
           limit={12}
           showControls={true}
         />

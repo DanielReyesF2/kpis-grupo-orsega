@@ -111,8 +111,11 @@ export function SalesVolumeChart({
   const chartData = useMemo(() => {
     if (!kpiHistoryData || kpiHistoryData.length === 0) {
       // Si no hay datos, retornar array vacío
+      console.log("[SalesVolumeChart] No hay datos históricos disponibles");
       return [];
     }
+
+    console.log("[SalesVolumeChart] Datos recibidos de API:", kpiHistoryData.length, "registros");
 
     // Mapeo de nombres de meses para ordenamiento
     const monthOrder: { [key: string]: number } = {
@@ -142,42 +145,57 @@ export function SalesVolumeChart({
           unit: companyId === 1 ? 'KG' : 'unidades'
         };
       })
+      .filter((item: any) => item.monthOrder > 0) // Filtrar items con meses válidos
       .sort((a, b) => {
         // Ordenar por año, luego por mes
         if (a.year !== b.year) {
           return a.year - b.year;
         }
         return a.monthOrder - b.monthOrder;
-      })
-      .slice(-limit); // Tomar solo los últimos N meses según el limit
+      });
 
-    return processedData;
+    console.log("[SalesVolumeChart] Datos procesados:", processedData.length, "registros");
+    console.log("[SalesVolumeChart] Períodos:", processedData.map((d: any) => d.period));
+
+    // NO aplicar slice aquí - mostrar todos los datos disponibles
+    // El limit se usará solo si es necesario para mostrar los últimos N meses
+    const finalData = limit > 0 && processedData.length > limit 
+      ? processedData.slice(-limit) 
+      : processedData;
+
+    console.log("[SalesVolumeChart] Datos finales para gráfica:", finalData.length, "registros");
+    return finalData;
   }, [kpiHistoryData, companyId, limit]);
 
   // Extraer el valor objetivo (target) quitando "KG" y convirtiendo a número
   const targetValue = target ? parseInt(target.replace(/[^0-9]/g, ''), 10) : 0;
   
-  // Agregar una línea para el objetivo si está disponible
-  if (targetValue && chartData.length > 0) {
-    // Agregar el valor objetivo a cada punto de datos
-    chartData.forEach((data: any) => {
-      data.target = targetValue;
-      
-      // Calcular la diferencia contra el objetivo
-      data.diferencia = data.value - targetValue;
-    });
-  }
+  // Si no hay target prop, usar valores por defecto según la compañía
+  const monthlyTarget = targetValue || (companyId === 1 ? 55620 : 858373);
+  
+  console.log("[SalesVolumeChart] Target mensual:", monthlyTarget, companyId === 1 ? 'KG' : 'unidades');
+  
+  // Agregar una línea para el objetivo a cada punto de datos
+  const chartDataWithTarget = useMemo(() => {
+    if (!chartData || chartData.length === 0) return [];
+    
+    return chartData.map((data: any) => ({
+      ...data,
+      target: monthlyTarget,
+      diferencia: data.value - monthlyTarget
+    }));
+  }, [chartData, monthlyTarget]);
   
   // Debug - Ver los datos de la gráfica
-  console.log("Debug chartData:", chartData);
+  console.log("Debug chartDataWithTarget:", chartDataWithTarget);
 
   // Calcular progreso semanal - para seguimiento actual
   const generateWeeklyData = () => {
-    if (chartData.length === 0) return [];
+    if (chartDataWithTarget.length === 0) return [];
     
     // Usamos el último mes registrado para desglosarlo por semanas
-    const lastPeriod = chartData[chartData.length - 1];
-    const targetPerWeek = targetValue / 4; // Dividir objetivo mensual en 4 semanas
+    const lastPeriod = chartDataWithTarget[chartDataWithTarget.length - 1];
+    const targetPerWeek = monthlyTarget / 4; // Dividir objetivo mensual en 4 semanas
     
     // Valor actual del mes
     const currentMonthValue = lastPeriod.value;
@@ -213,9 +231,9 @@ export function SalesVolumeChart({
 
   // Determinar el color según el cumplimiento del último valor
   const getStatusColor = (value: number) => {
-    if (!targetValue) return "#273949"; // Color default
+    if (!monthlyTarget) return "#273949"; // Color default
     
-    const compliancePercent = (value / targetValue) * 100;
+    const compliancePercent = (value / monthlyTarget) * 100;
     
     if (compliancePercent >= 100) return "#10b981"; // verde - cumple
     if (compliancePercent >= 85) return "#f59e0b"; // amarillo - alerta
@@ -232,10 +250,10 @@ export function SalesVolumeChart({
 
   // Calcular tendencia (comparación con mes anterior)
   const getTrendData = () => {
-    if (chartData.length < 2) return { trend: 0, isPositive: false, difference: 0 };
+    if (chartDataWithTarget.length < 2) return { trend: 0, isPositive: false, difference: 0 };
     
-    const lastValue = chartData[chartData.length - 1].value;
-    const previousValue = chartData[chartData.length - 2].value;
+    const lastValue = chartDataWithTarget[chartDataWithTarget.length - 1].value;
+    const previousValue = chartDataWithTarget[chartDataWithTarget.length - 2].value;
     const difference = lastValue - previousValue;
     const percentChange = (difference / previousValue) * 100;
     
@@ -282,7 +300,7 @@ export function SalesVolumeChart({
             </CardDescription>
           </div>
           
-          {chartData.length > 0 && trendData.difference !== 0 && (
+          {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
             <div className="flex items-center">
               <span className="text-sm text-slate-500 dark:text-slate-400 mr-2">
                 vs mes anterior:
@@ -302,7 +320,7 @@ export function SalesVolumeChart({
         </div>
       </CardHeader>
       <CardContent className="pt-2 pb-4">
-        {chartData.length > 0 ? (
+        {chartDataWithTarget.length > 0 ? (
           <Tabs defaultValue="monthly" className="w-full">
             {showControls && (
               <TabsList className="grid w-full max-w-xs grid-cols-2 mb-4">
@@ -313,8 +331,8 @@ export function SalesVolumeChart({
             
             <TabsContent value="monthly" className="h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={chartData}
+                  <ComposedChart
+                  data={chartDataWithTarget}
                   margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
                 >
                   <defs>
@@ -386,14 +404,17 @@ export function SalesVolumeChart({
                     animationEasing="ease-in-out"
                     maxBarSize={80}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="target"
-                    name="Objetivo"
-                    stroke="#b5e951"
-                    strokeWidth={2}
-                    dot={{ r: 5, fill: "#b5e951", stroke: 'white', strokeWidth: 2 }}
-                  />
+                  {monthlyTarget > 0 && (
+                    <Line
+                      type="monotone"
+                      dataKey="target"
+                      name="Objetivo"
+                      stroke="#b5e951"
+                      strokeWidth={3}
+                      dot={{ r: 6, fill: "#b5e951", stroke: 'white', strokeWidth: 2 }}
+                      strokeDasharray="0"
+                    />
+                  )}
                   <YAxis 
                     yAxisId="right"
                     orientation="right"
@@ -506,7 +527,7 @@ export function SalesVolumeChart({
           </div>
         )}
         
-        {chartData.length > 0 && (
+        {chartDataWithTarget.length > 0 && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg shadow-md border border-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 dark:border-blue-800/50">
@@ -514,7 +535,7 @@ export function SalesVolumeChart({
                 <div className="flex items-center">
                   <BarChart2 className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-300" />
                   <span className="text-xl font-bold text-blue-800 dark:text-blue-100">
-                    {formatNumber(chartData[chartData.length - 1].value)} {getUnit()}
+                    {formatNumber(chartDataWithTarget[chartDataWithTarget.length - 1].value)} {getUnit()}
                   </span>
                 </div>
               </div>
@@ -524,35 +545,35 @@ export function SalesVolumeChart({
                 <div className="flex items-center">
                   <Award className="h-4 w-4 mr-2 text-green-600 dark:text-green-300" />
                   <span className="text-xl font-bold text-green-800 dark:text-green-100">
-                    {formatNumber(targetValue)} {getUnit()}
+                    {formatNumber(monthlyTarget)} {getUnit()}
                   </span>
                 </div>
               </div>
               
               {/* Diferencia */}
               <div className={`bg-gradient-to-br ${
-                chartData[chartData.length - 1].value >= targetValue 
+                chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
                   ? 'from-emerald-50 to-emerald-100 border-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 dark:border-emerald-800/50' 
                   : 'from-red-50 to-red-100 border-red-200 dark:from-red-900/30 dark:to-red-800/30 dark:border-red-800/50'
                 } p-4 rounded-lg shadow-md border`}>
                 <div className={`text-sm font-medium mb-1 ${
-                  chartData[chartData.length - 1].value >= targetValue 
+                  chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
                     ? 'text-emerald-600 dark:text-emerald-300' 
                     : 'text-red-600 dark:text-red-300'
                 }`}>Diferencia</div>
                 <div className="flex items-center">
-                  {chartData[chartData.length - 1].value >= targetValue ? (
+                  {chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget ? (
                     <ArrowUpIcon className="h-4 w-4 mr-2 text-emerald-600 dark:text-emerald-300" />
                   ) : (
                     <ArrowDownIcon className="h-4 w-4 mr-2 text-red-600 dark:text-red-300" />
                   )}
                   <span className={`text-xl font-bold ${
-                    chartData[chartData.length - 1].value >= targetValue 
+                    chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
                       ? 'text-emerald-800 dark:text-emerald-100' 
                       : 'text-red-800 dark:text-red-100'
                   }`}>
-                    {chartData[chartData.length - 1].value >= targetValue ? '+' : ''}
-                    {formatNumber(chartData[chartData.length - 1].value - targetValue)} {getUnit()}
+                    {chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget ? '+' : ''}
+                    {formatNumber(chartDataWithTarget[chartDataWithTarget.length - 1].value - monthlyTarget)} {getUnit()}
                   </span>
                 </div>
               </div>
