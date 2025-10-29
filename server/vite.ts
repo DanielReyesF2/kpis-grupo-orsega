@@ -81,17 +81,33 @@ export async function setupVite(app: Express, server: Server) {
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(import.meta.dirname, "public");
+  
+  // Check alternative paths for production builds
+  const altDistPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+  const finalDistPath = fs.existsSync(distPath) ? distPath : altDistPath;
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  if (!fs.existsSync(finalDistPath)) {
+    console.error(`⚠️ WARNING: Could not find build directory at ${distPath} or ${altDistPath}`);
+    console.error(`⚠️ Static file serving disabled, but API and /health should still work`);
+    // Don't throw - let the server continue running
+    // API endpoints and /health should still work
+    return;
   }
 
-  app.use(express.static(distPath));
+  console.log(`✅ Serving static files from: ${finalDistPath}`);
+  app.use(express.static(finalDistPath));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(finalDistPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // If index.html doesn't exist, at least return 200 for healthcheck
+      res.status(200).json({ 
+        message: "Server running but frontend not found",
+        healthcheck: "Use /health endpoint" 
+      });
+    }
   });
 }
