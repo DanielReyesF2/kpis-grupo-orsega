@@ -99,6 +99,27 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
   }
 })
 
+catalogRouter.delete('/clients/:id', async (req, res) => {
+  try {
+    console.log(`🔵 [DELETE /clients/${req.params.id}] Eliminando cliente`);
+    const result = await sql(`
+      UPDATE clients SET is_active = FALSE, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [req.params.id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Client not found' })
+    }
+    
+    console.log(`✅ [DELETE /clients/${req.params.id}] Cliente eliminado: ${result.rows[0].name}`)
+    res.json({ message: 'Client deleted successfully', client: result.rows[0] })
+  } catch (error) {
+    console.error('❌ Error deleting client:', error)
+    res.status(500).json({ error: 'Failed to delete client' })
+  }
+})
+
 // PROVIDERS
 catalogRouter.get('/providers', async (req, res) => {
   try {
