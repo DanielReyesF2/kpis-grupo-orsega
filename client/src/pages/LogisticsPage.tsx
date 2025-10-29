@@ -520,7 +520,7 @@ function ClientFormDialog({
       const apiData = {
         name: data.name,
         email: data.email || undefined,
-        phone: data.phone || undefined,
+        // phone removido - no se usa en el backend
         rfc: data.rfc || undefined,
         billingAddr: data.billing_addr || undefined,
         shippingAddr: data.shipping_addr || undefined,
