@@ -160,32 +160,9 @@ export function DofChart() {
     <Card className="border-0 shadow-lg">
       <CardHeader>
         <div className="space-y-4">
-          {/* Valor del tipo de cambio */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-            <div className="flex-1">
-              {/* Números removidos según solicitud del usuario */}
-            </div>
-
-            {/* Botón prominente */}
-            <div className="flex items-center">
-              <Button
-                onClick={() => requestUpdateMutation.mutate()}
-                disabled={requestUpdateMutation.isPending}
-                className="bg-[#1e3a5f] hover:bg-[#2a4a6f] text-white font-semibold px-6 py-3 text-base shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
-                size="lg"
-              >
-                {requestUpdateMutation.isPending ? (
-                  <>
-                    <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    ¿Quieres pedirle a Lolita que actualice?
-                  </>
-                )}
-              </Button>
-            </div>
+          {/* Valor del tipo de cambio - Espacio limpio */}
+          <div className="pb-4 border-b">
+            {/* Números removidos según solicitud del usuario */}
           </div>
 
           {/* Título de comparativa y selector */}
@@ -223,6 +200,28 @@ export function DofChart() {
           </TabsList>
 
           <TabsContent value="cards" className="space-y-4">
+            {/* Botón de actualización - Justo antes de las tarjetas */}
+            <div className="flex justify-center mb-4">
+              <Button
+                onClick={() => requestUpdateMutation.mutate()}
+                disabled={requestUpdateMutation.isPending}
+                className="bg-[#1e3a5f] hover:bg-[#2a4a6f] text-white font-semibold px-6 py-3 text-base shadow-lg hover:shadow-xl transition-all"
+                size="lg"
+              >
+                {requestUpdateMutation.isPending ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5 mr-2" />
+                    ¿Quieres pedirle a Lolita que actualice?
+                  </>
+                )}
+              </Button>
+            </div>
+
             {/* Tarjetas con últimos valores */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {allSources.map((data: any) => {
@@ -282,9 +281,17 @@ export function DofChart() {
                         </div>
                       </div>
 
-                      {/* Fecha */}
+                      {/* Fecha y hora */}
                       <div className="text-xs text-gray-500 text-center">
-                        Actualizado: {new Date(data.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        Actualizado: {new Date(data.date).toLocaleDateString('es-MX', { 
+                          day: '2-digit', 
+                          month: 'short', 
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true
+                        })}
                       </div>
                     </CardContent>
                   </Card>
