@@ -556,7 +556,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-4 sm:pt-6">
-                      <SalesWeeklyUpdateForm />
+                      <SalesWeeklyUpdateForm showHeader={false} />
                     </CardContent>
                   </Card>
                 ) : (
