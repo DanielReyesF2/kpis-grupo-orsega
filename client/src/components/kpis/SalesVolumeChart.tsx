@@ -100,8 +100,9 @@ export function SalesVolumeChart({
 }) {
   
   // Buscar el KPI de Volumen de Ventas por nombre si no se proporciona kpiId
-  const { data: allKpis } = useQuery<any[]>({
+  const { data: allKpis, isLoading: isLoadingKpis } = useQuery<any[]>({
     queryKey: ['/api/kpis', { companyId }],
+    enabled: !!companyId && companyId > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -113,15 +114,29 @@ export function SalesVolumeChart({
   });
 
   // Usar kpiId proporcionado o buscar por nombre, con fallback a IDs conocidos
+  // Prioridad: providedKpiId > salesKpi por nombre > IDs conocidos por companyId
   const kpiId = providedKpiId || salesKpi?.id || (companyId === 1 ? 39 : 10);
   
-  console.log("[SalesVolumeChart] KPI seleccionado:", {
-    providedKpiId,
-    foundKpiId: salesKpi?.id,
-    finalKpiId: kpiId,
+  console.log("[SalesVolumeChart] 🔍 Búsqueda de KPI:", {
     companyId,
-    kpiName: salesKpi?.name || salesKpi?.kpiName
+    providedKpiId,
+    totalKpis: allKpis?.length || 0,
+    foundSalesKpi: !!salesKpi,
+    foundKpiId: salesKpi?.id,
+    foundKpiName: salesKpi?.name || salesKpi?.kpiName,
+    finalKpiId: kpiId,
+    usingFallback: !providedKpiId && !salesKpi?.id
   });
+  
+  // Si estamos usando fallback y no encontramos el KPI, mostrar advertencia
+  if (!providedKpiId && !salesKpi && allKpis && !isLoadingKpis) {
+    console.warn("[SalesVolumeChart] ⚠️ No se encontró KPI de ventas por nombre, usando ID fallback:", kpiId);
+    console.warn("[SalesVolumeChart] KPIs disponibles:", allKpis.map((k: any) => ({
+      id: k.id,
+      name: k.name || k.kpiName,
+      companyId: k.companyId
+    })));
+  }
   
   // Obtener datos reales de la API
   const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
@@ -581,8 +596,21 @@ export function SalesVolumeChart({
             {kpiHistoryError && (
               <p className="text-xs text-red-500">Error: {kpiHistoryError instanceof Error ? kpiHistoryError.message : 'Error desconocido'}</p>
             )}
-            {!kpiHistoryError && !isLoadingHistory && kpiHistoryData && kpiHistoryData.length === 0 && (
-              <p className="text-xs text-gray-400">KPI ID: {kpiId} | Company ID: {companyId} | No se encontraron registros en la base de datos</p>
+            {!kpiHistoryError && !isLoadingHistory && (!kpiHistoryData || kpiHistoryData.length === 0) && (
+              <div className="text-center space-y-2">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  No hay datos históricos de ventas disponibles
+                </p>
+                <p className="text-xs text-gray-400">
+                  KPI ID: {kpiId} | Company ID: {companyId} | 
+                  {companyId === 1 ? ' (Dura - tabla: kpi_values_dura)' : ' (Orsega - tabla: kpi_values_orsega)'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {companyId === 1 
+                    ? 'Asegúrate de haber ingresado datos de ventas para Dura International'
+                    : 'Asegúrate de haber ingresado datos de ventas para Grupo Orsega'}
+                </p>
+              </div>
             )}
           </div>
         )}

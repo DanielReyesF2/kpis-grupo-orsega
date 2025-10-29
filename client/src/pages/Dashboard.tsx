@@ -260,9 +260,9 @@ export default function Dashboard() {
       {/* Gráfica de Barras de Ventas */}
       <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
         <SalesVolumeChart 
-          companyId={Number(filters.companyId) || 2}
-          kpiId={Number(filters.companyId) === 1 ? 39 : 10}
-          target={Number(filters.companyId) === 1 ? "55620" : "858373"}
+          companyId={Number(filters.companyId) || selectedCompany || 2}
+          kpiId={Number(filters.companyId) === 1 || selectedCompany === 1 ? 39 : 10}
+          target={Number(filters.companyId) === 1 || selectedCompany === 1 ? "55620" : "858373"}
           limit={12}
           showControls={true}
         />
