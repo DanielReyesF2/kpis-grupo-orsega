@@ -841,6 +841,49 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // ==============================
+  // Admin: Fix Dura KPI goal/meta
+  // ==============================
+  app.post("/api/admin/fix-dura-kpi-goal", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: 'Solo administradores' });
+      }
+
+      const { neon } = await import('@neondatabase/serverless');
+      const sql = neon(process.env.DATABASE_URL!);
+
+      // KPI de Volumen de Ventas de Dura: id 39 por convención; si cambia, intentamos también por nombre
+      const MONTHLY_GOAL = 53480; // en KG
+      const UNIT = 'KG';
+
+      const resultById = await sql`
+        UPDATE kpis_dura
+        SET goal = ${MONTHLY_GOAL}, unit = ${UNIT}
+        WHERE id = 39
+        RETURNING id, kpi_name, goal, unit
+      `;
+
+      let updatedRows = resultById.length;
+
+      if (updatedRows === 0) {
+        const resultByName = await sql`
+          UPDATE kpis_dura
+          SET goal = ${MONTHLY_GOAL}, unit = ${UNIT}
+          WHERE lower(kpi_name) LIKE '%ventas%'
+          RETURNING id, kpi_name, goal, unit
+        `;
+        updatedRows = resultByName.length;
+      }
+
+      return res.json({ ok: true, updated: updatedRows });
+    } catch (error) {
+      console.error('[POST /api/admin/fix-dura-kpi-goal] Error:', error);
+      return res.status(500).json({ ok: false, error: 'Error interno' });
+    }
+  });
+
   app.get("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
