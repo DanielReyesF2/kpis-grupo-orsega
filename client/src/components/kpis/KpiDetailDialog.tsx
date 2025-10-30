@@ -282,14 +282,18 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     return acc;
   }, []);
 
-  // Detectar si este es el KPI de Volumen de Ventas
+  // Detectar si este es el KPI de Volumen de Ventas - LÓGICA ESTRICTA
+  // Solo mostrar formulario de ventas para KPIs específicos de ventas
   const isSalesKpi = kpi && (
     kpi.id === 39 || // Dura Volumen de ventas
     kpi.id === 10 || // Orsega Volumen de ventas
-    (kpi.name && (
-      kpi.name.toLowerCase().includes('volumen') && 
-      kpi.name.toLowerCase().includes('ventas')
-    ))
+    (kpi.name && 
+     kpi.name.toLowerCase().includes('volumen') && 
+     kpi.name.toLowerCase().includes('ventas') &&
+     !kpi.name.toLowerCase().includes('clientes') && // Excluir KPIs de clientes
+     !kpi.name.toLowerCase().includes('retention') && // Excluir retención
+     !kpi.name.toLowerCase().includes('retención')
+    )
   );
 
   if (!isOpen) return null;

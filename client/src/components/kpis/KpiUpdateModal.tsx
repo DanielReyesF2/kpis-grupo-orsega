@@ -72,15 +72,31 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   const latestValue = kpiValues?.filter((v: any) => v.kpiId === kpiId)
     .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-  // Detectar si este es el KPI de Volumen de Ventas
+  // Detectar si este es el KPI de Volumen de Ventas - LÓGICA ESTRICTA
+  // Solo mostrar formulario de ventas para KPIs específicos de ventas, no para otros KPIs
   const isSalesKpi = kpi && (
     kpi.id === 39 || // Dura Volumen de ventas
     kpi.id === 10 || // Orsega Volumen de ventas
-    (kpi.name && (
-      kpi.name.toLowerCase().includes('volumen') && 
-      kpi.name.toLowerCase().includes('ventas')
-    ))
+    (kpi.name && 
+     kpi.name.toLowerCase().includes('volumen') && 
+     kpi.name.toLowerCase().includes('ventas') &&
+     !kpi.name.toLowerCase().includes('clientes') && // Excluir KPIs de clientes
+     !kpi.name.toLowerCase().includes('retention') && // Excluir retención
+     !kpi.name.toLowerCase().includes('retención')
+    )
   );
+
+  // Log para debugging
+  useEffect(() => {
+    if (kpi && isOpen) {
+      console.log('[KpiUpdateModal] KPI detectado:', {
+        id: kpi.id,
+        name: kpi.name,
+        isSalesKpi: isSalesKpi,
+        willShowSalesForm: isSalesKpi
+      });
+    }
+  }, [kpi, isOpen, isSalesKpi]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(updateKpiSchema),
@@ -111,9 +127,11 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     mutationFn: async (data: FormValues) => {
       console.log('[KPI Update] Enviando datos:', {
         kpiId: kpiId,
+        kpiName: kpi?.name,
         value: data.value,
         period: data.period || getCurrentPeriod(),
         comments: data.comments || '',
+        isSalesKpi: isSalesKpi
       });
       
       try {
@@ -128,23 +146,37 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           }
         );
         
-        console.log('[KPI Update] Respuesta exitosa:', response);
-        return await response.json();
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || errorData.error || 'Error al actualizar KPI');
+        }
+        
+        const result = await response.json();
+        console.log('[KPI Update] Respuesta exitosa:', result);
+        return result;
       } catch (error) {
         console.error('[KPI Update] Error en la petición:', error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[KPI Update] Actualización exitosa, invalidando cachés y actualizando historial');
+      
       toast({
-        title: "KPI actualizado exitosamente",
-        description: "El valor del KPI ha sido registrado correctamente.",
+        title: "✅ KPI actualizado exitosamente",
+        description: "El valor del KPI ha sido registrado correctamente y se ha guardado en el historial.",
         variant: "default",
       });
       
-      // Invalidar cachés relevantes
+      // Invalidar cachés relevantes para actualizar la UI
       queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values', kpiId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      
+      // Forzar refetch del historial para ver la actualización inmediatamente
+      queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       
       onClose();
     },
