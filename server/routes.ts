@@ -1,5 +1,5 @@
 import express from "express";
-import * as bcrypt from "bcryptjs";
+import { hash as bcryptHash } from "bcryptjs";
 import { z } from "zod";
 import type { Request } from "express";
 import rateLimit from "express-rate-limit";
@@ -422,7 +422,7 @@ export function registerRoutes(app: express.Application) {
       if (!user) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
-      const hash = await bcrypt.hash(password, 10);
+      const hash = await bcryptHash(password, 10);
       const updated = await storage.updateUser(user.id, { password: hash });
       if (!updated) {
         return res.status(500).json({ message: "No fue posible actualizar la contraseña" });
@@ -499,7 +499,7 @@ export function registerRoutes(app: express.Application) {
         });
       }
       
-      validatedData.password = await bcrypt.hash(validatedData.password, 10);
+      validatedData.password = await bcryptHash(validatedData.password, 10);
       
       // Asignar role por defecto para usuarios que se registran públicamente
       if (!validatedData.role) {
@@ -590,7 +590,7 @@ export function registerRoutes(app: express.Application) {
       
       // Hash password if provided
       if (validatedData.password) {
-        validatedData.password = await bcrypt.hash(validatedData.password, 10);
+        validatedData.password = await bcryptHash(validatedData.password, 10);
       }
       
       console.log("[POST /api/users] Datos después del hash:", JSON.stringify({ ...validatedData, password: '[HASHED]' }, null, 2));
@@ -627,7 +627,7 @@ export function registerRoutes(app: express.Application) {
       
       // Hash password if provided
       if (validatedData.password) {
-        validatedData.password = await bcrypt.hash(validatedData.password, 10);
+        validatedData.password = await bcryptHash(validatedData.password, 10);
       }
       
       console.log("[PUT /api/users/:id] Datos validados:", redactSensitiveData(validatedData));
@@ -2175,6 +2175,46 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Add shipment item
+  app.post("/api/shipments/:id/items", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      const existing = await storage.getShipment(shipmentId);
+      if (!existing) return res.status(404).json({ message: "Shipment not found" });
+      const { product, quantity, unit, description } = req.body || {};
+      if (!product || !quantity || !unit) {
+        return res.status(400).json({ message: "product, quantity y unit son requeridos" });
+      }
+      const created = await storage.createShipmentItem({
+        shipmentId,
+        product,
+        quantity,
+        unit,
+        description: description || null
+      });
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("[POST /api/shipments/:id/items] Error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete shipment item
+  app.delete("/api/shipments/:id/items/:itemId", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      const itemId = parseInt(req.params.itemId);
+      const existing = await storage.getShipment(shipmentId);
+      if (!existing) return res.status(404).json({ message: "Shipment not found" });
+      const ok = await storage.deleteShipmentItem(itemId);
+      if (!ok) return res.status(404).json({ message: "Item not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[DELETE /api/shipments/:id/items/:itemId] Error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/shipments/:id/items", jwtAuthMiddleware, async (req, res) => {
     try {
       const shipmentId = parseInt(req.params.id);
@@ -3242,7 +3282,7 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Hash the new password
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcryptHash(password, 10);
 
       // Update user password
       await storage.updateUser(user.id, { password: hashedPassword });
