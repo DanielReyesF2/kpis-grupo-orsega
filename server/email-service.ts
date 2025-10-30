@@ -51,15 +51,39 @@ class EmailService {
       };
     }
 
-    // Configurar remitente según departamento (usar dominio del cliente)
+    // Configurar remitente según departamento
+    // Estrategia: Si se especifica useTestEmail=true o no hay CLIENT_DOMAIN configurado,
+    // usar onboarding@resend.dev (no requiere verificación)
+    // Si CLIENT_DOMAIN está configurado, intentar usarlo (debe estar verificado en Resend)
+    const useTestEmail = process.env.USE_RESEND_TEST_EMAIL === 'true';
     const clientDomain = process.env.CLIENT_DOMAIN || 'grupoorsega.com';
-    const fromEmail = department === 'treasury' 
-      ? `Lolita - Tesorería <dolores@${clientDomain}>`
-      : `Thalia - Logística <thalia@${clientDomain}>`;
+    
+    let fromEmail: string;
+    
+    // Si se especifica explícitamente usar test email, o se especifica un email en emailData
+    if (useTestEmail || emailData.from?.includes('resend.dev')) {
+      // Usar email de prueba de Resend (no requiere verificación de dominio)
+      fromEmail = emailData.from || 'onboarding@resend.dev';
+      logger.info('Usando email de prueba de Resend:', fromEmail);
+    } else if (emailData.from) {
+      // Si se especifica un from explícito, usarlo (útil para pruebas con dominio verificado)
+      fromEmail = emailData.from;
+      logger.info('Usando remitente especificado:', fromEmail);
+    } else {
+      // Intentar usar dominio del cliente (debe estar verificado en Resend)
+      // Cuando el dominio esté verificado, cambiará automáticamente a este formato
+      fromEmail = department === 'treasury' 
+        ? `Lolita - Tesorería <dolores@${clientDomain}>`
+        : `Thalia - Logística <thalia@${clientDomain}>`;
+      logger.info('Intentando usar dominio del cliente:', fromEmail);
+      logger.info('NOTA: Si el dominio no está verificado en Resend, el envío fallará. Usa USE_RESEND_TEST_EMAIL=true para pruebas.');
+    }
 
     try {
+      logger.info('Enviando email desde:', fromEmail, 'a:', emailData.to);
+      
       const result = await this.resend.emails.send({
-        from: emailData.from || fromEmail,
+        from: fromEmail,
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html,
@@ -67,6 +91,7 @@ class EmailService {
 
       logger.info('Email enviado exitosamente', { 
         to: emailData.to, 
+        from: fromEmail,
         messageId: result.data?.id 
       });
 
@@ -75,15 +100,30 @@ class EmailService {
         messageId: result.data?.id
       };
 
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.message || (error instanceof Error ? error.message : String(error));
+      const errorDetails = error?.response?.body || error?.response?.data || {};
+      
       logger.error('Error enviando email:', { 
-        error: error instanceof Error ? error.message : String(error),
-        to: emailData.to 
+        error: errorMessage,
+        details: errorDetails,
+        to: emailData.to,
+        from: fromEmail
       });
+
+      // Si el error es por dominio no verificado, sugerir usar email de prueba
+      if (errorMessage?.toLowerCase().includes('domain') || 
+          errorMessage?.toLowerCase().includes('verify') ||
+          errorMessage?.toLowerCase().includes('unauthorized')) {
+        return {
+          success: false,
+          error: `Error de dominio: ${errorMessage}. Para pruebas, configura USE_RESEND_TEST_EMAIL=true en .env para usar onboarding@resend.dev`
+        };
+      }
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: errorMessage
       };
     }
   }

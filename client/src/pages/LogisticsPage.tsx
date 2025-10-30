@@ -17,6 +17,7 @@ import {
   X,
   Trash2,
   Save,
+  Box,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropKanban } from '@/components/shipments/DragDropKanban';
@@ -61,6 +62,13 @@ interface Provider {
   }>;
 }
 
+interface Product {
+  id: number;
+  name: string;
+  company_id?: number;
+  is_active: boolean;
+}
+
 interface Shipment {
   id: string;
   status: string;
@@ -91,11 +99,13 @@ const providerFormSchema = z.object({
 });
 
 export default function LogisticsPage() {
-  const [activeModal, setActiveModal] = useState<'clients' | 'providers' | null>(null);
+  const [activeModal, setActiveModal] = useState<'clients' | 'providers' | 'products' | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
   const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
+  const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -110,6 +120,11 @@ export default function LogisticsPage() {
 
   const { data: providers = [], isLoading: providersLoading } = useQuery<Provider[]>({
     queryKey: ['/api/providers'],
+  });
+
+  // Obtener productos de ambas empresas (sin filtro de companyId)
+  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ['/api/products'],
   });
 
   // Handle both old and new API response formats
@@ -204,6 +219,18 @@ export default function LogisticsPage() {
                   <span className="text-sm text-gray-600">Proveedores</span>
                 </div>
                 <span className="text-lg font-semibold text-gray-900">{providers.length}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('products')}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Box className="w-5 h-5 text-purple-600 mr-2" />
+                  <span className="text-sm text-gray-600">Productos</span>
+                </div>
+                <span className="text-lg font-semibold text-gray-900">{products.filter((p: Product) => p.is_active).length}</span>
               </div>
             </CardContent>
           </Card>
@@ -470,6 +497,115 @@ export default function LogisticsPage() {
           setEditingProvider(null);
         }}
         provider={editingProvider}
+        queryClient={queryClient}
+        toast={toast}
+      />
+
+      {/* Products Modal */}
+      <Dialog open={activeModal === 'products'} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Box className="w-5 h-5 text-purple-600" />
+                Productos ({products.filter((p: Product) => p.is_active).length})
+              </DialogTitle>
+              <Button 
+                onClick={() => {
+                  setEditingProduct(null);
+                  setIsProductFormOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Producto
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {productsLoading ? (
+              <div className="text-center py-8 text-gray-500">Cargando productos...</div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No hay productos registrados</div>
+            ) : (
+              products
+                .filter((product: Product) => product.is_active)
+                .map((product: Product) => {
+                  const company = companies.find((c: any) => c.id === product.company_id);
+                  return (
+                    <Card key={product.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                                <Box className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                                {company && (
+                                  <p className="text-sm text-gray-500">Empresa: {company.name}</p>
+                                )}
+                                {!product.company_id && (
+                                  <p className="text-sm text-gray-500">Empresa: Sin asignar</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setEditingProduct(product);
+                                setIsProductFormOpen(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm(`¿Estás seguro de que deseas eliminar el producto "${product.name}"?`)) {
+                                  try {
+                                    await apiRequest('DELETE', `/api/products/${product.id}`);
+                                    toast({
+                                      title: "Producto eliminado",
+                                      description: `${product.name} ha sido eliminado.`,
+                                    });
+                                    queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+                                  } catch (error: any) {
+                                    toast({
+                                      title: "Error",
+                                      description: error.message || "No se pudo eliminar el producto.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Form Dialog */}
+      <ProductFormDialog
+        isOpen={isProductFormOpen}
+        onClose={() => {
+          setIsProductFormOpen(false);
+          setEditingProduct(null);
+        }}
+        product={editingProduct}
+        companies={companies}
         queryClient={queryClient}
         toast={toast}
       />
@@ -1008,6 +1144,199 @@ function ProviderFormDialog({
                   <>
                     <Save className="w-4 h-4 mr-2" />
                     {provider ? 'Actualizar' : 'Crear'} Proveedor
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Schema para formulario de productos
+const productFormSchema = z.object({
+  name: z.string().min(1, 'El nombre del producto es requerido'),
+  company_id: z.string().optional(),
+});
+
+// Componente de formulario para productos
+function ProductFormDialog({ 
+  isOpen, 
+  onClose, 
+  product, 
+  companies,
+  queryClient,
+  toast 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  product: Product | null;
+  companies: any[];
+  queryClient: any;
+  toast: any;
+}) {
+  const form = useForm<z.infer<typeof productFormSchema>>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: product?.name || '',
+      company_id: product?.company_id?.toString() || '',
+    },
+  });
+
+  // Resetear formulario cuando cambia el producto
+  React.useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name,
+        company_id: product.company_id?.toString() || '',
+      });
+    } else {
+      form.reset({
+        name: '',
+        company_id: '',
+      });
+    }
+  }, [product, form]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof productFormSchema>) => {
+      const response = await apiRequest('POST', '/api/products', {
+        name: data.name,
+        companyId: data.company_id ? parseInt(data.company_id) : null
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear producto');
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Producto creado",
+        description: "El producto ha sido creado exitosamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el producto.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof productFormSchema>) => {
+      const response = await apiRequest('PUT', `/api/products/${product?.id}`, {
+        name: data.name,
+        companyId: data.company_id ? parseInt(data.company_id) : null
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al actualizar producto');
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Producto actualizado",
+        description: "El producto ha sido actualizado exitosamente.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el producto.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: z.infer<typeof productFormSchema>) => {
+    if (product) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Box className="w-5 h-5 text-purple-600" />
+            {product ? 'Editar Producto' : 'Nuevo Producto'}
+          </DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre del Producto *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Aceite de Motor, Grano de Maíz, etc." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="company_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Empresa (Opcional)</FormLabel>
+                  <FormControl>
+                    <Select 
+                      value={field.value || ''} 
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una empresa (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Sin asignar (ambas empresas)</SelectItem>
+                        {companies.map((company: any) => (
+                          <SelectItem key={company.id} value={company.id.toString()}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {product ? 'Actualizar' : 'Crear'} Producto
                   </>
                 )}
               </Button>

@@ -1624,28 +1624,98 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
     enabled: !!selectedCompanyId,
   });
 
+  const queryClient = useQueryClient();
+
+  // Mutación para crear producto nuevo
+  const createProductMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest('POST', '/api/products', {
+        name,
+        companyId: shipment.companyId || null
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Error al crear producto');
+      }
+      return res.json();
+    },
+    onSuccess: (newProduct) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products", { companyId: selectedCompanyId }] });
+      toast({ title: 'Producto creado', description: `"${newProduct.name}" fue agregado al catálogo` });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'No se pudo crear el producto', 
+        variant: 'destructive' 
+      });
+    }
+  });
+
   const addItemMutation = useMutation({
     mutationFn: async (item: { product: string; quantity: string; unit: string; description?: string }) => {
       const res = await apiRequest('POST', `/api/shipments/${shipment.id}/items`, item);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al agregar producto');
+      }
       return res.json();
     },
-    onSuccess: () => { refetchItems(); },
+    onSuccess: () => { 
+      refetchItems();
+      toast({ title: 'Producto agregado', description: 'El producto fue agregado al envío' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'No se pudo agregar el producto', 
+        variant: 'destructive' 
+      });
+    }
   });
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, item }: { id: number; item: { product?: string; quantity?: string; unit?: string; description?: string } }) => {
       const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}/items/${id}`, item);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al actualizar producto');
+      }
       return res.json();
     },
-    onSuccess: () => { refetchItems(); },
+    onSuccess: () => { 
+      refetchItems();
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'No se pudieron guardar los cambios', 
+        variant: 'destructive' 
+      });
+    }
   });
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await apiRequest('DELETE', `/api/shipments/${shipment.id}/items/${id}`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al eliminar producto');
+      }
       return res.json();
     },
-    onSuccess: () => { refetchItems(); },
+    onSuccess: () => { 
+      refetchItems();
+      toast({ title: 'Eliminado', description: 'Producto removido del envío' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'No se pudo eliminar el producto', 
+        variant: 'destructive' 
+      });
+    }
   });
 
   const [newItem, setNewItem] = useState({ product: '', quantity: '', unit: 'kg', description: '' });
@@ -1660,6 +1730,10 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
         destination: form.destination,
         estimatedDeliveryDate: form.estimatedDeliveryDate || null,
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al actualizar el envío');
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -1667,7 +1741,12 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
       onSaved();
     },
     onError: (err: any) => {
-      toast({ title: 'Error', description: err.message || 'No se pudo actualizar el envío', variant: 'destructive' });
+      console.error('[EditShipmentInline] Error actualizando envío:', err);
+      toast({ 
+        title: 'Error', 
+        description: err.message || 'No se pudo actualizar el envío. Verifique su conexión.', 
+        variant: 'destructive' 
+      });
     }
   });
 
@@ -1765,21 +1844,66 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
             ) : isLoadingProducts ? (
               <Input placeholder="Cargando..." disabled />
             ) : products.length > 0 ? (
-              <Select 
-                value={newItem.product}
-                onValueChange={(value) => setNewItem({ ...newItem, product: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p: any) => (
-                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Select 
+                  value={newItem.product}
+                  onValueChange={(value) => setNewItem({ ...newItem, product: value })}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Seleccione un producto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((p: any) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const productName = prompt('Ingrese el nombre del nuevo producto:');
+                    if (productName && productName.trim()) {
+                      createProductMutation.mutate(productName.trim(), {
+                        onSuccess: (newProduct) => {
+                          setNewItem({ ...newItem, product: newProduct.name });
+                        }
+                      });
+                    }
+                  }}
+                  title="Crear nuevo producto"
+                >
+                  +
+                </Button>
+              </div>
             ) : (
-              <Input value={newItem.product} onChange={(e) => setNewItem({ ...newItem, product: e.target.value })} />
+              <div className="flex gap-1">
+                <Input 
+                  value={newItem.product} 
+                  onChange={(e) => setNewItem({ ...newItem, product: e.target.value })}
+                  placeholder="Escriba el producto o cree uno nuevo"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (newItem.product && newItem.product.trim()) {
+                      createProductMutation.mutate(newItem.product.trim(), {
+                        onSuccess: (newProduct) => {
+                          setNewItem({ ...newItem, product: newProduct.name });
+                        }
+                      });
+                    } else {
+                      toast({ title: 'Error', description: 'Ingrese un nombre de producto', variant: 'destructive' });
+                    }
+                  }}
+                  title="Guardar como nuevo producto"
+                >
+                  💾
+                </Button>
+              </div>
             )}
           </div>
           <div className="col-span-3">

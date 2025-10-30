@@ -17,7 +17,7 @@ interface AuthRequest extends Request {
 }
 import { storage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, kpiValues, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, kpiValues, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, kpisDura, kpisOrsega, kpiValuesDura, kpiValuesOrsega } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
@@ -1387,20 +1387,83 @@ export function registerRoutes(app: express.Application) {
         userId: user.id // Asegurar que el KPI se asocie al usuario actual
       });
       
-      // Buscar el KPI para obtener información necesaria
-      const kpi = await storage.getKpi(validatedData.kpiId);
+      console.log(`[POST /api/kpi-values] Actualizando KPI ${validatedData.kpiId} para usuario ${user.id}`);
+      
+      // Buscar el KPI primero en la tabla nueva (kpis)
+      let kpi: any = await storage.getKpi(validatedData.kpiId);
+      let kpiSource: 'kpis' | 'kpis_dura' | 'kpis_orsega' = 'kpis';
+      
+      // Si no se encuentra en la tabla nueva, buscar en las tablas antiguas
+      if (!kpi && typeof db !== 'undefined') {
+        try {
+          // Buscar en kpis_dura
+          const duraKpi = await db
+            .select()
+            .from(kpisDura)
+            .where(eq(kpisDura.id, validatedData.kpiId))
+            .limit(1);
+          
+          if (duraKpi.length > 0) {
+            kpi = {
+              id: duraKpi[0].id,
+              name: duraKpi[0].kpiName,
+              description: duraKpi[0].description,
+              target: duraKpi[0].goal,
+              unit: duraKpi[0].unit,
+              frequency: duraKpi[0].frequency,
+              calculationMethod: duraKpi[0].calculationMethod,
+              responsible: duraKpi[0].responsible,
+              area: duraKpi[0].area,
+              company: 'Dura'
+            };
+            kpiSource = 'kpis_dura';
+            console.log(`[POST /api/kpi-values] KPI encontrado en kpis_dura: ${kpi.name}`);
+          } else {
+            // Buscar en kpis_orsega
+            const orsegaKpi = await db
+              .select()
+              .from(kpisOrsega)
+              .where(eq(kpisOrsega.id, validatedData.kpiId))
+              .limit(1);
+            
+            if (orsegaKpi.length > 0) {
+              kpi = {
+                id: orsegaKpi[0].id,
+                name: orsegaKpi[0].kpiName,
+                description: orsegaKpi[0].description,
+                target: orsegaKpi[0].goal,
+                unit: orsegaKpi[0].unit,
+                frequency: orsegaKpi[0].frequency,
+                calculationMethod: orsegaKpi[0].calculationMethod,
+                responsible: orsegaKpi[0].responsible,
+                area: orsegaKpi[0].area,
+                company: 'Orsega'
+              };
+              kpiSource = 'kpis_orsega';
+              console.log(`[POST /api/kpi-values] KPI encontrado en kpis_orsega: ${kpi.name}`);
+            }
+          }
+        } catch (error) {
+          console.error('[POST /api/kpi-values] Error buscando en tablas antiguas:', error);
+        }
+      }
+      
       if (!kpi) {
+        console.error(`[POST /api/kpi-values] KPI ${validatedData.kpiId} no encontrado en ninguna tabla`);
         return res.status(404).json({ message: "KPI not found" });
       }
 
-      // Obtener el último valor para comparar cambios de estado
-      const lastValues = await storage.getLatestKpiValues(validatedData.kpiId, 1);
-      const previousStatus = lastValues.length > 0 ? lastValues[0].status : null;
+      // Obtener el último valor para comparar cambios de estado (solo para KPIs nuevos)
+      let previousStatus: string | null = null;
+      if (kpiSource === 'kpis') {
+        const lastValues = await storage.getLatestKpiValues(validatedData.kpiId, 1);
+        previousStatus = lastValues.length > 0 ? lastValues[0].status : null;
+      }
       
       // Calcular el cumplimiento si hay un objetivo con validación mejorada
-      if (kpi.target) {
+      if (kpi.target || kpi.goal) {
         const currentValue = validatedData.value;
-        const target = kpi.target;
+        const target = kpi.target || kpi.goal;
         
         // Validación robusta de valores numéricos
         const numericCurrentValue = extractNumericValue(currentValue);
@@ -1410,9 +1473,9 @@ export function registerRoutes(app: express.Application) {
           let percentage: number;
           
           // Determinar si es una métrica invertida usando lógica mejorada
-          const isLowerBetter = isLowerBetterKPI(kpi.name);
+          const isLowerBetter = isLowerBetterKPI(kpi.name || kpi.kpiName || '');
           
-          console.log(`[KPI Calculation] Calculando para "${kpi.name}". ¿Es invertido?: ${isLowerBetter}`);
+          console.log(`[KPI Calculation] Calculando para "${kpi.name || kpi.kpiName}". ¿Es invertido?: ${isLowerBetter}`);
           
           if (isLowerBetter) {
             // Para métricas donde un valor menor es mejor (como días de cobro)
@@ -1444,56 +1507,204 @@ export function registerRoutes(app: express.Application) {
         }
       }
       
-      // Agregar el ID del usuario que está creando el valor KPI
-      const kpiValueWithUser = {
-        ...validatedData,
-        updatedBy: user.id
-      };
-      
-      // Upsert por periodo: si ya existe un registro del mismo kpiId y period, actualizar en lugar de duplicar
+      // Manejar la inserción según la fuente del KPI
       let kpiValue: any;
-      if (kpiValueWithUser.period) {
-        try {
-          const existingForKpi = await storage.getKpiValuesByKpi(kpiValueWithUser.kpiId);
-          const existingSamePeriod = existingForKpi.find((v: any) => v.period === kpiValueWithUser.period);
-          if (existingSamePeriod) {
-            // Actualizar el registro existente conservando su id y fecha
-            const { id } = existingSamePeriod;
-            // Si DatabaseStorage está en uso, hacemos update directo vía drizzle; si es MemStorage, hacemos reemplazo manual
-            if (typeof db !== 'undefined') {
-              const [updated] = await db
-                .update(kpiValues)
-                .set({
-                  value: kpiValueWithUser.value,
-                  period: kpiValueWithUser.period,
-                  compliancePercentage: kpiValueWithUser.compliancePercentage ?? null,
-                  status: kpiValueWithUser.status ?? null,
-                  comments: kpiValueWithUser.comments ?? null,
-                  updatedBy: kpiValueWithUser.updatedBy ?? null,
-                  date: new Date()
-                })
-                .where(eq(kpiValues.id, id))
-                .returning();
-              kpiValue = updated;
-            } else {
-              // Fallback para MemStorage (no BD): eliminar/crear mantiene comportamiento de upsert simple
-              await storage.createKpiValue({ ...kpiValueWithUser });
-              kpiValue = { ...existingSamePeriod, ...kpiValueWithUser };
-            }
+      
+      if (kpiSource === 'kpis_dura' || kpiSource === 'kpis_orsega') {
+        // Guardar en tablas antiguas (kpi_values_dura o kpi_values_orsega)
+        // Parsear el período para extraer mes y año
+        // Puede venir en formato "Semana X - Mes Año" o solo "Mes Año"
+        let periodMatch = validatedData.period.match(/Semana\s+\d+\s+-\s+(\w+)\s+(\d{4})/);
+        if (!periodMatch) {
+          // Intentar formato simple "Mes Año"
+          periodMatch = validatedData.period.match(/(\w+)\s+(\d{4})/);
+        }
+        
+        // Extraer valores del match o usar valores por defecto
+        let monthName: string;
+        let year: number;
+        
+        if (periodMatch) {
+          monthName = periodMatch[1];
+          year = parseInt(periodMatch[2]);
+        } else {
+          // Si no se encuentra, usar el mes y año actual
+          const now = new Date();
+          const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+          monthName = months[now.getMonth()];
+          year = now.getFullYear();
+          console.log(`[POST /api/kpi-values] No se pudo parsear período "${validatedData.period}", usando período actual: ${monthName} ${year}`);
+        }
+        
+        const numericValue = extractNumericValue(validatedData.value);
+        
+        if (isNaN(numericValue)) {
+          return res.status(400).json({ message: "El valor debe ser numérico" });
+        }
+        
+        // Mapear nombres de meses en español a mayúsculas para coincidir con el formato de la BD
+        const monthMap: { [key: string]: string } = {
+          'enero': 'ENERO', 'febrero': 'FEBRERO', 'marzo': 'MARZO', 'abril': 'ABRIL',
+          'mayo': 'MAYO', 'junio': 'JUNIO', 'julio': 'JULIO', 'agosto': 'AGOSTO',
+          'septiembre': 'SEPTIEMBRE', 'octubre': 'OCTUBRE', 'noviembre': 'NOVIEMBRE', 'diciembre': 'DICIEMBRE'
+        };
+        
+        // Convertir nombre de mes a mayúsculas usando el mapa
+        const monthLower = monthName.toLowerCase();
+        const finalMonth = monthMap[monthLower] || monthName.toUpperCase();
+        
+        if (kpiSource === 'kpis_dura') {
+          // Verificar si ya existe un registro para este período
+          const existing = await sql`
+            SELECT * FROM kpi_values_dura 
+            WHERE kpi_id = ${validatedData.kpiId} 
+            AND month = ${finalMonth} 
+            AND year = ${year}
+            LIMIT 1
+          `;
+          
+          if (existing.length > 0) {
+            // Actualizar registro existente
+            const updated = await sql`
+              UPDATE kpi_values_dura 
+              SET value = ${numericValue}, created_at = NOW()
+              WHERE id = ${existing[0].id}
+              RETURNING *
+            `;
+            kpiValue = {
+              id: updated[0].id,
+              kpiId: updated[0].kpi_id,
+              value: updated[0].value.toString(),
+              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
+              date: updated[0].created_at,
+              compliancePercentage: validatedData.compliancePercentage,
+              status: validatedData.status,
+              comments: validatedData.comments,
+              updatedBy: user.id
+            };
           } else {
+            // Crear nuevo registro
+            const inserted = await sql`
+              INSERT INTO kpi_values_dura (kpi_id, month, year, value, created_at)
+              VALUES (${validatedData.kpiId}, ${finalMonth}, ${year}, ${numericValue}, NOW())
+              RETURNING *
+            `;
+            kpiValue = {
+              id: inserted[0].id,
+              kpiId: inserted[0].kpi_id,
+              value: inserted[0].value.toString(),
+              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
+              date: inserted[0].created_at,
+              compliancePercentage: validatedData.compliancePercentage,
+              status: validatedData.status,
+              comments: validatedData.comments,
+              updatedBy: user.id
+            };
+          }
+        } else {
+          // kpis_orsega
+          const existing = await sql`
+            SELECT * FROM kpi_values_orsega 
+            WHERE kpi_id = ${validatedData.kpiId} 
+            AND month = ${finalMonth} 
+            AND year = ${year}
+            LIMIT 1
+          `;
+          
+          if (existing.length > 0) {
+            // Actualizar registro existente
+            const updated = await sql`
+              UPDATE kpi_values_orsega 
+              SET value = ${numericValue}, created_at = NOW()
+              WHERE id = ${existing[0].id}
+              RETURNING *
+            `;
+            kpiValue = {
+              id: updated[0].id,
+              kpiId: updated[0].kpi_id,
+              value: updated[0].value.toString(),
+              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
+              date: updated[0].created_at,
+              compliancePercentage: validatedData.compliancePercentage,
+              status: validatedData.status,
+              comments: validatedData.comments,
+              updatedBy: user.id
+            };
+          } else {
+            // Crear nuevo registro
+            const inserted = await sql`
+              INSERT INTO kpi_values_orsega (kpi_id, month, year, value, created_at)
+              VALUES (${validatedData.kpiId}, ${finalMonth}, ${year}, ${numericValue}, NOW())
+              RETURNING *
+            `;
+            kpiValue = {
+              id: inserted[0].id,
+              kpiId: inserted[0].kpi_id,
+              value: inserted[0].value.toString(),
+              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
+              date: inserted[0].created_at,
+              compliancePercentage: validatedData.compliancePercentage,
+              status: validatedData.status,
+              comments: validatedData.comments,
+              updatedBy: user.id
+            };
+          }
+        }
+        
+        console.log(`[POST /api/kpi-values] Valor guardado en ${kpiSource}:`, kpiValue);
+      } else {
+        // KPI de tabla nueva (kpis) - usar lógica existente
+        // Agregar el ID del usuario que está creando el valor KPI
+        const kpiValueWithUser = {
+          ...validatedData,
+          updatedBy: user.id
+        };
+        
+        // Upsert por periodo: si ya existe un registro del mismo kpiId y period, actualizar en lugar de duplicar
+        if (kpiValueWithUser.period) {
+          try {
+            const existingForKpi = await storage.getKpiValuesByKpi(kpiValueWithUser.kpiId);
+            const existingSamePeriod = existingForKpi.find((v: any) => v.period === kpiValueWithUser.period);
+            if (existingSamePeriod) {
+              // Actualizar el registro existente conservando su id y fecha
+              const { id } = existingSamePeriod;
+              // Si DatabaseStorage está en uso, hacemos update directo vía drizzle; si es MemStorage, hacemos reemplazo manual
+              if (typeof db !== 'undefined') {
+                const [updated] = await db
+                  .update(kpiValues)
+                  .set({
+                    value: kpiValueWithUser.value,
+                    period: kpiValueWithUser.period,
+                    compliancePercentage: kpiValueWithUser.compliancePercentage ?? null,
+                    status: kpiValueWithUser.status ?? null,
+                    comments: kpiValueWithUser.comments ?? null,
+                    updatedBy: kpiValueWithUser.updatedBy ?? null,
+                    date: new Date()
+                  })
+                  .where(eq(kpiValues.id, id))
+                  .returning();
+                kpiValue = updated;
+              } else {
+                // Fallback para MemStorage (no BD): eliminar/crear mantiene comportamiento de upsert simple
+                await storage.createKpiValue({ ...kpiValueWithUser });
+                kpiValue = { ...existingSamePeriod, ...kpiValueWithUser };
+              }
+            } else {
+              kpiValue = await storage.createKpiValue(kpiValueWithUser);
+            }
+          } catch (e) {
+            // Si algo falla en la detección, crear nuevo para no bloquear la operación
             kpiValue = await storage.createKpiValue(kpiValueWithUser);
           }
-        } catch (e) {
-          // Si algo falla en la detección, crear nuevo para no bloquear la operación
+        } else {
           kpiValue = await storage.createKpiValue(kpiValueWithUser);
         }
-      } else {
-        kpiValue = await storage.createKpiValue(kpiValueWithUser);
-      }
-      
-      // Crear notificación automática si hay cambio de estado crítico
-      if (previousStatus && validatedData.status && previousStatus !== validatedData.status) {
-        await createKPIStatusChangeNotification(kpi, user, previousStatus, validatedData.status, storage);
+        
+        // Crear notificación automática si hay cambio de estado crítico (solo para KPIs nuevos)
+        if (previousStatus && validatedData.status && previousStatus !== validatedData.status) {
+          await createKPIStatusChangeNotification(kpi, user, previousStatus, validatedData.status, storage);
+        }
       }
       
       res.status(201).json(kpiValue);
@@ -2217,7 +2428,19 @@ export function registerRoutes(app: express.Application) {
 
   app.post("/api/shipments/:id/items", jwtAuthMiddleware, async (req, res) => {
     try {
+      const user = getAuthUser(req as AuthRequest);
       const shipmentId = parseInt(req.params.id);
+      
+      console.log(`[POST /api/shipments/${shipmentId}/items] Agregando item por ${user.name}:`, req.body);
+      
+      // Validar datos requeridos
+      if (!req.body.product || !req.body.quantity || !req.body.unit) {
+        return res.status(400).json({ 
+          message: "Product, quantity, and unit are required",
+          error: "Missing required fields"
+        });
+      }
+      
       const itemData = {
         shipmentId,
         product: req.body.product,
@@ -2227,26 +2450,54 @@ export function registerRoutes(app: express.Application) {
       };
       
       const item = await storage.createShipmentItem(itemData);
+      
+      if (!item) {
+        return res.status(500).json({ message: "Error creating item" });
+      }
+      
+      console.log(`[POST /api/shipments/${shipmentId}/items] Item creado exitosamente:`, item.id);
       res.status(201).json(item);
-    } catch (error) {
+    } catch (error: any) {
       console.error("[POST /api/shipments/:id/items] Error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: error?.message || "Internal server error",
+        error: String(error)
+      });
     }
   });
 
   app.patch("/api/shipments/:id/items/:itemId", jwtAuthMiddleware, async (req, res) => {
     try {
+      const user = getAuthUser(req as AuthRequest);
       const itemId = parseInt(req.params.itemId);
+      
+      console.log(`[PATCH /api/shipments/:id/items/${itemId}] Actualizando item por ${user.name}:`, req.body);
+      
+      // Validar que el item pertenezca al envío
+      const shipmentId = parseInt(req.params.id);
+      const existingItems = await storage.getShipmentItems(shipmentId);
+      const item = existingItems.find((it: any) => it.id === itemId);
+      
+      if (!item) {
+        console.error(`[PATCH /api/shipments/:id/items/${itemId}] Item no encontrado en envío ${shipmentId}`);
+        return res.status(404).json({ message: "Item not found in this shipment" });
+      }
+      
       const updatedItem = await storage.updateShipmentItem(itemId, req.body);
       
       if (!updatedItem) {
-        return res.status(404).json({ message: "Item not found" });
+        console.error(`[PATCH /api/shipments/:id/items/${itemId}] Error al actualizar item`);
+        return res.status(500).json({ message: "Error updating item" });
       }
       
+      console.log(`[PATCH /api/shipments/:id/items/${itemId}] Item actualizado exitosamente`);
       res.json(updatedItem);
-    } catch (error) {
+    } catch (error: any) {
       console.error("[PATCH /api/shipments/:id/items/:itemId] Error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: error?.message || "Internal server error",
+        error: String(error)
+      });
     }
   });
 
@@ -2968,6 +3219,127 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('Error fetching products:', error);
       res.status(500).json({ error: 'Failed to fetch products' });
+    }
+  });
+
+  // POST /api/products - Crear nuevo producto
+  app.post("/api/products", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const { name, companyId } = req.body;
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'El nombre del producto es requerido' });
+      }
+
+      // Verificar que no exista un producto con el mismo nombre para la misma compañía
+      const existing = await sql(`
+        SELECT id FROM products 
+        WHERE LOWER(name) = LOWER($1) AND company_id = $2 AND is_active = true
+      `, [name.trim(), companyId || null]);
+      
+      if (existing.length > 0) {
+        return res.status(409).json({ error: 'Ya existe un producto con ese nombre' });
+      }
+
+      const result = await sql(`
+        INSERT INTO products (name, company_id, is_active, created_at, updated_at)
+        VALUES ($1, $2, true, NOW(), NOW())
+        RETURNING id, name, company_id, is_active
+      `, [name.trim(), companyId || null]);
+      
+      console.log(`✅ [POST /api/products] Producto creado por ${user.name}:`, result[0]);
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error('[POST /api/products] Error:', error);
+      res.status(500).json({ error: 'Failed to create product' });
+    }
+  });
+
+  // PUT /api/products/:id - Actualizar producto
+  app.put("/api/products/:id", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const id = parseInt(req.params.id);
+      const { name, is_active, companyId } = req.body;
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'El nombre del producto es requerido' });
+      }
+
+      // Verificar que no exista otro producto con el mismo nombre
+      const existing = await sql(`
+        SELECT id FROM products 
+        WHERE LOWER(name) = LOWER($1) AND company_id = $2 AND id != $3 AND is_active = true
+      `, [name.trim(), companyId || null, id]);
+      
+      if (existing.length > 0) {
+        return res.status(409).json({ error: 'Ya existe otro producto con ese nombre' });
+      }
+
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (name) {
+        updates.push(`name = $${paramIndex++}`);
+        values.push(name.trim());
+      }
+      
+      if (is_active !== undefined) {
+        updates.push(`is_active = $${paramIndex++}`);
+        values.push(is_active);
+      }
+
+      if (companyId !== undefined) {
+        updates.push(`company_id = $${paramIndex++}`);
+        values.push(companyId);
+      }
+
+      updates.push(`updated_at = NOW()`);
+      values.push(id);
+
+      const result = await sql(`
+        UPDATE products 
+        SET ${updates.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING id, name, company_id, is_active
+      `, values);
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
+
+      console.log(`✅ [PUT /api/products/${id}] Producto actualizado por ${user.name}`);
+      res.json(result[0]);
+    } catch (error) {
+      console.error(`[PUT /api/products/:id] Error:`, error);
+      res.status(500).json({ error: 'Failed to update product' });
+    }
+  });
+
+  // DELETE /api/products/:id - Eliminar producto (soft delete)
+  app.delete("/api/products/:id", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const id = parseInt(req.params.id);
+      
+      const result = await sql(`
+        UPDATE products 
+        SET is_active = false, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, name
+      `, [id]);
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
+
+      console.log(`✅ [DELETE /api/products/${id}] Producto desactivado por ${user.name}:`, result[0].name);
+      res.json({ success: true, message: 'Producto eliminado exitosamente' });
+    } catch (error) {
+      console.error(`[DELETE /api/products/:id] Error:`, error);
+      res.status(500).json({ error: 'Failed to delete product' });
     }
   });
 
@@ -4184,14 +4556,22 @@ export function registerRoutes(app: express.Application) {
   // ============================================
   app.post("/api/test-email", jwtAuthMiddleware, async (req, res) => {
     try {
-      const { to, department = 'treasury' } = req.body;
+      const { to, department = 'treasury', useTestEmail = true } = req.body;
       
       if (!to) {
         return res.status(400).json({ error: 'Email destination required' });
       }
 
+      // Para pruebas, usar email de Resend por defecto
+      const fromEmail = useTestEmail 
+        ? 'onboarding@resend.dev' 
+        : undefined; // Si no usar test email, el servicio usará el dominio configurado
+
+      console.log(`[TEST EMAIL] Enviando prueba a ${to} desde ${fromEmail || 'dominio configurado'}`);
+
       const testResult = await emailService.sendEmail({
         to,
+        from: fromEmail,
         subject: 'Prueba de Email - Sistema Econova',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -4199,6 +4579,7 @@ export function registerRoutes(app: express.Application) {
             <p>Este es un email de prueba del sistema de Econova.</p>
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p><strong>Departamento:</strong> ${department}</p>
+              <p><strong>Remitente:</strong> ${fromEmail || 'Dominio configurado'}</p>
               <p><strong>Timestamp:</strong> ${new Date().toLocaleString('es-MX')}</p>
               <p><strong>Estado:</strong> ✅ Funcionando correctamente</p>
             </div>
@@ -4208,18 +4589,25 @@ export function registerRoutes(app: express.Application) {
         `
       }, department as 'treasury' | 'logistics');
 
+      if (!testResult.success) {
+        console.error('[TEST EMAIL] Error:', testResult.error);
+      }
+
       res.json({
         success: testResult.success,
-        message: testResult.success ? 'Email enviado exitosamente' : 'Error enviando email',
+        message: testResult.success 
+          ? 'Email enviado exitosamente. Revisa tu bandeja de entrada (y spam).' 
+          : `Error enviando email: ${testResult.error}`,
         messageId: testResult.messageId,
-        error: testResult.error
+        error: testResult.error,
+        from: fromEmail || 'dominio configurado'
       });
 
-    } catch (error) {
-      console.error('Error en test de email:', error);
+    } catch (error: any) {
+      console.error('[TEST EMAIL] Error en test de email:', error);
       res.status(500).json({ 
         success: false, 
-        error: 'Error interno del servidor' 
+        error: `Error interno del servidor: ${error?.message || String(error)}` 
       });
     }
   });
