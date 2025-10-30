@@ -7,7 +7,7 @@ async function testEmail() {
     console.log('📧 Enviando email de prueba...');
     
     const result = await resend.emails.send({
-      from: 'Lolita - Tesorería <lolita@grupoorsega.com.mx>',
+      from: 'Lolita - Tesorería <lolita@grupoorsega.com>',
       to: 'daniel@econova.com.mx',
       subject: 'Prueba de Email - Sistema Econova',
       html: `

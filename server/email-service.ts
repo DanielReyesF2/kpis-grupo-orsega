@@ -52,9 +52,9 @@ class EmailService {
     }
 
     // Configurar remitente según departamento (usar dominio del cliente)
-    const clientDomain = process.env.CLIENT_DOMAIN || 'grupoorsega.com.mx';
+    const clientDomain = process.env.CLIENT_DOMAIN || 'grupoorsega.com';
     const fromEmail = department === 'treasury' 
-      ? `Lolita - Tesorería <lolita@${clientDomain}>`
+      ? `Lolita - Tesorería <dolores@${clientDomain}>`
       : `Thalia - Logística <thalia@${clientDomain}>`;
 
     try {

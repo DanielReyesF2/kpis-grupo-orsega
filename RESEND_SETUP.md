@@ -9,19 +9,19 @@
 
 ### 2. **Verificar Dominio de Grupo Orsega**
 - En el dashboard de Resend: "Domains" → "Add Domain"
-- Ingresar: `grupoorsega.com.mx` (o el dominio real del cliente)
+- Ingresar: `grupoorsega.com` (o el dominio real del cliente)
 - Configurar registros DNS:
   ```
   Tipo: TXT
   Nombre: @
-  Valor: resend._domainkey.grupoorsega.com.mx
+  Valor: resend._domainkey.grupoorsega.com
   ```
 
 ### 3. **Configurar Emails del Cliente**
 Una vez verificado el dominio, configurar:
-- `lolita@grupoorsega.com.mx` (Tesorería)
-- `thalia@grupoorsega.com.mx` (Logística)  
-- `sistema@grupoorsega.com.mx` (Sistema)
+- `lolita@grupoorsega.com` (Tesorería)
+- `thalia@grupoorsega.com` (Logística)  
+- `sistema@grupoorsega.com` (Sistema)
 
 ### 4. **Obtener API Key**
 - En Resend: "API Keys" → "Create API Key"
@@ -33,8 +33,8 @@ Una vez verificado el dominio, configurar:
 
 ### 5. **Configurar en el Código**
 Los emails se enviarán desde:
-- **Tesorería:** `Lolita - Tesorería <lolita@grupoorsega.com.mx>`
-- **Logística:** `Thalia - Logística <thalia@grupoorsega.com.mx>`
+- **Tesorería:** `Lolita - Tesorería <lolita@grupoorsega.com>`
+- **Logística:** `Thalia - Logística <thalia@grupoorsega.com>`
 
 ## ✅ Ventajas para Econova
 
