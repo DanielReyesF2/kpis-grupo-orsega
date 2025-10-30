@@ -67,8 +67,23 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     const currentYear = new Date().getFullYear();
 
     const filtered = kpiHistory.filter((item: any) => {
-      const parts = (item.period || '').split(' ');
-      const year = parseInt(parts[1], 10);
+      // Intentar obtener el año de distintas formas
+      const period = String(item.period || '');
+      const parts = period.split(' ');
+      let year = parseInt(parts[1], 10);
+
+      if (isNaN(year)) {
+        const match = period.match(/(20\d{2})/);
+        if (match) year = parseInt(match[1], 10);
+      }
+      if (isNaN(year) && item.year) {
+        year = parseInt(String(item.year), 10);
+      }
+      if (isNaN(year) && item.date) {
+        const d = new Date(item.date);
+        if (!isNaN(d.getTime())) year = d.getFullYear();
+      }
+
       return !isNaN(year) && year === currentYear;
     });
 
