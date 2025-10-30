@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Search, User, LogOut } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,7 +8,6 @@ import { useLocation } from "wouter";
 import { OrsegaTitle } from "@/components/ui/OrsegaTitle";
 
 export function TopBar({ title }: TopBarProps) {
-  const [showSearch, setShowSearch] = useState(false);
   const { user, logout } = useAuth();
   const [, navigate] = useLocation();
 
@@ -42,29 +39,6 @@ export function TopBar({ title }: TopBarProps) {
         </div>
         
         <div className="flex items-center space-x-3">
-          {showSearch ? (
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Buscar..."
-                className="w-48 pr-8"
-                autoFocus
-                onBlur={() => setShowSearch(false)}
-              />
-              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-500 hover:text-gray-700"
-              onClick={() => setShowSearch(true)}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-          )}
-          
-
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
