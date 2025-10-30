@@ -600,6 +600,13 @@ export function DragDropKanban() {
     isOpen: false,
     shipment: null
   });
+  const [editDialog, setEditDialog] = useState<{
+    isOpen: boolean;
+    shipment: Shipment | null;
+  }>({
+    isOpen: false,
+    shipment: null
+  });
 
   const [requestDialog, setRequestDialog] = useState<{
     isOpen: boolean;
@@ -1487,7 +1494,7 @@ export function DragDropKanban() {
                 <Button
                   onClick={() => {
                     setDetailsDialog({ isOpen: false, shipment: null });
-                    // Aquí se podría agregar funcionalidad para editar
+                    setEditDialog({ isOpen: true, shipment: detailsDialog.shipment });
                   }}
                   className="flex-1"
                 >
@@ -1495,6 +1502,28 @@ export function DragDropKanban() {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para editar envío */}
+      <Dialog open={editDialog.isOpen} onOpenChange={(open) => !open && setEditDialog({ isOpen: false, shipment: null })}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Editar Envío</DialogTitle>
+            <DialogDescription>
+              Modifica los campos necesarios y guarda los cambios.
+            </DialogDescription>
+          </DialogHeader>
+          {editDialog.shipment && (
+            <EditShipmentInline
+              shipment={editDialog.shipment}
+              onCancel={() => setEditDialog({ isOpen: false, shipment: null })}
+              onSaved={() => {
+                setEditDialog({ isOpen: false, shipment: null });
+                queryClient.invalidateQueries({ queryKey: ['/api/shipments'] });
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -1567,6 +1596,77 @@ export function DragDropKanban() {
         onClose={() => setReportDialog(false)}
         shipments={shipments}
       />
+    </div>
+  );
+}
+
+// Formulario inline para editar un envío (campos principales)
+function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipment; onCancel: () => void; onSaved: () => void; }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    purchaseOrder: shipment.purchaseOrder || '',
+    customerName: shipment.customerName || '',
+    customerEmail: shipment.customerEmail || '',
+    origin: shipment.origin || '',
+    destination: shipment.destination || '',
+    estimatedDeliveryDate: shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toISOString().slice(0, 10) : ''
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}`, {
+        purchaseOrder: form.purchaseOrder,
+        customerName: form.customerName,
+        customerEmail: form.customerEmail || null,
+        origin: form.origin,
+        destination: form.destination,
+        estimatedDeliveryDate: form.estimatedDeliveryDate || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Envío actualizado', description: 'Los cambios fueron guardados.' });
+      onSaved();
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message || 'No se pudo actualizar el envío', variant: 'destructive' });
+    }
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Número de Orden</Label>
+          <Input value={form.purchaseOrder} onChange={(e) => setForm({ ...form, purchaseOrder: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Cliente</Label>
+          <Input value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Email del Cliente</Label>
+          <Input type="email" value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Origen</Label>
+          <Input value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Destino</Label>
+          <Input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Fecha estimada de entrega</Label>
+          <Input type="date" value={form.estimatedDeliveryDate} onChange={(e) => setForm({ ...form, estimatedDeliveryDate: e.target.value })} />
+        </div>
+      </div>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+          {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+        </Button>
+      </DialogFooter>
     </div>
   );
 }

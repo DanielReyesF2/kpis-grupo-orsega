@@ -1,5 +1,5 @@
 import express from "express";
-import bcrypt from "bcryptjs";
+import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 import type { Request } from "express";
 import rateLimit from "express-rate-limit";
@@ -15,7 +15,6 @@ interface AuthRequest extends Request {
     companyId?: number | null;
   };
 }
-import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
 import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, kpiValues, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher } from "@shared/schema";
@@ -2131,6 +2130,37 @@ export function registerRoutes(app: express.Application) {
         error: "Internal server error",
         message: (error as Error).message || "Error al crear el embarque. Por favor, verifica los datos e intenta nuevamente."
       });
+    }
+  });
+
+  // Editar datos generales del envío
+  app.patch("/api/shipments/:id", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const existing = await storage.getShipment(id);
+      if (!existing) {
+        return res.status(404).json({ message: "Shipment not found" });
+      }
+      const data = req.body || {};
+      // Normalizar fechas si vienen como string
+      const patch: any = { ...data };
+      if (typeof patch.estimatedDeliveryDate === 'string') {
+        patch.estimatedDeliveryDate = patch.estimatedDeliveryDate ? new Date(patch.estimatedDeliveryDate) : null;
+      }
+      if (typeof patch.departureDate === 'string') {
+        patch.departureDate = patch.departureDate ? new Date(patch.departureDate) : null;
+      }
+      if (typeof patch.actualDeliveryDate === 'string') {
+        patch.actualDeliveryDate = patch.actualDeliveryDate ? new Date(patch.actualDeliveryDate) : null;
+      }
+      const updated = await storage.updateShipment(id, patch);
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to update shipment" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("[PATCH /api/shipments/:id] Error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
