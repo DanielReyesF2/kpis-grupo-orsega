@@ -763,7 +763,7 @@ export default function TreasuryPage() {
               </div>
               
               {/* Mini stats rápidas */}
-              <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
                 <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="h-5 w-5 text-accent" />
@@ -796,7 +796,7 @@ export default function TreasuryPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Módulos de Tesorería</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <DashboardCard
                   title="Pagos Programados"
                   description={`${pendingPayments.length} pendientes`}
@@ -1052,7 +1052,7 @@ export default function TreasuryPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label>Compra</Label>
                         <Input
@@ -1434,7 +1434,7 @@ export default function TreasuryPage() {
                   <p className="text-slate-500">Cargando datos...</p>
                 </div>
               ) : latestData ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
@@ -1883,7 +1883,7 @@ export default function TreasuryPage() {
                               <Check className="h-4 w-4" />
                               Análisis Completado
                             </p>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                               <div>
                                 <span className="text-slate-600 dark:text-slate-400">Monto:</span>
                                 <span className="ml-2 font-medium">
@@ -2249,7 +2249,7 @@ export default function TreasuryPage() {
                 
                 <div className="space-y-4 py-4">
                   {/* Empresa */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="provider-company">Empresa *</Label>
                       <Select
@@ -2306,7 +2306,7 @@ export default function TreasuryPage() {
                   </div>
 
                   {/* Contacto */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="provider-email">Email *</Label>
                       <Input
@@ -2359,7 +2359,7 @@ export default function TreasuryPage() {
                     </div>
 
                     {providerForm.requiresRep && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="provider-rep-frequency">Frecuencia (días)</Label>
                           <Input
