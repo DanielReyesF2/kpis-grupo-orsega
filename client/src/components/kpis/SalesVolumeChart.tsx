@@ -31,10 +31,6 @@ import {
   InfoIcon,
   TrendingDown,
   TrendingUp,
-  BarChart2,
-  Award,
-  ArrowUpIcon,
-  ArrowDownIcon,
 } from "lucide-react";
 
 // Componente auxiliar para un tooltip personalizado
@@ -468,10 +464,18 @@ export function SalesVolumeChart({
                     name={`Volumen (${getUnit()})`} 
                     radius={[6, 6, 0, 0]}
                     barSize={60} 
-                    fill="#273949"
                     animationDuration={1200}
                     animationEasing="ease-in-out"
                     maxBarSize={80}
+                    shape={(props: any) => {
+                      const { x, y, width, height, payload } = props;
+                      const isBelowTarget = payload.value < payload.target;
+                      const fillColor = isBelowTarget ? 'url(#volumeGradientBelow)' : 'url(#volumeGradient)';
+                      const filterStyle = isBelowTarget ? 'url(#volumeShadowRed)' : 'url(#volumeShadow)';
+                      return (
+                        <rect x={x} y={y} width={width} height={height} fill={fillColor} filter={filterStyle} rx={6} ry={6} />
+                      );
+                    }}
                   />
                   {monthlyTarget > 0 && (
                     <Line
@@ -573,10 +577,18 @@ export function SalesVolumeChart({
                     name={`Volumen (${getUnit()})`} 
                     radius={[6, 6, 0, 0]}
                     barSize={60} 
-                    fill="#273949"
                     animationDuration={1200}
                     animationEasing="ease-in-out"
                     maxBarSize={80}
+                    shape={(props: any) => {
+                      const { x, y, width, height, payload } = props;
+                      const isBelowTarget = payload.valor < payload.objetivo;
+                      const fillColor = isBelowTarget ? 'url(#weeklyGradientBelow)' : 'url(#weeklyGradient)';
+                      const filterStyle = isBelowTarget ? 'url(#weeklyShadowRed)' : 'url(#weeklyShadow)';
+                      return (
+                        <rect x={x} y={y} width={width} height={height} fill={fillColor} filter={filterStyle} rx={6} ry={6} />
+                      );
+                    }}
                   />
                   <Line
                     type="monotone"
@@ -615,60 +627,7 @@ export function SalesVolumeChart({
           </div>
         )}
         
-        {chartDataWithTarget.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg shadow-md border border-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 dark:border-blue-800/50">
-                <div className="text-sm text-blue-600 font-medium dark:text-blue-300 mb-1">Ventas Actuales</div>
-                <div className="flex items-center">
-                  <BarChart2 className="h-4 w-4 mr-2 text-blue-600 dark:text-blue-300" />
-                  <span className="text-xl font-bold text-blue-800 dark:text-blue-100">
-                    {formatNumber(chartDataWithTarget[chartDataWithTarget.length - 1].value)} {getUnit()}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg shadow-md border border-green-200 dark:from-green-900/30 dark:to-green-800/30 dark:border-green-800/50">
-                <div className="text-sm text-green-600 font-medium dark:text-green-300 mb-1">Objetivo Mensual</div>
-                <div className="flex items-center">
-                  <Award className="h-4 w-4 mr-2 text-green-600 dark:text-green-300" />
-                  <span className="text-xl font-bold text-green-800 dark:text-green-100">
-                    {formatNumber(monthlyTarget)} {getUnit()}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Diferencia */}
-              <div className={`bg-gradient-to-br ${
-                chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
-                  ? 'from-emerald-50 to-emerald-100 border-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 dark:border-emerald-800/50' 
-                  : 'from-red-50 to-red-100 border-red-200 dark:from-red-900/30 dark:to-red-800/30 dark:border-red-800/50'
-                } p-4 rounded-lg shadow-md border`}>
-                <div className={`text-sm font-medium mb-1 ${
-                  chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
-                    ? 'text-emerald-600 dark:text-emerald-300' 
-                    : 'text-red-600 dark:text-red-300'
-                }`}>Diferencia</div>
-                <div className="flex items-center">
-                  {chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget ? (
-                    <ArrowUpIcon className="h-4 w-4 mr-2 text-emerald-600 dark:text-emerald-300" />
-                  ) : (
-                    <ArrowDownIcon className="h-4 w-4 mr-2 text-red-600 dark:text-red-300" />
-                  )}
-                  <span className={`text-xl font-bold ${
-                    chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget 
-                      ? 'text-emerald-800 dark:text-emerald-100' 
-                      : 'text-red-800 dark:text-red-100'
-                  }`}>
-                    {chartDataWithTarget[chartDataWithTarget.length - 1].value >= monthlyTarget ? '+' : ''}
-                    {formatNumber(chartDataWithTarget[chartDataWithTarget.length - 1].value - monthlyTarget)} {getUnit()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-          </>
-        )}
+        {/* Tarjetas de resumen removidas según solicitud del usuario */}
       </CardContent>
     </Card>
   );
