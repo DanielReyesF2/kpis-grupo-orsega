@@ -11,7 +11,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, title }: AppLayoutProps) {
   return (
     <>
-      <div className="flex h-screen overflow-hidden bg-secondary-50 dark:bg-primary-950">
+      <div className="flex min-h-screen bg-secondary-50 dark:bg-primary-950">
         {/* La barra lateral siempre está presente pero oculta en móviles */}
         <div className="hidden lg:block lg:w-64 flex-shrink-0">
           <Sidebar />
