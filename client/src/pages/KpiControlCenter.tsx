@@ -1116,32 +1116,6 @@ export default function KpiControlCenter() {
           )}
         </div>
 
-        {/* Selector de Empresa */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Building className="h-5 w-5 text-blue-600 flex-shrink-0" />
-              <Select value={selectedCompanyId?.toString() || ''} onValueChange={handleCompanyChange}>
-                <SelectTrigger className="w-full max-w-xs">
-                  <SelectValue placeholder="Selecciona una empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies?.map((company: Company) => (
-                    <SelectItem key={company.id} value={company.id.toString()}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedCompany && (
-                <span className="text-sm text-gray-600">
-                  Monitoreando: <span className="font-semibold text-blue-600">{selectedCompany.name}</span>
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Contenido Dinámico según Vista Seleccionada */}
         {viewMode === 'overview' && (
           <div className="space-y-6">
@@ -1224,14 +1198,39 @@ export default function KpiControlCenter() {
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    📊 KPIs Actualizados Recientemente
-                    <Badge variant="outline" className="ml-2">
-                      {displayedKpis.length} de {sortedKpis.length} {filteredKpis.length < processedKpis.length ? `(${filteredKpis.length} filtrados)` : ''}
-                    </Badge>
-                  </CardTitle>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Award className="h-5 w-5" />
+                      📊 KPIs Actualizados Recientemente
+                      <Badge variant="outline" className="ml-2">
+                        {displayedKpis.length} de {sortedKpis.length} {filteredKpis.length < processedKpis.length ? `(${filteredKpis.length} filtrados)` : ''}
+                      </Badge>
+                    </CardTitle>
+                  </div>
+                  
+                  {/* Selector de Empresa movido aquí */}
+                  <div className="flex items-center gap-4 pb-2 border-b">
+                    <Building className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <Select value={selectedCompanyId?.toString() || ''} onValueChange={handleCompanyChange}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue placeholder="Selecciona una empresa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies?.map((company: Company) => (
+                          <SelectItem key={company.id} value={company.id.toString()}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedCompany && (
+                      <span className="text-sm text-gray-600">
+                        Monitoreando: <span className="font-semibold text-blue-600">{selectedCompany.name}</span>
+                      </span>
+                    )}
+                  </div>
+                  
                   <div className="flex flex-wrap items-center gap-3">
                     {sortedKpis.length > 6 && (
                       <Button 
