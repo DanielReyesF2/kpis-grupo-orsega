@@ -257,26 +257,26 @@ export default function Dashboard() {
         <DofChart />
       </div>
 
-      {/* Gráfica de Barras de Ventas */}
-      <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
-        {(() => {
-          const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== ''
-            ? Number(filters.companyId)
-            : undefined;
-          const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2;
-          const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 10;
-          const effectiveTarget = effectiveCompanyId === 1 ? "55620" : "858373";
-          return (
-            <SalesVolumeChart 
-              companyId={effectiveCompanyId}
-              kpiId={effectiveKpiId}
-              target={effectiveTarget}
-              limit={12}
-              showControls={true}
-            />
-          );
-        })()}
-      </div>
+      {/* Gráfica de Barras de Ventas (temporalmente deshabilitada por error en producción) */}
+      {/* <div className="mb-6 sm:mb-12" data-onboarding="sales-chart"> */}
+      {/*   {(() => { */}
+      {/*     const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== '' */}
+      {/*       ? Number(filters.companyId) */}
+      {/*       : undefined; */}
+      {/*     const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2; */}
+      {/*     const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 10; */}
+      {/*     const effectiveTarget = effectiveCompanyId === 1 ? "55620" : "858373"; */}
+      {/*     return ( */}
+      {/*       <SalesVolumeChart  */}
+      {/*         companyId={effectiveCompanyId} */}
+      {/*         kpiId={effectiveKpiId} */}
+      {/*         target={effectiveTarget} */}
+      {/*         limit={12} */}
+      {/*         showControls={true} */}
+      {/*       /> */}
+      {/*     ); */}
+      {/*   })()} */}
+      {/* </div> */}
 
       {/* Preview de Logística */}
       <div className="mb-6 sm:mb-12" data-onboarding="logistics-preview">
