@@ -259,13 +259,23 @@ export default function Dashboard() {
 
       {/* Gráfica de Barras de Ventas */}
       <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
-        <SalesVolumeChart 
-          companyId={Number(filters.companyId) || selectedCompany || 2}
-          kpiId={Number(filters.companyId) === 1 || selectedCompany === 1 ? 39 : 10}
-          target={Number(filters.companyId) === 1 || selectedCompany === 1 ? "55620" : "858373"}
-          limit={12}
-          showControls={true}
-        />
+        {(() => {
+          const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== ''
+            ? Number(filters.companyId)
+            : undefined;
+          const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2;
+          const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 10;
+          const effectiveTarget = effectiveCompanyId === 1 ? "55620" : "858373";
+          return (
+            <SalesVolumeChart 
+              companyId={effectiveCompanyId}
+              kpiId={effectiveKpiId}
+              target={effectiveTarget}
+              limit={12}
+              showControls={true}
+            />
+          );
+        })()}
       </div>
 
       {/* Preview de Logística */}
