@@ -8,27 +8,26 @@ interface SalesMetricsCardsProps {
 }
 
 export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
-  // Estado para los objetivos anuales desde localStorage
+  // Estado para los objetivos anuales (derivados del objetivo mensual del KPI)
   const [annualTargets, setAnnualTargets] = useState({
-    dura: 667449,
-    orsega: 10300476
+    dura: 667449, // fallback: 55,620 * 12
+    orsega: 10300476 // fallback: 858,373 * 12
   });
 
-  // Cargar objetivos desde localStorage de forma segura (solo en cliente)
+  // Cuando llegue la metadata del KPI, derivar el objetivo anual desde "goal" (objetivo mensual)
   useEffect(() => {
-    try {
-      const duraStoredTarget = localStorage.getItem('duraAnnualTarget');
-      const orsegaStoredTarget = localStorage.getItem('orsegaAnnualTarget');
-      
-      setAnnualTargets({
-        dura: duraStoredTarget ? parseInt(duraStoredTarget, 10) : 667449,
-        orsega: orsegaStoredTarget ? parseInt(orsegaStoredTarget, 10) : 10300476
-      });
-    } catch (error) {
-      // localStorage no está disponible (durante SSR o build)
-      console.warn('No se pudo acceder a localStorage:', error);
+    // Si hay KPI y trae goal numérico, usamos goal * 12; fallback a valores por defecto
+    const monthlyGoal = salesKpi?.goal != null
+      ? parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''))
+      : undefined;
+
+    if (!isNaN(monthlyGoal as number) && monthlyGoal! > 0) {
+      setAnnualTargets(prev => ({
+        ...prev,
+        [companyId === 1 ? 'dura' : 'orsega']: Math.round((monthlyGoal as number) * 12)
+      }));
     }
-  }, []);
+  }, [salesKpi, companyId]);
 
   // Buscar el KPI de Volumen de Ventas por nombre
   const { data: allKpis } = useQuery<any[]>({
