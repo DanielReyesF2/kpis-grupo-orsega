@@ -3293,11 +3293,11 @@ export function registerRoutes(app: express.Application) {
 
       if (companyId !== undefined) {
         updates.push(`company_id = $${paramIndex++}`);
-        values.push(companyId);
+        values.push(companyId === '' || companyId === null ? null : companyId);
       }
 
       updates.push(`updated_at = NOW()`);
-      values.push(id);
+      values.push(id); // El id va al final para el WHERE
 
       const result = await sql(`
         UPDATE products 

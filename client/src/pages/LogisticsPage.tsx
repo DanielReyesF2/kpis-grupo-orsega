@@ -568,13 +568,27 @@ export default function LogisticsPage() {
                               onClick={async () => {
                                 if (confirm(`¿Estás seguro de que deseas eliminar el producto "${product.name}"?`)) {
                                   try {
-                                    await apiRequest('DELETE', `/api/products/${product.id}`);
+                                    console.log('[ProductsModal] Eliminando producto:', product.id);
+                                    const response = await apiRequest('DELETE', `/api/products/${product.id}`);
+                                    
+                                    if (!response.ok) {
+                                      let errorMessage = 'Error al eliminar producto';
+                                      try {
+                                        const errorData = await response.json();
+                                        errorMessage = errorData.error || errorData.message || errorMessage;
+                                      } catch (e) {
+                                        errorMessage = `Error ${response.status}: ${response.statusText}`;
+                                      }
+                                      throw new Error(errorMessage);
+                                    }
+                                    
                                     toast({
                                       title: "Producto eliminado",
                                       description: `${product.name} ha sido eliminado.`,
                                     });
                                     queryClient.invalidateQueries({ queryKey: ['/api/products'] });
                                   } catch (error: any) {
+                                    console.error('[ProductsModal] Error al eliminar producto:', error);
                                     toast({
                                       title: "Error",
                                       description: error.message || "No se pudo eliminar el producto.",
@@ -1185,8 +1199,17 @@ function ProductFormDialog({
     },
   });
 
-  // Resetear formulario cuando cambia el producto
+  // Resetear formulario cuando cambia el producto o se abre/cierra el diálogo
   React.useEffect(() => {
+    if (!isOpen) {
+      // Si el diálogo se cierra, resetear el formulario
+      form.reset({
+        name: '',
+        company_id: '',
+      });
+      return;
+    }
+    
     if (product) {
       form.reset({
         name: product.name,
@@ -1198,19 +1221,35 @@ function ProductFormDialog({
         company_id: '',
       });
     }
-  }, [product, form]);
+  }, [product, isOpen, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof productFormSchema>) => {
-      const response = await apiRequest('POST', '/api/products', {
-        name: data.name,
-        companyId: data.company_id ? parseInt(data.company_id) : null
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al crear producto');
+      console.log('[ProductForm] Creando producto:', data);
+      try {
+        const response = await apiRequest('POST', '/api/products', {
+          name: data.name.trim(),
+          companyId: data.company_id && data.company_id !== '' ? parseInt(data.company_id) : null
+        });
+        
+        if (!response.ok) {
+          let errorMessage = 'Error al crear producto';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (e) {
+            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const result = await response.json();
+        console.log('[ProductForm] Producto creado exitosamente:', result);
+        return result;
+      } catch (error: any) {
+        console.error('[ProductForm] Error al crear producto:', error);
+        throw error;
       }
-      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -1231,15 +1270,31 @@ function ProductFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof productFormSchema>) => {
-      const response = await apiRequest('PUT', `/api/products/${product?.id}`, {
-        name: data.name,
-        companyId: data.company_id ? parseInt(data.company_id) : null
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al actualizar producto');
+      console.log('[ProductForm] Actualizando producto:', product?.id, data);
+      try {
+        const response = await apiRequest('PUT', `/api/products/${product?.id}`, {
+          name: data.name.trim(),
+          companyId: data.company_id && data.company_id !== '' ? parseInt(data.company_id) : null
+        });
+        
+        if (!response.ok) {
+          let errorMessage = 'Error al actualizar producto';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (e) {
+            errorMessage = `Error ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const result = await response.json();
+        console.log('[ProductForm] Producto actualizado exitosamente:', result);
+        return result;
+      } catch (error: any) {
+        console.error('[ProductForm] Error al actualizar producto:', error);
+        throw error;
       }
-      return await response.json();
     },
     onSuccess: () => {
       toast({
