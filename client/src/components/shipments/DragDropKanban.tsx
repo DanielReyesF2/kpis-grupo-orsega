@@ -1617,6 +1617,13 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
     queryKey: [`/api/shipments/${shipment.id}/items`],
   });
 
+  // Catálogo de productos por empresa (como en Nuevo Envío)
+  const selectedCompanyId = shipment.companyId?.toString();
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<any[]>({
+    queryKey: ["/api/products", { companyId: selectedCompanyId }],
+    enabled: !!selectedCompanyId,
+  });
+
   const addItemMutation = useMutation({
     mutationFn: async (item: { product: string; quantity: string; unit: string; description?: string }) => {
       const res = await apiRequest('POST', `/api/shipments/${shipment.id}/items`, item);
@@ -1707,7 +1714,27 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
               <div key={it.id} className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-5">
                   <Label className="text-xs">Producto</Label>
-                  <Input defaultValue={it.product} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { product: e.target.value } })} />
+                  {!selectedCompanyId ? (
+                    <Input defaultValue={it.product} disabled />
+                  ) : isLoadingProducts ? (
+                    <Input defaultValue={it.product} disabled />
+                  ) : products.length > 0 ? (
+                    <Select 
+                      value={it.product}
+                      onValueChange={(value) => updateItemMutation.mutate({ id: it.id, item: { product: value } })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione un producto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((p: any) => (
+                          <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input defaultValue={it.product} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { product: e.target.value } })} />
+                  )}
                 </div>
                 <div className="col-span-3">
                   <Label className="text-xs">Cantidad</Label>
@@ -1733,7 +1760,27 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
         <div className="grid grid-cols-12 gap-2 items-end mt-2">
           <div className="col-span-5">
             <Label className="text-xs">Producto</Label>
-            <Input value={newItem.product} onChange={(e) => setNewItem({ ...newItem, product: e.target.value })} />
+            {!selectedCompanyId ? (
+              <Input placeholder="Selecciona empresa" disabled />
+            ) : isLoadingProducts ? (
+              <Input placeholder="Cargando..." disabled />
+            ) : products.length > 0 ? (
+              <Select 
+                value={newItem.product}
+                onValueChange={(value) => setNewItem({ ...newItem, product: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p: any) => (
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value={newItem.product} onChange={(e) => setNewItem({ ...newItem, product: e.target.value })} />
+            )}
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Cantidad</Label>
