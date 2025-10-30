@@ -1508,7 +1508,7 @@ export function DragDropKanban() {
 
       {/* Diálogo para editar envío */}
       <Dialog open={editDialog.isOpen} onOpenChange={(open) => !open && setEditDialog({ isOpen: false, shipment: null })}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Envío</DialogTitle>
             <DialogDescription>
@@ -1695,11 +1695,13 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
       {/* Productos */}
       <div className="space-y-2">
-        <h4 className="font-semibold">Productos</h4>
+        <div className="sticky top-0 bg-white z-10 pb-2">
+          <h4 className="font-semibold">Productos</h4>
+        </div>
         {itemsLoading ? (
           <div className="text-sm text-gray-500">Cargando productos…</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
             {items.length === 0 && <div className="text-sm text-gray-500">Sin productos agregados</div>}
             {items.map((it: any) => (
               <div key={it.id} className="grid grid-cols-12 gap-2 items-end">
