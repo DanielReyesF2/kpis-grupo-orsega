@@ -1612,6 +1612,37 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
     estimatedDeliveryDate: shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toISOString().slice(0, 10) : ''
   });
 
+  // Productos del envío
+  const { data: items = [], refetch: refetchItems, isLoading: itemsLoading } = useQuery({
+    queryKey: [`/api/shipments/${shipment.id}/items`],
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: async (item: { product: string; quantity: string; unit: string; description?: string }) => {
+      const res = await apiRequest('POST', `/api/shipments/${shipment.id}/items`, item);
+      return res.json();
+    },
+    onSuccess: () => { refetchItems(); },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ id, item }: { id: number; item: { product?: string; quantity?: string; unit?: string; description?: string } }) => {
+      const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}/items/${id}`, item);
+      return res.json();
+    },
+    onSuccess: () => { refetchItems(); },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/shipments/${shipment.id}/items/${id}`);
+      return res.json();
+    },
+    onSuccess: () => { refetchItems(); },
+  });
+
+  const [newItem, setNewItem] = useState({ product: '', quantity: '', unit: 'kg', description: '' });
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}`, {
@@ -1659,6 +1690,76 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
         <div className="space-y-2">
           <Label>Fecha estimada de entrega</Label>
           <Input type="date" value={form.estimatedDeliveryDate} onChange={(e) => setForm({ ...form, estimatedDeliveryDate: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Productos */}
+      <div className="space-y-2">
+        <h4 className="font-semibold">Productos</h4>
+        {itemsLoading ? (
+          <div className="text-sm text-gray-500">Cargando productos…</div>
+        ) : (
+          <div className="space-y-3">
+            {items.length === 0 && <div className="text-sm text-gray-500">Sin productos agregados</div>}
+            {items.map((it: any) => (
+              <div key={it.id} className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-5">
+                  <Label className="text-xs">Producto</Label>
+                  <Input defaultValue={it.product} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { product: e.target.value } })} />
+                </div>
+                <div className="col-span-3">
+                  <Label className="text-xs">Cantidad</Label>
+                  <Input defaultValue={it.quantity} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { quantity: e.target.value } })} />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Unidad</Label>
+                  <Input defaultValue={it.unit} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { unit: e.target.value } })} />
+                </div>
+                <div className="col-span-10">
+                  <Label className="text-xs">Descripción</Label>
+                  <Input defaultValue={it.description || ''} onBlur={(e) => updateItemMutation.mutate({ id: it.id, item: { description: e.target.value } })} />
+                </div>
+                <div className="col-span-2 flex justify-end">
+                  <Button variant="destructive" onClick={() => deleteItemMutation.mutate(it.id)} size="sm">Eliminar</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Nuevo producto */}
+        <div className="grid grid-cols-12 gap-2 items-end mt-2">
+          <div className="col-span-5">
+            <Label className="text-xs">Producto</Label>
+            <Input value={newItem.product} onChange={(e) => setNewItem({ ...newItem, product: e.target.value })} />
+          </div>
+          <div className="col-span-3">
+            <Label className="text-xs">Cantidad</Label>
+            <Input value={newItem.quantity} onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })} />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Unidad</Label>
+            <Input value={newItem.unit} onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })} />
+          </div>
+          <div className="col-span-10">
+            <Label className="text-xs">Descripción</Label>
+            <Input value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} />
+          </div>
+          <div className="col-span-2 flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!newItem.product || !newItem.quantity || !newItem.unit) {
+                  toast({ title: 'Completa producto/cantidad/unidad', variant: 'destructive' });
+                  return;
+                }
+                addItemMutation.mutate({ ...newItem });
+                setNewItem({ product: '', quantity: '', unit: 'kg', description: '' });
+              }}
+            >
+              Agregar
+            </Button>
+          </div>
         </div>
       </div>
       <DialogFooter className="gap-2">
