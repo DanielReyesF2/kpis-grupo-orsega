@@ -42,7 +42,12 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      // Comparación case-insensitive para evitar errores por mayúsculas/minúsculas
+      const lowerEmail = email.toLowerCase();
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(${users.email}) = ${lowerEmail}`);
       return user;
     } catch (error) {
       console.error("Error getting user by email:", error);
@@ -54,7 +59,11 @@ export class DatabaseStorage implements IStorage {
     try {
       // Si el username es un email completo, buscar por email
       if (username.includes('@')) {
-        const [user] = await db.select().from(users).where(eq(users.email, username));
+        const lowerEmail = username.toLowerCase();
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(sql`LOWER(${users.email}) = ${lowerEmail}`);
         return user;
       }
       
