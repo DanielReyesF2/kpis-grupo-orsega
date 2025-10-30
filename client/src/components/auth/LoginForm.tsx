@@ -40,8 +40,8 @@ export default function LoginForm() {
         sessionStorage.removeItem('redirectAfterLogin'); // Limpiar
         setLocation(redirectPath);
       } else {
-        console.log('[LoginForm] No hay ruta guardada, redireccionando al dashboard');
-        setLocation('/');
+        console.log('[LoginForm] No hay ruta guardada, redireccionando a Tesorería');
+        setLocation('/treasury');
       }
     }
   }, [user, setLocation]);

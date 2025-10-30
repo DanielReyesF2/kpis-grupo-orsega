@@ -23,8 +23,8 @@ export default function Login() {
         // Redirect to the stored path
         setLocation(redirectPath);
       } else {
-        // Otherwise redirect to dashboard
-        setLocation('/');
+        // Otherwise redirect to a lightweight page to avoid initial crash
+        setLocation('/treasury');
       }
     }
   }, [user, isLoading, setLocation]);
