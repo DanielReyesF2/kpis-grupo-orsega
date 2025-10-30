@@ -51,7 +51,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     enabled: !!kpiId && kpiId > 0,
   });
 
-  // Procesar datos
+  // Procesar datos (YTD: solo meses del año en curso)
   const salesData = useMemo(() => {
     if (!kpiHistory || kpiHistory.length === 0) return [];
     
@@ -61,7 +61,15 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
     };
     
-    const sortedHistory = [...kpiHistory].sort((a: any, b: any) => {
+    const currentYear = new Date().getFullYear();
+
+    const filtered = kpiHistory.filter((item: any) => {
+      const parts = (item.period || '').split(' ');
+      const year = parseInt(parts[1], 10);
+      return !isNaN(year) && year === currentYear;
+    });
+
+    const sortedHistory = [...filtered].sort((a: any, b: any) => {
       const monthA = (a.period || '').split(' ')[0];
       const monthB = (b.period || '').split(' ')[0];
       return (monthOrder[monthA] || 0) - (monthOrder[monthB] || 0);
@@ -73,8 +81,19 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     }));
   }, [kpiHistory]);
 
+  // Volumen total del año (YTD)
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
-  const totalTarget = companyId === 1 ? annualTargets.dura : annualTargets.orsega;
+
+  // Objetivo anual derivado desde DB (goal mensual * 12) con fallback
+  const monthlyGoalFromDb = salesKpi?.goal != null
+    ? parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''))
+    : undefined;
+
+  const derivedAnnualTarget = !isNaN(monthlyGoalFromDb as number) && monthlyGoalFromDb! > 0
+    ? Math.round((monthlyGoalFromDb as number) * 12)
+    : (companyId === 1 ? annualTargets.dura : annualTargets.orsega);
+
+  const totalTarget = derivedAnnualTarget;
   const compliancePercentage = totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0;
 
   const getGrowthRate = () => {
