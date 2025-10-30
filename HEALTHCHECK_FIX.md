@@ -100,3 +100,6 @@ curl http://localhost:8080/healthz
 **Fecha:** $(date)  
 **Estado:** ✅ Listo para deployment
 
+
+
+

@@ -147,19 +147,36 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
       >
         <CardContent className="p-5">
           <div className="space-y-4">
-            {/* Header con nombre y badge */}
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base leading-tight text-gray-900 mb-1">
-                  {kpi.name}
-                </h3>
-                {kpi.areaName && (
-                  <p className="text-xs text-gray-500 truncate">{kpi.areaName}</p>
-                )}
+            {/* Header con responsable prominente y nombre del KPI */}
+            <div className="space-y-2">
+              {/* Responsable destacado */}
+              {kpi.responsible && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#1e3a5f] to-[#0080ff] text-white text-xs font-bold shadow-md">
+                    {kpi.responsible.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{kpi.responsible}</p>
+                    {kpi.company && (
+                      <p className="text-xs text-gray-500">{kpi.company}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Nombre del KPI */}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base leading-tight text-gray-900 mb-1">
+                    {kpi.name}
+                  </h3>
+                  {kpi.areaName && (
+                    <p className="text-xs text-gray-500 truncate">{kpi.areaName}</p>
+                  )}
+                </div>
+                <Badge className={`${statusColors.text} ${statusColors.bg} border ${statusColors.border} flex items-center gap-1 px-2 py-1`}>
+                  {getStatusIcon(kpi.status)}
+                </Badge>
               </div>
-              <Badge className={`${statusColors.text} ${statusColors.bg} border ${statusColors.border} flex items-center gap-1 px-2 py-1`}>
-                {getStatusIcon(kpi.status)}
-              </Badge>
             </div>
 
             {/* Valor actual destacado */}
@@ -196,11 +213,6 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>Meta: {kpi.target} {kpi.unit}</span>
-                {kpi.responsible && (
-                  <span className="truncate ml-2" title={kpi.responsible}>
-                    👤 {kpi.responsible}
-                  </span>
-                )}
               </div>
             </div>
 

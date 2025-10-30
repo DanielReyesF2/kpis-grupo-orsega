@@ -25,17 +25,41 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   const [timeView, setTimeView] = useState<'monthly' | 'quarterly'>('monthly');
   const [salesData, setSalesData] = useState<ProcessedData[]>([]);
   
-  // KPI IDs para volumen de ventas
-  const kpiId = currentCompanyId === 1 ? 39 : 10; // 39=Dura, 10=Orsega
+  // Buscar el KPI de Volumen de Ventas por nombre en lugar de ID fijo
+  // Esto es más robusto ya que los IDs pueden cambiar entre tablas
+  const { data: allKpis } = useQuery<any[]>({
+    queryKey: ['/api/kpis', { companyId: currentCompanyId }],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Encontrar el KPI de Volumen de Ventas por nombre
+  const salesKpi = allKpis?.find((kpi: any) => {
+    const name = (kpi.kpiName || kpi.name || '').toLowerCase();
+    return (name.includes('volumen') && name.includes('ventas')) || 
+           name.includes('ventas') || 
+           name.includes('sales');
+  });
+
+  const kpiId = salesKpi?.id || (currentCompanyId === 1 ? 39 : 10); // Fallback a IDs antiguos
   const unit = currentCompanyId === 1 ? 'KG' : 'unidades';
+
+  // Debug logging
+  useEffect(() => {
+    if (allKpis && allKpis.length > 0) {
+      console.log(`[SalesSummary] Company ${currentCompanyId}: Found ${allKpis.length} KPIs`);
+      console.log(`[SalesSummary] Looking for sales KPI. Found:`, salesKpi);
+      console.log(`[SalesSummary] Using KPI ID: ${kpiId}`);
+    }
+  }, [allKpis, salesKpi, kpiId, currentCompanyId]);
   
   // Meta mensual según la empresa
   const monthlyTarget = currentCompanyId === 1 ? 55620 : 858373;
 
-  // Cargar datos históricos desde la API
+  // Cargar datos históricos desde la API (solo si tenemos un kpiId válido)
   const { data: kpiHistory } = useQuery<any[]>({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
     refetchInterval: 30000,
+    enabled: !!kpiId && kpiId > 0, // Solo ejecutar si tenemos un ID válido
   });
 
   // Actualizar el estado local cuando cambia la prop
@@ -45,6 +69,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
 
   // Procesar datos cuando llegan de la API
   useEffect(() => {
+    console.log(`[SalesSummary] KPI History for ID ${kpiId}:`, kpiHistory?.length || 0, 'records');
     if (kpiHistory && kpiHistory.length > 0) {
       // Definir orden de meses
       const monthOrder: { [key: string]: number } = {

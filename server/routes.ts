@@ -1426,7 +1426,46 @@ export function registerRoutes(app: express.Application) {
         updatedBy: user.id
       };
       
-      const kpiValue = await storage.createKpiValue(kpiValueWithUser);
+      // Upsert por periodo: si ya existe un registro del mismo kpiId y period, actualizar en lugar de duplicar
+      let kpiValue: any;
+      if (kpiValueWithUser.period) {
+        try {
+          const existingForKpi = await storage.getKpiValuesByKpi(kpiValueWithUser.kpiId);
+          const existingSamePeriod = existingForKpi.find((v: any) => v.period === kpiValueWithUser.period);
+          if (existingSamePeriod) {
+            // Actualizar el registro existente conservando su id y fecha
+            const { id } = existingSamePeriod;
+            // Si DatabaseStorage está en uso, hacemos update directo vía drizzle; si es MemStorage, hacemos reemplazo manual
+            if (typeof db !== 'undefined') {
+              const [updated] = await db
+                .update(kpiValues)
+                .set({
+                  value: kpiValueWithUser.value,
+                  period: kpiValueWithUser.period,
+                  compliancePercentage: kpiValueWithUser.compliancePercentage ?? null,
+                  status: kpiValueWithUser.status ?? null,
+                  comments: kpiValueWithUser.comments ?? null,
+                  updatedBy: kpiValueWithUser.updatedBy ?? null,
+                  date: new Date()
+                })
+                .where(eq(kpiValues.id, id))
+                .returning();
+              kpiValue = updated;
+            } else {
+              // Fallback para MemStorage (no BD): eliminar/crear mantiene comportamiento de upsert simple
+              await storage.createKpiValue({ ...kpiValueWithUser });
+              kpiValue = { ...existingSamePeriod, ...kpiValueWithUser };
+            }
+          } else {
+            kpiValue = await storage.createKpiValue(kpiValueWithUser);
+          }
+        } catch (e) {
+          // Si algo falla en la detección, crear nuevo para no bloquear la operación
+          kpiValue = await storage.createKpiValue(kpiValueWithUser);
+        }
+      } else {
+        kpiValue = await storage.createKpiValue(kpiValueWithUser);
+      }
       
       // Crear notificación automática si hay cambio de estado crítico
       if (previousStatus && validatedData.status && previousStatus !== validatedData.status) {

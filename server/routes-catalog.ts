@@ -44,10 +44,14 @@ catalogRouter.post('/clients', async (req, res) => {
     // Mapear billingAddr y shippingAddr a address si existen
     const address = validated.billingAddr || validated.shippingAddr || null;
     
-    // La tabla clients usa serial (integer) para id, no UUID
-    // No especificamos id, la base de datos lo genera automáticamente
-    // company_id es NOT NULL - usar el proporcionado o 2 (Orsega) por defecto
-    const companyId = (req.body as any).companyId ? parseInt((req.body as any).companyId) : 2;
+  // La tabla clients usa serial (integer) para id, no UUID
+  // No especificamos id, la base de datos lo genera automáticamente
+  // company_id es requerido: validar explícitamente y NO asumir Orsega por defecto
+  const rawCompanyId = (req.body as any).companyId;
+  if (!rawCompanyId) {
+    return res.status(400).json({ error: 'companyId es requerido' });
+  }
+  const companyId = parseInt(rawCompanyId);
     
     const result = await sql(`
       INSERT INTO clients (name, email, is_active, company_id)
@@ -84,26 +88,45 @@ catalogRouter.post('/clients', async (req, res) => {
 catalogRouter.patch('/clients/:id', async (req, res) => {
   try {
     console.log(`🔵 [PATCH /clients/${req.params.id}] Actualizando cliente`);
-    const validated = updateClientSchema.parse({ ...req.body, id: req.params.id })
+    // Sanitizar payload: remover campos no soportados y normalizar tipos
+    const { phone, billingAddr, shippingAddr, ...rest } = req.body as any
+    const payload = { ...rest, id: parseInt(req.params.id) }
+    // Normalizar companyId si viene como string
+    if (payload.companyId !== undefined) payload.companyId = parseInt(payload.companyId)
+
+    const validated = updateClientSchema.parse(payload)
+    const address = billingAddr || shippingAddr || undefined
     
     const fields: string[] = []
     const values: any[] = []
     let index = 1
     
+    const keyToColumn: Record<string, string> = {
+      name: 'name',
+      email: 'email',
+      isActive: 'is_active',
+      companyId: 'company_id',
+      // Campos adicionales soportados por la tabla de catálogo si se agregan en el futuro:
+      contactPerson: 'contact_person',
+      paymentTerms: 'payment_terms',
+      requiresReceipt: 'requires_receipt',
+      reminderFrequency: 'reminder_frequency',
+      clientCode: 'client_code',
+      secondaryEmail: 'secondary_email',
+      postalCode: 'postal_code',
+      emailNotifications: 'email_notifications',
+      customerType: 'customer_type',
+      requiresPaymentComplement: 'requires_payment_complement',
+      notes: 'notes',
+    }
+
     Object.entries(validated).forEach(([key, value]) => {
       if (key !== 'id' && value !== undefined) {
-        const dbField = key === 'contactPerson' ? 'contact_person' : 
-                       key === 'paymentTerms' ? 'payment_terms' : 
-                       key === 'requiresReceipt' ? 'requires_receipt' : 
-                       key === 'reminderFrequency' ? 'reminder_frequency' : 
-                       key === 'isActive' ? 'is_active' : 
-                       key === 'companyId' ? 'company_id' : 
-                       key === 'clientCode' ? 'client_code' : 
-                       key === 'secondaryEmail' ? 'secondary_email' : 
-                       key === 'postalCode' ? 'postal_code' : 
-                       key === 'emailNotifications' ? 'email_notifications' : 
-                       key === 'customerType' ? 'customer_type' : 
-                       key === 'requiresPaymentComplement' ? 'requires_payment_complement' : key
+        const dbField = keyToColumn[key]
+        if (!dbField) {
+          // Ignorar campos no soportados por la tabla (p.ej. rfc, billingAddr, shippingAddr)
+          return
+        }
         fields.push(`${dbField} = $${index}`)
         values.push(value)
         index++
@@ -114,7 +137,7 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' })
     }
     
-    values.push(req.params.id)
+    values.push(parseInt(req.params.id))
     const result = await sql(`
       UPDATE clients SET ${fields.join(', ')}, updated_at = NOW()
       WHERE id = $${index}
@@ -129,7 +152,11 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
     res.json(result.rows[0])
   } catch (error) {
     console.error('❌ Error updating client:', error)
-    res.status(400).json({ error: 'Failed to update client' })
+    res.status(400).json({ 
+      error: 'Failed to update client',
+      message: error instanceof Error ? error.message : String(error),
+      details: (error as any)?.detail || undefined
+    })
   }
 })
 

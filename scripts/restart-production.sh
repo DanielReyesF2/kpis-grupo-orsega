@@ -29,3 +29,6 @@ echo "🚀 Iniciando servidor con configuración de producción..."
 cd /Users/danielreyes/Downloads/kpis-grupo-orsega
 npm run dev
 
+
+
+

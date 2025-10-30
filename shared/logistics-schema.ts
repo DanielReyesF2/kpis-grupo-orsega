@@ -2,13 +2,15 @@ import { z } from "zod";
 
 // Logistics schemas
 const uuidSchema = () => z.string().uuid()
+const intId = z.coerce.number().int().positive()
 const email = z.string().email().optional().or(z.literal("").transform(() => undefined))
 
 export const shipmentStatus = z.enum(["pendiente","asignando_transporte","confirmado","en_camino","retenido","entregado","cerrado"])
 export const eventType = z.enum(["pickup","customs","delay","delivery","note"])
 
 export const clientSchema = z.object({
-  id: uuidSchema(), 
+  // En BD 'clients.id' es serial (integer). Usamos coerce para aceptar strings numéricas del path param
+  id: intId,
   name: z.string().min(2),
   rfc: z.string().optional(), 
   email, 
@@ -16,9 +18,11 @@ export const clientSchema = z.object({
   billingAddr: z.string().optional(), 
   shippingAddr: z.string().optional(),
   isActive: z.boolean().default(true),
+  // Permitir actualizar la empresa (company_id)
+  companyId: intId.optional(),
 })
 export const createClientSchema = clientSchema.omit({ id: true })
-export const updateClientSchema = clientSchema.partial().extend({ id: uuidSchema() })
+export const updateClientSchema = clientSchema.partial().extend({ id: intId })
 
 export const providerSchema = z.object({
   id: uuidSchema(), 
