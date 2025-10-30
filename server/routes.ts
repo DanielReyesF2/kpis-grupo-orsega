@@ -1,4 +1,5 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import type { Request } from "express";
 import rateLimit from "express-rate-limit";
@@ -407,6 +408,30 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('Error getting user:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+
+  // Admin: Resetear contraseña de un usuario específico
+  app.post("/api/admin/reset-user-password", jwtAuthMiddleware, jwtAdminMiddleware, async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ message: "email y password son requeridos" });
+      }
+      // Buscar usuario por email (case-insensitive)
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      const hash = await bcrypt.hash(password, 10);
+      const updated = await storage.updateUser(user.id, { password: hash });
+      if (!updated) {
+        return res.status(500).json({ message: "No fue posible actualizar la contraseña" });
+      }
+      res.json({ success: true, userId: user.id });
+    } catch (error) {
+      console.error("[POST /api/admin/reset-user-password] Error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
