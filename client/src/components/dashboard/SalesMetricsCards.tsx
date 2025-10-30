@@ -14,6 +14,18 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     orsega: 10300476 // fallback: 858,373 * 12
   });
 
+  // Buscar el KPI de Volumen de Ventas por nombre
+  const { data: allKpis } = useQuery<any[]>({
+    queryKey: ['/api/kpis', { companyId }],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const salesKpi = allKpis?.find((kpi: any) => {
+    const name = (kpi.kpiName || kpi.name || '').toLowerCase();
+    return (name.includes('volumen') && name.includes('ventas')) || 
+           name.includes('ventas') || 
+           name.includes('sales');
+  });
   // Cuando llegue la metadata del KPI, derivar el objetivo anual desde "goal" (objetivo mensual)
   useEffect(() => {
     // Si hay KPI y trae goal numérico, usamos goal * 12; fallback a valores por defecto
@@ -28,19 +40,6 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       }));
     }
   }, [salesKpi, companyId]);
-
-  // Buscar el KPI de Volumen de Ventas por nombre
-  const { data: allKpis } = useQuery<any[]>({
-    queryKey: ['/api/kpis', { companyId }],
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const salesKpi = allKpis?.find((kpi: any) => {
-    const name = (kpi.kpiName || kpi.name || '').toLowerCase();
-    return (name.includes('volumen') && name.includes('ventas')) || 
-           name.includes('ventas') || 
-           name.includes('sales');
-  });
 
   const kpiId = salesKpi?.id || (companyId === 1 ? 39 : 10);
 
