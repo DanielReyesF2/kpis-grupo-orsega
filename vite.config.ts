@@ -27,5 +27,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: true, // habilitar sourcemaps en producción para depuración
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Reduce ruido de warnings no críticos en build
+        if (warning.code === 'CIRCULAR_DEPENDENCY') return;
+        warn(warning);
+      },
+    },
+    // Mantener nombres para stacks más legibles en errores en producción
+    minify: 'esbuild',
+    esbuild: {
+      keepNames: true,
+    },
   },
 });
