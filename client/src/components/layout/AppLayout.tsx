@@ -22,8 +22,11 @@ export function AppLayout({ children, title }: AppLayoutProps) {
         </div>
         <main className="flex-1 overflow-auto w-full flex flex-col">
           <TopBar title={title} />
-          <div className="flex-1 px-3 sm:px-4 md:px-6 pb-6 space-y-3 sm:space-y-4">
-            {children}
+          {/* Contenedor central con ancho máximo para evitar layouts "amontonados" en pantallas con escalado */}
+          <div className="flex-1 px-3 sm:px-4 md:px-6 pb-6">
+            <div className="mx-auto w-full max-w-7xl space-y-3 sm:space-y-4">
+              {children}
+            </div>
           </div>
           <PoweredByFooter />
         </main>
