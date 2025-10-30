@@ -1,5 +1,4 @@
-/* Importamos las fuentes de Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Ruda:wght@400;500;600;700;800;900&display=swap');
+/* Fuentes externas removidas por CSP en producción; usar stack del sistema (Tailwind) */
 
 @tailwind base;
 @tailwind components;
