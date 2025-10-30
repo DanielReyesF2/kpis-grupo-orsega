@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,29 +62,52 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     enabled: isOpen && !!kpiId,
   });
 
-  // Obtener valores del KPI
-  const { data: kpiValues } = useQuery({
-    queryKey: ['/api/kpi-values', kpiId],
+  // Obtener valores del KPI específico usando el parámetro correcto
+  const { data: kpiValues, isLoading: kpiValuesLoading } = useQuery({
+    queryKey: ['/api/kpi-values', { kpiId: kpiId }],
+    queryFn: async () => {
+      if (!kpiId) return [];
+      console.log(`[KpiUpdateModal] Obteniendo valores para KPI ${kpiId}`);
+      const response = await apiRequest('GET', `/api/kpi-values?kpiId=${kpiId}`);
+      if (!response.ok) {
+        throw new Error('Error al obtener valores del KPI');
+      }
+      const values = await response.json();
+      console.log(`[KpiUpdateModal] Valores obtenidos para KPI ${kpiId}:`, values.length);
+      return values;
+    },
     enabled: isOpen && !!kpiId,
   });
 
-  // Obtener el valor más reciente
-  const latestValue = kpiValues?.filter((v: any) => v.kpiId === kpiId)
-    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  // Obtener el valor más reciente - asegurar que sea del KPI correcto
+  const latestValue = useMemo(() => {
+    if (!kpiValues || !Array.isArray(kpiValues)) return undefined;
+    
+    // Filtrar estrictamente por kpiId y convertir a número si es necesario
+    const filtered = kpiValues.filter((v: any) => {
+      const vKpiId = typeof v.kpiId === 'number' ? v.kpiId : parseInt(v.kpiId);
+      const targetKpiId = typeof kpiId === 'number' ? kpiId : parseInt(String(kpiId));
+      return vKpiId === targetKpiId;
+    });
+    
+    if (filtered.length === 0) {
+      console.log(`[KpiUpdateModal] No se encontraron valores para KPI ${kpiId}`);
+      return undefined;
+    }
+    
+    const sorted = filtered.sort((a: any, b: any) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateB - dateA; // Más reciente primero
+    });
+    
+    console.log(`[KpiUpdateModal] Valor más reciente para KPI ${kpiId}:`, sorted[0]);
+    return sorted[0];
+  }, [kpiValues, kpiId]);
 
-  // Detectar si este es el KPI de Volumen de Ventas - LÓGICA ESTRICTA
-  // Solo mostrar formulario de ventas para KPIs específicos de ventas, no para otros KPIs
-  const isSalesKpi = kpi && (
-    kpi.id === 39 || // Dura Volumen de ventas
-    kpi.id === 10 || // Orsega Volumen de ventas
-    (kpi.name && 
-     kpi.name.toLowerCase().includes('volumen') && 
-     kpi.name.toLowerCase().includes('ventas') &&
-     !kpi.name.toLowerCase().includes('clientes') && // Excluir KPIs de clientes
-     !kpi.name.toLowerCase().includes('retention') && // Excluir retención
-     !kpi.name.toLowerCase().includes('retención')
-    )
-  );
+  // FORZAR: Todos los KPIs usan el formulario genérico, NO el de ventas
+  // El formulario de ventas solo se muestra desde el formulario prominente en la página
+  const isSalesKpi = false; // SIEMPRE false para que todos usen el mismo modal genérico
 
   // Log para debugging
   useEffect(() => {
