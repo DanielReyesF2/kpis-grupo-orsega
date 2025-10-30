@@ -198,7 +198,7 @@ export default function LogisticsPage() {
 
 
         {/* Secondary Stats - Database Info */}
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-full overflow-y-auto">
           <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('clients')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -223,14 +223,14 @@ export default function LogisticsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('products')}>
+          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors shadow-sm border border-purple-200" onClick={() => setActiveModal('products')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <Box className="w-5 h-5 text-purple-600 mr-2" />
-                  <span className="text-sm text-gray-600">Productos</span>
+                  <span className="text-sm text-gray-600 font-medium">Productos</span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900">{products.filter((p: Product) => p.is_active).length}</span>
+                <span className="text-lg font-semibold text-purple-900">{productsLoading ? '...' : products.filter((p: Product) => p.is_active).length}</span>
               </div>
             </CardContent>
           </Card>
