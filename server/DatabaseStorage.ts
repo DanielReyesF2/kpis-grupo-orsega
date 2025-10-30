@@ -384,6 +384,26 @@ export class DatabaseStorage implements IStorage {
       return createdKpiValue;
     } catch (error) {
       console.error("Error creating KPI value:", error);
+      // Reparar desincronización de secuencia si aplica (duplicate key on primary key)
+      const err: any = error;
+      if (err?.code === '23505' && String(err?.detail || '').includes('kpi_values_pkey')) {
+        try {
+          console.warn('[KPI] Detected sequence mismatch on kpi_values.id. Repairing sequence and retrying...');
+          // Set sequence to max(id)+1
+          await db.execute(sql`SELECT setval(
+            pg_get_serial_sequence('kpi_values','id'),
+            COALESCE((SELECT MAX(id) + 1 FROM kpi_values), 1),
+            false
+          )`);
+          const [createdAfterFix] = await db.insert(kpiValues).values({
+            ...kpiValue,
+            date: new Date()
+          }).returning();
+          return createdAfterFix;
+        } catch (repairError) {
+          console.error('[KPI] Sequence repair failed:', repairError);
+        }
+      }
       throw error;
     }
   }
