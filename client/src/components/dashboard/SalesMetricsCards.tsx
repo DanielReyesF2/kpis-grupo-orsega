@@ -54,10 +54,14 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   const salesData = useMemo(() => {
     if (!kpiHistory || kpiHistory.length === 0) return [];
     
+    // Aceptar mayúsculas y minúsculas en nombres de meses (igual que en la gráfica)
     const monthOrder: { [key: string]: number } = {
       'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4,
       'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8,
-      'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
+      'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12,
+      'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
+      'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
+      'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
     };
     
     const currentYear = new Date().getFullYear();
@@ -75,7 +79,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     });
     
     return sortedHistory.map((item: any) => ({
-      sales: parseFloat(item.value) || 0,
+      sales: parseFloat(String(item.value).replace(/[^0-9.-]+/g, '')) || 0,
       period: item.period
     }));
   }, [kpiHistory]);
