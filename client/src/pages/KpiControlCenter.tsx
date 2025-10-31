@@ -1120,20 +1120,20 @@ export default function KpiControlCenter() {
         {viewMode === 'overview' && (
           <div className="space-y-6">
             {/* Actualización de Ventas Mensuales - Formulario prominente */}
-            <Card className="relative border-0 shadow-xl bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-indigo-950/30 overflow-hidden">
+            <Card className="relative border shadow-lg bg-white dark:bg-slate-900 overflow-hidden">
               {/* Decorative gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-slate-100/50 dark:from-slate-800/20 dark:to-slate-700/10 pointer-events-none" />
               
-              <CardHeader className="relative pb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
+              <CardHeader className="relative pb-4 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                    <TrendingUp className="h-6 w-6" />
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-bold text-white">
+                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
                       ✨ Actualizar Ventas Mensuales
                     </CardTitle>
-                    <CardDescription className="text-blue-100 mt-1">
+                    <CardDescription className="text-slate-600 dark:text-slate-400 mt-1">
                       Selecciona el período (mes y año) y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
                     </CardDescription>
                   </div>
