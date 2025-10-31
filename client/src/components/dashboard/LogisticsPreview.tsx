@@ -78,93 +78,110 @@ export function LogisticsPreview() {
   };
 
   return (
-    <Card className="border-0 shadow-lg">
-      <CardHeader>
+    <Card className="border shadow-md hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#1e3a5f]/10 rounded-lg">
-              <Truck className="h-5 w-5 text-[#1e3a5f]" />
+            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <Truck className="h-5 w-5 text-slate-700 dark:text-slate-300" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">Módulo de Logística</CardTitle>
-              <CardDescription>Vista previa de envíos recientes</CardDescription>
+              <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
+                Módulo de Logística
+              </CardTitle>
+              <CardDescription className="text-slate-600 dark:text-slate-400">
+                Vista previa de envíos recientes
+              </CardDescription>
             </div>
           </div>
           <Button 
-            variant="outline" 
+            variant="ghost" 
             size="sm"
             onClick={() => navigate('/logistics')}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Ver más
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
           </div>
         ) : recentShipments.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {recentShipments.map((shipment) => (
               <div 
                 key={shipment.id}
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                className="group p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all cursor-pointer"
+                onClick={() => navigate('/logistics')}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
-                    </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="p-1.5 bg-slate-100 dark:bg-slate-700 rounded">
+                        <Package className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+                      </div>
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                        <span className="font-medium">{shipment.origin || 'N/A'}</span>
+                      </div>
+                      <ArrowRight className="h-3 w-3 text-slate-400" />
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                        <span className="font-medium">{shipment.destination || 'N/A'}</span>
+                      </div>
+                      {(shipment.scheduled_date || shipment.estimatedDeliveryDate || shipment.createdAt) && (
+                        <>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                            <span>
+                              {new Date(
+                                shipment.scheduled_date || 
+                                shipment.estimatedDeliveryDate || 
+                                shipment.createdAt || ''
+                              ).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="outline" className={getStatusColor(shipment.status)}>
+                  <Badge 
+                    className={`${getStatusColor(shipment.status)} font-medium whitespace-nowrap`}
+                  >
                     {getStatusText(shipment.status)}
                   </Badge>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-2">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    <span>{shipment.origin || 'N/A'}</span>
-                  </div>
-                  <ArrowRight className="h-3 w-3" />
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    <span>{shipment.destination || 'N/A'}</span>
-                  </div>
-                  {(shipment.scheduled_date || shipment.estimatedDeliveryDate || shipment.createdAt) && (
-                    <>
-                      <span className="mx-1">•</span>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>
-                          {new Date(
-                            shipment.scheduled_date || 
-                            shipment.estimatedDeliveryDate || 
-                            shipment.createdAt || ''
-                          ).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
-                        </span>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-400">
-            <Truck className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm font-medium">No hay envíos recientes</p>
+          <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+            <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full w-fit mx-auto mb-3">
+              <Truck className="h-8 w-8 opacity-50" />
+            </div>
+            <p className="text-sm font-medium mb-1">No hay envíos recientes</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Los envíos aparecerán aquí cuando se agreguen
+            </p>
             <Button 
-              variant="ghost" 
+              variant="outline" 
               size="sm"
               onClick={() => navigate('/logistics')}
-              className="mt-4"
+              className="flex items-center gap-2 mx-auto"
             >
+              <Truck className="h-3.5 w-3.5" />
               Ir al módulo de logística
             </Button>
           </div>
