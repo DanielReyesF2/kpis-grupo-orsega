@@ -49,15 +49,15 @@ export function LogisticsPreview() {
     switch (status?.toLowerCase()) {
       case 'entregado':
       case 'delivered':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-success/10 text-success border-success/30';
       case 'en_transito':
       case 'in_transit':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-primary/10 text-primary border-primary/30';
       case 'pendiente':
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-warning/10 text-warning border-warning/30';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border/60';
     }
   };
 
@@ -78,18 +78,18 @@ export function LogisticsPreview() {
   };
 
   return (
-    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+    <Card className="border border-border/60 bg-card shadow-soft hover:shadow-lg transition-modern">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 bg-primary/15 rounded-lg text-primary">
+              <Truck className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
+              <CardTitle className="text-lg font-semibold text-foreground">
                 Módulo de Logística
               </CardTitle>
-              <CardDescription className="text-slate-600 dark:text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Vista previa de envíos recientes
               </CardDescription>
             </div>
@@ -98,7 +98,7 @@ export function LogisticsPreview() {
             variant="ghost" 
             size="sm"
             onClick={() => navigate('/logistics')}
-            className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 hover:text-blue-700"
+            className="flex items-center gap-2 hover:bg-primary/10 text-primary transition-modern"
           >
             Ver más
             <ArrowRight className="h-4 w-4" />
@@ -117,35 +117,35 @@ export function LogisticsPreview() {
             {recentShipments.map((shipment) => (
               <div 
                 key={shipment.id}
-                className="group p-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md transition-all cursor-pointer"
+                className="group p-4 border border-border/60 rounded-xl bg-card/70 hover:border-primary/40 hover:shadow-md transition-modern cursor-pointer"
                 onClick={() => navigate('/logistics')}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <div className="p-2 bg-primary/15 rounded-lg text-primary">
+                        <Package className="h-4 w-4" />
                       </div>
-                      <span className="text-base font-bold text-slate-900 dark:text-white truncate">
+                      <span className="text-base font-bold text-foreground truncate">
                         {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">{shipment.origin || 'N/A'}</span>
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-foreground">{shipment.origin || 'N/A'}</span>
                       </div>
-                      <ArrowRight className="h-4 w-4 text-blue-400" />
+                      <ArrowRight className="h-4 w-4 text-primary/70" />
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">{shipment.destination || 'N/A'}</span>
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-foreground">{shipment.destination || 'N/A'}</span>
                       </div>
                       {(shipment.scheduled_date || shipment.estimatedDeliveryDate || shipment.createdAt) && (
                         <>
-                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="text-muted-foreground">•</span>
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-foreground">
                               {new Date(
                                 shipment.scheduled_date || 
                                 shipment.estimatedDeliveryDate || 
@@ -167,19 +167,19 @@ export function LogisticsPreview() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-10 text-slate-400 dark:text-slate-500">
-            <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full w-fit mx-auto mb-3">
-              <Truck className="h-8 w-8 text-blue-600 dark:text-blue-400 opacity-50" />
+          <div className="text-center py-10 text-muted-foreground">
+            <div className="p-4 bg-primary/15 rounded-full w-fit mx-auto mb-3 text-primary">
+              <Truck className="h-8 w-8 opacity-70" />
             </div>
             <p className="text-sm font-medium mb-1">No hay envíos recientes</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Los envíos aparecerán aquí cuando se agreguen
             </p>
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => navigate('/logistics')}
-              className="flex items-center gap-2 mx-auto border-blue-200 text-blue-600 hover:bg-blue-50"
+              className="flex items-center gap-2 mx-auto border-primary/40 text-primary hover:bg-primary/10 transition-modern"
             >
               <Truck className="h-3.5 w-3.5" />
               Ir al módulo de logística
@@ -190,5 +190,4 @@ export function LogisticsPreview() {
     </Card>
   );
 }
-
 

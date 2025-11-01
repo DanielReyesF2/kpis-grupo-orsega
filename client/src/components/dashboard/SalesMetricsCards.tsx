@@ -136,66 +136,66 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
       {/* Volumen Total */}
-      <Card className="border-0 shadow-lg">
+      <Card className="border border-border/60 bg-card shadow-soft">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-muted-foreground mb-1 font-medium">Volumen Total</p>
-              <p className="text-lg font-bold mb-2">
+              <p className="text-lg font-bold mb-2 text-foreground">
                 {formatNumber(totalSales)}
               </p>
-              <div className="flex items-center text-emerald-600 mb-3">
+              <div className="flex items-center text-success mb-3">
                 <ArrowUp className="h-3 w-3 mr-1" />
                 <span className="text-xs font-medium">{growthRate}% vs mes anterior</span>
               </div>
-              <div className="text-xs text-blue-500 mb-2 flex justify-between">
+              <div className="text-xs text-primary mb-2 flex justify-between">
                 <span>Progreso</span>
                 <span className="font-medium">{compliancePercentage}%</span>
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                  className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 ></div>
               </div>
             </div>
-            <div className="p-3 bg-blue-500/10 rounded-full ml-4">
-              <BarChart2 className="h-6 w-6 text-blue-500" />
+            <div className="p-3 bg-primary/15 rounded-full ml-4 text-primary">
+              <BarChart2 className="h-6 w-6" />
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Avance del Objetivo Anual */}
-      <Card className="border-0 shadow-lg">
+      <Card className="border border-border/60 bg-card shadow-soft">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-muted-foreground mb-1 font-medium">Avance del Objetivo Anual</p>
               <div className="flex items-center mb-2">
-                <p className="text-lg font-bold">
+                <p className="text-lg font-bold text-foreground">
                   {compliancePercentage}%
                 </p>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500">
+                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">
                   {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
                    compliancePercentage >= 75 ? 'Buen progreso' :
                    compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
                 </span>
               </div>
               <div className="text-xs text-muted-foreground mb-2">
-                <span className="font-medium">Ventas: {formatNumber(totalSales)}</span> / <span>{formatNumber(totalTarget)}</span>
+                <span className="font-medium text-foreground">Ventas: {formatNumber(totalSales)}</span> / <span>{formatNumber(totalTarget)}</span>
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${
-                    compliancePercentage >= 100 ? 'bg-green-500' : 'bg-amber-500'
+                    compliancePercentage >= 100 ? 'bg-success text-success-foreground' : 'bg-warning text-warning-foreground'
                   }`}
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 ></div>
               </div>
             </div>
-            <div className="p-3 bg-amber-500/10 rounded-full ml-4">
-              <Award className="h-6 w-6 text-amber-500" />
+            <div className="p-3 bg-warning/15 rounded-full ml-4 text-warning">
+              <Award className="h-6 w-6" />
             </div>
           </div>
         </CardContent>
@@ -203,4 +203,3 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     </div>
   );
 }
-
