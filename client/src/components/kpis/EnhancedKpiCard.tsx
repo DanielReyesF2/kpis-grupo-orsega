@@ -152,7 +152,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
               {/* Responsable destacado */}
               {kpi.responsible && (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold shadow-md">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-xs font-bold shadow-md">
                     {kpi.responsible.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                   </div>
                   <div>

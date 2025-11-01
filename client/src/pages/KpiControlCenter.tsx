@@ -1498,7 +1498,7 @@ export default function KpiControlCenter() {
                           .map((user: any) => (
                             <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                               <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-blue-600 text-white font-bold">
+                                <AvatarFallback className="bg-primary text-white font-bold">
                                   {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
@@ -1993,7 +1993,6 @@ export default function KpiControlCenter() {
                   <Button 
                     type="submit" 
                     disabled={updateKpiMutation.isPending}
-                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     {updateKpiMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}
                   </Button>

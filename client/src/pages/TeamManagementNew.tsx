@@ -434,7 +434,7 @@ export default function TeamManagementNew() {
                       .map((user: any) => (
                         <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                           <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-blue-600 text-white font-bold">
+                            <AvatarFallback className="bg-primary text-white font-bold">
                               {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                             </AvatarFallback>
                           </Avatar>

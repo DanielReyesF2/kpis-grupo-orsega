@@ -1037,7 +1037,6 @@ export default function TreasuryPage() {
               <Dialog open={isRateModalOpen} onOpenChange={setIsRateModalOpen}>
                 <DialogTrigger asChild>
                   <Button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
                     data-testid="button-open-rate-modal"
                   >
                     <DollarSign className="h-4 w-4 mr-2" />
@@ -1116,7 +1115,7 @@ export default function TreasuryPage() {
                     <Button
                       onClick={handleCreateExchangeRate}
                       disabled={createExchangeRateMutation.isPending}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full"
                       data-testid="button-create-rate"
                     >
                       {createExchangeRateMutation.isPending ? "Guardando..." : "Registrar"}
