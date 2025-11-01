@@ -26,71 +26,71 @@
   --radius: 8px;
 }
 
-/* Dark theme - Professional Modern Look */
+/* Dark theme - Professional Modern Look (Cursor/OpenAI style) */
 .dark {
-  /* Theme base colors - Dark Neutral */
-  --background: 222 15% 8%; /* #111315 */
-  --foreground: 0 0% 92%; /* #EAEAEA */
-  --muted: 215 20% 65%; /* #9CA3AF */
-  --muted-foreground: 215 20% 65%;
+  /* Theme base colors - Dark Gray almost black, very neutral */
+  --background: 0 0% 10%; /* #1a1a1a - casi negro, muy gris oscuro */
+  --foreground: 0 0% 95%; /* #F2F2F2 - texto muy claro */
+  --muted: 0 0% 50%; /* #808080 - gris neutro medio */
+  --muted-foreground: 0 0% 50%;
   
   /* Card and surface colors */
-  --card: 218 18% 12%; /* #1C1F22 */
-  --card-foreground: 0 0% 92%;
-  --popover: 218 18% 12%;
-  --popover-foreground: 0 0% 92%;
+  --card: 0 0% 13%; /* #212121 - ligeramente más claro que background */
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 13%;
+  --popover-foreground: 0 0% 95%;
   
   /* Borders and dividers */
-  --border: 220 13% 20%; /* #2A2E33 */
-  --input: 220 13% 20%;
-  --ring: 250 94% 61%; /* #4F46E5 - accent color */
+  --border: 0 0% 25%; /* #404040 - bordes gris medio oscuro */
+  --input: 0 0% 18%; /* #2e2e2e */
+  --ring: 217 91% 60%; /* Azul neutral, no morado - #3B82F6 */
   
-  /* Primary colors - Cursor purple */
-  --primary: 250 94% 61%; /* #4F46E5 */
+  /* Primary colors - Azul neutral (no morado) */
+  --primary: 217 91% 60%; /* #3B82F6 - azul neutral estilo OpenAI */
   --primary-foreground: 0 0% 100%;
   
   /* Secondary */
-  --secondary: 220 13% 20%;
-  --secondary-foreground: 0 0% 92%;
+  --secondary: 0 0% 18%; /* #2e2e2e */
+  --secondary-foreground: 0 0% 95%;
   
   /* Accent colors */
-  --accent: 250 94% 61%; /* #4F46E5 */
+  --accent: 217 91% 60%; /* #3B82F6 - mismo azul neutral */
   --accent-foreground: 0 0% 100%;
   
   /* Status colors */
-  --success: 142 76% 36%; /* #10B981 */
+  --success: 142 71% 45%; /* #22C55E - verde */
   --success-foreground: 0 0% 100%;
-  --warning: 32 95% 44%; /* #F97316 */
+  --warning: 38 92% 50%; /* #F59E0B - naranja */
   --warning-foreground: 0 0% 100%;
   
   /* Destructive */
-  --destructive: 0 84% 60%;
+  --destructive: 0 84% 60%; /* #EF4444 - rojo */
   --destructive-foreground: 0 0% 100%;
   --danger: 0 84% 60%;
   --danger-foreground: 0 0% 100%;
   
   /* Sidebar colors */
-  --sidebar-background: 222 15% 8%;
-  --sidebar-foreground: 0 0% 92%;
-  --sidebar-primary: 250 94% 61%;
+  --sidebar-background: 0 0% 10%; /* Mismo que background */
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 217 91% 60%; /* Azul neutral */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 13% 20%;
-  --sidebar-accent-foreground: 0 0% 92%;
-  --sidebar-border: 220 13% 20%;
-  --sidebar-ring: 250 94% 61%;
+  --sidebar-accent: 0 0% 18%; /* #2e2e2e */
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-border: 0 0% 25%; /* #404040 */
+  --sidebar-ring: 217 91% 60%; /* Azul neutral */
   
   /* Chart colors */
-  --chart-1: 251 83% 63%; /* #6366F1 */
-  --chart-2: 142 71% 45%; /* #22C55E */
-  --chart-3: 38 92% 50%; /* #F59E0B */
-  --chart-4: 0 84% 60%; /* #EF4444 */
-  --chart-5: 215 16% 47%; /* #6B7280 */
+  --chart-1: 217 91% 60%; /* #3B82F6 - azul neutral */
+  --chart-2: 142 71% 45%; /* #22C55E - verde */
+  --chart-3: 38 92% 50%; /* #F59E0B - naranja */
+  --chart-4: 0 84% 60%; /* #EF4444 - rojo */
+  --chart-5: 0 0% 50%; /* #808080 - gris neutro */
   
   /* Special variables */
   --radius: 8px;
-  --navbar-bg: rgba(17, 19, 21, 0.8);
+  --navbar-bg: rgba(26, 26, 26, 0.8); /* #1a1a1a con transparencia */
   --navbar-blur: blur(10px);
-  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.5); /* Shadow más fuerte para el gris oscuro */
 }
 
 /* Base styles */
@@ -143,7 +143,7 @@
   
   .btn-primary-modern:hover {
     @apply bg-primary/90;
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); /* Azul neutral #3B82F6 */
   }
   
   /* Input modern styles - Google-like */
