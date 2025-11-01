@@ -191,7 +191,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
       {/* Cards de indicadores clave */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 max-w-4xl mx-auto">
         {/* Volumen Total */}
-        <Card className="border-0 shadow-lg h-full">
+        <Card className="h-full">
           <CardHeader className="pb-3 pt-6">
             <div className="flex justify-between items-start">
               <div>
@@ -200,8 +200,8 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
                   Acumulado anual ({currentCompanyId === 1 ? 'KG' : 'unidades'})
                 </CardDescription>
               </div>
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <BarChart2 className="h-5 w-5 text-blue-500" />
+              <div className="p-2 bg-primary/15 rounded-lg">
+                <BarChart2 className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardHeader>
@@ -210,20 +210,20 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
               {formatNumber(totalSales)}
             </div>
             <div className="flex items-center mb-4">
-              <div className="flex items-center text-emerald-600 mr-2">
+              <div className="flex items-center text-success mr-2">
                 <ArrowUp className="h-4 w-4 mr-1" />
                 <span className="text-sm font-medium">{growthRate}%</span>
               </div>
               <div className="text-sm text-muted-foreground">vs mes anterior</div>
             </div>
             <div className="mt-auto">
-              <div className="text-xs text-blue-500 mb-2 flex justify-between">
+              <div className="text-xs text-primary mb-2 flex justify-between">
                 <span>Progreso</span>
                 <span className="font-medium">{compliancePercentage}%</span>
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                  className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 ></div>
               </div>
@@ -232,15 +232,15 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
         </Card>
 
         {/* Nivel de Cumplimiento */}
-        <Card className="border-0 shadow-lg h-full">
+        <Card className="h-full">
           <CardHeader className="pb-3 pt-6">
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium">Avance del Objetivo Anual</CardTitle>
                 <CardDescription>Progreso hacia meta anual</CardDescription>
               </div>
-              <div className="p-2 bg-amber-500/10 rounded-lg">
-                <Award className="h-5 w-5 text-amber-500" />
+              <div className="p-2 bg-warning/15 rounded-lg">
+                <Award className="h-5 w-5 text-warning" />
               </div>
             </div>
           </CardHeader>
@@ -249,7 +249,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
               <div className="text-3xl font-bold">
                 {compliancePercentage}%
               </div>
-              <div className="ml-3 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500">
+              <div className="ml-3 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">
                 {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
                  compliancePercentage >= 75 ? 'Buen progreso' :
                  compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
@@ -269,10 +269,10 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
               </div>
               
               <div className="border-t border-border pt-2">
-                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500/10 rounded-md">
-                  <CalendarClock className="h-4 w-4 text-amber-500" />
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-warning/15 rounded-md">
+                  <CalendarClock className="h-4 w-4 text-warning" />
                   <div className="text-center">
-                    <div className="text-xs text-amber-500 font-medium">Meta mensual</div>
+                    <div className="text-xs text-warning font-medium">Meta mensual</div>
                     <div className="text-sm font-bold">{formatNumber(monthlyTarget)}</div>
                   </div>
                 </div>
@@ -280,14 +280,14 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
             </div>
             
             <div className="mt-auto">
-              <div className="text-xs text-amber-500 mb-2 flex justify-between">
+              <div className="text-xs text-warning mb-2 flex justify-between">
                 <span>Progreso</span>
                 <span className="font-medium">{compliancePercentage}%</span>
               </div>
               <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full flex items-center justify-end pr-2 text-xs font-bold transition-all duration-500 ${
-                    compliancePercentage >= 100 ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'
+                    compliancePercentage >= 100 ? 'bg-success text-success-foreground' : 'bg-warning text-warning-foreground'
                   }`}
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 >
@@ -309,7 +309,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
       </div>
       
       {/* Gráfica histórica */}
-      <Card className="border-0 shadow-lg mt-8">
+      <Card className="mt-8">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
@@ -325,19 +325,19 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
                 <ToggleGroupItem 
                   value="monthly" 
                   aria-label="Mensual"
-                  className={`px-3 h-8 text-xs ${timeView === 'monthly' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                  className={`px-3 h-8 text-xs ${timeView === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                 >
                   Mensual
                 </ToggleGroupItem>
                 <ToggleGroupItem 
                   value="quarterly" 
                   aria-label="Trimestral"
-                  className={`px-3 h-8 text-xs ${timeView === 'quarterly' ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                  className={`px-3 h-8 text-xs ${timeView === 'quarterly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
                 >
                   Trimestral
                 </ToggleGroupItem>
               </ToggleGroup>
-              <BarChartIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+              <BarChartIcon className="h-5 w-5 text-primary" />
             </div>
           </div>
         </CardHeader>
@@ -347,15 +347,15 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
               <ComposedChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#273949" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#273949" stopOpacity={0.4}/>
+                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.4}/>
                   </linearGradient>
                   <linearGradient id="colorSalesBelow" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9}/>
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0.4}/>
                   </linearGradient>
                   <filter id="shadow" height="200%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#273949" floodOpacity="0.3"/>
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#4f46e5" floodOpacity="0.3"/>
                   </filter>
                   <filter id="shadowRed" height="200%">
                     <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#ef4444" floodOpacity="0.3"/>

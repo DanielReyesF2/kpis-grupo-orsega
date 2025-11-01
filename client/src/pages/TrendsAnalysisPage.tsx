@@ -821,19 +821,19 @@ export default function TrendsAnalysisPage() {
                     
                     {/* Proyección */}
                     {showProjections && projectionData.length > 0 && (
-                      <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <div className="p-4 bg-card border border-border/60 rounded-lg">
                         <h3 className="font-medium mb-2 flex items-center">
-                          <ChevronRight className="mr-2 h-4 w-4 text-purple-600" />
+                          <ChevronRight className="mr-2 h-4 w-4 text-primary" />
                           Proyección futura
                         </h3>
                         <p className="text-secondary-800 dark:text-secondary-200">
                           Basado en los datos históricos, se proyecta que el KPI 
                           {projectionData.length > 0 && chartData.length > 0 && 
                             projectionData[projectionData.length - 1].value > chartData[chartData.length - 1].value ? (
-                            <> seguirá <span className="font-medium text-green-600 dark:text-green-400">aumentando</span> hasta alcanzar aproximadamente <span className="font-medium">{projectionData[projectionData.length - 1].originalValue}</span> en {projectionData[projectionData.length - 1].period}.</>
+                            <> seguirá <span className="font-medium text-success">aumentando</span> hasta alcanzar aproximadamente <span className="font-medium">{projectionData[projectionData.length - 1].originalValue}</span> en {projectionData[projectionData.length - 1].period}.</>
                           ) : projectionData.length > 0 && chartData.length > 0 && 
                               projectionData[projectionData.length - 1].value < chartData[chartData.length - 1].value ? (
-                            <> continuará <span className="font-medium text-red-600 dark:text-red-400">disminuyendo</span> hasta aproximadamente <span className="font-medium">{projectionData[projectionData.length - 1].originalValue}</span> en {projectionData[projectionData.length - 1].period}.</>
+                            <> continuará <span className="font-medium text-destructive">disminuyendo</span> hasta aproximadamente <span className="font-medium">{projectionData[projectionData.length - 1].originalValue}</span> en {projectionData[projectionData.length - 1].period}.</>
                           ) : (
                             <> se mantendrá <span className="font-medium">relativamente estable</span> en los próximos períodos.</>
                           )}
@@ -842,9 +842,9 @@ export default function TrendsAnalysisPage() {
                     )}
                     
                     {/* Recomendaciones */}
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="p-4 bg-card border border-border/60 rounded-lg">
                       <h3 className="font-medium mb-2 flex items-center">
-                        <ChevronRight className="mr-2 h-4 w-4 text-blue-600" />
+                        <ChevronRight className="mr-2 h-4 w-4 text-primary" />
                         Recomendaciones
                       </h3>
                       <div className="space-y-2">

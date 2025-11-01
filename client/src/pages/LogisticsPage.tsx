@@ -167,13 +167,13 @@ export default function LogisticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-orange-600/80">En Tránsito</p>
+                  <p className="text-sm font-medium text-warning">En Tránsito</p>
                   <p className="text-4xl font-bold">
                     {shipments.filter((s: Shipment) => s.status === 'in_transit').length}
                   </p>
                 </div>
-                <div className="bg-orange-500/10 p-3 rounded-full">
-                  <Package className="w-10 h-10 text-orange-600/70" />
+                <div className="bg-warning/15 p-3 rounded-full">
+                  <Package className="w-10 h-10 text-warning" />
                 </div>
               </div>
             </CardContent>
@@ -183,13 +183,13 @@ export default function LogisticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-600/80">Pendientes</p>
+                  <p className="text-sm font-medium text-primary">Pendientes</p>
                   <p className="text-4xl font-bold">
                     {shipments.filter((s: Shipment) => s.status === 'pending').length}
                   </p>
                 </div>
-                <div className="bg-purple-500/10 p-3 rounded-full">
-                  <Clock className="w-10 h-10 text-purple-600/70" />
+                <div className="bg-primary/15 p-3 rounded-full">
+                  <Clock className="w-10 h-10 text-primary" />
                 </div>
               </div>
             </CardContent>
@@ -203,7 +203,7 @@ export default function LogisticsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Users className="w-5 h-5 text-blue-500/70 mr-2" />
+                  <Users className="w-5 h-5 text-primary mr-2" />
                   <span className="text-sm text-muted-foreground">Clientes</span>
                 </div>
                 <span className="text-lg font-semibold">{clients.length}</span>
@@ -215,7 +215,7 @@ export default function LogisticsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Truck className="w-5 h-5 text-emerald-500/70 mr-2" />
+                  <Truck className="w-5 h-5 text-success mr-2" />
                   <span className="text-sm text-muted-foreground">Proveedores</span>
                 </div>
                 <span className="text-lg font-semibold">{providers.length}</span>
@@ -227,7 +227,7 @@ export default function LogisticsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Box className="w-5 h-5 text-purple-500/70 mr-2" />
+                  <Box className="w-5 h-5 text-primary mr-2" />
                   <span className="text-sm text-muted-foreground font-medium">Productos</span>
                 </div>
                 <span className="text-lg font-semibold">{productsLoading ? '...' : products.filter((p: Product) => p.is_active).length}</span>
@@ -246,7 +246,7 @@ export default function LogisticsPage() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-primary" />
                 Clientes ({clients.length})
               </DialogTitle>
               <Button 
@@ -507,7 +507,7 @@ export default function LogisticsPage() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
-                <Box className="w-5 h-5 text-purple-600" />
+                <Box className="w-5 h-5 text-primary" />
                 Productos ({products.filter((p: Product) => p.is_active).length})
               </DialogTitle>
               <Button 
@@ -537,7 +537,7 @@ export default function LogisticsPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                              <div className="p-2 rounded-lg bg-primary/15 text-primary">
                                 <Box className="w-5 h-5" />
                               </div>
                               <div>
@@ -1326,7 +1326,7 @@ function ProductFormDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Box className="w-5 h-5 text-purple-600" />
+            <Box className="w-5 h-5 text-primary" />
             {product ? 'Editar Producto' : 'Nuevo Producto'}
           </DialogTitle>
         </DialogHeader>

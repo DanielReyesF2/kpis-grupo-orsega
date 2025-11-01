@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DashboardCardProps {
   title: string;
@@ -8,9 +9,44 @@ interface DashboardCardProps {
   value: string | number;
   icon: LucideIcon;
   onClick: () => void;
-  gradient?: string;
   dataOnboarding?: string;
+  tone?: "primary" | "success" | "warning" | "neutral";
 }
+
+const toneStyles: Record<
+  NonNullable<DashboardCardProps["tone"]>,
+  {
+    accentBar: string;
+    iconWrapper: string;
+    value: string;
+    card: string;
+  }
+> = {
+  primary: {
+    accentBar: "bg-primary/70",
+    iconWrapper: "bg-primary/15 text-primary",
+    value: "text-primary",
+    card: "hover:border-primary/40",
+  },
+  success: {
+    accentBar: "bg-success/70",
+    iconWrapper: "bg-success/15 text-success",
+    value: "text-success",
+    card: "hover:border-success/40",
+  },
+  warning: {
+    accentBar: "bg-warning/70",
+    iconWrapper: "bg-warning/15 text-warning",
+    value: "text-warning",
+    card: "hover:border-warning/40",
+  },
+  neutral: {
+    accentBar: "bg-muted/40",
+    iconWrapper: "bg-muted/20 text-muted-foreground",
+    value: "text-foreground",
+    card: "hover:border-border",
+  },
+};
 
 export function DashboardCard({
   title,
@@ -18,9 +54,11 @@ export function DashboardCard({
   value,
   icon: Icon,
   onClick,
-  gradient = "from-blue-500 to-indigo-600",
   dataOnboarding,
+  tone = "primary",
 }: DashboardCardProps) {
+  const styles = toneStyles[tone] ?? toneStyles.primary;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,22 +69,26 @@ export function DashboardCard({
       data-onboarding={dataOnboarding}
     >
       <Card
-        className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden"
+        className={cn(
+          "cursor-pointer transition-modern border border-border/60 bg-card overflow-hidden",
+          "shadow-soft hover:shadow-lg",
+          styles.card
+        )}
         onClick={onClick}
       >
-        <div className={`h-2 bg-gradient-to-r ${gradient}`} />
+        <div className={cn("h-1", styles.accentBar)} />
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-gradient-to-br ${gradient} text-white shadow-md`}>
+              <div className={cn("p-2 rounded-lg shadow-sm", styles.iconWrapper)}>
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                <CardTitle className="text-lg font-semibold text-foreground">
                   {title}
                 </CardTitle>
                 {description && (
-                  <CardDescription className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <CardDescription className="text-sm text-muted-foreground mt-1">
                     {description}
                   </CardDescription>
                 )}
@@ -55,7 +97,7 @@ export function DashboardCard({
           </div>
         </CardHeader>
         <CardContent>
-          <div className={`text-3xl font-bold bg-gradient-to-r ${gradient} bg-clip-text text-transparent`}>
+          <div className={cn("text-3xl font-bold", styles.value)}>
             {value}
           </div>
         </CardContent>

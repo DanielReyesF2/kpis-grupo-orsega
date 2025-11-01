@@ -780,7 +780,7 @@ export default function TreasuryPage() {
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-blue-400" />
+                    <FileText className="h-5 w-5 text-primary" />
                     <span className="text-sm text-white/80">Comprobantes</span>
                   </div>
                   <p className="text-3xl font-bold text-white">{filteredVouchers.length}</p>
@@ -803,7 +803,7 @@ export default function TreasuryPage() {
                   value={pendingPayments.length}
                   icon={Calendar}
                   onClick={() => setActiveTab("payments")}
-                  gradient="from-blue-500 to-indigo-600"
+                  tone="primary"
                   dataOnboarding="treasury-payments"
                 />
                 <DashboardCard
@@ -812,7 +812,7 @@ export default function TreasuryPage() {
                   value={filteredVouchers.length}
                   icon={Upload}
                   onClick={() => setActiveTab("receipts")}
-                  gradient="from-green-500 to-emerald-600"
+                  tone="success"
                   dataOnboarding="treasury-receipts"
                 />
                 <DashboardCard
@@ -821,7 +821,7 @@ export default function TreasuryPage() {
                   value={exchangeRates.length > 0 ? `${exchangeRates[0]?.buy_rate?.toFixed(2)}` : "0"}
                   icon={TrendingUp}
                   onClick={() => setActiveTab("exchange-rates")}
-                  gradient="from-purple-500 to-pink-600"
+                  tone="warning"
                   dataOnboarding="treasury-exchange-rates"
                 />
                 <DashboardCard
@@ -830,7 +830,7 @@ export default function TreasuryPage() {
                   value={suppliers.length}
                   icon={User}
                   onClick={() => setActiveTab("providers")}
-                  gradient="from-orange-500 to-red-600"
+                  tone="neutral"
                   dataOnboarding="treasury-providers"
                 />
               </div>
@@ -859,16 +859,16 @@ export default function TreasuryPage() {
             </div>
 
             {/* Header con información */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-soft">
               <div className="flex items-start gap-4">
-                <div className="bg-blue-500 p-3 rounded-xl shadow-lg">
-                  <FileSpreadsheet className="h-6 w-6 text-white" />
+                <div className="bg-primary text-primary-foreground p-3 rounded-xl shadow-soft">
+                  <FileSpreadsheet className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+                  <h2 className="text-2xl font-bold text-foreground mb-2">
                     Integración con IDRALL
                   </h2>
-                  <p className="text-slate-600 dark:text-slate-400">
+                  <p className="text-muted-foreground">
                     Descarga y sube tu archivo Excel de IDRALL para crear pagos automáticamente
                   </p>
                 </div>
@@ -964,7 +964,7 @@ export default function TreasuryPage() {
                 {/* Resultado del procesamiento */}
                 {idrallResult && (
                   <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <h4 className="font-medium text-green-600 dark:text-green-400 mb-2">
+                    <h4 className="font-medium text-success mb-2">
                       ✅ Procesamiento completado
                     </h4>
                     <div className="text-sm space-y-1">
@@ -972,7 +972,7 @@ export default function TreasuryPage() {
                       <p>✅ Pagos válidos: {idrallResult.summary.validPayments}</p>
                       <p>🎯 Pagos creados: {idrallResult.summary.createdPayments}</p>
                       {idrallResult.summary.errors > 0 && (
-                        <p className="text-orange-600">⚠️ Errores: {idrallResult.summary.errors}</p>
+                        <p className="text-warning">⚠️ Errores: {idrallResult.summary.errors}</p>
                       )}
                     </div>
                   </div>
@@ -987,23 +987,23 @@ export default function TreasuryPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-blue-600">1.</span>
+                  <span className="font-medium text-primary">1.</span>
                   <span>Descarga tu archivo Excel desde IDRALL con los pagos programados</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-blue-600">2.</span>
+                  <span className="font-medium text-primary">2.</span>
                   <span>Selecciona la empresa correspondiente</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-blue-600">3.</span>
+                  <span className="font-medium text-primary">3.</span>
                   <span>Sube el archivo Excel (.xlsx, .xls o .csv)</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-blue-600">4.</span>
+                  <span className="font-medium text-primary">4.</span>
                   <span>El sistema creará automáticamente las tarjetas de pago en estado "Pendiente"</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-blue-600">5.</span>
+                  <span className="font-medium text-primary">5.</span>
                   <span>Los pagos aparecerán en el tablero Kanban para seguimiento</span>
                 </div>
               </CardContent>
@@ -1437,14 +1437,14 @@ export default function TreasuryPage() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        <TrendingUp className="h-4 w-4 text-success" />
                         Última Actualización Compra
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                          <p className="text-3xl font-bold text-success">
                             ${latestData.buy?.toFixed(4) || 'N/A'}
                           </p>
                         </div>
@@ -1460,14 +1460,14 @@ export default function TreasuryPage() {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-blue-600" />
+                        <TrendingUp className="h-4 w-4 text-primary" />
                         Última Actualización Venta
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          <p className="text-3xl font-bold text-primary">
                             ${latestData.sell?.toFixed(4) || 'N/A'}
                           </p>
                         </div>
@@ -1484,11 +1484,11 @@ export default function TreasuryPage() {
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
                         {selectedSeries?.spreads_analysis?.trend_7d === 'up' ? (
-                          <ArrowUp className="h-4 w-4 text-green-600" />
+                          <ArrowUp className="h-4 w-4 text-success" />
                         ) : selectedSeries?.spreads_analysis?.trend_7d === 'down' ? (
-                          <ArrowDown className="h-4 w-4 text-red-600" />
+                          <ArrowDown className="h-4 w-4 text-destructive" />
                         ) : (
-                          <TrendingUp className="h-4 w-4 text-slate-600" />
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         )}
                         Tendencia
                       </CardTitle>
@@ -1496,7 +1496,7 @@ export default function TreasuryPage() {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                          <p className="text-3xl font-bold text-primary">
                             {selectedSeries?.spreads_analysis?.trend_7d === 'up' ? '↑ Alza' :
                              selectedSeries?.spreads_analysis?.trend_7d === 'down' ? '↓ Baja' :
                              '→ Estable'}
@@ -1680,11 +1680,17 @@ export default function TreasuryPage() {
                           <tr key={source} className="border-b last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                             <td className="py-2 px-3 font-medium">
                               <div className="flex items-center gap-2">
-                                <div className={`h-2 w-2 rounded-full ${
-                                  source === 'MONEX' ? 'bg-[#2563eb]' :
-                                  source === 'Santander' ? 'bg-[#16a34a]' :
-                                  source === 'DOF' ? 'bg-[#ea580c]' : 'bg-slate-400'
-                                }`}></div>
+                                <div
+                                  className={`h-2 w-2 rounded-full ${
+                                    source === 'MONEX'
+                                      ? 'bg-primary'
+                                      : source === 'Santander'
+                                      ? 'bg-success'
+                                      : source === 'DOF'
+                                      ? 'bg-warning'
+                                      : 'bg-muted'
+                                  }`}
+                                ></div>
                                 {source}
                               </div>
                             </td>
@@ -1692,21 +1698,31 @@ export default function TreasuryPage() {
                             <td className="text-right py-2 px-3">${data.avg_sell?.toFixed(4) || 'N/A'}</td>
                             <td className="text-right py-2 px-3">{data.spread?.toFixed(4) || 'N/A'}</td>
                             <td className="text-center py-2 px-3">
-                              <Badge variant="outline" className={
-                                data.trend_7d === 'up' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' :
-                                data.trend_7d === 'down' ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400' :
-                                'bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-400'
-                              }>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  data.trend_7d === 'up'
+                                    ? 'bg-success/10 text-success'
+                                    : data.trend_7d === 'down'
+                                    ? 'bg-destructive/10 text-destructive'
+                                    : 'bg-muted/20 text-muted-foreground'
+                                }
+                              >
                                 {data.trend_7d === 'up' ? '↑' : data.trend_7d === 'down' ? '↓' : '→'} {data.trend_7d || 'N/A'}
                               </Badge>
                             </td>
                             <td className="text-center py-2 px-3">{data.volatility_5d || 'N/A'}</td>
                             <td className="text-center py-2 px-3">
-                              <Badge variant="outline" className={
-                                data.spread_status === 'favorable' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' :
-                                data.spread_status === 'normal' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400' :
-                                'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400'
-                              }>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  data.spread_status === 'favorable'
+                                    ? 'bg-success/10 text-success'
+                                    : data.spread_status === 'normal'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-warning/10 text-warning'
+                                }
+                              >
                                 {data.spread_status || 'N/A'}
                               </Badge>
                             </td>
@@ -1742,22 +1758,22 @@ export default function TreasuryPage() {
               </div>
             )}
 
-            {/* Nota Informativa */}
-            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
-                      Nota sobre el análisis FX
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-                      Los datos presentados son exclusivamente informativos y reflejan las variaciones del mercado cambiario. 
-                      Las tendencias, volatilidades y diferenciales mostrados están basados en datos históricos del periodo seleccionado. 
-                      El análisis comparativo permite identificar patrones de comportamiento entre diferentes fuentes sin constituir recomendaciones de operación.
-                    </p>
+          {/* Nota Informativa */}
+          <Card className="border border-border/60 bg-card shadow-soft">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Nota sobre el análisis FX
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Los datos presentados son exclusivamente informativos y reflejan las variaciones del mercado cambiario. 
+                    Las tendencias, volatilidades y diferenciales mostrados están basados en datos históricos del periodo seleccionado. 
+                    El análisis comparativo permite identificar patrones de comportamiento entre diferentes fuentes sin constituir recomendaciones de operación.
+                  </p>
                   </div>
                 </div>
               </CardContent>
@@ -2093,8 +2109,8 @@ export default function TreasuryPage() {
             ) : filteredSuppliers.length === 0 ? (
               <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
                 <CardContent className="py-16 text-center">
-                  <div className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center mb-6 shadow-xl">
-                    <User className="h-12 w-12 text-white" />
+                  <div className="mx-auto w-24 h-24 rounded-full bg-primary/15 flex items-center justify-center mb-6 shadow-soft">
+                    <User className="h-12 w-12 text-primary" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
                     No hay proveedores registrados
@@ -2104,7 +2120,7 @@ export default function TreasuryPage() {
                   </p>
                   <Button 
                     onClick={handleOpenNewProvider} 
-                    className="bg-gradient-to-r from-[#273949] to-[#2a4055] hover:from-[#2a4055] hover:to-[#273949] text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-primary text-primary-foreground font-semibold shadow-soft hover:bg-primary/90 transition-modern"
                     size="lg"
                   >
                     <Plus className="h-5 w-5 mr-2" />
@@ -2135,13 +2151,13 @@ export default function TreasuryPage() {
                             className="transition-colors hover:bg-gradient-to-r hover:from-accent/5 hover:to-accent/10 group border-b border-slate-200 dark:border-slate-700"
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge 
+                              <Badge
                                 className={`font-semibold shadow-sm ${
-                                  supplier.company_id === 1 
-                                    ? "bg-blue-500 hover:bg-blue-600 text-white" 
+                                  supplier.company_id === 1
+                                    ? "bg-success text-success-foreground"
                                     : supplier.company_id === 2
-                                    ? "bg-purple-500 hover:bg-purple-600 text-white"
-                                    : "bg-slate-500"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted text-foreground"
                                 }`}
                               >
                                 {supplier.company_id === 1 ? "Dura" : supplier.company_id === 2 ? "Orsega" : "N/A"}
@@ -2149,7 +2165,7 @@ export default function TreasuryPage() {
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-[#273949] to-[#2a4055] flex items-center justify-center text-white font-bold shadow-md">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold shadow-sm">
                                   {supplier.name.charAt(0)}
                                 </div>
                                 <div>
@@ -2181,7 +2197,7 @@ export default function TreasuryPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {supplier.requires_rep ? (
-                                <Badge className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-sm">
+                                <Badge className="bg-success text-success-foreground font-semibold shadow-sm">
                                   ✓ Activado
                                 </Badge>
                               ) : (
@@ -2207,7 +2223,7 @@ export default function TreasuryPage() {
                                   size="sm"
                                   onClick={() => handleEditProvider(supplier)}
                                   disabled={deleteSupplierMutation.isPending}
-                                  className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 transition-colors"
+                                  className="hover:bg-accent/10 hover:text-accent transition-colors"
                                   title="Editar proveedor"
                                 >
                                   <Edit className="h-4 w-4" />
@@ -2217,7 +2233,7 @@ export default function TreasuryPage() {
                                   size="sm"
                                   onClick={() => handleDeleteProvider(supplier.id)}
                                   disabled={deleteSupplierMutation.isPending}
-                                  className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 transition-colors"
+                                  className="hover:bg-destructive/10 hover:text-destructive transition-colors"
                                   title="Eliminar proveedor"
                                 >
                                   <Trash2 className="h-4 w-4" />
