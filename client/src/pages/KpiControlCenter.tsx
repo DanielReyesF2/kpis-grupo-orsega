@@ -1144,57 +1144,6 @@ export default function KpiControlCenter() {
               </CardContent>
             </Card>
 
-            {/* Panel de métricas en tiempo real */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-8 w-8 text-green-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-green-800">{kpiStats.complies}</div>
-                      <div className="text-sm text-green-600">Cumpliendo</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="h-8 w-8 text-yellow-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-yellow-800">{kpiStats.alert}</div>
-                      <div className="text-sm text-yellow-600">En Alerta</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <XCircle className="h-8 w-8 text-red-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-red-800">{kpiStats.not_compliant}</div>
-                      <div className="text-sm text-red-600">No Cumple</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Target className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-blue-800">{kpiStats.total}</div>
-                      <div className="text-sm text-blue-600">Total KPIs</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
