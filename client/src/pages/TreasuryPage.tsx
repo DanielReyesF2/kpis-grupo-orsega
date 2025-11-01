@@ -2055,8 +2055,7 @@ export default function TreasuryPage() {
                 </div>
                 <Button 
                   onClick={handleOpenNewProvider} 
-                  size="lg" 
-                  className="bg-accent hover:bg-accent/90 text-primary font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  size="lg"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Nuevo Proveedor
