@@ -1,0 +1,234 @@
+/* EcoNova Dashboard - Professional Dark Theme Inspired by ChatGPT, Cursor, Google Workspace */
+
+:root {
+  /* Theme base colors - Dark Neutral */
+  --background: 222 15% 8%; /* #111315 */
+  --foreground: 0 0% 92%; /* #EAEAEA */
+  --muted: 210 9% 31%; /* #9CA3AF */
+  --muted-foreground: 210 9% 31%;
+  
+  /* Card and surface colors */
+  --card: 218 18% 12%; /* #1C1F22 */
+  --card-foreground: 0 0% 92%;
+  --popover: 218 18% 12%;
+  --popover-foreground: 0 0% 92%;
+  
+  /* Borders and dividers */
+  --border: 220 13% 20%; /* #2A2E33 */
+  --input: 220 13% 20%;
+  --ring: 250 94% 61%; /* #4F46E5 - accent color */
+  
+  /* Primary colors - Cursor purple */
+  --primary: 250 94% 61%; /* #4F46E5 */
+  --primary-foreground: 0 0% 100%;
+  
+  /* Secondary */
+  --secondary: 220 13% 20%;
+  --secondary-foreground: 0 0% 92%;
+  
+  /* Accent colors */
+  --accent: 250 94% 61%; /* #4F46E5 */
+  --accent-foreground: 0 0% 100%;
+  
+  /* Status colors */
+  --success: 142 76% 36%; /* #10B981 */
+  --success-foreground: 0 0% 100%;
+  --warning: 32 95% 44%; /* #F97316 */
+  --warning-foreground: 0 0% 100%;
+  
+  /* Destructive */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  
+  /* Transparencias sutiles */
+  --hover-overlay: 0 0% 100%; /* Para rgba(255,255,255,0.05) */
+  
+  /* Spacing and layout */
+  --radius: 8px;
+  
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.3); /* Main shadow */
+  
+  /* Navbar */
+  --navbar-bg: rgba(17, 19, 21, 0.8);
+  --navbar-blur: blur(10px);
+  
+  /* Chart colors */
+  --chart-1: 251 83% 63%; /* #6366F1 */
+  --chart-2: 142 71% 45%; /* #22C55E */
+  --chart-3: 38 92% 50%; /* #F59E0B */
+  --chart-4: 0 84% 60%; /* #EF4444 */
+  --chart-5: 215 16% 47%; /* #6B7280 */
+  
+  /* Icon color */
+  --icon-color: #D1D5DB;
+  
+  /* Sidebar colors */
+  --sidebar-background: 222 15% 8%;
+  --sidebar-foreground: 0 0% 92%;
+  --sidebar-primary: 250 94% 61%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 13% 20%;
+  --sidebar-accent-foreground: 0 0% 92%;
+  --sidebar-border: 220 13% 20%;
+  --sidebar-ring: 250 94% 61%;
+}
+
+/* Override default light theme */
+.light {
+  /* Light theme adjustments if needed in future */
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --primary: 250 84% 61%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --danger: 0 84% 60%;
+  --danger-foreground: 0 0% 100%;
+  --radius: 8px;
+}
+
+/* Base styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  }
+  
+  /* Typography - Inter with weights 400, 500, 600 */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+    font-weight: 600;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* Component overrides */
+@layer components {
+  /* Card improvements */
+  .card-modern {
+    @apply bg-card border border-border rounded-lg shadow-soft;
+    transition: all 0.2s ease;
+  }
+  
+  .card-modern:hover {
+    @apply shadow-lg;
+    transform: translateY(-1px);
+  }
+  
+  /* Button modern styles */
+  .btn-primary-modern {
+    @apply bg-primary text-primary-foreground rounded-lg font-medium;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .btn-primary-modern:hover {
+    @apply bg-primary/90;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+  }
+  
+  /* Input modern styles - Google-like */
+  .input-modern {
+    @apply bg-card border border-input rounded-lg;
+    transition: all 0.2s ease;
+  }
+  
+  .input-modern:focus {
+    @apply border-ring ring-2 ring-ring/20;
+  }
+  
+  /* Navbar with blur */
+  .navbar-blur {
+    background: var(--navbar-bg);
+    backdrop-filter: var(--navbar-blur);
+    -webkit-backdrop-filter: var(--navbar-blur);
+  }
+  
+  /* Hover overlay */
+  .hover-overlay {
+    transition: background-color 0.2s ease;
+  }
+  
+  .hover-overlay:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Chart container */
+  .chart-modern {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Text colors */
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+  
+  /* Icon utilities */
+  .icon-modern {
+    @apply text-foreground;
+    color: var(--icon-color);
+  }
+  
+  /* Container max-width */
+  .container-modern {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  
+  /* Smooth transitions */
+  .transition-modern {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container-modern {
+    padding: 0 1rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+

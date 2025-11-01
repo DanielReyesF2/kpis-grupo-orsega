@@ -23,9 +23,11 @@ export function AppLayout({ children, title }: AppLayoutProps) {
         <main className="flex-1 overflow-auto w-full flex flex-col bg-background">
           <TopBar title={title} />
           {/* Contenedor central con ancho máximo para evitar layouts "amontonados" en pantallas con escalado */}
-          <div className="flex-1 px-3 sm:px-4 md:px-6 pb-6">
-            <div className="mx-auto w-full max-w-7xl space-y-3 sm:space-y-4">
-              {children}
+          <div className="flex-1 px-3 sm:px-4 md:px-8 pb-6">
+            <div className="mx-auto w-full" style={{ maxWidth: '1440px' }}>
+              <div className="space-y-3 sm:space-y-4">
+                {children}
+              </div>
             </div>
           </div>
           <PoweredByFooter />

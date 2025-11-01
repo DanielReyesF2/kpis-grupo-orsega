@@ -52,8 +52,8 @@ const NavItem = ({
       className={cn(
         "flex items-center px-4 py-3 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 group",
         active
-          ? "bg-[#2a2a2a] text-white border-l-4 border-blue-500"
-          : "text-white/70 hover:bg-[#2a2a2a] hover:text-white",
+          ? "bg-sidebar-accent text-sidebar-foreground border-l-4 border-sidebar-primary"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
         className
       )}
     >
@@ -100,7 +100,7 @@ function Sidebar() {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "lg:flex lg:flex-col w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] z-[1001] h-screen overflow-y-auto transition-all duration-300",
+          "lg:flex lg:flex-col w-64 bg-sidebar border-r border-sidebar-border z-[1001] h-screen overflow-y-auto transition-all duration-300",
           isMobileOpen ? "fixed inset-y-0 left-0 transform translate-x-0" : "fixed inset-y-0 left-0 transform -translate-x-full lg:translate-x-0"
         )}
         style={{ width: "250px" }}
@@ -110,7 +110,7 @@ function Sidebar() {
           <Button
             variant="ghost"
             size="sm"
-            className="absolute top-2 right-2 text-white hover:bg-[#2a2a2a] lg:hidden"
+            className="absolute top-2 right-2 text-sidebar-foreground hover:bg-sidebar-accent lg:hidden"
             onClick={closeMenu}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -120,7 +120,7 @@ function Sidebar() {
           </Button>
         )}
 
-        <div className="px-4 py-6 border-b border-[#2a2a2a] flex items-center justify-center bg-[#1a1a1a]">
+        <div className="px-4 py-6 border-b border-sidebar-border flex items-center justify-center bg-sidebar">
           <div className="flex flex-shrink-0 items-center">
             <LogoOrsega height={55} showText={false} />
           </div>
@@ -129,7 +129,7 @@ function Sidebar() {
         {/* Main Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-2">
           <div className="pb-3">
-            <p className="px-4 text-xs uppercase tracking-wider text-white/60 font-semibold">
+            <p className="px-4 text-xs uppercase tracking-wider text-sidebar-foreground/60 font-semibold">
               Acciones Principales
             </p>
           </div>

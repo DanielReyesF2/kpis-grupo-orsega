@@ -7,6 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { OrsegaTitle } from "@/components/ui/OrsegaTitle";
 
+interface TopBarProps {
+  title?: string;
+}
+
 export function TopBar({ title }: TopBarProps) {
   const { user, logout } = useAuth();
   const [, navigate] = useLocation();
@@ -33,7 +37,7 @@ export function TopBar({ title }: TopBarProps) {
   };
   
   return (
-    <header className="border-b border-border">
+    <header className="border-b border-border navbar-blur sticky top-0 z-50">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-4">
         </div>
@@ -44,7 +48,7 @@ export function TopBar({ title }: TopBarProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <Avatar className="h-7 w-7">
-                    <AvatarFallback className="text-xs bg-blue-600 text-white">
+                    <AvatarFallback className="text-xs bg-primary text-white">
                       {getUserInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>

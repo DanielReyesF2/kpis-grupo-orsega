@@ -1,70 +1,9 @@
-/* Fuentes externas removidas por CSP en producción; usar stack del sistema (Tailwind) */
+/* EcoNova Dashboard - Professional Dark Theme */
+/* Inspired by ChatGPT, Cursor, Google Workspace */
+
+@import url('./styles/theme.css');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-      --background: 0 0% 100%;
---foreground: 20 14.3% 4.1%;
---muted: 60 4.8% 95.9%;
---muted-foreground: 25 5.3% 44.7%;
---popover: 0 0% 100%;
---popover-foreground: 20 14.3% 4.1%;
---card: 0 0% 100%;
---card-foreground: 20 14.3% 4.1%;
---border: 20 5.9% 90%;
---input: 20 5.9% 90%;
---primary: 220 39% 25%; /* Grupo Orsega azul corporativo #1e3a5f */
---primary-foreground: 0 0% 100%;
---secondary: 60 4.8% 95.9%;
---secondary-foreground: 24 9.8% 10%;
---accent: 200 100% 50%; /* Azul profesional #0080ff */
---accent-foreground: 0 0% 100%;
---danger: 0 84.2% 60.2%;
---danger-foreground: 60 9.1% 97.8%;
---destructive: 0 84.2% 60.2%;
---destructive-foreground: 60 9.1% 97.8%;
---ring: 220 39% 25%;
---radius: 0.5rem;
-  }
-  .dark {
-      --background: 240 5% 8%; /* Gris oscuro neutro tipo Chrome/Cursor #1a1a1a */
---foreground: 0 0% 95%;
---muted: 240 5% 6%;
---muted-foreground: 215 20% 65%;
---popover: 240 5% 8%;
---popover-foreground: 0 0% 95%;
---card: 240 5% 11%; /* Cards ligeramente más claros para contraste */
---card-foreground: 0 0% 95%;
---border: 240 5% 18%;
---input: 240 5% 18%;
---primary: 217 45% 45%; /* Azul más sobrio y profesional */
---primary-foreground: 0 0% 100%;
---secondary: 240 5% 16%;
---secondary-foreground: 0 0% 95%;
---accent: 217 45% 45%; /* Azul más sobrio y profesional */
---accent-foreground: 0 0% 100%;
---destructive: 0 60% 45%;
---destructive-foreground: 0 0% 100%;
---danger: 0 60% 45%;
---danger-foreground: 0 0% 100%;
---ring: 217 45% 45%; /* Azul más sobrio para resaltados */
---radius: 0.5rem;
-  }
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
-
-  /* Normalizar tipografía base con clamp para DPI distintos (Windows 125% vs macOS 100%) */
-  html {
-    font-size: clamp(14px, 1.1vw, 16px);
-  }
-}
 
