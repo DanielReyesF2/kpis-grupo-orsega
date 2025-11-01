@@ -29,27 +29,27 @@
 --radius: 0.5rem;
   }
   .dark {
-      --background: 220 30% 8%; /* Fondo basado en Grupo Orsega azul */
---foreground: 0 0% 98%;
---muted: 220 30% 6%;
---muted-foreground: 240 5% 74.9%;
---popover: 220 30% 8%;
---popover-foreground: 0 0% 98%;
---card: 220 30% 8%;
---card-foreground: 0 0% 98%;
---border: 220 30% 15%;
---input: 220 30% 15%;
---primary: 220 39% 25%; /* Grupo Orsega azul corporativo #1e3a5f */
+      --background: 222 47% 11%; /* Fondo oscuro profundo más serio #0f172a */
+--foreground: 0 0% 95%;
+--muted: 222 47% 7%;
+--muted-foreground: 215 20% 65%;
+--popover: 222 47% 11%;
+--popover-foreground: 0 0% 95%;
+--card: 222 47% 14%; /* Cards ligeramente más claros para contraste */
+--card-foreground: 0 0% 95%;
+--border: 217 33% 17%;
+--input: 217 33% 17%;
+--primary: 217 91% 60%; /* Azul vibrante para elementos importantes */
 --primary-foreground: 0 0% 100%;
---secondary: 220 30% 15%;
---secondary-foreground: 0 0% 98%;
---accent: 200 100% 50%; /* Azul profesional #0080ff */
+--secondary: 217 33% 17%;
+--secondary-foreground: 0 0% 95%;
+--accent: 217 91% 60%; /* Azul vibrante #3b82f6 */
 --accent-foreground: 0 0% 100%;
---destructive: 0 62.8% 30.6%;
---destructive-foreground: 0 0% 98%;
---danger: 0 62.8% 30.6%;
---danger-foreground: 0 0% 98%;
---ring: 200 100% 50%; /* Azul profesional para resaltados */
+--destructive: 0 72% 51%;
+--destructive-foreground: 0 0% 100%;
+--danger: 0 72% 51%;
+--danger-foreground: 0 0% 100%;
+--ring: 217 91% 60%; /* Azul para resaltados */
 --radius: 0.5rem;
   }
 
