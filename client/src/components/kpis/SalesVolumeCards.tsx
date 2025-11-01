@@ -101,10 +101,10 @@ export function SalesVolumeCards({
     <>
       {/* Título */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+        <h2 className="text-2xl font-bold mb-2">
           {title}
         </h2>
-        <p className="text-slate-600 dark:text-slate-400 text-sm">
+        <p className="text-sm text-muted-foreground">
           Datos mensuales de ventas • {monthsData.length} meses
         </p>
       </div>
@@ -112,17 +112,7 @@ export function SalesVolumeCards({
       {/* Tarjetas de Ventas Mensuales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {monthsData.map((month, index) => (
-          <Card key={index} className={`
-            relative overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1
-            bg-white dark:bg-slate-900 border-0 shadow-md
-            ${
-              month.percentChange > 0 
-                ? 'ring-2 ring-green-100 dark:ring-green-900/30 bg-gradient-to-br from-green-50/30 to-white dark:from-green-950/20 dark:to-slate-900' 
-                : month.percentChange < 0 
-                  ? 'ring-2 ring-red-100 dark:ring-red-900/30 bg-gradient-to-br from-red-50/30 to-white dark:from-red-950/20 dark:to-slate-900'
-                  : 'ring-2 ring-blue-100 dark:ring-blue-900/30 bg-gradient-to-br from-blue-50/30 to-white dark:from-blue-950/20 dark:to-slate-900'
-            }
-          `}>
+          <Card key={index} className="relative overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1 border-0 shadow-md">
             {/* Indicador de color superior */}
             <div className={`h-1 w-full ${
               month.percentChange > 0 ? 'bg-green-500' : 
@@ -130,9 +120,9 @@ export function SalesVolumeCards({
             }`} />
             
             <CardHeader className="pb-3 pt-4">
-              <CardTitle className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold flex items-center justify-between">
                 <span>{month.month.replace(' 2025', '')}</span>
-                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">2025</span>
+                <span className="text-xs font-normal text-muted-foreground">2025</span>
               </CardTitle>
             </CardHeader>
             
@@ -140,10 +130,10 @@ export function SalesVolumeCards({
               <div className="space-y-4">
                 {/* Volumen principal */}
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-1">
+                  <div className="text-2xl font-bold mb-1">
                     {formatNumber(month.value)}
                   </div>
-                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                     {month.unit}
                   </div>
                 </div>

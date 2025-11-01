@@ -191,39 +191,39 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
       {/* Cards de indicadores clave */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 max-w-4xl mx-auto">
         {/* Volumen Total */}
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 dark:border-blue-800/30 h-full">
+        <Card className="border-0 shadow-lg h-full">
           <CardHeader className="pb-3 pt-6">
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-lg font-medium text-blue-900 dark:text-blue-100">Volumen Total</CardTitle>
-                <CardDescription className="text-blue-600 dark:text-blue-300">
+                <CardTitle className="text-lg font-medium">Volumen Total</CardTitle>
+                <CardDescription>
                   Acumulado anual ({currentCompanyId === 1 ? 'KG' : 'unidades'})
                 </CardDescription>
               </div>
-              <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-800/50">
-                <BarChart2 className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <BarChart2 className="h-5 w-5 text-blue-500" />
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
-            <div className="text-3xl font-bold text-blue-700 dark:text-blue-100 mb-2">
+            <div className="text-3xl font-bold mb-2">
               {formatNumber(totalSales)}
             </div>
             <div className="flex items-center mb-4">
-              <div className="flex items-center text-emerald-600 dark:text-emerald-400 mr-2">
+              <div className="flex items-center text-emerald-600 mr-2">
                 <ArrowUp className="h-4 w-4 mr-1" />
                 <span className="text-sm font-medium">{growthRate}%</span>
               </div>
-              <div className="text-sm text-blue-600 dark:text-blue-300">vs mes anterior</div>
+              <div className="text-sm text-muted-foreground">vs mes anterior</div>
             </div>
             <div className="mt-auto">
-              <div className="text-xs text-blue-600 dark:text-blue-300 mb-2 flex justify-between">
+              <div className="text-xs text-blue-500 mb-2 flex justify-between">
                 <span>Progreso</span>
                 <span className="font-medium">{compliancePercentage}%</span>
               </div>
-              <div className="w-full h-2 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-600 dark:bg-blue-400 rounded-full transition-all duration-500"
+                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 ></div>
               </div>
@@ -232,24 +232,24 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
         </Card>
 
         {/* Nivel de Cumplimiento */}
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 dark:border-amber-800/30 h-full">
+        <Card className="border-0 shadow-lg h-full">
           <CardHeader className="pb-3 pt-6">
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-lg font-medium text-amber-900 dark:text-amber-100">Avance del Objetivo Anual</CardTitle>
-                <CardDescription className="text-amber-600 dark:text-amber-300">Progreso hacia meta anual</CardDescription>
+                <CardTitle className="text-lg font-medium">Avance del Objetivo Anual</CardTitle>
+                <CardDescription>Progreso hacia meta anual</CardDescription>
               </div>
-              <div className="p-2 bg-amber-100 rounded-lg dark:bg-amber-800/50">
-                <Award className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <Award className="h-5 w-5 text-amber-500" />
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
             <div className="flex items-center mb-2">
-              <div className="text-3xl font-bold text-amber-700 dark:text-amber-100">
+              <div className="text-3xl font-bold">
                 {compliancePercentage}%
               </div>
-              <div className="ml-3 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
+              <div className="ml-3 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500">
                 {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
                  compliancePercentage >= 75 ? 'Buen progreso' :
                  compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
@@ -258,36 +258,36 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
             
             <div className="space-y-3 mt-2 mb-4">
               <div className="flex justify-between items-center">
-                <div className="text-sm text-amber-600 dark:text-amber-300">
+                <div className="text-sm text-muted-foreground">
                   <span className="font-medium">Ventas actuales:</span><br />
                   <span className="text-xs">{formatNumber(totalSales)}</span>
                 </div>
-                <div className="text-sm text-amber-600 dark:text-amber-300 text-right">
+                <div className="text-sm text-muted-foreground text-right">
                   <span className="font-medium">Meta anual:</span><br />
                   <span className="text-xs">{formatNumber(totalTarget)}</span>
                 </div>
               </div>
               
-              <div className="border-t border-amber-200 dark:border-amber-700 pt-2">
-                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-800/30 rounded-md">
-                  <CalendarClock className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+              <div className="border-t border-border pt-2">
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500/10 rounded-md">
+                  <CalendarClock className="h-4 w-4 text-amber-500" />
                   <div className="text-center">
-                    <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">Meta mensual</div>
-                    <div className="text-sm font-bold text-amber-800 dark:text-amber-200">{formatNumber(monthlyTarget)}</div>
+                    <div className="text-xs text-amber-500 font-medium">Meta mensual</div>
+                    <div className="text-sm font-bold">{formatNumber(monthlyTarget)}</div>
                   </div>
                 </div>
               </div>
             </div>
             
             <div className="mt-auto">
-              <div className="text-xs text-amber-600 dark:text-amber-300 mb-2 flex justify-between">
+              <div className="text-xs text-amber-500 mb-2 flex justify-between">
                 <span>Progreso</span>
                 <span className="font-medium">{compliancePercentage}%</span>
               </div>
-              <div className="w-full h-3 bg-amber-200 dark:bg-amber-800 rounded-full overflow-hidden">
+              <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full flex items-center justify-end pr-2 text-xs font-bold transition-all duration-500 ${
-                    compliancePercentage >= 100 ? 'bg-green-600 text-white' : 'bg-amber-600 dark:bg-amber-400 text-white'
+                    compliancePercentage >= 100 ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'
                   }`}
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 >

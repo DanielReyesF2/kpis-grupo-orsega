@@ -1120,26 +1120,23 @@ export default function KpiControlCenter() {
         {viewMode === 'overview' && (
           <div className="space-y-6">
             {/* Actualización de Ventas Mensuales - Formulario prominente */}
-            <Card className="relative border shadow-lg bg-white dark:bg-slate-900 overflow-hidden">
-              {/* Decorative gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-50/50 via-transparent to-slate-100/50 dark:from-slate-800/20 dark:to-slate-700/10 pointer-events-none" />
-              
-              <CardHeader className="relative pb-4 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 border-b border-slate-200 dark:border-slate-700">
+            <Card className="relative border shadow-lg overflow-hidden">
+              <CardHeader className="pb-4 border-b">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                    <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  <div className="p-2 rounded-lg bg-muted/50">
+                    <TrendingUp className="h-6 w-6 text-blue-500" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                    <CardTitle className="text-xl font-bold">
                       ✨ Actualizar Ventas Mensuales
                     </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400 mt-1">
+                    <CardDescription className="mt-1">
                       Selecciona el período (mes y año) y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="relative pt-6 bg-transparent">
+              <CardContent className="pt-6">
                 <SalesWeeklyUpdateForm showHeader={false} />
               </CardContent>
             </Card>

@@ -249,8 +249,8 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
       <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <div className="p-2 bg-white rounded-lg shadow-sm">
-              <Filter className="h-4 w-4 text-gray-600" />
+            <div className="p-2 bg-card rounded-lg shadow-sm">
+              <Filter className="h-4 w-4 text-muted-foreground" />
             </div>
             Filtros y Búsqueda
           </CardTitle>
@@ -351,27 +351,27 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
                               <div className="flex-shrink-0">
-                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                                   {kpi.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
                                 </div>
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-semibold text-gray-900">{kpi.userName}</h4>
+                                  <h4 className="font-semibold">{kpi.userName}</h4>
                                   <Badge variant="outline" className="text-xs">
                                     {kpi.userEmail.split('@')[0]}
                                   </Badge>
                                 </div>
-                                <p className="text-sm font-medium text-gray-700">{kpi.kpiName}</p>
-                                <p className="text-xs text-gray-500">{kpi.kpiFrequency}</p>
+                                <p className="text-sm font-medium text-muted-foreground">{kpi.kpiName}</p>
+                                <p className="text-xs text-muted-foreground">{kpi.kpiFrequency}</p>
                                 
                                 {/* Barra de progreso individual */}
                                 <div className="mt-2 w-full max-w-xs">
-                                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                                     <span>Progreso</span>
                                     <span>{progress}%</span>
                                   </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="w-full bg-muted rounded-full h-2">
                                     <div 
                                       className={`h-2 rounded-full transition-all duration-300 ${progressColor}`}
                                       style={{ width: `${progress}%` }}
@@ -383,8 +383,8 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
                             
                             <div className="flex items-center space-x-4">
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-gray-900">{kpi.kpiValue}</p>
-                                <p className="text-sm text-gray-500">Meta: {kpi.kpiTarget}</p>
+                                <p className="text-2xl font-bold">{kpi.kpiValue}</p>
+                                <p className="text-sm text-muted-foreground">Meta: {kpi.kpiTarget}</p>
                               </div>
                               
                               <div className="flex flex-col items-center space-y-2">
@@ -393,7 +393,7 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
                                   <span className="ml-1 font-medium">{getStatusText(kpi.status)}</span>
                                 </Badge>
                                 
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   {kpi.lastUpdate && format(new Date(kpi.lastUpdate), 'dd/MM', { locale: es })}
                                 </div>
@@ -417,16 +417,16 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
       </Tabs>
 
       {filteredKPIs.length === 0 && (
-        <Card className="bg-gray-50 border-gray-200">
+        <Card className="bg-card border">
           <CardContent className="p-8 text-center">
-            <div className="p-4 bg-white rounded-full w-fit mx-auto mb-4">
-              <AlertCircle className="h-8 w-8 text-gray-400" />
+            <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No se encontraron KPIs</h3>
-            <p className="text-gray-600 mb-4">
+            <h3 className="text-lg font-semibold mb-2">No se encontraron KPIs</h3>
+            <p className="text-muted-foreground mb-4">
               No hay KPIs que coincidan con los filtros seleccionados
             </p>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               <p>Intenta:</p>
               <ul className="mt-2 space-y-1">
                 <li>• Cambiar el área seleccionada</li>

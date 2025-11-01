@@ -360,7 +360,7 @@ export function SalesVolumeChart({
   // Mostrar skeleton mientras carga
   if (isLoadingHistory) {
     return (
-      <Card className="shadow-md bg-white dark:bg-slate-900">
+      <Card className="shadow-md">
         <CardContent>
           <div className="h-[400px] flex items-center justify-center">
             <p className="text-gray-500">Cargando datos...</p>
@@ -371,7 +371,7 @@ export function SalesVolumeChart({
   }
 
   return (
-    <Card className="shadow-md bg-white dark:bg-slate-900">
+    <Card className="shadow-md">
       <CardHeader className="pb-2">
         <div className="flex justify-end">
           {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
