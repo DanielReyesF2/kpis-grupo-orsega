@@ -51,18 +51,18 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
 
     return (
       <div
-        className="bg-white dark:bg-slate-800 p-4 shadow-xl rounded-lg border border-slate-200 dark:border-slate-700"
+        className="bg-card border border-border p-4 shadow-lg rounded-lg"
         style={{ width: customWidth, fontSize: "12px", zIndex: 1000 }}
       >
         {/* Período */}
-        <div className="font-semibold mb-3 text-slate-900 dark:text-slate-100 text-sm border-b border-slate-200 dark:border-slate-700 pb-2">
+        <div className="font-semibold mb-3 text-sm border-b border-border pb-2">
           {labelFormatter ? labelFormatter(label) : label}
         </div>
         
         {/* Volumen Total - Destacado */}
         <div className="mb-3">
-          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Volumen Total del Mes</div>
-          <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          <div className="text-xs text-muted-foreground mb-1">Volumen Total del Mes</div>
+          <div className="text-lg font-bold">
             {formatNumber(volumeValue)} {unit}
           </div>
         </div>
@@ -72,22 +72,22 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
           {targetValue > 0 && (
             <>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Objetivo:</span>
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <span className="text-xs text-muted-foreground">Objetivo:</span>
+                <span className="text-xs font-semibold">
                   {formatNumber(targetValue)} {unit}
                 </span>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Diferencia:</span>
-                <span className={`text-xs font-semibold ${diferencia >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <span className="text-xs text-muted-foreground">Diferencia:</span>
+                <span className={`text-xs font-semibold ${diferencia >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
                   {diferencia >= 0 ? '+' : ''}{formatNumber(diferencia)} {unit}
                 </span>
               </div>
               
-              <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Cumplimiento:</span>
-                <span className={`text-xs font-bold ${parseFloat(cumplimiento) >= 100 ? 'text-green-600 dark:text-green-400' : parseFloat(cumplimiento) >= 85 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+              <div className="flex justify-between items-center pt-2 border-t border-border">
+                <span className="text-xs text-muted-foreground">Cumplimiento:</span>
+                <span className={`text-xs font-bold ${parseFloat(cumplimiento) >= 100 ? 'text-[#22C55E]' : parseFloat(cumplimiento) >= 85 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
                   {cumplimiento}%
                 </span>
               </div>
@@ -372,28 +372,27 @@ export function SalesVolumeChart({
 
   return (
     <Card className="shadow-md">
-      <CardHeader className="pb-2">
-        <div className="flex justify-end">
-          {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
-            <div className="flex items-center">
-              <span className="text-sm text-slate-500 dark:text-slate-400 mr-2">
-                vs mes anterior:
-              </span>
-              <span className={`text-sm flex items-center font-medium ${
-                trendData.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-              }`}>
-                {trendData.isPositive ? (
-                  <TrendingUp className="h-4 w-4 mr-1" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 mr-1" />
-                )}
-                {trendData.isPositive ? '+' : '-'} {formatNumber(Math.abs(trendData.difference))} {getUnit()}
-              </span>
-            </div>
-          )}
-        </div>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-semibold">Histórico de Ventas</CardTitle>
+        {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
+          <div className="flex items-center mt-2">
+            <span className="text-sm text-muted-foreground mr-2">
+              vs mes anterior:
+            </span>
+            <span className={`text-sm flex items-center font-medium ${
+              trendData.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+            }`}>
+              {trendData.isPositive ? (
+                <TrendingUp className="h-4 w-4 mr-1" />
+              ) : (
+                <TrendingDown className="h-4 w-4 mr-1" />
+              )}
+              {trendData.isPositive ? '+' : ''} {formatNumber(trendData.difference)} {getUnit()}
+            </span>
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="pt-2 pb-4">
+      <CardContent className="pt-0 pb-4">
         {chartDataWithTarget.length > 0 ? (
           <Tabs defaultValue="monthly" className="w-full">
             {showControls && (
@@ -403,11 +402,11 @@ export function SalesVolumeChart({
               </TabsList>
             )}
             
-            <TabsContent value="monthly" className="h-[250px] sm:h-[300px]">
+            <TabsContent value="monthly" className="h-[350px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                   data={chartDataWithTarget}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+                  margin={{ top: 20, right: 20, left: 0, bottom: 10 }}
                 >
                   <defs>
                     <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
@@ -428,25 +427,12 @@ export function SalesVolumeChart({
                   <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                   <XAxis 
                     dataKey="period" 
-                    tick={{ fontSize: 12, fill: "#4b5563" }}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickLine={{ stroke: "#d1d5db" }}
+                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <YAxis 
-                    // Establecer un rango fijo para que las barras se vean mejor
-                    domain={companyId === 1 ? [0, 100000] : [0, 1000000]}
-                    padding={{ top: 20 }}
-                    tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                    tick={{ fontSize: 12, fill: "#4b5563" }}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickLine={{ stroke: "#d1d5db" }}
-                    orientation="left"
-                    label={{ 
-                      value: companyId === 1 ? 'Kilogramos (KG)' : 'Unidades', 
-                      angle: -90, 
-                      position: 'insideLeft', 
-                      style: { textAnchor: 'middle', fill: "#4b5563", fontSize: 12 } 
-                    }}
+                    hide={true}
                   />
                   <CustomTooltip 
                     formatter={(value: any, name: any) => {
@@ -463,27 +449,34 @@ export function SalesVolumeChart({
                     labelFormatter={(label: any) => `${label}`}
                     customWidth="240px"
                     data={chartDataWithTarget}
-                    cursor={{ fill: 'rgba(39, 57, 73, 0.08)', stroke: 'rgba(39, 57, 73, 0.2)', strokeWidth: 1 }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: 15 }}
-                    iconType="circle"
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.1)', stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }}
                   />
                   <Bar 
                     dataKey="value" 
                     name={`Volumen (${getUnit()})`} 
-                    radius={[6, 6, 0, 0]}
-                    barSize={60} 
+                    radius={[8, 8, 0, 0]}
+                    barSize={70} 
                     animationDuration={1200}
                     animationEasing="ease-in-out"
-                    maxBarSize={80}
+                    maxBarSize={90}
                     shape={(props: any) => {
                       const { x, y, width, height, payload } = props;
                       const isBelowTarget = payload.value < payload.target;
                       const fillColor = isBelowTarget ? 'url(#volumeGradientBelow)' : 'url(#volumeGradient)';
                       const filterStyle = isBelowTarget ? 'url(#volumeShadowRed)' : 'url(#volumeShadow)';
                       return (
-                        <rect x={x} y={y} width={width} height={height} fill={fillColor} filter={filterStyle} rx={6} ry={6} />
+                        <rect 
+                          x={x} 
+                          y={y} 
+                          width={width} 
+                          height={height} 
+                          fill={fillColor} 
+                          filter={filterStyle} 
+                          rx={8} 
+                          ry={8}
+                          className="transition-all duration-200 hover:opacity-80"
+                          style={{ cursor: 'pointer' }}
+                        />
                       );
                     }}
                   />
@@ -498,21 +491,6 @@ export function SalesVolumeChart({
                       strokeDasharray="0"
                     />
                   )}
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    domain={companyId === 1 ? [0, 50] : [0, 20]} // Ajustamos la escala según la empresa
-                    tickFormatter={(value) => `${value}%`}
-                    tick={{ fontSize: 12, fill: "#4b5563" }}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickLine={{ stroke: "#d1d5db" }}
-                    label={{ 
- 
-                      angle: 90, 
-                      position: 'insideRight', 
-                      style: { textAnchor: 'middle', fill: "#4ade80", fontSize: 12, fontWeight: 'bold' } 
-                    }}
-                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </TabsContent>
