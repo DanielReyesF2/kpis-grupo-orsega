@@ -756,7 +756,7 @@ export default function TreasuryPage() {
     };
 
     return (
-      <Card className="h-full flex flex-col border">
+      <Card className="h-full flex flex-col border min-h-[400px]">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -850,7 +850,7 @@ export default function TreasuryPage() {
     };
 
     return (
-      <Card className="h-full flex flex-col border">
+      <Card className="h-full flex flex-col border min-h-[400px]">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -933,7 +933,7 @@ export default function TreasuryPage() {
     const range = maxRate - minRate || 1;
 
     return (
-      <Card className="h-full flex flex-col border">
+      <Card className="h-full flex flex-col border min-h-[400px]">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1020,7 +1020,7 @@ export default function TreasuryPage() {
     const topSuppliers = filteredSuppliers.slice(0, 5);
 
     return (
-      <Card className="h-full flex flex-col border">
+      <Card className="h-full flex flex-col border min-h-[400px]">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1098,7 +1098,7 @@ export default function TreasuryPage() {
       : [];
 
     return (
-      <Card className="h-full flex flex-col border">
+      <Card className="h-full flex flex-col border min-h-[400px]">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1143,63 +1143,10 @@ export default function TreasuryPage() {
 
   return (
     <AppLayout title="Tesorería">
-      <div className="p-6 max-w-7xl mx-auto space-y-8">
-        {/* Hero Header con gradiente premium - Solo en dashboard */}
-        {activeTab === "dashboard" && (
-          <div className="relative bg-gradient-to-br from-[#273949] via-[#1f2f3f] to-[#273949] rounded-2xl p-8 shadow-2xl overflow-hidden">
-            {/* Patrón decorativo de fondo */}
-            <div className="absolute inset-0 opacity-5">
-              <div className="absolute inset-0" style={{
-                backgroundImage: 'repeating-linear-gradient(45deg, #b5e951 0, #b5e951 2px, transparent 0, transparent 30px)'
-              }}></div>
-            </div>
-            
-            <div className="relative">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="bg-gradient-to-br from-accent to-accent/80 p-3 rounded-xl shadow-lg">
-                  <DollarSign className="h-8 w-8 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-white mb-2">
-                    ¡Hola Lolita! 👋
-                  </h1>
-                  <p className="text-white/90 text-lg">
-                    ¿Con qué pagos te ayudamos hoy?
-                  </p>
-                </div>
-              </div>
-              
-              {/* Mini stats rápidas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-5 w-5 text-accent" />
-                    <span className="text-sm text-white/80">Pendientes</span>
-                  </div>
-                  <p className="text-3xl font-bold text-white">{pendingPayments.length}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Check className="h-5 w-5 text-green-400" />
-                    <span className="text-sm text-white/80">Este mes</span>
-                  </div>
-                  <p className="text-3xl font-bold text-white">{paidPayments.length}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-sm text-white/80">Comprobantes</span>
-                  </div>
-                  <p className="text-3xl font-bold text-white">{filteredVouchers.length}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="p-6 max-w-[1600px] mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {activeTab === "dashboard" ? (
-            <div className="space-y-6">
+            <>
               {/* Grid de Módulos Funcionales */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {renderScheduledPaymentsModule()}
@@ -1208,7 +1155,7 @@ export default function TreasuryPage() {
                 {renderProvidersModule()}
                 {renderFinancialAlertsModule()}
               </div>
-            </div>
+            </>
           ) : null}
           
           <TabsList className="hidden">

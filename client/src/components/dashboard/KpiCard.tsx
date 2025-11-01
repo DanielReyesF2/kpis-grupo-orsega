@@ -52,11 +52,11 @@ export function KpiCard({
   const getProgressBarColor = () => {
     switch (status) {
       case 'complies':
-        return 'bg-green-500 dark:bg-green-600';
+        return 'bg-green-400/60 dark:bg-green-500/60';
       case 'alert':
-        return 'bg-amber-500 dark:bg-amber-600 animate-pulse';
+        return 'bg-amber-400/60 dark:bg-amber-500/60';
       case 'not_compliant':
-        return 'bg-red-500 dark:bg-red-600 animate-pulse';
+        return 'bg-red-400/60 dark:bg-red-500/60';
       default:
         return 'bg-gray-500 dark:bg-gray-600';
     }
@@ -65,11 +65,11 @@ export function KpiCard({
   const getStatusIcon = () => {
     switch (status) {
       case 'complies':
-        return <CheckCircle className="h-6 w-6 text-green-500 dark:text-green-400 animate-pulse" />;
+        return <CheckCircle className="h-6 w-6 text-green-500/70 dark:text-green-400/70" />;
       case 'alert':
-        return <ShieldAlert className="h-6 w-6 text-amber-500 dark:text-amber-400 animate-bounce" />;
+        return <ShieldAlert className="h-6 w-6 text-amber-500/70 dark:text-amber-400/70" />;
       case 'not_compliant':
-        return <CircleX className="h-6 w-6 text-red-500 dark:text-red-400 animate-pulse" />;
+        return <CircleX className="h-6 w-6 text-red-500/70 dark:text-red-400/70" />;
       default:
         return null;
     }
@@ -95,11 +95,11 @@ export function KpiCard({
   const getValueColor = () => {
     switch (status) {
       case 'complies':
-        return 'text-green-500 dark:text-green-400';
+        return 'text-green-600/70 dark:text-green-400/70';
       case 'alert':
-        return 'text-amber-500 dark:text-amber-400';
+        return 'text-amber-600/70 dark:text-amber-400/70';
       case 'not_compliant':
-        return 'text-red-500 dark:text-red-400';
+        return 'text-red-600/70 dark:text-red-400/70';
       default:
         return 'text-gray-500 dark:text-gray-400';
     }
@@ -121,11 +121,11 @@ export function KpiCard({
   const getStatusBadgeStyle = () => {
     switch (status) {
       case 'complies':
-        return 'border-green-500 bg-green-100/20 text-green-500 dark:border-green-500 dark:bg-green-500/20 dark:text-green-400';
+        return 'border-green-300/50 bg-green-50/30 text-green-600/70 dark:border-green-500/40 dark:bg-green-500/20 dark:text-green-400/70';
       case 'alert':
-        return 'border-amber-500 bg-amber-100/20 text-amber-500 dark:border-amber-500 dark:bg-amber-500/20 dark:text-amber-400';
+        return 'border-amber-300/50 bg-amber-50/30 text-amber-600/70 dark:border-amber-500/40 dark:bg-amber-500/20 dark:text-amber-400/70';
       case 'not_compliant':
-        return 'border-red-500 bg-red-100/20 text-red-500 dark:border-red-500 dark:bg-red-500/20 dark:text-red-400';
+        return 'border-red-300/50 bg-red-50/30 text-red-600/70 dark:border-red-500/40 dark:bg-red-500/20 dark:text-red-400/70';
       default:
         return 'border-gray-300 bg-gray-100/20 text-gray-500 dark:border-gray-600 dark:bg-gray-800/30 dark:text-gray-400';
     }
@@ -135,11 +135,11 @@ export function KpiCard({
   const getVariationIcon = () => {
     switch (status) {
       case 'complies':
-        return <TrendingUp className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />;
+        return <TrendingUp className="h-3.5 w-3.5 text-green-500/70 dark:text-green-400/70" />;
       case 'alert':
-        return <AlertTriangle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />;
+        return <AlertTriangle className="h-3.5 w-3.5 text-amber-500/70 dark:text-amber-400/70" />;
       case 'not_compliant':
-        return <TrendingDown className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />;
+        return <TrendingDown className="h-3.5 w-3.5 text-red-500/70 dark:text-red-400/70" />;
       default:
         return null;
     }
@@ -161,11 +161,11 @@ export function KpiCard({
   const getVariationClass = () => {
     switch (status) {
       case 'complies':
-        return 'text-green-500 dark:text-green-400';
+        return 'text-green-500/70 dark:text-green-400/70';
       case 'alert':
-        return 'text-amber-500 dark:text-amber-400';
+        return 'text-amber-500/70 dark:text-amber-400/70';
       case 'not_compliant':
-        return 'text-red-500 dark:text-red-400';
+        return 'text-red-500/70 dark:text-red-400/70';
       default:
         return 'text-gray-500 dark:text-gray-400';
     }
@@ -173,9 +173,9 @@ export function KpiCard({
 
   return (
     <Card className={`border-0 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
-      status === 'alert' ? 'ring-2 ring-amber-300 ring-opacity-50 animate-pulse' :
-      status === 'not_compliant' ? 'ring-2 ring-red-300 ring-opacity-50' :
-      status === 'complies' ? 'ring-1 ring-green-200 ring-opacity-30' : ''
+      status === 'alert' ? 'ring-2 ring-amber-200/30 ring-opacity-20' :
+      status === 'not_compliant' ? 'ring-2 ring-red-200/30 ring-opacity-20' :
+      status === 'complies' ? 'ring-1 ring-green-200/30 ring-opacity-15' : ''
     }`}>
       <CardHeader className="p-4 border-b border-primary-200/20 dark:border-primary-800/30 flex justify-between items-start">
         <div>

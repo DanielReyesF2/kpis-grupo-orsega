@@ -176,7 +176,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
                 <p className="text-lg font-bold text-foreground">
                   {compliancePercentage}%
                 </p>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">
+                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
                    compliancePercentage >= 75 ? 'Buen progreso' :
                    compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
@@ -188,13 +188,13 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${
-                    compliancePercentage >= 100 ? 'bg-success text-success-foreground' : 'bg-warning text-warning-foreground'
-                  }`}
+                    compliancePercentage >= 100 ? 'bg-green-400/60' : 'bg-amber-400/60'
+                  } text-gray-700`}
                   style={{ width: `${compliancePercentage > 100 ? 100 : compliancePercentage}%` }}
                 ></div>
               </div>
             </div>
-            <div className="p-3 bg-warning/15 rounded-full ml-4 text-warning">
+            <div className="p-3 bg-amber-50/30 rounded-full ml-4 text-amber-600/70">
               <Award className="h-6 w-6" />
             </div>
           </div>

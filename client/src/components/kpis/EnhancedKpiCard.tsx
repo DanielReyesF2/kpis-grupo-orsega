@@ -47,15 +47,15 @@ interface EnhancedKpiCardProps {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'excellent':
-      return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', fill: 'fill-green-500', chartColor: '#10b981' };
+      return { bg: 'bg-green-50/30', border: 'border-green-200/40', text: 'text-green-600/70', fill: 'fill-green-400/60', chartColor: '#6b7280' };
     case 'good':
-      return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', fill: 'fill-blue-500', chartColor: '#3b82f6' };
+      return { bg: 'bg-blue-50/30', border: 'border-blue-200/40', text: 'text-blue-600/70', fill: 'fill-blue-400/60', chartColor: '#6b7280' };
     case 'warning':
-      return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', fill: 'fill-yellow-500', chartColor: '#f59e0b' };
+      return { bg: 'bg-amber-50/30', border: 'border-amber-200/40', text: 'text-amber-600/70', fill: 'fill-amber-400/60', chartColor: '#6b7280' };
     case 'critical':
-      return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', fill: 'fill-red-500', chartColor: '#ef4444' };
+      return { bg: 'bg-red-50/30', border: 'border-red-200/40', text: 'text-red-600/70', fill: 'fill-red-400/60', chartColor: '#6b7280' };
     default:
-      return { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', fill: 'fill-gray-500', chartColor: '#6b7280' };
+      return { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600', fill: 'fill-gray-400', chartColor: '#6b7280' };
   }
 };
 
@@ -184,7 +184,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-gray-600">Valor Actual</span>
                 {trend && (
-                  <div className={`flex items-center gap-1 text-xs ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`flex items-center gap-1 text-xs ${trend.isPositive ? 'text-green-500/70' : 'text-red-500/70'}`}>
                     {trend.isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                     <span>{Math.abs(trend.change).toFixed(1)}%</span>
                   </div>

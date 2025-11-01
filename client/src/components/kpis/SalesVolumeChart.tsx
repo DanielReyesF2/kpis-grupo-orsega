@@ -13,14 +13,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  ComposedChart,
+  BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  Line,
   ResponsiveContainer,
   TooltipProps,
   ReferenceLine,
@@ -371,16 +370,16 @@ export function SalesVolumeChart({
   }
 
   return (
-    <Card className="shadow-md">
+    <Card className="bg-[#181818] border-0 shadow-none">
       <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-semibold">Histórico de Ventas</CardTitle>
+        <CardTitle className="text-xl font-semibold text-[#9ca3af]">Histórico de Ventas</CardTitle>
         {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
           <div className="flex items-center mt-2">
-            <span className="text-sm text-muted-foreground mr-2">
+            <span className="text-sm text-[#9ca3af] mr-2 opacity-70">
               vs mes anterior:
             </span>
             <span className={`text-sm flex items-center font-medium ${
-              trendData.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              trendData.isPositive ? 'text-[#9ca3af]' : 'text-[#9ca3af] opacity-60'
             }`}>
               {trendData.isPositive ? (
                 <TrendingUp className="h-4 w-4 mr-1" />
@@ -392,7 +391,7 @@ export function SalesVolumeChart({
           </div>
         )}
       </CardHeader>
-      <CardContent className="pt-0 pb-4">
+      <CardContent className="pt-0 pb-4 bg-[#181818]">
         {chartDataWithTarget.length > 0 ? (
           <Tabs defaultValue="monthly" className="w-full">
             {showControls && (
@@ -404,178 +403,203 @@ export function SalesVolumeChart({
             
             <TabsContent value="monthly" className="h-[350px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
+                  <BarChart
                   data={chartDataWithTarget}
-                  margin={{ top: 20, right: 20, left: 0, bottom: 10 }}
+                  margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
+                  barCategoryGap="25%"
                 >
                   <defs>
-                    <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4}/>
+                    {/* Gradiente premium tipo Oura Ring: negro → gris claro (fade ascendente) */}
+                    <linearGradient id="barGray" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#000000" />
+                      <stop offset="100%" stopColor="#9ca3af" />
                     </linearGradient>
-                    <linearGradient id="volumeGradientBelow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0.4}/>
-                    </linearGradient>
-                    <filter id="volumeShadow" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-1))" floodOpacity="0.3"/>
-                    </filter>
-                    <filter id="volumeShadowRed" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-4))" floodOpacity="0.3"/>
-                    </filter>
                   </defs>
                   <CartesianGrid 
-                    strokeDasharray="3 3" 
-                    vertical={false} 
-                    stroke="hsl(var(--chart-grid))" 
-                    opacity={0.3}
+                    stroke="#2a2a2a"
+                    vertical={false}
+                    strokeDasharray="0"
                   />
                   <XAxis 
                     dataKey="period" 
-                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={{ stroke: "hsl(var(--chart-axis))", opacity: 0.5 }}
+                    stroke="#9ca3af"
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
                     tickLine={false}
+                    axisLine={{ stroke: "#2a2a2a" }}
                   />
                   <YAxis 
-                    hide={true}
+                    stroke="#9ca3af"
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#2a2a2a" }}
                   />
-                  <CustomTooltip 
-                    formatter={(value: any, name: any) => {
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    contentStyle={{
+                      backgroundColor: "#181818",
+                      border: "1px solid #2a2a2a",
+                      color: "#9ca3af",
+                      fontSize: "12px",
+                      borderRadius: "4px",
+                    }}
+                    formatter={(value: any) => {
                       const unit = getUnit();
-                      if (name === "value") return [`${formatNumber(value as number)} ${unit}`, "Volumen"];
-                      if (name === "target") return [`${formatNumber(value as number)} ${unit}`, "Objetivo"];
-                      if (name === "diferencia") {
-                        const num = value as number;
-                        const sign = num >= 0 ? '+' : '';
-                        return [`${sign}${formatNumber(num)} ${unit}`, "Diferencia"];
-                      }
-                      return [value, name];
+                      return `${formatNumber(value as number)} ${unit}`;
                     }}
                     labelFormatter={(label: any) => `${label}`}
-                    customWidth="240px"
-                    data={chartDataWithTarget}
-                    cursor={{ fill: 'rgba(59, 130, 246, 0.1)', stroke: 'rgba(59, 130, 246, 0.3)', strokeWidth: 2 }}
                   />
                   <Bar 
                     dataKey="value" 
                     name={`Volumen (${getUnit()})`} 
-                    radius={[8, 8, 0, 0]}
+                    fill="url(#barGray)"
+                    radius={[4, 4, 0, 0]}
                     barSize={70} 
                     animationDuration={1200}
                     animationEasing="ease-in-out"
                     maxBarSize={90}
                     shape={(props: any) => {
-                      const { x, y, width, height, payload } = props;
-                      const isBelowTarget = payload.value < payload.target;
-                      const fillColor = isBelowTarget ? 'url(#volumeGradientBelow)' : 'url(#volumeGradient)';
-                      const filterStyle = isBelowTarget ? 'url(#volumeShadowRed)' : 'url(#volumeShadow)';
+                      const { x, y, width, height } = props;
                       return (
-                        <rect 
-                          x={x} 
-                          y={y} 
-                          width={width} 
-                          height={height} 
-                          fill={fillColor} 
-                          filter={filterStyle} 
-                          rx={8} 
-                          ry={8}
-                          className="transition-all duration-200 hover:opacity-80"
-                          style={{ cursor: 'pointer' }}
-                        />
+                        <g>
+                          {/* Barra con degradado negro → gris claro (ascendente) */}
+                          <rect 
+                            x={x} 
+                            y={y} 
+                            width={width} 
+                            height={height} 
+                            fill="url(#barGray)" 
+                            rx={4} 
+                            ry={4}
+                            className="transition-all duration-200 hover:opacity-90"
+                          />
+                          {/* Línea blanca delgada en la parte superior */}
+                          {height > 5 && (
+                            <line
+                              x1={x}
+                              y1={y}
+                              x2={x + width}
+                              y2={y}
+                              stroke="#ffffff"
+                              strokeWidth={0.5}
+                              opacity={0.4}
+                            />
+                          )}
+                        </g>
                       );
                     }}
                   />
                   {monthlyTarget > 0 && (
-                    <Line
-                      type="monotone"
-                      dataKey="target"
-                      name="Objetivo"
-                      stroke="hsl(var(--chart-2))"
-                      strokeWidth={3}
-                      dot={{ r: 6, fill: "hsl(var(--chart-2))", stroke: 'hsl(var(--card))', strokeWidth: 2 }}
-                      strokeDasharray="6 4"
-                      opacity={0.9}
+                    <ReferenceLine
+                      y={monthlyTarget}
+                      stroke="#9ca3af"
+                      strokeWidth={1}
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.4}
                     />
                   )}
-                </ComposedChart>
+                </BarChart>
               </ResponsiveContainer>
             </TabsContent>
             
             <TabsContent value="weekly" className="h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
+                <BarChart
                   data={generateWeeklyData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+                  margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
+                  barCategoryGap="25%"
                 >
                   <defs>
-                    <linearGradient id="weeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
-                    </linearGradient>
-                    <linearGradient id="weeklyGradientBelow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0.3}/>
+                    {/* Gradiente premium tipo Oura Ring: negro → gris claro (fade ascendente) */}
+                    <linearGradient id="weeklyBarGray" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#000000" />
+                      <stop offset="100%" stopColor="#9ca3af" />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
+                  <CartesianGrid 
+                    stroke="#2a2a2a"
+                    vertical={false}
+                    strokeDasharray="0"
+                  />
                   <XAxis 
                     dataKey="semana" 
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    stroke="#9ca3af"
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
                     tickLine={false}
+                    axisLine={{ stroke: "#2a2a2a" }}
                   />
                   <YAxis 
-                    // Establecer un rango fijo para que las barras se vean mejor
                     domain={companyId === 1 ? [0, 20000] : [0, 300000]}
                     padding={{ top: 20 }}
                     tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    stroke="#9ca3af"
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
                     tickLine={false}
-                    orientation="left"
-                    label={{ 
-                      value: companyId === 1 ? 'Kilogramos (KG)' : 'Unidades', 
-                      angle: -90, 
-                      position: 'insideLeft', 
-                      style: { textAnchor: 'middle', fill: 'hsl(var(--muted-foreground))', fontSize: 11 } 
-                    }}
+                    axisLine={{ stroke: "#2a2a2a" }}
                   />
                   <Tooltip 
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      padding: '8px 12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                      color: 'hsl(var(--foreground))'
+                      backgroundColor: "#181818",
+                      border: "1px solid #2a2a2a",
+                      color: "#9ca3af",
+                      fontSize: "12px",
+                      borderRadius: "4px",
                     }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    iconType="line"
+                    formatter={(value: any) => {
+                      const unit = getUnit();
+                      return `${formatNumber(value as number)} ${unit}`;
+                    }}
                   />
                   <Bar 
                     dataKey="valor" 
                     name={`Volumen (${getUnit()})`} 
-                    radius={[8, 8, 0, 0]}
+                    fill="url(#weeklyBarGray)"
+                    radius={[4, 4, 0, 0]}
                     barSize={60} 
                     animationDuration={1200}
                     animationEasing="ease-in-out"
                     maxBarSize={80}
-                    fill="url(#weeklyGradient)"
+                    shape={(props: any) => {
+                      const { x, y, width, height } = props;
+                      return (
+                        <g>
+                          {/* Barra con degradado negro → gris claro (ascendente) */}
+                          <rect 
+                            x={x} 
+                            y={y} 
+                            width={width} 
+                            height={height} 
+                            fill="url(#weeklyBarGray)" 
+                            rx={4} 
+                            ry={4}
+                            className="transition-all duration-200 hover:opacity-90"
+                          />
+                          {/* Línea blanca delgada en la parte superior */}
+                          {height > 5 && (
+                            <line
+                              x1={x}
+                              y1={y}
+                              x2={x + width}
+                              y2={y}
+                              stroke="#ffffff"
+                              strokeWidth={0.5}
+                              opacity={0.4}
+                            />
+                          )}
+                        </g>
+                      );
+                    }}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="objetivo"
-                    name="Objetivo Semanal"
-                    stroke="#10b981"
-                    strokeDasharray="5 5"
-                    strokeWidth={2}
-                    strokeOpacity={0.6}
-                    dot={false}
-                  />
-                </ComposedChart>
+                  {monthlyTarget > 0 && (
+                    <ReferenceLine
+                      y={monthlyTarget / 4}
+                      stroke="#9ca3af"
+                      strokeWidth={1}
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.4}
+                    />
+                  )}
+                </BarChart>
               </ResponsiveContainer>
             </TabsContent>
           </Tabs>

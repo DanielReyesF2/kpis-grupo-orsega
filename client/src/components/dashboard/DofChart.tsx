@@ -256,11 +256,20 @@ export function DofChart() {
                 return (
                   <Card key={data.source} className={`border-2 ${config.borderColor} ${config.bgColor}`}>
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-bold" style={{ color: config.color }}>
-                          {data.source}
-                        </CardTitle>
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: config.color }}></div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg font-bold" style={{ color: config.color }}>
+                            {data.source}
+                          </CardTitle>
+                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: config.color }}></div>
+                        </div>
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          a {new Date(data.date).toLocaleTimeString('es-MX', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false
+                          })} tipo de cambio
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -306,19 +315,6 @@ export function DofChart() {
                         </div>
                       </div>
 
-                      {/* Fecha y hora */}
-                      <div className="text-xs text-gray-500 text-center mb-3">
-                        Actualizado: {new Date(data.date).toLocaleString('es-MX', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true
-                        })}
-                      </div>
-
                       {/* Botón de compra */}
                       <Button
                         onClick={() => handleOpenPurchaseDialog(data)}
@@ -339,61 +335,6 @@ export function DofChart() {
               <div className="text-center py-12 text-gray-400">
                 <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p className="text-sm font-medium">No hay datos disponibles de tipos de cambio</p>
-              </div>
-            )}
-
-            {/* Tabla comparativa */}
-            {allSources.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Comparativa Detallada</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 px-3 font-medium">Fuente</th>
-                        <th className="text-right py-2 px-3 font-medium">Compra</th>
-                        <th className="text-right py-2 px-3 font-medium">Venta</th>
-                        <th className="text-right py-2 px-3 font-medium">Spread</th>
-                        <th className="text-center py-2 px-3 font-medium">Cambio Compra</th>
-                        <th className="text-center py-2 px-3 font-medium">Cambio Venta</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allSources.map((data: any) => {
-                        const config = getSourceConfig(data.source);
-                        return (
-                          <tr key={data.source} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <td className="py-2 px-3 font-medium">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: config.color }}></div>
-                                {data.source}
-                              </div>
-                            </td>
-                            <td className="text-right py-2 px-3 font-semibold">${data.buy.toFixed(4)}</td>
-                            <td className="text-right py-2 px-3 font-semibold">${data.sell.toFixed(4)}</td>
-                            <td className="text-right py-2 px-3">${data.spread.toFixed(4)}</td>
-                            <td className="text-center py-2 px-3">
-                              <div className="flex items-center justify-center gap-1">
-                                {getTrendIcon(data.buyChange)}
-                                <span className={data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}>
-                                  {data.buyChange !== 0 ? `${data.buyChange > 0 ? '+' : ''}${data.buyChange.toFixed(4)}` : '-'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="text-center py-2 px-3">
-                              <div className="flex items-center justify-center gap-1">
-                                {getTrendIcon(data.sellChange)}
-                                <span className={data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}>
-                                  {data.sellChange !== 0 ? `${data.sellChange > 0 ? '+' : ''}${data.sellChange.toFixed(4)}` : '-'}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             )}
           </TabsContent>
