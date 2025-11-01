@@ -410,25 +410,30 @@ export function SalesVolumeChart({
                 >
                   <defs>
                     <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#273949" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="#273949" stopOpacity={0.4}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4}/>
                     </linearGradient>
                     <linearGradient id="volumeGradientBelow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.4}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0.4}/>
                     </linearGradient>
                     <filter id="volumeShadow" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#273949" floodOpacity="0.3"/>
+                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-1))" floodOpacity="0.3"/>
                     </filter>
                     <filter id="volumeShadowRed" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#ef4444" floodOpacity="0.3"/>
+                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-4))" floodOpacity="0.3"/>
                     </filter>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                  <CartesianGrid 
+                    strokeDasharray="3 3" 
+                    vertical={false} 
+                    stroke="hsl(var(--chart-grid))" 
+                    opacity={0.3}
+                  />
                   <XAxis 
                     dataKey="period" 
                     tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
+                    axisLine={{ stroke: "hsl(var(--chart-axis))", opacity: 0.5 }}
                     tickLine={false}
                   />
                   <YAxis 
@@ -485,10 +490,11 @@ export function SalesVolumeChart({
                       type="monotone"
                       dataKey="target"
                       name="Objetivo"
-                      stroke="#b5e951"
+                      stroke="hsl(var(--chart-2))"
                       strokeWidth={3}
-                      dot={{ r: 6, fill: "#b5e951", stroke: 'white', strokeWidth: 2 }}
-                      strokeDasharray="0"
+                      dot={{ r: 6, fill: "hsl(var(--chart-2))", stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+                      strokeDasharray="6 4"
+                      opacity={0.9}
                     />
                   )}
                 </ComposedChart>
@@ -503,44 +509,46 @@ export function SalesVolumeChart({
                 >
                   <defs>
                     <linearGradient id="weeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.3}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
                     </linearGradient>
                     <linearGradient id="weeklyGradientBelow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0.3}/>
                     </linearGradient>
                   </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
                   <XAxis 
                     dataKey="semana" 
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    tickLine={false}
                   />
                   <YAxis 
                     // Establecer un rango fijo para que las barras se vean mejor
                     domain={companyId === 1 ? [0, 20000] : [0, 300000]}
                     padding={{ top: 20 }}
                     tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    tickLine={false}
                     orientation="left"
                     label={{ 
                       value: companyId === 1 ? 'Kilogramos (KG)' : 'Unidades', 
                       angle: -90, 
                       position: 'insideLeft', 
-                      style: { textAnchor: 'middle', fill: '#64748b', fontSize: 11 } 
+                      style: { textAnchor: 'middle', fill: 'hsl(var(--muted-foreground))', fontSize: 11 } 
                     }}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                       fontSize: '12px',
                       padding: '8px 12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                      color: 'hsl(var(--foreground))'
                     }}
                   />
                   <Legend 

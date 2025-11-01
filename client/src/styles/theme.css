@@ -28,33 +28,33 @@
 
 /* Dark theme - Professional Modern Look (Cursor/OpenAI style) */
 .dark {
-  /* Theme base colors - Dark Gray almost black, very neutral */
-  --background: 0 0% 10%; /* #1a1a1a - casi negro, muy gris oscuro */
-  --foreground: 0 0% 95%; /* #F2F2F2 - texto muy claro */
-  --muted: 0 0% 50%; /* #808080 - gris neutro medio */
-  --muted-foreground: 0 0% 50%;
+  /* Theme base colors - Neutral dark with better depth */
+  --background: 220 10% 12%; /* #1c1f23 - más claro que negro, con matiz azul sutil */
+  --foreground: 0 0% 96%; /* #F5F5F5 - texto muy claro */
+  --muted: 220 8% 65%; /* #9CA3AF - gris neutro medio */
+  --muted-foreground: 220 8% 65%;
   
   /* Card and surface colors */
-  --card: 0 0% 13%; /* #212121 - ligeramente más claro que background */
-  --card-foreground: 0 0% 95%;
-  --popover: 0 0% 13%;
-  --popover-foreground: 0 0% 95%;
+  --card: 220 8% 16%; /* #25282d - más claro que background para profundidad */
+  --card-foreground: 0 0% 96%;
+  --popover: 220 8% 16%;
+  --popover-foreground: 0 0% 96%;
   
   /* Borders and dividers */
-  --border: 0 0% 25%; /* #404040 - bordes gris medio oscuro */
-  --input: 0 0% 18%; /* #2e2e2e */
-  --ring: 217 91% 60%; /* Azul neutral, no morado - #3B82F6 */
+  --border: 220 10% 30%; /* #4a5058 - bordes más visibles */
+  --input: 220 8% 20%; /* #333639 */
+  --ring: 217 85% 60%; /* Azul neutral con menos saturación - #3B82F6 */
   
   /* Primary colors - Azul neutral (no morado) */
-  --primary: 217 91% 60%; /* #3B82F6 - azul neutral estilo OpenAI */
+  --primary: 217 85% 60%; /* #3B82F6 - azul neutral estilo OpenAI, menos saturado */
   --primary-foreground: 0 0% 100%;
   
   /* Secondary */
-  --secondary: 0 0% 18%; /* #2e2e2e */
-  --secondary-foreground: 0 0% 95%;
+  --secondary: 220 8% 20%; /* #333639 */
+  --secondary-foreground: 0 0% 96%;
   
   /* Accent colors */
-  --accent: 217 91% 60%; /* #3B82F6 - mismo azul neutral */
+  --accent: 217 85% 60%; /* #3B82F6 - mismo azul neutral */
   --accent-foreground: 0 0% 100%;
   
   /* Status colors */
@@ -70,27 +70,31 @@
   --danger-foreground: 0 0% 100%;
   
   /* Sidebar colors */
-  --sidebar-background: 0 0% 10%; /* Mismo que background */
-  --sidebar-foreground: 0 0% 95%;
-  --sidebar-primary: 217 91% 60%; /* Azul neutral */
+  --sidebar-background: 220 10% 12%; /* Mismo que background */
+  --sidebar-foreground: 0 0% 96%;
+  --sidebar-primary: 217 85% 60%; /* Azul neutral */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 0 0% 18%; /* #2e2e2e */
-  --sidebar-accent-foreground: 0 0% 95%;
-  --sidebar-border: 0 0% 25%; /* #404040 */
-  --sidebar-ring: 217 91% 60%; /* Azul neutral */
+  --sidebar-accent: 220 8% 20%; /* #333639 */
+  --sidebar-accent-foreground: 0 0% 96%;
+  --sidebar-border: 220 10% 30%; /* #4a5058 */
+  --sidebar-ring: 217 85% 60%; /* Azul neutral */
   
   /* Chart colors */
-  --chart-1: 217 91% 60%; /* #3B82F6 - azul neutral */
+  --chart-1: 217 85% 60%; /* #3B82F6 - azul neutral */
   --chart-2: 142 71% 45%; /* #22C55E - verde */
   --chart-3: 38 92% 50%; /* #F59E0B - naranja */
   --chart-4: 0 84% 60%; /* #EF4444 - rojo */
-  --chart-5: 0 0% 50%; /* #808080 - gris neutro */
+  --chart-5: 220 8% 65%; /* #9CA3AF - gris neutro */
+  
+  /* Chart axis and grid colors */
+  --chart-axis: 0 0% 90%; /* #E5E7EB - líneas de eje claras */
+  --chart-grid: 220 10% 25%; /* #3d4147 - grid sutil */
   
   /* Special variables */
   --radius: 8px;
-  --navbar-bg: rgba(26, 26, 26, 0.8); /* #1a1a1a con transparencia */
+  --navbar-bg: rgba(28, 31, 35, 0.8); /* #1c1f23 con transparencia */
   --navbar-blur: blur(10px);
-  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.5); /* Shadow más fuerte para el gris oscuro */
+  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.5); /* Shadow más fuerte */
 }
 
 /* Base styles */

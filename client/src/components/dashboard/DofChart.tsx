@@ -404,42 +404,44 @@ export function DofChart() {
                 <LineChart data={combinedData} margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
                   <defs>
                     <linearGradient id="monexSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="santanderSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#16a34a" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="dofSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
                   <XAxis 
                     dataKey="date" 
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    tickLine={false}
                     angle={-45}
                     textAnchor="end"
                     height={60}
                   />
                   <YAxis 
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    tickLine={{ stroke: '#e2e8f0' }}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                    tickLine={false}
                     domain={['dataMin - 0.1', 'dataMax + 0.1']}
                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                       fontSize: '12px',
                       padding: '8px 12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                      color: 'hsl(var(--foreground))'
                     }}
                     formatter={(value: any) => `$${value.toFixed(4)}`} 
                   />
@@ -453,7 +455,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="monexBuy" 
-                        stroke="#60a5fa" 
+                        stroke="hsl(var(--chart-1))" 
                         strokeWidth={3} 
                         name="MONEX Compra" 
                         dot={false} 
@@ -463,7 +465,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="monexSell" 
-                        stroke="#2563eb" 
+                        stroke="hsl(var(--chart-1))" 
                         strokeWidth={3} 
                         name="MONEX Venta" 
                         dot={false}
@@ -476,7 +478,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="santanderBuy" 
-                        stroke="#4ade80" 
+                        stroke="hsl(var(--chart-2))" 
                         strokeWidth={3} 
                         name="Santander Compra" 
                         dot={false} 
@@ -486,7 +488,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="santanderSell" 
-                        stroke="#16a34a" 
+                        stroke="hsl(var(--chart-2))" 
                         strokeWidth={3} 
                         name="Santander Venta" 
                         dot={false}
@@ -499,7 +501,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="dofBuy" 
-                        stroke="#fb923c" 
+                        stroke="hsl(var(--chart-3))" 
                         strokeWidth={3} 
                         name="DOF Compra" 
                         dot={false} 
@@ -509,7 +511,7 @@ export function DofChart() {
                       <Line 
                         type="monotone" 
                         dataKey="dofSell" 
-                        stroke="#ea580c" 
+                        stroke="hsl(var(--chart-3))" 
                         strokeWidth={3} 
                         name="DOF Venta" 
                         dot={false}

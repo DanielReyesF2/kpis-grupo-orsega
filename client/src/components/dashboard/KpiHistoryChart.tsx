@@ -78,32 +78,34 @@ const KpiHistoryChart: React.FC<KpiHistoryChartProps> = ({
             >
               <defs>
                 <linearGradient id="kpiValueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
                 </linearGradient>
               </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
               <XAxis 
                 dataKey="fecha" 
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                axisLine={{ stroke: '#e2e8f0' }}
-                tickLine={{ stroke: '#e2e8f0' }}
+                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                tickLine={false}
                 angle={-45}
                 textAnchor="end"
                 height={70}
               />
               <YAxis 
-                tick={{ fontSize: 11, fill: '#64748b' }}
-                axisLine={{ stroke: '#e2e8f0' }}
-                tickLine={{ stroke: '#e2e8f0' }}
+                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                tickLine={false}
               />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'white', 
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: 'hsl(var(--card))', 
+                  border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
                   fontSize: '12px',
                   padding: '8px 12px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                  color: 'hsl(var(--foreground))'
                 }}
                 formatter={(value, name) => {
                   // Mostrar el valor original con formato
@@ -119,8 +121,8 @@ const KpiHistoryChart: React.FC<KpiHistoryChartProps> = ({
                 type="monotone"
                 dataKey="valor"
                 name="Valor"
-                stroke="#2563eb"
-                activeDot={{ r: 6 }}
+                stroke="hsl(var(--chart-1))"
+                activeDot={{ r: 6, fill: "hsl(var(--chart-1))", stroke: "hsl(var(--card))", strokeWidth: 2 }}
                 strokeWidth={3}
                 dot={false}
               />

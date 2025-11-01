@@ -362,16 +362,23 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
                           data={chartData}
                           margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="date" tick={{fontSize: 10}} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                            axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                            tickLine={false}
+                          />
                           <YAxis 
                             label={{ 
                               value: 'Kilogramos (KG)', 
                               angle: -90, 
                               position: 'insideLeft',
-                              style: { fontSize: '10px' } 
+                              style: { fontSize: '10px', fill: 'hsl(var(--muted-foreground))' } 
                             }} 
-                            tick={{fontSize: 10}}
+                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                            axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                            tickLine={false}
                           />
                           <Tooltip 
                             formatter={(value, name) => {
@@ -382,15 +389,23 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
                               }
                               return [value, name];
                             }}
-                            contentStyle={{ fontSize: '12px' }}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--card))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              padding: '8px 12px',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                              color: 'hsl(var(--foreground))'
+                            }}
                           />
                           <Legend wrapperStyle={{ fontSize: '10px' }} />
                           <Line 
                             type="monotone" 
                             dataKey="numericValue" 
                             name="Volumen (KG)" 
-                            stroke="#4f46e5" 
-                            activeDot={{ r: 6 }} 
+                            stroke="hsl(var(--chart-1))" 
+                            activeDot={{ r: 6, fill: "hsl(var(--chart-1))", stroke: "hsl(var(--card))", strokeWidth: 2 }} 
                             strokeWidth={2}
                           />
                         </LineChart>

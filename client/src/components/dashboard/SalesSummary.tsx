@@ -347,36 +347,39 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
               <ComposedChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.4}/>
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4}/>
                   </linearGradient>
                   <linearGradient id="colorSalesBelow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.4}/>
+                    <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0.4}/>
                   </linearGradient>
                   <filter id="shadow" height="200%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#4f46e5" floodOpacity="0.3"/>
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-1))" floodOpacity="0.3"/>
                   </filter>
                   <filter id="shadowRed" height="200%">
-                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#ef4444" floodOpacity="0.3"/>
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="hsl(var(--chart-4))" floodOpacity="0.3"/>
                   </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--chart-grid))" opacity={0.3} />
                 <XAxis 
                   dataKey="month" 
-                  tick={{ fontSize: 12, fill: "#4b5563" }} 
-                  axisLine={{ stroke: "#d1d5db" }}
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} 
+                  axisLine={{ stroke: "hsl(var(--chart-axis))", opacity: 0.5 }}
+                  tickLine={false}
                 />
                 <YAxis 
-                  tick={{ fontSize: 12, fill: "#4b5563" }} 
-                  axisLine={{ stroke: "#d1d5db" }}
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} 
+                  axisLine={{ stroke: "hsl(var(--chart-axis))", opacity: 0.5 }}
+                  tickLine={false}
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: "rgba(255, 255, 255, 0.95)", 
-                    border: "none",
+                    backgroundColor: "hsl(var(--card))", 
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
+                    color: "hsl(var(--foreground))"
                   }}
                   formatter={(value: any) => new Intl.NumberFormat('es-MX').format(value)}
                 />
@@ -409,9 +412,11 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
                   type="monotone" 
                   dataKey="target" 
                   name="Objetivo"
-                  stroke="#b5e951" 
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: "#b5e951" }}
+                  stroke="hsl(var(--chart-2))" 
+                  strokeWidth={3}
+                  dot={{ r: 6, fill: "hsl(var(--chart-2))", stroke: "hsl(var(--card))", strokeWidth: 2 }}
+                  strokeDasharray="6 4"
+                  opacity={0.9}
                 />
               </ComposedChart>
             </ResponsiveContainer>

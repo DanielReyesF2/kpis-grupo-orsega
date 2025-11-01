@@ -1163,19 +1163,19 @@ export default function TreasuryPage() {
                       <SelectContent>
                         <SelectItem value="MONEX">
                           <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-[#2563eb]"></div>
+                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-1))' }}></div>
                             MONEX
                           </div>
                         </SelectItem>
                         <SelectItem value="Santander">
                           <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-[#16a34a]"></div>
+                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }}></div>
                             Santander
                           </div>
                         </SelectItem>
                         <SelectItem value="DOF">
                           <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-[#ea580c]"></div>
+                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }}></div>
                             DOF
                           </div>
                         </SelectItem>
@@ -1216,39 +1216,56 @@ export default function TreasuryPage() {
                         return (
                           <ResponsiveContainer width="100%" height={350}>
                             <LineChart data={monexSeries.series}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
                               <XAxis 
                                 dataKey="date" 
-                                fontSize={11}
+                                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                                tickLine={false}
                                 angle={-45}
                                 textAnchor="end"
                                 height={60}
                               />
-                              <YAxis fontSize={11} domain={['dataMin - 0.05', 'dataMax + 0.05']} />
-                              <Tooltip />
+                              <YAxis 
+                                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                                tickLine={false}
+                                domain={['dataMin - 0.05', 'dataMax + 0.05']} 
+                              />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--card))', 
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  padding: '8px 12px',
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                                  color: 'hsl(var(--foreground))'
+                                }}
+                              />
                               <Legend />
                               
                               {avgMorning && (
                                 <ReferenceLine 
                                   y={avgMorning} 
-                                  stroke="#f59e0b" 
+                                  stroke="hsl(var(--chart-3))" 
                                   strokeDasharray="5 5"
                                   strokeWidth={2}
-                                  label={{ value: `Apertura: $${avgMorning.toFixed(4)}`, position: 'left', fill: '#f59e0b', fontSize: 11 }}
+                                  label={{ value: `Apertura: $${avgMorning.toFixed(4)}`, position: 'left', fill: 'hsl(var(--chart-3))', fontSize: 11 }}
                                 />
                               )}
                               {avgAfternoon && (
                                 <ReferenceLine 
                                   y={avgAfternoon} 
-                                  stroke="#8b5cf6" 
+                                  stroke="hsl(var(--primary))" 
                                   strokeDasharray="5 5"
                                   strokeWidth={2}
-                                  label={{ value: `Cierre: $${avgAfternoon.toFixed(4)}`, position: 'right', fill: '#8b5cf6', fontSize: 11 }}
+                                  label={{ value: `Cierre: $${avgAfternoon.toFixed(4)}`, position: 'right', fill: 'hsl(var(--primary))', fontSize: 11 }}
                                 />
                               )}
                               
-                              <Line type="monotone" dataKey="buy" stroke="#2563eb" strokeWidth={3} name="Compra" />
-                              <Line type="monotone" dataKey="sell" stroke="#60a5fa" strokeWidth={3} name="Venta" />
+                              <Line type="monotone" dataKey="buy" stroke="hsl(var(--chart-1))" strokeWidth={3} name="Compra" />
+                              <Line type="monotone" dataKey="sell" stroke="hsl(var(--chart-1))" strokeWidth={3} name="Venta" strokeDasharray="5 5" strokeOpacity={0.8} />
                             </LineChart>
                           </ResponsiveContainer>
                         );
@@ -1527,30 +1544,33 @@ export default function TreasuryPage() {
                       variant={showMonex ? "default" : "outline"}
                       size="sm"
                       onClick={() => setShowMonex(!showMonex)}
-                      className={showMonex ? "bg-[#2563eb] hover:bg-[#1d4ed8]" : ""}
+                      className={showMonex ? "" : ""}
+                      style={showMonex ? { backgroundColor: 'hsl(var(--chart-1))' } : {}}
                       data-testid="toggle-monex"
                     >
-                      <div className="h-3 w-3 rounded-full bg-[#2563eb] mr-2"></div>
+                      <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: showMonex ? 'white' : 'hsl(var(--chart-1))' }}></div>
                       MONEX
                     </Button>
                     <Button
                       variant={showSantander ? "default" : "outline"}
                       size="sm"
                       onClick={() => setShowSantander(!showSantander)}
-                      className={showSantander ? "bg-[#16a34a] hover:bg-[#15803d]" : ""}
+                      className={showSantander ? "" : ""}
+                      style={showSantander ? { backgroundColor: 'hsl(var(--chart-2))' } : {}}
                       data-testid="toggle-santander"
                     >
-                      <div className="h-3 w-3 rounded-full bg-[#16a34a] mr-2"></div>
+                      <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: showSantander ? 'white' : 'hsl(var(--chart-2))' }}></div>
                       Santander
                     </Button>
                     <Button
                       variant={showDOF ? "default" : "outline"}
                       size="sm"
                       onClick={() => setShowDOF(!showDOF)}
-                      className={showDOF ? "bg-[#ea580c] hover:bg-[#c2410c]" : ""}
+                      className={showDOF ? "" : ""}
+                      style={showDOF ? { backgroundColor: 'hsl(var(--chart-3))' } : {}}
                       data-testid="toggle-dof"
                     >
-                      <div className="h-3 w-3 rounded-full bg-[#ea580c] mr-2"></div>
+                      <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: showDOF ? 'white' : 'hsl(var(--chart-3))' }}></div>
                       DOF
                     </Button>
                   </div>
@@ -1611,36 +1631,53 @@ export default function TreasuryPage() {
                   ) : hasData ? (
                     <ResponsiveContainer width="100%" height={350}>
                       <LineChart data={combinedData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
                         <XAxis 
                           dataKey="date" 
-                          fontSize={10}
+                          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                          tickLine={false}
                           angle={-45}
                           textAnchor="end"
                           height={60}
                         />
-                        <YAxis fontSize={10} domain={['auto', 'auto']} />
-                        <Tooltip />
+                        <YAxis 
+                          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                          axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
+                          tickLine={false}
+                          domain={['auto', 'auto']} 
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            padding: '8px 12px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                            color: 'hsl(var(--foreground))'
+                          }}
+                        />
                         <Legend />
                         
                         {showMonex && (
                           <>
-                            <Line type="monotone" dataKey="monexBuy" stroke="#60a5fa" strokeWidth={2} name="MONEX Compra" dot={false} strokeDasharray="5 5" />
-                            <Line type="monotone" dataKey="monexSell" stroke="#2563eb" strokeWidth={2} name="MONEX Venta" dot={false} />
+                            <Line type="monotone" dataKey="monexBuy" stroke="hsl(var(--chart-1))" strokeWidth={2} name="MONEX Compra" dot={false} strokeDasharray="5 5" strokeOpacity={0.7} />
+                            <Line type="monotone" dataKey="monexSell" stroke="hsl(var(--chart-1))" strokeWidth={2} name="MONEX Venta" dot={false} />
                           </>
                         )}
                         
                         {showSantander && (
                           <>
-                            <Line type="monotone" dataKey="santanderBuy" stroke="#4ade80" strokeWidth={2} name="Santander Compra" dot={false} strokeDasharray="5 5" />
-                            <Line type="monotone" dataKey="santanderSell" stroke="#16a34a" strokeWidth={2} name="Santander Venta" dot={false} />
+                            <Line type="monotone" dataKey="santanderBuy" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Santander Compra" dot={false} strokeDasharray="5 5" strokeOpacity={0.7} />
+                            <Line type="monotone" dataKey="santanderSell" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Santander Venta" dot={false} />
                           </>
                         )}
                         
                         {showDOF && (
                           <>
-                            <Line type="monotone" dataKey="dofBuy" stroke="#fb923c" strokeWidth={2} name="DOF Compra" dot={false} strokeDasharray="5 5" />
-                            <Line type="monotone" dataKey="dofSell" stroke="#ea580c" strokeWidth={2} name="DOF Venta" dot={false} />
+                            <Line type="monotone" dataKey="dofBuy" stroke="hsl(var(--chart-3))" strokeWidth={2} name="DOF Compra" dot={false} strokeDasharray="5 5" strokeOpacity={0.7} />
+                            <Line type="monotone" dataKey="dofSell" stroke="hsl(var(--chart-3))" strokeWidth={2} name="DOF Venta" dot={false} />
                           </>
                         )}
                       </LineChart>
