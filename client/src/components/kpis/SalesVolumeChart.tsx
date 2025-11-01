@@ -361,14 +361,6 @@ export function SalesVolumeChart({
   if (isLoadingHistory) {
     return (
       <Card className="shadow-md bg-white dark:bg-slate-900">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-            {title}
-          </CardTitle>
-          <CardDescription className="text-slate-500 dark:text-slate-400">
-            {subtitle}
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           <div className="h-[400px] flex items-center justify-center">
             <p className="text-gray-500">Cargando datos...</p>
@@ -381,16 +373,7 @@ export function SalesVolumeChart({
   return (
     <Card className="shadow-md bg-white dark:bg-slate-900">
       <CardHeader className="pb-2">
-        <div className="flex justify-between">
-          <div>
-            <CardTitle className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-              {title}
-            </CardTitle>
-            <CardDescription className="text-slate-500 dark:text-slate-400">
-              {subtitle}
-            </CardDescription>
-          </div>
-          
+        <div className="flex justify-end">
           {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
             <div className="flex items-center">
               <span className="text-sm text-slate-500 dark:text-slate-400 mr-2">
