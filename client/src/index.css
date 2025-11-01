@@ -39,17 +39,17 @@
 --card-foreground: 0 0% 95%;
 --border: 240 5% 18%;
 --input: 240 5% 18%;
---primary: 217 91% 60%; /* Azul vibrante #3b82f6 */
+--primary: 217 45% 45%; /* Azul más sobrio y profesional */
 --primary-foreground: 0 0% 100%;
 --secondary: 240 5% 16%;
 --secondary-foreground: 0 0% 95%;
---accent: 217 91% 60%; /* Azul vibrante #3b82f6 */
+--accent: 217 45% 45%; /* Azul más sobrio y profesional */
 --accent-foreground: 0 0% 100%;
---destructive: 0 72% 51%;
+--destructive: 0 60% 45%;
 --destructive-foreground: 0 0% 100%;
---danger: 0 72% 51%;
+--danger: 0 60% 45%;
 --danger-foreground: 0 0% 100%;
---ring: 217 91% 60%; /* Azul para resaltados */
+--ring: 217 45% 45%; /* Azul más sobrio para resaltados */
 --radius: 0.5rem;
   }
 

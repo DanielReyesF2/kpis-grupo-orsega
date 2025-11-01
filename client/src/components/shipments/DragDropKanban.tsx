@@ -200,11 +200,11 @@ const ShipmentCard = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'border-l-slate-400';
-      case 'in_transit': return 'border-l-amber-400';
-      case 'delivered': return 'border-l-[#b5e951]';
-      case 'delayed': return 'border-l-rose-400';
-      case 'cancelled': return 'border-l-gray-400';
+      case 'pending': return 'border-l-blue-500/30';
+      case 'in_transit': return 'border-l-orange-500/30';
+      case 'delivered': return 'border-l-emerald-500/30';
+      case 'delayed': return 'border-l-red-500/30';
+      case 'cancelled': return 'border-l-gray-400/30';
       default: return 'border-l-gray-300';
     }
   };
@@ -221,7 +221,7 @@ const ShipmentCard = ({
 
   return (
     <div 
-      className={`mb-3 cursor-move transition-all duration-200 border-l-4 rounded-lg p-3 bg-white border border-gray-200 ${getStatusColor(shipment.status)} ${
+      className={`mb-3 cursor-move transition-all duration-200 border-l-4 rounded-lg p-3 bg-card border ${getStatusColor(shipment.status)} ${
         isDragging 
           ? 'opacity-50 shadow-xl scale-105' 
           : 'hover:shadow-md hover:-translate-y-0.5'
@@ -235,10 +235,10 @@ const ShipmentCard = ({
       <div className="flex items-center gap-2 mb-2">
         <span className="text-base">{getPriorityIcon(shipment.status)}</span>
         <div className="flex-1">
-          <div className="font-semibold text-sm text-gray-900">{shipment.trackingCode}</div>
-          <div className="text-xs text-gray-500">{shipment.customerName}</div>
+          <div className="font-semibold text-sm">{shipment.trackingCode}</div>
+          <div className="text-xs text-muted-foreground">{shipment.customerName}</div>
         </div>
-        <GripVertical className="h-3 w-3 text-gray-300" />
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
       </div>
 
       {/* Productos (mostrar items si existen, si no mostrar producto legacy) */}
@@ -247,32 +247,32 @@ const ShipmentCard = ({
           <div className="space-y-1">
             {shipment.items.slice(0, 2).map((item, index) => (
               <div key={item.id || index}>
-                <div className="text-sm font-medium text-gray-900 truncate">{item.product}</div>
-                <div className="text-xs text-gray-500">{item.quantity} {item.unit}</div>
+                <div className="text-sm font-medium truncate">{item.product}</div>
+                <div className="text-xs text-muted-foreground">{item.quantity} {item.unit}</div>
               </div>
             ))}
             {shipment.items.length > 2 && (
-              <div className="text-xs text-gray-500 italic">+{shipment.items.length - 2} más...</div>
+              <div className="text-xs text-muted-foreground italic">+{shipment.items.length - 2} más...</div>
             )}
           </div>
         ) : (
           <>
-            <div className="text-sm font-medium text-gray-900 truncate">{shipment.product}</div>
-            <div className="text-xs text-gray-500">{shipment.quantity} {shipment.unit}</div>
+            <div className="text-sm font-medium truncate">{shipment.product}</div>
+            <div className="text-xs text-muted-foreground">{shipment.quantity} {shipment.unit}</div>
           </>
         )}
       </div>
 
       {/* Ruta compacta */}
       <div className="flex items-center gap-1 text-xs mb-2">
-        <span className="text-slate-600 font-medium truncate flex-1">{shipment.origin}</span>
-        <span className="text-gray-400 text-xs">→</span>
-        <span className="text-slate-700 font-medium truncate flex-1">{shipment.destination}</span>
+        <span className="text-muted-foreground font-medium truncate flex-1">{shipment.origin}</span>
+        <span className="text-muted-foreground text-xs">→</span>
+        <span className="text-muted-foreground font-medium truncate flex-1">{shipment.destination}</span>
       </div>
 
       {/* Fecha en línea */}
       {shipment.estimatedDeliveryDate && (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-muted-foreground">
           📅 {new Date(shipment.estimatedDeliveryDate).toLocaleDateString('es-ES', {
             day: 'numeric',
             month: 'short'
@@ -282,12 +282,12 @@ const ShipmentCard = ({
 
       {/* Cycle Time Display - Show for all statuses with relevant metrics */}
       {cycleDisplay && (
-        <div className="mt-3 pt-2 border-t border-gray-100">
+        <div className="mt-3 pt-2 border-t border-border">
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-500">{cycleDisplay.icon}</span>
-            <span className="text-gray-600 font-medium">{cycleDisplay.label}:</span>
+            <span className="text-muted-foreground">{cycleDisplay.icon}</span>
+            <span className="text-muted-foreground font-medium">{cycleDisplay.label}:</span>
             <span 
-              className="text-gray-900 font-semibold"
+              className="font-semibold"
               data-testid={`text-cycle-hours-${shipment.id}`}
             >
               {cycleTimeLoading ? (
@@ -302,13 +302,13 @@ const ShipmentCard = ({
 
       {/* Botón Solicitar envío para pendientes */}
       {shipment.status === 'pending' && onRequestTransport && (
-        <div className="mt-3 pt-2 border-t border-gray-100">
+        <div className="mt-3 pt-2 border-t border-border">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onRequestTransport(shipment);
             }}
-            className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
+            className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
           >
             <Truck className="h-3 w-3" />
             Solicitar envío
@@ -433,43 +433,43 @@ const KanbanColumn = ({
     switch (status) {
       case 'pending': 
         return { 
-          color: 'border-slate-200 bg-gradient-to-b from-slate-50/60 to-white', 
-          headerColor: 'bg-slate-700 text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-muted/50',
           icon: '📋',
           description: 'Listos para enviar'
         };
       case 'in_transit': 
         return { 
-          color: 'border-amber-200 bg-gradient-to-b from-amber-50/60 to-white', 
-          headerColor: 'bg-amber-700 text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-orange-600/20 text-orange-300',
           icon: '🚚',
           description: 'En camino'
         };
       case 'delivered': 
         return { 
-          color: 'border-[#b5e951]/30 bg-gradient-to-b from-[#b5e951]/10 to-white', 
-          headerColor: 'bg-[#6b7a00] text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-emerald-600/20 text-emerald-300',
           icon: '✅',
           description: 'Completados'
         };
       case 'delayed': 
         return { 
-          color: 'border-rose-200 bg-gradient-to-b from-rose-50/60 to-white', 
-          headerColor: 'bg-rose-700 text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-red-600/20 text-red-300',
           icon: '⚠️',
           description: 'Requieren atención'
         };
       case 'cancelled': 
         return { 
-          color: 'border-gray-200 bg-gradient-to-b from-gray-50/60 to-white', 
-          headerColor: 'bg-gray-700 text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-muted/50',
           icon: '🔒',
           description: 'Cerrados'
         };
       default: 
         return { 
-          color: 'border-gray-200 bg-gray-50/50', 
-          headerColor: 'bg-gray-700 text-white',
+          color: 'border-border bg-card', 
+          headerColor: 'bg-muted/50',
           icon: '📦',
           description: 'Envíos'
         };

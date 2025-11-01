@@ -152,7 +152,7 @@ export default function LogisticsPage() {
       {/* Botón Dashboard */}
       <div className="flex justify-start items-center mb-6">
         <Link href="/">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Dashboard
           </Button>
@@ -163,33 +163,33 @@ export default function LogisticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Featured Shipment Stats */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-orange-800">En Tránsito</p>
-                  <p className="text-4xl font-bold text-orange-900">
+                  <p className="text-sm font-medium text-orange-600/80">En Tránsito</p>
+                  <p className="text-4xl font-bold">
                     {shipments.filter((s: Shipment) => s.status === 'in_transit').length}
                   </p>
                 </div>
-                <div className="bg-orange-200 p-3 rounded-full">
-                  <Package className="w-10 h-10 text-orange-700" />
+                <div className="bg-orange-500/10 p-3 rounded-full">
+                  <Package className="w-10 h-10 text-orange-600/70" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-800">Pendientes</p>
-                  <p className="text-4xl font-bold text-purple-900">
+                  <p className="text-sm font-medium text-purple-600/80">Pendientes</p>
+                  <p className="text-4xl font-bold">
                     {shipments.filter((s: Shipment) => s.status === 'pending').length}
                   </p>
                 </div>
-                <div className="bg-purple-200 p-3 rounded-full">
-                  <Clock className="w-10 h-10 text-purple-700" />
+                <div className="bg-purple-500/10 p-3 rounded-full">
+                  <Clock className="w-10 h-10 text-purple-600/70" />
                 </div>
               </div>
             </CardContent>
@@ -199,38 +199,38 @@ export default function LogisticsPage() {
 
         {/* Secondary Stats - Database Info */}
         <div className="space-y-4 max-h-full overflow-y-auto">
-          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('clients')}>
+          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('clients')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Users className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="text-sm text-gray-600">Clientes</span>
+                  <Users className="w-5 h-5 text-blue-500/70 mr-2" />
+                  <span className="text-sm text-muted-foreground">Clientes</span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900">{clients.length}</span>
+                <span className="text-lg font-semibold">{clients.length}</span>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors" onClick={() => setActiveModal('providers')}>
+          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('providers')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Truck className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-sm text-gray-600">Proveedores</span>
+                  <Truck className="w-5 h-5 text-emerald-500/70 mr-2" />
+                  <span className="text-sm text-muted-foreground">Proveedores</span>
                 </div>
-                <span className="text-lg font-semibold text-gray-900">{providers.length}</span>
+                <span className="text-lg font-semibold">{providers.length}</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors shadow-sm border border-purple-200" onClick={() => setActiveModal('products')}>
+          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('products')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Box className="w-5 h-5 text-purple-600 mr-2" />
-                  <span className="text-sm text-gray-600 font-medium">Productos</span>
+                  <Box className="w-5 h-5 text-purple-500/70 mr-2" />
+                  <span className="text-sm text-muted-foreground font-medium">Productos</span>
                 </div>
-                <span className="text-lg font-semibold text-purple-900">{productsLoading ? '...' : products.filter((p: Product) => p.is_active).length}</span>
+                <span className="text-lg font-semibold">{productsLoading ? '...' : products.filter((p: Product) => p.is_active).length}</span>
               </div>
             </CardContent>
           </Card>
