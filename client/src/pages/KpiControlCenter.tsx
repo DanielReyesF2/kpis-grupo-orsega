@@ -490,7 +490,6 @@ export default function KpiControlCenter() {
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
   const [viewMode, setViewMode] = useState<'overview' | 'team'>('overview');
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
   // Detectar si viene de la ruta de team-management
   useEffect(() => {
@@ -560,12 +559,6 @@ export default function KpiControlCenter() {
     enabled: !!user,
   });
 
-  // Actualizar timestamp cuando hay nuevos datos
-  useEffect(() => {
-    if (kpiValuesSuccess) {
-      setLastUpdated(new Date());
-    }
-  }, [kpiValuesSuccess]);
 
   // Queries adicionales para Gestión del Equipo y Vista Histórica
   // Cargar usuarios siempre para que estén disponibles en la vista histórica
@@ -1061,54 +1054,21 @@ export default function KpiControlCenter() {
   return (
     <AppLayout title="Centro de Control KPIs">
       <div className="space-y-8">
-        {/* Header Dinámico */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <BarChart3 className="h-8 w-8" />
-                Centro de Control KPIs
-              </h1>
-              <div className="flex items-center gap-4 mt-3 text-sm">
-                <span className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  {user?.name}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {userArea?.name || 'Sin área'}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {new Date().toLocaleDateString('es-MX')}
-                </span>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold">{kpiStats.total}</div>
-              <div className="text-blue-100">KPIs Monitoreados</div>
-              <div className="text-sm text-blue-200 mt-1">
-                Actualizado: {lastUpdated.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Selector de Vista */}
-        <div className="flex items-center gap-4 bg-white rounded-lg p-1 shadow-sm border">
+        <div className="flex items-center gap-3">
           <Button
-            variant={viewMode === 'overview' ? 'default' : 'ghost'}
+            variant={viewMode === 'overview' ? 'default' : 'outline'}
             onClick={() => setViewMode('overview')}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 font-medium transition-all duration-200"
           >
             <BarChart3 className="h-4 w-4" />
             Vista General
           </Button>
           {isMarioOrAdmin && (
             <Button
-              variant={viewMode === 'team' ? 'default' : 'ghost'}
+              variant={viewMode === 'team' ? 'default' : 'outline'}
               onClick={() => setViewMode('team')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 font-medium transition-all duration-200"
             >
               <Users className="h-4 w-4" />
               Gestión del Equipo
@@ -1119,25 +1079,11 @@ export default function KpiControlCenter() {
         {/* Contenido Dinámico según Vista Seleccionada */}
         {viewMode === 'overview' && (
           <div className="space-y-6">
-            {/* Actualización de Ventas Mensuales - Formulario prominente */}
-            <Card className="relative border shadow-lg overflow-hidden">
-              <CardHeader className="pb-4 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted/50">
-                    <TrendingUp className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl font-bold">
-                      ✨ Actualizar Ventas Mensuales
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      Selecciona el período (mes y año) y registra las ventas. Los datos se actualizarán automáticamente en el dashboard.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <SalesWeeklyUpdateForm showHeader={false} />
+            {/* Actualización de Ventas Mensuales - Formulario compacto */}
+            <Card className="border">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground mb-3">Actualización de ventas</p>
+                <SalesWeeklyUpdateForm showHeader={false} compact={true} />
               </CardContent>
             </Card>
 

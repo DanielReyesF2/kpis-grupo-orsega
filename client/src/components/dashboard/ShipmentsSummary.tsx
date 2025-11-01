@@ -139,7 +139,7 @@ export function ShipmentsSummary() {
   // Tarjetas con indicadores
   const cards = [
     {
-      title: "Pendientes",
+      title: "Por embarcar",
       value: statusCounts.pending,
       icon: <Package className="h-8 w-8 text-white" />,
       color: "bg-gradient-to-br from-blue-500 to-blue-700",

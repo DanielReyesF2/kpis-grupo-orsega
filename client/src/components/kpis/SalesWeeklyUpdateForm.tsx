@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, CheckCircle2, AlertCircle, Building2, Calendar, DollarSign, Sparkles } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Building2, Calendar, DollarSign, Sparkles, TrendingUp } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,9 +25,10 @@ type FormValues = z.infer<typeof salesFormSchema>;
 interface SalesWeeklyUpdateFormProps {
   showHeader?: boolean;
   defaultCompanyId?: number;
+  compact?: boolean;
 }
 
-export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompanyId }: SalesWeeklyUpdateFormProps = {}) {
+export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompanyId, compact = false }: SalesWeeklyUpdateFormProps = {}) {
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "success" | "error">("idle");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<number>(1);
@@ -150,6 +151,160 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
     setSubmissionStatus("idle");
     mutation.mutate(data);
   };
+
+  if (compact) {
+    return (
+      <div className="w-full">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="flex items-end gap-3 flex-wrap">
+              <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                  <FormItem className="flex-1 min-w-[140px]">
+                    <FormLabel className="text-xs text-muted-foreground mb-1.5">Empresa</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value));
+                        setSelectedCompanyId(parseInt(value));
+                      }}
+                      defaultValue={field.value.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {companies.map((company: any) => (
+                          <SelectItem key={company.id} value={company.id.toString()}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="month"
+                render={({ field }) => (
+                  <FormItem className="min-w-[120px]">
+                    <FormLabel className="text-xs text-muted-foreground mb-1.5">Mes</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {months.map((month) => (
+                          <SelectItem key={month} value={month}>
+                            {month}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="year"
+                render={({ field }) => (
+                  <FormItem className="min-w-[100px]">
+                    <FormLabel className="text-xs text-muted-foreground mb-1.5">Año</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <FormControl>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="value"
+                render={({ field }) => (
+                  <FormItem className="flex-1 min-w-[180px]">
+                    <FormLabel className="text-xs text-muted-foreground mb-1.5">{getUnitLabel()}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder={getUnitPlaceholder()}
+                        type="text"
+                        className="h-9 text-sm"
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          const formattedValue = value ? parseInt(value).toLocaleString('es-MX') : '';
+                          field.onChange(formattedValue);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit"
+                className="h-9 px-6 text-sm font-medium"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Actualizar
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {(submissionStatus === "success" || submissionStatus === "error") && (
+              <div className="mt-3">
+                {submissionStatus === "success" && (
+                  <Alert variant="default" className="py-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-xs text-green-700 dark:text-green-400">
+                      {submissionMessage}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {submissionStatus === "error" && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">{submissionMessage}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </form>
+        </Form>
+      </div>
+    );
+  }
 
   return (
     <div className={showHeader ? "max-w-lg mx-auto" : "w-full"}>
