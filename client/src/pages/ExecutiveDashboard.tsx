@@ -129,51 +129,51 @@ export default function ExecutiveDashboard() {
     <AppLayout title="Panel Ejecutivo - Mario Reynoso">
       <div className="space-y-6">
         {/* Executive Header */}
-        <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-6 rounded-xl text-white shadow-lg">
+        <div className="bg-card border border-border p-6 rounded-xl shadow-md">
           <div className="flex items-center gap-3 mb-4">
-            <Crown className="h-8 w-8 text-yellow-400" />
+            <Crown className="h-8 w-8 text-yellow-500" />
             <div>
-              <h1 className="text-2xl font-bold">Panel de Control Ejecutivo</h1>
-              <p className="text-white/80">Vista consolidada organizacional</p>
+              <h1 className="text-2xl font-bold text-foreground">Panel de Control Ejecutivo</h1>
+              <p className="text-muted-foreground">Vista consolidada organizacional</p>
             </div>
           </div>
           
           {/* Key Executive Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+            <div className="bg-muted/50 border border-border p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-emerald-300" />
-                <span className="text-sm">Cumplimiento Global</span>
+                <Target className="h-5 w-5 text-emerald-500" />
+                <span className="text-sm text-foreground">Cumplimiento Global</span>
               </div>
-              <p className="text-3xl font-bold mt-2">{metrics.complianceRate}%</p>
-              <p className="text-xs text-white/70">{metrics.compliantKpis} de {metrics.totalKpis} KPIs</p>
+              <p className="text-3xl font-bold mt-2 text-foreground">{metrics.complianceRate}%</p>
+              <p className="text-xs text-muted-foreground">{metrics.compliantKpis} de {metrics.totalKpis} KPIs</p>
             </div>
             
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+            <div className="bg-muted/50 border border-border p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-[#0080ff]" />
-                <span className="text-sm">Empresas</span>
+                <Building2 className="h-5 w-5 text-blue-500" />
+                <span className="text-sm text-foreground">Empresas</span>
               </div>
-              <p className="text-3xl font-bold mt-2">{metrics.totalCompanies}</p>
-              <p className="text-xs text-white/70">Operaciones activas</p>
+              <p className="text-3xl font-bold mt-2 text-foreground">{metrics.totalCompanies}</p>
+              <p className="text-xs text-muted-foreground">Operaciones activas</p>
             </div>
             
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+            <div className="bg-muted/50 border border-border p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-300" />
-                <span className="text-sm">Alertas Críticas</span>
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                <span className="text-sm text-foreground">Alertas Críticas</span>
               </div>
-              <p className="text-3xl font-bold mt-2">{metrics.nonCompliantKpis + metrics.alertKpis}</p>
-              <p className="text-xs text-white/70">Requieren atención</p>
+              <p className="text-3xl font-bold mt-2 text-foreground">{metrics.nonCompliantKpis + metrics.alertKpis}</p>
+              <p className="text-xs text-muted-foreground">Requieren atención</p>
             </div>
             
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+            <div className="bg-muted/50 border border-border p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-[#0080ff]" />
-                <span className="text-sm">Colaboradores</span>
+                <Users className="h-5 w-5 text-blue-500" />
+                <span className="text-sm text-foreground">Colaboradores</span>
               </div>
-              <p className="text-3xl font-bold mt-2">{metrics.activeUsers}</p>
-              <p className="text-xs text-white/70">Usuarios activos</p>
+              <p className="text-3xl font-bold mt-2 text-foreground">{metrics.activeUsers}</p>
+              <p className="text-xs text-muted-foreground">Usuarios activos</p>
             </div>
           </div>
         </div>

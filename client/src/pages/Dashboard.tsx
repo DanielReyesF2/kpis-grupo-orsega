@@ -222,17 +222,14 @@ export default function Dashboard() {
       <FiltersBar onFilterChange={handleFilterChange} />
       
       {/* Header con stats rápidas */}
-      <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-4 sm:p-8 shadow-lg">
-        <div className="absolute inset-0 bg-grid-white/10 bg-[length:20px_20px] [mask-image:linear-gradient(to_bottom,white_20%,transparent_60%)]"></div>
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#0080ff]/20 to-transparent"></div>
-        
+      <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-card border border-border p-4 sm:p-8 shadow-md">
         <div className="relative">
-          <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-white">
+          <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
             Hola {user?.name?.split(' ')[0] || 'Usuario'}, bienvenido a tu Sistema Digital de Gestión
           </h2>
-          <p className="mb-4 sm:mb-6 max-w-2xl text-sm sm:text-base text-white/90 leading-relaxed">
+          <p className="mb-4 sm:mb-6 max-w-2xl text-sm sm:text-base text-muted-foreground leading-relaxed">
             Aquí podrás ver los KPIs de tus colaboradores y tener acceso a datos en tiempo real 
-            para que puedas tomar decisiones informadas. <span className="font-semibold text-white">¿Qué te gustaría ver hoy?</span>
+            para que puedas tomar decisiones informadas. <span className="font-semibold text-foreground">¿Qué te gustaría ver hoy?</span>
           </p>
           
           {/* Selector de empresa ahora visible en la cabecera */}

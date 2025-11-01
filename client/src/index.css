@@ -29,19 +29,19 @@
 --radius: 0.5rem;
   }
   .dark {
-      --background: 222 47% 11%; /* Fondo oscuro profundo más serio #0f172a */
+      --background: 240 5% 8%; /* Gris oscuro neutro tipo Chrome/Cursor #1a1a1a */
 --foreground: 0 0% 95%;
---muted: 222 47% 7%;
+--muted: 240 5% 6%;
 --muted-foreground: 215 20% 65%;
---popover: 222 47% 11%;
+--popover: 240 5% 8%;
 --popover-foreground: 0 0% 95%;
---card: 222 47% 14%; /* Cards ligeramente más claros para contraste */
+--card: 240 5% 11%; /* Cards ligeramente más claros para contraste */
 --card-foreground: 0 0% 95%;
---border: 217 33% 17%;
---input: 217 33% 17%;
---primary: 217 91% 60%; /* Azul vibrante para elementos importantes */
+--border: 240 5% 18%;
+--input: 240 5% 18%;
+--primary: 217 91% 60%; /* Azul vibrante #3b82f6 */
 --primary-foreground: 0 0% 100%;
---secondary: 217 33% 17%;
+--secondary: 240 5% 16%;
 --secondary-foreground: 0 0% 95%;
 --accent: 217 91% 60%; /* Azul vibrante #3b82f6 */
 --accent-foreground: 0 0% 100%;

@@ -1383,51 +1383,51 @@ export default function KpiControlCenter() {
         {viewMode === 'team' && isMarioOrAdmin && (
           <div className="space-y-6">
             {/* Executive Header */}
-            <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2a4a6f] p-6 rounded-xl text-white shadow-lg">
+            <div className="bg-card border border-border p-6 rounded-xl shadow-md">
               <div className="flex items-center gap-3 mb-4">
-                <Crown className="h-8 w-8 text-yellow-400" />
+                <Crown className="h-8 w-8 text-yellow-500" />
                 <div>
-                  <h1 className="text-2xl font-bold">Panel de Control Ejecutivo</h1>
-                  <p className="text-white/80">Administra usuarios, roles y permisos del sistema</p>
+                  <h1 className="text-2xl font-bold text-foreground">Panel de Control Ejecutivo</h1>
+                  <p className="text-muted-foreground">Administra usuarios, roles y permisos del sistema</p>
                 </div>
               </div>
 
               {/* Key Executive Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                <div className="bg-muted/50 border border-border p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-emerald-300" />
-                    <span className="text-sm">Total Colaboradores</span>
+                    <Users className="h-5 w-5 text-emerald-500" />
+                    <span className="text-sm text-foreground">Total Colaboradores</span>
               </div>
-                  <p className="text-3xl font-bold mt-2">{teamMetrics.totalUsers}</p>
-                  <p className="text-xs text-white/70">Activos en plataforma</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.totalUsers}</p>
+                  <p className="text-xs text-muted-foreground">Activos en plataforma</p>
                 </div>
 
-                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                <div className="bg-muted/50 border border-border p-4 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-[#0080ff]" />
-                    <span className="text-sm">Usuarios Activos</span>
+                    <Activity className="h-5 w-5 text-blue-500" />
+                    <span className="text-sm text-foreground">Usuarios Activos</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2">{teamMetrics.activeUsers}</p>
-                  <p className="text-xs text-white/70">Últimos 7 días</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.activeUsers}</p>
+                  <p className="text-xs text-muted-foreground">Últimos 7 días</p>
                 </div>
 
-                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                <div className="bg-muted/50 border border-border p-4 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-[#0080ff]" />
-                    <span className="text-sm">Rendimiento Promedio</span>
+                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                    <span className="text-sm text-foreground">Rendimiento Promedio</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2">{teamMetrics.avgPerformance}%</p>
-                  <p className="text-xs text-white/70">Basado en KPIs</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.avgPerformance}%</p>
+                  <p className="text-xs text-muted-foreground">Basado en KPIs</p>
                 </div>
 
-                <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
+                <div className="bg-muted/50 border border-border p-4 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-yellow-300" />
-                    <span className="text-sm">Requieren Atención</span>
+                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                    <span className="text-sm text-foreground">Requieren Atención</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2">{teamMetrics.needsAttention}</p>
-                  <p className="text-xs text-white/70">Bajo rendimiento</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.needsAttention}</p>
+                  <p className="text-xs text-muted-foreground">Bajo rendimiento</p>
                 </div>
               </div>
             </div>
@@ -1501,7 +1501,7 @@ export default function KpiControlCenter() {
                           .map((user: any) => (
                             <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                               <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-gradient-to-br from-[#1e3a5f] to-[#0080ff] text-white font-bold">
+                                <AvatarFallback className="bg-blue-600 text-white font-bold">
                                   {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>

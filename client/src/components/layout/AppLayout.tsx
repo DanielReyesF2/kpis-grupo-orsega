@@ -11,7 +11,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, title }: AppLayoutProps) {
   return (
     <>
-      <div className="flex min-h-screen bg-secondary-50 dark:bg-primary-950">
+      <div className="flex min-h-screen bg-background">
         {/* La barra lateral siempre está presente pero oculta en móviles */}
         <div className="hidden lg:block lg:w-64 flex-shrink-0">
           <Sidebar />
@@ -20,7 +20,7 @@ export function AppLayout({ children, title }: AppLayoutProps) {
         <div className="lg:hidden">
           <Sidebar />
         </div>
-        <main className="flex-1 overflow-auto w-full flex flex-col">
+        <main className="flex-1 overflow-auto w-full flex flex-col bg-background">
           <TopBar title={title} />
           {/* Contenedor central con ancho máximo para evitar layouts "amontonados" en pantallas con escalado */}
           <div className="flex-1 px-3 sm:px-4 md:px-6 pb-6">

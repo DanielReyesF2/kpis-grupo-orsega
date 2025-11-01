@@ -33,7 +33,7 @@ export function TopBar({ title }: TopBarProps) {
   };
   
   return (
-    <header className="bg-white shadow-sm border-b">
+    <header className="border-b border-border">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-4">
         </div>
@@ -42,13 +42,13 @@ export function TopBar({ title }: TopBarProps) {
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2 hover:bg-gray-100">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <Avatar className="h-7 w-7">
-                    <AvatarFallback className="text-xs bg-gradient-to-r from-[#1e3a5f] to-[#0080ff] text-white">
+                    <AvatarFallback className="text-xs bg-blue-600 text-white">
                       {getUserInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="hidden sm:inline text-sm font-medium text-gray-700">
+                  <span className="hidden sm:inline text-sm font-medium">
                     {user.name.split(' ')[0]}
                   </span>
                 </Button>
