@@ -78,12 +78,12 @@ export function LogisticsPreview() {
   };
 
   return (
-    <Card className="border shadow-md hover:shadow-lg transition-shadow">
+    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              <Truck className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -98,7 +98,7 @@ export function LogisticsPreview() {
             variant="ghost" 
             size="sm"
             onClick={() => navigate('/logistics')}
-            className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 hover:text-blue-700"
           >
             Ver más
             <ArrowRight className="h-4 w-4" />
@@ -108,44 +108,44 @@ export function LogisticsPreview() {
       <CardContent className="pt-0">
         {isLoading ? (
           <div className="space-y-3">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
           </div>
         ) : recentShipments.length > 0 ? (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {recentShipments.map((shipment) => (
               <div 
                 key={shipment.id}
-                className="group p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all cursor-pointer"
+                className="group p-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md transition-all cursor-pointer"
                 onClick={() => navigate('/logistics')}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="p-1.5 bg-slate-100 dark:bg-slate-700 rounded">
-                        <Package className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      <span className="text-base font-bold text-slate-900 dark:text-white truncate">
                         {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-blue-500" />
                         <span className="font-medium">{shipment.origin || 'N/A'}</span>
                       </div>
-                      <ArrowRight className="h-3 w-3 text-slate-400" />
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                      <ArrowRight className="h-4 w-4 text-blue-400" />
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-blue-500" />
                         <span className="font-medium">{shipment.destination || 'N/A'}</span>
                       </div>
                       {(shipment.scheduled_date || shipment.estimatedDeliveryDate || shipment.createdAt) && (
                         <>
                           <span className="text-slate-300 dark:text-slate-600">•</span>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-slate-500" />
-                            <span>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-blue-500" />
+                            <span className="font-medium">
                               {new Date(
                                 shipment.scheduled_date || 
                                 shipment.estimatedDeliveryDate || 
@@ -158,7 +158,7 @@ export function LogisticsPreview() {
                     </div>
                   </div>
                   <Badge 
-                    className={`${getStatusColor(shipment.status)} font-medium whitespace-nowrap`}
+                    className={`${getStatusColor(shipment.status)} font-semibold text-xs px-3 py-1.5 whitespace-nowrap shadow-sm`}
                   >
                     {getStatusText(shipment.status)}
                   </Badge>
@@ -168,8 +168,8 @@ export function LogisticsPreview() {
           </div>
         ) : (
           <div className="text-center py-10 text-slate-400 dark:text-slate-500">
-            <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full w-fit mx-auto mb-3">
-              <Truck className="h-8 w-8 opacity-50" />
+            <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full w-fit mx-auto mb-3">
+              <Truck className="h-8 w-8 text-blue-600 dark:text-blue-400 opacity-50" />
             </div>
             <p className="text-sm font-medium mb-1">No hay envíos recientes</p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
@@ -179,7 +179,7 @@ export function LogisticsPreview() {
               variant="outline" 
               size="sm"
               onClick={() => navigate('/logistics')}
-              className="flex items-center gap-2 mx-auto"
+              className="flex items-center gap-2 mx-auto border-blue-200 text-blue-600 hover:bg-blue-50"
             >
               <Truck className="h-3.5 w-3.5" />
               Ir al módulo de logística
