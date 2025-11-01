@@ -3851,6 +3851,76 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // POST /api/treasury/request-purchase - Solicitar compra de dólares a Lolita
+  app.post("/api/treasury/request-purchase", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const { source, amountUsd, amountMxn, rate, notes } = req.body;
+
+      if (!source || !amountUsd || !amountMxn || !rate) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Buscar el email de Lolita o usar un email por defecto
+      const lolitaEmail = 'dolores@grupoorsega.com'; // Email de Lolita
+      
+      // Crear el mensaje de email
+      const emailSubject = `💰 Solicitud de Compra de Dólares - ${source}`;
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px;">
+            💰 Solicitud de Compra de Dólares
+          </h2>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 16px;"><strong>Hola Lolita,</strong></p>
+            <p style="margin: 10px 0; font-size: 14px;">
+              Por favor compra <strong style="color: #2563eb; font-size: 18px;">${parseFloat(amountUsd).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</strong> 
+              a precio de <strong style="color: #2563eb;">$${parseFloat(rate).toFixed(4)} MXN</strong> (${source}).
+            </p>
+            <p style="margin: 10px 0; font-size: 14px;">
+              <strong>Total a pagar:</strong> <span style="color: #16a34a; font-size: 18px;">$${parseFloat(amountMxn).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</span>
+            </p>
+            ${notes ? `<p style="margin: 10px 0; font-size: 14px;"><strong>Nota:</strong> ${notes}</p>` : ''}
+          </div>
+          
+          <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb;">
+            <p style="margin: 0; font-size: 12px; color: #1e40af;">
+              📧 Esta solicitud fue enviada desde el sistema por ${user.name || user.email}
+            </p>
+          </div>
+          
+          <p style="margin-top: 20px; font-size: 14px;">
+            Gracias,<br>
+            <strong>${user.name || 'Emilio'}</strong>
+          </p>
+        </div>
+      `;
+
+      // Enviar email a Lolita
+      const emailResult = await emailService.sendEmail({
+        to: lolitaEmail,
+        subject: emailSubject,
+        html: emailBody,
+      }, 'treasury');
+
+      if (!emailResult.success) {
+        console.error('Error sending email:', emailResult.error);
+        // No fallar la solicitud si falla el email, pero loguear el error
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Solicitud enviada exitosamente a Lolita',
+        emailSent: emailResult.success,
+        requestId: Date.now(),
+      });
+    } catch (error) {
+      console.error('Error processing purchase request:', error);
+      res.status(500).json({ error: 'Failed to process purchase request' });
+    }
+  });
+
   // Configure multer for file uploads
   const upload = multer({
     storage: multer.diskStorage({

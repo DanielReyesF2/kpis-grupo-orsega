@@ -2,20 +2,29 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Send } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 
 export function DofChart() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [fxPeriodDays, setFxPeriodDays] = useState(90);
   const [viewMode, setViewMode] = useState<'cards' | 'chart'>('cards');
+  const [selectedCard, setSelectedCard] = useState<any | null>(null);
+  const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
+  const [usdAmount, setUsdAmount] = useState('');
+  const [mxnAmount, setMxnAmount] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
 
   // Obtener datos de las 3 fuentes
   const { data: monexSeries, isLoading: monexLoading } = useQuery<any>({
@@ -38,27 +47,65 @@ export function DofChart() {
 
   const isLoading = monexLoading || santanderLoading || dofLoading;
 
-  // Mutación para solicitar actualización
-  const requestUpdateMutation = useMutation({
-    mutationFn: async () => {
-      return new Promise((resolve) => {
-        setTimeout(() => resolve({ success: true }), 500);
-      });
+  // Función para abrir el diálogo de compra
+  const handleOpenPurchaseDialog = (data: any) => {
+    setSelectedCard(data);
+    setIsPurchaseDialogOpen(true);
+    setUsdAmount('');
+    setMxnAmount('');
+    setAdditionalNotes('');
+  };
+
+  // Calcular MXN cuando cambia USD
+  const handleUsdChange = (value: string) => {
+    setUsdAmount(value);
+    if (value && selectedCard) {
+      const calculated = parseFloat(value) * selectedCard.buy;
+      setMxnAmount(calculated.toFixed(2));
+    } else {
+      setMxnAmount('');
+    }
+  };
+
+  // Mutación para enviar solicitud de compra a Lolita
+  const sendPurchaseRequestMutation = useMutation({
+    mutationFn: async (data: { source: string; amountUsd: number; amountMxn: number; rate: number; notes: string }) => {
+      const res = await apiRequest('POST', '/api/treasury/request-purchase', data);
+      return res.json();
     },
     onSuccess: () => {
       toast({
-        title: 'Solicitud enviada',
-        description: 'Lolita recibirá la solicitud de actualización',
+        title: '✅ Solicitud enviada',
+        description: 'Lolita recibirá la solicitud de compra por correo electrónico',
       });
+      setIsPurchaseDialogOpen(false);
+      setSelectedCard(null);
+      setUsdAmount('');
+      setMxnAmount('');
+      setAdditionalNotes('');
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: 'Error',
-        description: 'No se pudo enviar la solicitud',
+        description: error?.message || 'No se pudo enviar la solicitud',
         variant: 'destructive',
       });
     },
   });
+
+  const handleSendPurchaseRequest = () => {
+    if (!usdAmount || !selectedCard) return;
+
+    const purchaseData = {
+      source: selectedCard.source,
+      amountUsd: parseFloat(usdAmount),
+      amountMxn: parseFloat(mxnAmount),
+      rate: selectedCard.buy,
+      notes: additionalNotes,
+    };
+
+    sendPurchaseRequestMutation.mutate(purchaseData);
+  };
 
   // Obtener los últimos valores de cada fuente
   const getLatestData = (series: any, sourceName: string) => {
@@ -200,28 +247,6 @@ export function DofChart() {
           </TabsList>
 
           <TabsContent value="cards" className="space-y-4">
-            {/* Botón de actualización - Justo antes de las tarjetas */}
-            <div className="flex justify-center mb-4">
-              <Button
-                onClick={() => requestUpdateMutation.mutate()}
-                disabled={requestUpdateMutation.isPending}
-                className="bg-[#1e3a5f] hover:bg-[#2a4a6f] text-white font-semibold px-6 py-3 text-base shadow-lg hover:shadow-xl transition-all"
-                size="lg"
-              >
-                {requestUpdateMutation.isPending ? (
-                  <>
-                    <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-5 w-5 mr-2" />
-                    ¿Quieres pedirle a Lolita que actualice?
-                  </>
-                )}
-              </Button>
-            </div>
-
             {/* Tarjetas con últimos valores */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {allSources.map((data: any) => {
@@ -282,7 +307,7 @@ export function DofChart() {
                       </div>
 
                       {/* Fecha y hora */}
-                      <div className="text-xs text-gray-500 text-center">
+                      <div className="text-xs text-gray-500 text-center mb-3">
                         Actualizado: {new Date(data.date).toLocaleString('es-MX', { 
                           day: '2-digit', 
                           month: 'short', 
@@ -293,6 +318,16 @@ export function DofChart() {
                           hour12: true
                         })}
                       </div>
+
+                      {/* Botón de compra */}
+                      <Button
+                        onClick={() => handleOpenPurchaseDialog(data)}
+                        className="w-full font-semibold shadow-md hover:shadow-lg transition-all"
+                        style={{ backgroundColor: config.color, color: 'white' }}
+                      >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Comprar a este precio
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -415,6 +450,134 @@ export function DofChart() {
         </Tabs>
       </CardContent>
       )}
+
+      {/* Dialog para solicitud de compra */}
+      <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" style={{ color: selectedCard ? getSourceConfig(selectedCard.source).color : undefined }} />
+              Solicitar Compra de Dólares
+            </DialogTitle>
+            <DialogDescription>
+              Envíale a Lolita tu solicitud de compra de dólares
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedCard && (
+            <div className="space-y-4 py-4">
+              {/* Información de la fuente */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border-2" style={{ borderColor: getSourceConfig(selectedCard.source).color }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: getSourceConfig(selectedCard.source).color }}></div>
+                  <span className="font-bold" style={{ color: getSourceConfig(selectedCard.source).color }}>
+                    {selectedCard.source}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Precio de Compra:</span>
+                    <span className="font-bold">${selectedCard.buy.toFixed(4)} MXN</span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Última actualización: {new Date(selectedCard.date).toLocaleString('es-MX', { 
+                      day: '2-digit', 
+                      month: 'short', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Campo de cantidad en USD */}
+              <div className="space-y-2">
+                <Label htmlFor="usd-amount">Cantidad en USD</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <Input
+                    id="usd-amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={usdAmount}
+                    onChange={(e) => handleUsdChange(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+
+              {/* Cantidad calculada en MXN */}
+              {mxnAmount && (
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Cantidad a pagar:</span>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      ${parseFloat(mxnAmount).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Notas adicionales */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notas adicionales (opcional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Ej: Urgente para pago a proveedor..."
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              {/* Vista previa del mensaje */}
+              {usdAmount && mxnAmount && (
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border text-xs space-y-2">
+                  <div className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Mensaje que se enviará:</div>
+                  <div className="space-y-1 text-gray-600 dark:text-gray-400">
+                    <p><strong>Hola Lolita,</strong></p>
+                    <p>Por favor compra <strong>${parseFloat(usdAmount).toLocaleString('es-MX', { minimumFractionDigits: 2 })} USD</strong> a precio de <strong>${selectedCard.buy.toFixed(4)} MXN</strong> ({selectedCard.source}).</p>
+                    <p>Total a pagar: <strong>${parseFloat(mxnAmount).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</strong></p>
+                    {additionalNotes && <p>Nota: {additionalNotes}</p>}
+                    <p>Gracias,<br/>Emilio</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsPurchaseDialogOpen(false)}
+              disabled={sendPurchaseRequestMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSendPurchaseRequest}
+              disabled={!usdAmount || sendPurchaseRequestMutation.isPending}
+              className="flex items-center gap-2"
+              style={{ backgroundColor: selectedCard ? getSourceConfig(selectedCard.source).color : undefined }}
+            >
+              {sendPurchaseRequestMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Enviar a Lolita
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
