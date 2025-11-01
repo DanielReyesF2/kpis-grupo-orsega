@@ -542,88 +542,69 @@ export function SalesVolumeChart({
                 >
                   <defs>
                     <linearGradient id="weeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#273949" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="#273949" stopOpacity={0.4}/>
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.3}/>
                     </linearGradient>
                     <linearGradient id="weeklyGradientBelow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.9}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.4}/>
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3}/>
                     </linearGradient>
-                    <filter id="weeklyShadow" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#273949" floodOpacity="0.3"/>
-                    </filter>
-                    <filter id="weeklyShadowRed" height="200%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#ef4444" floodOpacity="0.3"/>
-                    </filter>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                   <XAxis 
                     dataKey="semana" 
-                    tick={{ fontSize: 12, fill: "#4b5563" }}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickLine={{ stroke: "#d1d5db" }}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={{ stroke: '#e2e8f0' }}
                   />
                   <YAxis 
                     // Establecer un rango fijo para que las barras se vean mejor
                     domain={companyId === 1 ? [0, 20000] : [0, 300000]}
                     padding={{ top: 20 }}
                     tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                    tick={{ fontSize: 12, fill: "#4b5563" }}
-                    axisLine={{ stroke: "#d1d5db" }}
-                    tickLine={{ stroke: "#d1d5db" }}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={{ stroke: '#e2e8f0' }}
                     orientation="left"
                     label={{ 
                       value: companyId === 1 ? 'Kilogramos (KG)' : 'Unidades', 
                       angle: -90, 
                       position: 'insideLeft', 
-                      style: { textAnchor: 'middle', fill: "#4b5563", fontSize: 12 } 
+                      style: { textAnchor: 'middle', fill: '#64748b', fontSize: 11 } 
                     }}
                   />
-                  <CustomTooltip 
-                    formatter={(value: any, name: any) => {
-                      const unit = getUnit();
-                      if (name === "valor") return [`${formatNumber(value as number)} ${unit}`, "Volumen"];
-                      if (name === "objetivo") return [`${formatNumber(value as number)} ${unit}`, "Objetivo Semanal"];
-                      if (name === "diferencia") {
-                        const num = value as number;
-                        const sign = num >= 0 ? '+' : '';
-                        return [`${sign}${formatNumber(num)} ${unit}`, "Diferencia"];
-                      }
-                      return [value, name];
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
-                    labelFormatter={(label: any) => `${label}`}
-                    customWidth="180px"
-                    cursor={{ fill: 'rgba(39, 57, 73, 0.1)' }}
                   />
                   <Legend 
-                    wrapperStyle={{ paddingTop: 15 }}
-                    iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
                   />
                   <Bar 
                     dataKey="valor" 
                     name={`Volumen (${getUnit()})`} 
-                    radius={[6, 6, 0, 0]}
+                    radius={[8, 8, 0, 0]}
                     barSize={60} 
                     animationDuration={1200}
                     animationEasing="ease-in-out"
                     maxBarSize={80}
-                    shape={(props: any) => {
-                      const { x, y, width, height, payload } = props;
-                      const isBelowTarget = payload.valor < payload.objetivo;
-                      const fillColor = isBelowTarget ? 'url(#weeklyGradientBelow)' : 'url(#weeklyGradient)';
-                      const filterStyle = isBelowTarget ? 'url(#weeklyShadowRed)' : 'url(#weeklyShadow)';
-                      return (
-                        <rect x={x} y={y} width={width} height={height} fill={fillColor} filter={filterStyle} rx={6} ry={6} />
-                      );
-                    }}
+                    fill="url(#weeklyGradient)"
                   />
                   <Line
                     type="monotone"
                     dataKey="objetivo"
                     name="Objetivo Semanal"
-                    stroke="#b5e951"
+                    stroke="#10b981"
+                    strokeDasharray="5 5"
                     strokeWidth={2}
-                    dot={{ r: 5, fill: "#b5e951", stroke: 'white', strokeWidth: 2 }}
+                    strokeOpacity={0.6}
+                    dot={false}
                   />
                 </ComposedChart>
               </ResponsiveContainer>

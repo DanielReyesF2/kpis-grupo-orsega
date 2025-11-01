@@ -74,51 +74,65 @@ const KpiHistoryChart: React.FC<KpiHistoryChartProps> = ({
           <ResponsiveContainer width="100%" height={300}>
             <LineChart
               data={chartData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
+              margin={{ top: 20, right: 20, left: 20, bottom: 60 }}
             >
-              <CartesianGrid strokeDasharray="3 3" />
+              <defs>
+                <linearGradient id="kpiValueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <XAxis 
                 dataKey="fecha" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 11, fill: '#64748b' }}
+                axisLine={{ stroke: '#e2e8f0' }}
+                tickLine={{ stroke: '#e2e8f0' }}
                 angle={-45}
                 textAnchor="end"
                 height={70}
               />
-              <YAxis />
+              <YAxis 
+                tick={{ fontSize: 11, fill: '#64748b' }}
+                axisLine={{ stroke: '#e2e8f0' }}
+                tickLine={{ stroke: '#e2e8f0' }}
+              />
               <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
                 formatter={(value, name) => {
                   // Mostrar el valor original con formato
                   const dataPoint = chartData.find(d => d.valor === value);
                   return [dataPoint?.original || value, "Valor"];
                 }}
               />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
               <Line
                 type="monotone"
                 dataKey="valor"
                 name="Valor"
-                stroke="#273949"
-                activeDot={{ r: 8 }}
-                strokeWidth={2}
-                dot={{ 
-                  stroke: '#273949', 
-                  strokeWidth: 2,
-                  r: 4,
-                  fill: '#fff'
-                }}
+                stroke="#2563eb"
+                activeDot={{ r: 6 }}
+                strokeWidth={3}
+                dot={false}
               />
               {/* Línea de objetivo */}
               <Line
                 type="monotone"
                 dataKey={() => targetNumeric}
                 name="Objetivo"
-                stroke="#b5e951"
+                stroke="#10b981"
                 strokeDasharray="5 5"
+                strokeWidth={2}
+                strokeOpacity={0.6}
                 dot={false}
               />
             </LineChart>

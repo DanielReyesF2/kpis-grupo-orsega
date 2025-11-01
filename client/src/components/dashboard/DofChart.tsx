@@ -401,41 +401,119 @@ export function DofChart() {
           <TabsContent value="chart">
             {combinedData.length > 0 ? (
               <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={combinedData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <LineChart data={combinedData} margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
+                  <defs>
+                    <linearGradient id="monexSellGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="santanderSellGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#16a34a" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="dofSellGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
                   <XAxis 
                     dataKey="date" 
-                    fontSize={10}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={{ stroke: '#e2e8f0' }}
                     angle={-45}
                     textAnchor="end"
                     height={60}
                   />
                   <YAxis 
-                    fontSize={10} 
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={{ stroke: '#e2e8f0' }}
                     domain={['dataMin - 0.1', 'dataMax + 0.1']}
                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                   />
-                  <Tooltip formatter={(value: any) => `$${value.toFixed(4)}`} />
-                  <Legend />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value: any) => `$${value.toFixed(4)}`} 
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
+                  />
                   
                   {monexData && (
                     <>
-                      <Line type="monotone" dataKey="monexBuy" stroke="#60a5fa" strokeWidth={2} name="MONEX Compra" dot={false} strokeDasharray="5 5" />
-                      <Line type="monotone" dataKey="monexSell" stroke="#2563eb" strokeWidth={2} name="MONEX Venta" dot={false} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="monexBuy" 
+                        stroke="#60a5fa" 
+                        strokeWidth={3} 
+                        name="MONEX Compra" 
+                        dot={false} 
+                        strokeDasharray="5 5"
+                        strokeOpacity={0.7}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="monexSell" 
+                        stroke="#2563eb" 
+                        strokeWidth={3} 
+                        name="MONEX Venta" 
+                        dot={false}
+                      />
                     </>
                   )}
                   
                   {santanderData && (
                     <>
-                      <Line type="monotone" dataKey="santanderBuy" stroke="#4ade80" strokeWidth={2} name="Santander Compra" dot={false} strokeDasharray="5 5" />
-                      <Line type="monotone" dataKey="santanderSell" stroke="#16a34a" strokeWidth={2} name="Santander Venta" dot={false} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="santanderBuy" 
+                        stroke="#4ade80" 
+                        strokeWidth={3} 
+                        name="Santander Compra" 
+                        dot={false} 
+                        strokeDasharray="5 5"
+                        strokeOpacity={0.7}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="santanderSell" 
+                        stroke="#16a34a" 
+                        strokeWidth={3} 
+                        name="Santander Venta" 
+                        dot={false}
+                      />
                     </>
                   )}
                   
                   {dofData && (
                     <>
-                      <Line type="monotone" dataKey="dofBuy" stroke="#fb923c" strokeWidth={2} name="DOF Compra" dot={false} strokeDasharray="5 5" />
-                      <Line type="monotone" dataKey="dofSell" stroke="#ea580c" strokeWidth={2} name="DOF Venta" dot={false} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="dofBuy" 
+                        stroke="#fb923c" 
+                        strokeWidth={3} 
+                        name="DOF Compra" 
+                        dot={false} 
+                        strokeDasharray="5 5"
+                        strokeOpacity={0.7}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="dofSell" 
+                        stroke="#ea580c" 
+                        strokeWidth={3} 
+                        name="DOF Venta" 
+                        dot={false}
+                      />
                     </>
                   )}
                 </LineChart>
