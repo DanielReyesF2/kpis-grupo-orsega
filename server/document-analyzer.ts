@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+// @ts-ignore - pdf-parse no tiene tipos exportados correctamente
+import pdf from "pdf-parse";
 
 // Interface for document analysis results
 export interface DocumentAnalysisResult {
@@ -32,15 +34,24 @@ export async function analyzePaymentDocument(
   console.log(`🔍 [Document Analyzer] Analizando documento tipo: ${fileType}`);
 
   try {
-    // Convertir buffer a base64
-    const base64Data = fileBuffer.toString('base64');
+    let textContent = '';
+    let base64Data = '';
     
-    // Determinar el tipo de imagen para OpenAI
+    // Manejar PDFs - extraer texto directamente
+    if (fileType.includes('pdf')) {
+      console.log(`📄 [Document Analyzer] Procesando PDF...`);
+      const pdfData = await pdf(fileBuffer);
+      textContent = pdfData.text;
+      console.log(`📄 [Document Analyzer] Texto extraído del PDF (${textContent.length} caracteres)`);
+    } else {
+      // Para imágenes, convertir a base64
+      base64Data = fileBuffer.toString('base64');
+    }
+    
+    // Determinar el tipo de imagen para OpenAI (solo para imágenes)
     let imageType = 'image/jpeg';
     if (fileType.includes('png')) imageType = 'image/png';
-    if (fileType.includes('pdf')) imageType = 'application/pdf';
-    
-    const dataUrl = `data:${imageType};base64,${base64Data}`;
+    const dataUrl = base64Data ? `data:${imageType};base64,${base64Data}` : '';
 
     // Prompt optimizado para extraer información de comprobantes bancarios
     const prompt = `Analiza este comprobante de pago bancario y extrae la siguiente información en formato JSON:
@@ -56,26 +67,43 @@ export async function analyzePaymentDocument(
 Si no puedes encontrar algún dato, usa null para ese campo.
 Responde SOLO con el JSON, sin texto adicional.`;
 
-    // Llamar a OpenAI Vision
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: dataUrl,
+    // Llamar a OpenAI - usar Vision API para imágenes, texto para PDFs
+    let response;
+    if (fileType.includes('pdf')) {
+      // Para PDFs, usar el texto extraído directamente
+      response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: `${prompt}\n\nContenido del documento:\n${textContent}`,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+      });
+    } else {
+      // Para imágenes, usar Vision API
+      response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: dataUrl,
+                },
               },
-            },
-          ],
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.1, // Baja temperatura para respuestas más deterministas
-    });
+            ],
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+      });
+    }
 
     const rawResponse = response.choices[0]?.message?.content || "";
     console.log(`📄 [Document Analyzer] Respuesta de OpenAI:`, rawResponse);
