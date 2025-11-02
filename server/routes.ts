@@ -771,90 +771,52 @@ export function registerRoutes(app: express.Application) {
       console.log('🔵 [GET /api/kpis] Endpoint llamado');
       console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId}`);
       
-      // Consultar las tablas correctas kpis_dura y kpis_orsega
+      // Usar tabla unificada kpis con companyId
       let result: any[] = [];
       
-      if (companyId === 1) {
-        // Dura
+      if (companyId === 1 || companyId === 2) {
+        // Filtrar por companyId específico
         result = await sql(`
           SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            1 as "companyId"
-          FROM kpis_dura 
-          ORDER BY area, kpi_name
-        `);
-      } else if (companyId === 2) {
-        // Orsega
-        result = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            2 as "companyId"
-          FROM kpis_orsega 
-          ORDER BY area, kpi_name
+            k.id,
+            a.name as area,
+            k.name as "kpiName",
+            k.description,
+            k.calculation_method as "calculationMethod",
+            k.target as goal,
+            k.unit,
+            k.frequency,
+            NULL as source,
+            k.responsible,
+            NULL as period,
+            NULL as "createdAt",
+            k.company_id as "companyId"
+          FROM kpis k
+          LEFT JOIN areas a ON a.id = k.area_id
+          WHERE k.company_id = ${companyId}
+          ORDER BY a.name, k.name
         `);
       } else if (!companyId) {
-        // Sin filtro - obtener todos los KPIs de ambas tablas
-        const duraKpis = await sql(`
+        // Sin filtro - obtener todos los KPIs
+        result = await sql(`
           SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            1 as "companyId"
-          FROM kpis_dura 
-          ORDER BY area, kpi_name
+            k.id,
+            a.name as area,
+            k.name as "kpiName",
+            k.description,
+            k.calculation_method as "calculationMethod",
+            k.target as goal,
+            k.unit,
+            k.frequency,
+            NULL as source,
+            k.responsible,
+            NULL as period,
+            NULL as "createdAt",
+            k.company_id as "companyId"
+          FROM kpis k
+          LEFT JOIN areas a ON a.id = k.area_id
+          ORDER BY k.company_id, a.name, k.name
         `);
-        
-        const orsegaKpis = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            2 as "companyId"
-          FROM kpis_orsega 
-          ORDER BY area, kpi_name
-        `);
-        
-        result = [...duraKpis, ...orsegaKpis];
       } else {
         return res.status(400).json({ error: 'Invalid company ID. Use 1 for Dura or 2 for Orsega' });
       }
@@ -879,7 +841,7 @@ export function registerRoutes(app: express.Application) {
         areaId: null // No hay areaId en kpis_dura/kpis_orsega
       }));
       
-      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs desde tablas kpis_dura/kpis_orsega`);
+      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs desde tabla unificada kpis`);
       res.json(formattedResult);
     } catch (error: any) {
       console.error('❌ Error fetching KPIs:', error);
