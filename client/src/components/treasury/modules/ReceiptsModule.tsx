@@ -51,28 +51,28 @@ interface ReceiptsModuleProps {
 
 const BOARD_COLUMNS = [
   {
-    id: "pendiente",
+    id: "factura_pagada",
     label: "Validado",
     accent: "bg-pastel-blue/25",
     badge: "bg-pastel-blue/80 text-white",
     icon: ClipboardCheck,
   },
   {
-    id: "pendiente_rep",
+    id: "pendiente_complemento",
     label: "Pendiente complemento",
     accent: "bg-pastel-orange/25",
     badge: "bg-pastel-orange/80 text-white",
     icon: AlertTriangle,
   },
   {
-    id: "enviado",
+    id: "complemento_recibido",
     label: "Complemento recibido",
     accent: "bg-pastel-teal/25",
     badge: "bg-pastel-teal/80 text-white",
     icon: FileText,
   },
   {
-    id: "completado",
+    id: "cierre_contable",
     label: "Cierre contable",
     accent: "bg-pastel-violet/25",
     badge: "bg-pastel-violet/80 text-white",
@@ -218,7 +218,7 @@ export function ReceiptsModule({
     );
 
     vouchers.forEach((voucher) => {
-      const status = (voucher.status ?? "pendiente") as (typeof BOARD_COLUMNS)[number]["id"];
+      const status = (voucher.status ?? "factura_pagada") as (typeof BOARD_COLUMNS)[number]["id"];
       if (counts[status] !== undefined) {
         counts[status] += 1;
       }
@@ -232,7 +232,7 @@ export function ReceiptsModule({
       ...column,
       vouchers: vouchers.filter(
         (voucher) =>
-          (voucher.status ?? "pendiente") === column.id
+          (voucher.status ?? "factura_pagada") === column.id
       ),
     }));
   }, [vouchers]);
@@ -280,7 +280,7 @@ export function ReceiptsModule({
     const voucher = vouchers.find((v) => v.id === active.id);
     if (!voucher) return;
 
-    if ((voucher.status ?? "pendiente") !== newStatus) {
+    if ((voucher.status ?? "factura_pagada") !== newStatus) {
       updateStatusMutation.mutate({ id: voucher.id, status: newStatus });
     }
   };
