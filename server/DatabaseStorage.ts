@@ -1034,31 +1034,7 @@ export class DatabaseStorage implements IStorage {
       
       if (!kpiInfo) {
         console.error(`[getKPIHistory] ❌ KPI ${kpiId} no encontrado en kpis_dura ni kpis_orsega`);
-        console.error(`[getKPIHistory] Intentando buscar en tabla antigua kpi_values como fallback...`);
-        // Fallback: buscar en tabla antigua kpi_values
-        try {
-          const fallbackResult = await sql`
-            SELECT 
-              id,
-              kpi_id as "kpiId",
-              value,
-              date,
-              period,
-              compliance_percentage as "compliancePercentage",
-              status,
-              comments,
-              updated_by as "updatedBy"
-            FROM kpi_values
-            WHERE kpi_id = ${kpiId}
-            ORDER BY date DESC
-            LIMIT ${months}
-          `;
-          console.log(`[getKPIHistory] Fallback - Encontrados ${fallbackResult.length} registros en kpi_values`);
-          return fallbackResult;
-        } catch (error) {
-          console.error(`[getKPIHistory] Error en fallback:`, error);
-          return [];
-        }
+        return [];
       }
 
       // Buscar valores históricos usando el mismo kpi_id
@@ -1203,43 +1179,6 @@ export class DatabaseStorage implements IStorage {
         }));
       }
 
-      // Fallback adicional: si no hay registros en las tablas nuevas, intentar en la tabla legacy kpi_values
-      if (result.length === 0) {
-        try {
-          console.log(`[getKPIHistory] ⚠️ Sin registros en tablas específicas. Probando fallback en tabla legacy kpi_values para kpi_id=${kpiId}`);
-          const legacy = await sql`
-            SELECT 
-              id,
-              kpi_id as "kpiId",
-              value,
-              date,
-              period,
-              compliance_percentage as "compliancePercentage",
-              status,
-              comments,
-              updated_by as "updatedBy"
-            FROM kpi_values
-            WHERE kpi_id = ${kpiId}
-            ORDER BY date DESC
-            LIMIT ${months}
-          `;
-          console.log(`[getKPIHistory] Fallback legacy - encontrados ${legacy.length} registros`);
-          if (legacy.length > 0) {
-            return legacy.map((row: any) => ({
-              id: row.id,
-              value: row.value?.toString() || '0',
-              date: row.date || new Date(),
-              period: row.period || row.date,
-              compliancePercentage: row.compliancePercentage ?? null,
-              status: row.status ?? null,
-              comments: row.comments ?? null,
-              updatedBy: row.updatedBy ?? null,
-            }));
-          }
-        } catch (error) {
-          console.warn(`[getKPIHistory] Error en fallback legacy final:`, error);
-        }
-      }
 
       console.log(`[getKPIHistory] KPI ${kpiId} (${isOrsega ? 'Orsega' : 'Dura'}) history:`, result.length, 'records');
       return result;

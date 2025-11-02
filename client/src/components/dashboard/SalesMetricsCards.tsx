@@ -26,6 +26,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
            name.includes('ventas') || 
            name.includes('sales');
   });
+  
   // Cuando llegue la metadata del KPI, derivar el objetivo anual desde "goal" (objetivo mensual)
   useEffect(() => {
     // Si hay KPI y trae goal numérico, usamos goal * 12; fallback a valores por defecto
@@ -52,7 +53,12 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
 
   // Procesar datos (YTD: solo meses del año en curso)
   const salesData = useMemo(() => {
-    if (!kpiHistory || kpiHistory.length === 0) return [];
+    if (!kpiHistory || kpiHistory.length === 0) {
+      console.log(`[SalesMetricsCards] KPI History vacío para Company ${companyId}`);
+      return [];
+    }
+    
+    console.log(`[SalesMetricsCards] Procesando ${kpiHistory.length} registros de historial para Company ${companyId}`);
     
     // Aceptar mayúsculas y minúsculas en nombres de meses (igual que en la gráfica)
     const monthOrder: { [key: string]: number } = {
@@ -86,6 +92,8 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
 
       return !isNaN(year) && year === currentYear;
     });
+    
+    console.log(`[SalesMetricsCards] Filtrados por año ${currentYear}: ${filtered.length} registros`);
 
     const sortedHistory = [...filtered].sort((a: any, b: any) => {
       const monthA = (a.period || '').split(' ')[0];
@@ -93,14 +101,31 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       return (monthOrder[monthA] || 0) - (monthOrder[monthB] || 0);
     });
     
-    return sortedHistory.map((item: any) => ({
-      sales: parseFloat(String(item.value).replace(/[^0-9.-]+/g, '')) || 0,
-      period: item.period
-    }));
+    const processed = sortedHistory.map((item: any) => {
+      const rawValue = String(item.value);
+      const parsed = parseFloat(rawValue.replace(/[^0-9.-]+/g, '')) || 0;
+      
+      // Log para debugging de valores sospechosos
+      if (parsed > 1000000) {
+        console.warn(`[SalesMetricsCards] ⚠️ Valor sospechosamente alto detectado:`, {
+          raw: rawValue,
+          parsed,
+          period: item.period,
+          kpiId: item.kpiId
+        });
+      }
+      
+      return { sales: parsed, period: item.period };
+    });
+    
+    return processed;
   }, [kpiHistory]);
 
   // Volumen total del año (YTD)
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
+  
+  // Log del total calculado para debugging
+  console.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros procesados = ${salesData.length}`);
 
   // Objetivo anual derivado desde DB (goal mensual * 12) con fallback
   const monthlyGoalFromDb = salesKpi?.goal != null
