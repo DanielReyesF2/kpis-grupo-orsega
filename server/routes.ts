@@ -771,38 +771,115 @@ export function registerRoutes(app: express.Application) {
       console.log('🔵 [GET /api/kpis] Endpoint llamado');
       console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId}`);
       
-      // Usar el storage en lugar de consultas directas a tablas legacy que no existen
+      // Consultar las tablas correctas kpis_dura y kpis_orsega
       let result: any[] = [];
       
-      if (companyId) {
-        // Filtrar por compañía usando la tabla nueva
-        result = await storage.getKpisByCompany(companyId);
+      if (companyId === 1) {
+        // Dura
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            1 as "companyId"
+          FROM kpis_dura 
+          ORDER BY area, kpi_name
+        `);
+      } else if (companyId === 2) {
+        // Orsega
+        result = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            2 as "companyId"
+          FROM kpis_orsega 
+          ORDER BY area, kpi_name
+        `);
+      } else if (!companyId) {
+        // Sin filtro - obtener todos los KPIs de ambas tablas
+        const duraKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            1 as "companyId"
+          FROM kpis_dura 
+          ORDER BY area, kpi_name
+        `);
+        
+        const orsegaKpis = await sql(`
+          SELECT 
+            id,
+            area,
+            kpi_name as "kpiName",
+            description,
+            calculation_method as "calculationMethod",
+            goal,
+            unit,
+            frequency,
+            source,
+            responsible,
+            period,
+            created_at as "createdAt",
+            2 as "companyId"
+          FROM kpis_orsega 
+          ORDER BY area, kpi_name
+        `);
+        
+        result = [...duraKpis, ...orsegaKpis];
       } else {
-        // Sin filtro - obtener todos los KPIs
-        result = await storage.getKpis();
+        return res.status(400).json({ error: 'Invalid company ID. Use 1 for Dura or 2 for Orsega' });
       }
       
       // Convertir al formato esperado por el frontend
       const formattedResult = result.map(kpi => ({
         id: kpi.id,
-        area: kpi.area?.name || kpi.areaId,
-        kpiName: kpi.name,
-        name: kpi.name, // Mantener compatibilidad
+        area: kpi.area,
+        kpiName: kpi.kpiName,
+        name: kpi.kpiName, // Mantener compatibilidad
         description: kpi.description,
         calculationMethod: kpi.calculationMethod,
-        goal: kpi.target,
-        target: kpi.target,
+        goal: kpi.goal,
+        target: kpi.goal,
         unit: kpi.unit,
         frequency: kpi.frequency,
         source: kpi.source || null,
         responsible: kpi.responsible || null,
-        period: null,
+        period: kpi.period || null,
         createdAt: kpi.createdAt,
         companyId: kpi.companyId,
-        areaId: kpi.areaId
+        areaId: null // No hay areaId en kpis_dura/kpis_orsega
       }));
       
-      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs`);
+      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs desde tablas kpis_dura/kpis_orsega`);
       res.json(formattedResult);
     } catch (error: any) {
       console.error('❌ Error fetching KPIs:', error);

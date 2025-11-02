@@ -626,11 +626,13 @@ export default function KpiControlCenter() {
       if (!values || values.length === 0) {
         return {
           ...kpi,
-          value: 'Sin datos',
+          value: null,
           status: 'not_compliant' as const,
-          compliancePercentage: '0%',
+          visualStatus: 'critical' as const,
+          compliancePercentage: 0,
           date: null,
-          comments: 'No hay valores registrados'
+          comments: 'No hay valores registrados',
+          historicalData: []
         };
       }
 
@@ -1195,29 +1197,48 @@ export default function KpiControlCenter() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {displayedKpis.map((kpi: any, index: number) => (
-                    <EnhancedKpiCard
-                      key={kpi.id}
-                      kpi={{
-                        id: kpi.id,
-                        name: kpi.name,
-                        value: kpi.value,
-                        target: kpi.target,
-                        unit: kpi.unit,
-                        compliancePercentage: kpi.compliancePercentage,
-                        status: kpi.visualStatus || 'warning',
-                        areaName: kpi.areaName,
-                        responsible: kpi.responsible,
-                        historicalData: kpi.historicalData,
-                        company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
-                      }}
-                      onClick={() => handleUpdateKpi(kpi.id)}
-                      onViewDetails={() => handleViewExtendedDetails(kpi.id)}
-                      delay={index * 0.05}
-                    />
-                  ))}
-                </div>
+                {kpisLoading && (
+                  <div className="text-center py-8">
+                    <Activity className="h-8 w-8 mx-auto mb-4 text-gray-300 animate-spin" />
+                    <p className="text-gray-500">Cargando KPIs...</p>
+                  </div>
+                )}
+                {!kpisLoading && displayedKpis.length === 0 && (
+                  <div className="text-center py-8">
+                    <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500">No hay KPIs para mostrar</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      {processedKpis.length === 0 
+                        ? 'No se encontraron KPIs para esta empresa'
+                        : 'No hay KPIs que coincidan con los filtros seleccionados'}
+                    </p>
+                  </div>
+                )}
+                {!kpisLoading && displayedKpis.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {displayedKpis.map((kpi: any, index: number) => (
+                      <EnhancedKpiCard
+                        key={kpi.id}
+                        kpi={{
+                          id: kpi.id,
+                          name: kpi.name,
+                          value: kpi.value,
+                          target: kpi.target,
+                          unit: kpi.unit,
+                          compliancePercentage: kpi.compliancePercentage,
+                          status: kpi.visualStatus || 'warning',
+                          areaName: kpi.areaName,
+                          responsible: kpi.responsible,
+                          historicalData: kpi.historicalData,
+                          company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
+                        }}
+                        onClick={() => handleUpdateKpi(kpi.id)}
+                        onViewDetails={() => handleViewExtendedDetails(kpi.id)}
+                        delay={index * 0.05}
+                      />
+                    ))}
+                  </div>
+                )}
                 
                 {!showAllKpis && sortedKpis.length > 6 && (
                   <div className="text-center py-4 border-t border-gray-200 dark:border-gray-700 mt-4">
