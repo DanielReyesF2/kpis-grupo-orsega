@@ -1,6 +1,4 @@
 import OpenAI from "openai";
-// @ts-ignore - pdf-parse no tiene tipos exportados correctamente
-import pdf from "pdf-parse";
 
 // Interface for document analysis results
 export interface DocumentAnalysisResult {
@@ -40,6 +38,8 @@ export async function analyzePaymentDocument(
     // Manejar PDFs - extraer texto directamente
     if (fileType.includes('pdf')) {
       console.log(`📄 [Document Analyzer] Procesando PDF...`);
+      // Import dinámico para evitar bloquear el startup del servidor
+      const pdf = (await import("pdf-parse")).default;
       const pdfData = await pdf(fileBuffer);
       textContent = pdfData.text;
       console.log(`📄 [Document Analyzer] Texto extraído del PDF (${textContent.length} caracteres)`);
