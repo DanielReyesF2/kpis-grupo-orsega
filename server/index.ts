@@ -11,6 +11,48 @@ import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
 import fs from "fs";
 
+// Initialize Sentry before anything else
+import * as Sentry from "@sentry/node";
+
+// Initialize Helmet for security headers
+import helmet from "helmet";
+
+// Configure Sentry - only if DSN is provided
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    
+    // Performance Monitoring
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+    
+    // Session Replay (optional, only in production)
+    replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0.0,
+    replaysOnErrorSampleRate: 1.0,
+    
+    // Filter errors
+    beforeSend(event, hint) {
+      // Don't send errors from healthcheck endpoints
+      if (hint.request?.url?.includes('/health')) {
+        return null;
+      }
+      return event;
+    },
+    
+    // Configure release
+    release: process.env.RAILWAY_GIT_COMMIT_SHA || "local",
+    
+    // Configure integrations
+    integrations: [
+      new Sentry.Integrations.Http({ tracing: true }),
+    ],
+  });
+  
+  console.log("✅ Sentry error tracking initialized");
+} else {
+  console.log("⚠️  Sentry DSN not configured - error tracking disabled");
+}
+
 // ====================
 // BOOT DIAGNOSTICS - PRODUCTION DEBUGGING
 // ====================
@@ -126,32 +168,35 @@ app.head("/healthz", (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// 🔒 SECURITY - Helmet para headers de seguridad modernos
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Permitir inline scripts para Vite HMR
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Compatible con Vite
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  hsts: {
+    maxAge: 31536000, // 1 año
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
 // 🔒 SECURITY MONITORING (SIN RIESGO - Solo monitoreo)
 app.use('/api', securityMonitorMiddleware);
 app.use('/api/login', loginMonitorMiddleware);
 app.use('/api/upload', uploadMonitorMiddleware);
 app.use('/api', apiAccessMonitorMiddleware);
-
-// 🔒 SECURITY HEADERS (Mejora seguridad sin afectar funcionalidad)
-app.use((req, res, next) => {
-  // Skip security headers for healthcheck - they need to be fast
-  if (req.path === '/health' || req.path === '/healthz') {
-    return next();
-  }
-
-  // Prevenir clickjacking
-  res.setHeader('X-Frame-Options', 'DENY');
-  // Prevenir MIME type sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  // XSS Protection
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  // Referrer Policy
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  // Content Security Policy básico
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
-  
-  next();
-});
 
 // Servir específicamente los archivos estáticos de public
 app.use(express.static(path.join(process.cwd(), 'public')));
@@ -212,6 +257,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add Sentry request handler - must be before all routes
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+}
+
 // Create HTTP server EARLY for healthchecks
 const server = createServer(app);
 
@@ -254,8 +305,18 @@ try {
   process.exit(1);
 }
 
+// Add Sentry error handler - must be before other error handlers
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
 // CRITICAL: Add error handler BEFORE async operations to catch any errors
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // Capture exception with Sentry
+  if (process.env.SENTRY_DSN && err) {
+    Sentry.captureException(err);
+  }
+  
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
@@ -275,11 +336,23 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // Global unhandled error handlers
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  
+  // Capture with Sentry
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(reason);
+  }
+  
   // Don't exit - let the server continue
 });
 
 process.on('uncaughtException', (error: Error) => {
   console.error('❌ Uncaught Exception:', error);
+  
+  // Capture with Sentry
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(error);
+  }
+  
   // Don't exit immediately - log and continue
   // Only exit if it's a critical error
   if (error.message.includes('EADDRINUSE') || error.message.includes('PORT')) {
