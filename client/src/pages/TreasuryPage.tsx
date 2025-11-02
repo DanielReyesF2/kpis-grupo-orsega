@@ -28,6 +28,16 @@ export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Helper para obtener headers con autenticación
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
   const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState<number | null>(null);
   const [selectedReceipts, setSelectedReceipts] = useState<number[]>([]);
   const [emailsToSend, setEmailsToSend] = useState("");
@@ -204,7 +214,7 @@ export default function TreasuryPage() {
     mutationFn: async (data: any) => {
       const res = await fetch("/api/treasury/payments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -230,6 +240,7 @@ export default function TreasuryPage() {
     mutationFn: async (paymentId: number) => {
       const res = await fetch(`/api/treasury/payments/${paymentId}/pay`, {
         method: "PUT",
+        headers: getAuthHeaders(),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to mark as paid");
@@ -245,7 +256,7 @@ export default function TreasuryPage() {
     mutationFn: async (data: any) => {
       const res = await fetch("/api/treasury/exchange-rates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -285,6 +296,7 @@ export default function TreasuryPage() {
 
       const res = await fetch(`/api/treasury/payments/${paymentId}/receipts`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
         credentials: "include",
       });
@@ -301,7 +313,7 @@ export default function TreasuryPage() {
     mutationFn: async ({ receiptIds, emails }: { receiptIds: number[]; emails: string[] }) => {
       const res = await fetch("/api/treasury/receipts/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ receiptIds, emails }),
         credentials: "include",
       });
@@ -319,7 +331,7 @@ export default function TreasuryPage() {
     mutationFn: async (data: any) => {
       const res = await fetch("/api/treasury/complements", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -363,16 +375,9 @@ export default function TreasuryPage() {
       formData.append('companyId', companyId.toString());
       formData.append('createAsPending', createAsPending.toString());
 
-      // Get auth token
-      const token = localStorage.getItem('authToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const res = await fetch("/api/idrall/upload", {
         method: "POST",
-        headers,
+        headers: getAuthHeaders(),
         body: formData,
         credentials: "include",
       });
@@ -438,16 +443,9 @@ export default function TreasuryPage() {
       formData.append('clientId', clientId.toString());
       if (notes) formData.append('notes', notes);
 
-      // Get auth token
-      const token = localStorage.getItem('authToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const res = await fetch("/api/payment-vouchers/upload", {
         method: "POST",
-        headers,
+        headers: getAuthHeaders(),
         body: formData,
         credentials: "include",
       });
@@ -528,7 +526,7 @@ export default function TreasuryPage() {
     mutationFn: async (data: any) => {
       const res = await fetch("/api/suppliers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -560,7 +558,7 @@ export default function TreasuryPage() {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const res = await fetch(`/api/suppliers/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
@@ -579,6 +577,7 @@ export default function TreasuryPage() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/suppliers/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete supplier");
