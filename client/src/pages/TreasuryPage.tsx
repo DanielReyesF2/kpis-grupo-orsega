@@ -12,14 +12,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus, FileSpreadsheet, User, Edit, Trash2, Mail, Phone, MoreVertical, Eye, AlertTriangle } from "lucide-react";
+import { Calendar, DollarSign, FileText, TrendingUp, Check, Clock, Upload, Send, Download, RefreshCw, ArrowUp, ArrowDown, Plus, FileSpreadsheet, User, Edit, Trash2, Mail, Phone, AlertTriangle } from "lucide-react";
 import { PaymentVouchersKanban } from "@/components/treasury/PaymentVouchersKanban";
-import { DashboardCard } from "@/components/ui/dashboard-card";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { ReceiptsModule } from "@/components/treasury/modules/ReceiptsModule";
+import { FxModule } from "@/components/treasury/modules/FxModule";
+import { SuppliersModule } from "@/components/treasury/modules/SuppliersModule";
+import { AlertsModule } from "@/components/treasury/modules/AlertsModule";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
@@ -654,16 +657,6 @@ export default function TreasuryPage() {
   const pendingPayments = filteredPayments.filter((p) => p.status === "pending");
   const paidPayments = filteredPayments.filter((p) => p.status === "paid");
 
-  // Filtrar complementos por búsqueda
-  const filteredComplements = complements.filter(c => {
-    if (!complementFilter) return true;
-    const searchLower = complementFilter.toLowerCase();
-    return (
-      c.client_name?.toLowerCase().includes(searchLower) ||
-      c.invoice_reference?.toLowerCase().includes(searchLower)
-    );
-  });
-
   // Filtrar tipos de cambio por periodo
   const filteredExchangeRates = exchangeRates.filter(rate => {
     const rateDate = new Date(rate.date);
@@ -691,17 +684,6 @@ export default function TreasuryPage() {
   });
 
   // Calcular estadísticas
-  const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-  const totalPaidThisMonth = paidPayments.filter(p => {
-    const paidDate = new Date(p.paid_at || p.created_at);
-    const now = new Date();
-    return paidDate.getMonth() === now.getMonth() && paidDate.getFullYear() === now.getFullYear();
-  }).reduce((sum, p) => sum + parseFloat(p.amount), 0);
-
-  const pendingComplements = filteredComplements.filter(c => c.status === "pending").length;
-  const latestRate = exchangeRates[0];
-  const previousRate = exchangeRates[1];
-
   // Filtrar comprobantes por mes/año
   const filteredVouchers = showAllVouchers 
     ? paymentVouchers 
@@ -724,440 +706,39 @@ export default function TreasuryPage() {
   };
 
   // Preparar datos para el gráfico de tendencias
-  const chartData = filteredExchangeRates.slice(0, 20).reverse().map(rate => ({
-    date: format(new Date(rate.date), 'dd/MM HH:mm', { locale: es }),
-    compra: rate.buy_rate,
-    venta: rate.sell_rate,
-  }));
-
-  // Calcular tendencia del tipo de cambio
-  const rateTrend = latestRate && previousRate 
-    ? latestRate.buy_rate > previousRate.buy_rate ? 'up' : latestRate.buy_rate < previousRate.buy_rate ? 'down' : 'stable'
-    : 'stable';
-
-  // ============================================
-  // FUNCIONES RENDER PARA MÓDULOS DEL DASHBOARD
-  // ============================================
-
-  // Módulo 1: Pagos Programados
-  const renderScheduledPaymentsModule = () => {
-    const nextPayment = pendingPayments[0];
-    const getStatusBadge = (status: string) => {
-      switch (status) {
-        case "pending":
-          return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">Pendiente</Badge>;
-        case "authorized":
-          return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-xs">Autorizado</Badge>;
-        case "disbursed":
-          return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Dispersado</Badge>;
-        default:
-          return <Badge variant="outline" className="text-xs">{status}</Badge>;
-      }
-    };
-
-    return (
-      <Card className="h-full flex flex-col border min-h-[400px]">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Calendar className="h-4 w-4 text-primary" />
-              </div>
-              <CardTitle className="text-base font-semibold">Pagos Programados</CardTitle>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveTab("payments")}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver todos
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col pt-4">
-          <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">Pendientes</span>
-              <span className="text-2xl font-bold">{pendingPayments.length}</span>
-            </div>
-            {nextPayment && (
-              <div className="mt-2 pt-2 border-t border-border">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>Próximo: {format(new Date(nextPayment.due_date), "dd MMM", { locale: es })}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 space-y-2 min-h-0 overflow-y-auto max-h-[200px]">
-            {paymentsLoading ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">Cargando...</div>
-            ) : pendingPayments.slice(0, 5).length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">No hay pagos pendientes</div>
-            ) : (
-              pendingPayments.slice(0, 5).map((payment) => (
-                <div key={payment.id} className="p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{payment.supplier_name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(payment.due_date), "dd MMM yyyy", { locale: es })}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {getStatusBadge(payment.status)}
-                        <span className="text-xs font-semibold">
-                          {new Intl.NumberFormat("es-MX", {
-                            style: "currency",
-                            currency: payment.currency || "MXN",
-                          }).format(payment.amount)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="mt-4 pt-3 border-t">
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab("payments")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Programar Pago
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Módulo 2: Comprobantes
-  const renderReceiptsModule = () => {
-    const recentVouchers = filteredVouchers.slice(0, 5);
-    const getVoucherStatusBadge = (status: string) => {
-      const statusMap: Record<string, { label: string; className: string }> = {
-        factura_pagada: { label: "Validado", className: "bg-green-500/10 text-green-600 border-green-500/20" },
-        pendiente_complemento: { label: "Pendiente", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-        complemento_recibido: { label: "Complemento", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-        cierre_contable: { label: "Cerrado", className: "bg-muted text-muted-foreground border-border" },
-      };
-      const config = statusMap[status] || { label: status, className: "" };
-      return <Badge variant="outline" className={`${config.className} text-xs`}>{config.label}</Badge>;
-    };
-
-    return (
-      <Card className="h-full flex flex-col border min-h-[400px]">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <Upload className="h-4 w-4 text-green-600" />
-              </div>
-              <CardTitle className="text-base font-semibold">Comprobantes</CardTitle>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveTab("receipts")}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver todos
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsUploadModalOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Subir comprobante
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col pt-4">
-          <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">Total</span>
-              <span className="text-2xl font-bold">{filteredVouchers.length}</span>
-            </div>
-          </div>
-          <div className="flex-1 space-y-2 min-h-0 overflow-y-auto max-h-[200px]">
-            {vouchersLoading ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">Cargando...</div>
-            ) : recentVouchers.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No hay comprobantes
-              </div>
-            ) : (
-              recentVouchers.map((voucher) => (
-                <div key={voucher.id} className="p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {voucher.clientName || voucher.companyName || "Sin cliente"}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {voucher.extractedAmount ? new Intl.NumberFormat("es-MX", {
-                          style: "currency",
-                          currency: "MXN",
-                        }).format(voucher.extractedAmount) : "Sin monto"}
-                      </div>
-                      <div className="mt-1">{getVoucherStatusBadge(voucher.status)}</div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="mt-4 pt-3 border-t">
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setIsUploadModalOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Subir Comprobante
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Módulo 3: Tipo de Cambio
-  const renderExchangeRateModule = () => {
-    const recentRates = filteredExchangeRates.slice(0, 7).reverse();
-    const sparklineData = recentRates.map(r => r.buy_rate);
-    const minRate = Math.min(...sparklineData);
-    const maxRate = Math.max(...sparklineData);
-    const range = maxRate - minRate || 1;
-
-    return (
-      <Card className="h-full flex flex-col border min-h-[400px]">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <TrendingUp className="h-4 w-4 text-amber-600" />
-              </div>
-              <CardTitle className="text-base font-semibold">Tipo de Cambio</CardTitle>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveTab("exchange-rates")}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver detalle
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col pt-4">
-          {latestRate ? (
-            <>
-              <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground">Compra USD/MXN</span>
-                  <span className="text-2xl font-bold">
-                    ${latestRate.buy_rate?.toFixed(4) || "0.0000"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {rateTrend === 'up' && <ArrowUp className="h-3 w-3 text-green-600" />}
-                  {rateTrend === 'down' && <ArrowDown className="h-3 w-3 text-red-600" />}
-                  <span>Fuente: {latestRate.source || "DOF"}</span>
-                </div>
-              </div>
-              
-              {/* Sparkline mini-gráfica */}
-              {sparklineData.length > 1 && (
-                <div className="mb-4 h-12 relative">
-                  <svg width="100%" height="48" className="overflow-visible">
-                    <polyline
-                      fill="none"
-                      stroke="hsl(var(--chart-1))"
-                      strokeWidth="2"
-                      points={sparklineData.map((rate, i) => {
-                        const x = (i / (sparklineData.length - 1)) * 100;
-                        const y = 48 - ((rate - minRate) / range) * 40;
-                        return `${x},${y}`;
-                      }).join(" ")}
-                    />
-                  </svg>
-                </div>
-              )}
-
-              <div className="flex-1 space-y-1 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Última actualización:</span>
-                  <span>{latestRate.date ? format(new Date(latestRate.date), "dd MMM HH:mm", { locale: es }) : "N/A"}</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              {ratesLoading ? "Cargando..." : "No hay datos de tipo de cambio"}
-            </div>
-          )}
-          <div className="mt-4 pt-3 border-t">
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab("exchange-rates")}>
-              <Eye className="h-4 w-4 mr-2" />
-              Ver Detalle
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Módulo 4: Proveedores
-  const renderProvidersModule = () => {
-    const topSuppliers = filteredSuppliers.slice(0, 5);
-
-    return (
-      <Card className="h-full flex flex-col border min-h-[400px]">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <User className="h-4 w-4 text-blue-600" />
-              </div>
-              <CardTitle className="text-base font-semibold">Proveedores</CardTitle>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setActiveTab("providers")}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver todos
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col pt-4">
-          <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">Registrados</span>
-              <span className="text-2xl font-bold">{suppliers.length}</span>
-            </div>
-          </div>
-          <div className="flex-1 space-y-2 min-h-0 overflow-y-auto max-h-[200px]">
-            {suppliersLoading ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">Cargando...</div>
-            ) : topSuppliers.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No hay proveedores registrados
-              </div>
-            ) : (
-              topSuppliers.map((supplier) => (
-                <div key={supplier.id} className="p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{supplier.name}</div>
-                      {supplier.short_name && (
-                        <div className="text-xs text-muted-foreground mt-1">{supplier.short_name}</div>
-                      )}
-                      {supplier.contact_name && (
-                        <div className="text-xs text-muted-foreground mt-1">Contacto: {supplier.contact_name}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="mt-4 pt-3 border-t">
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab("providers")}>
-              <Eye className="h-4 w-4 mr-2" />
-              Ver Todos
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Módulo 5: Alertas y Estado Financiero
-  const renderFinancialAlertsModule = () => {
-    const overduePayments = pendingPayments.filter(p => {
-      const dueDate = new Date(p.due_date);
-      return dueDate < new Date();
-    });
-    const alerts = overduePayments.length > 0 
-      ? [{ type: "warning", message: `${overduePayments.length} pago(s) retrasado(s)` }]
-      : [];
-
-    return (
-      <Card className="h-full flex flex-col border min-h-[400px]">
-        <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-red-500/10">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-              </div>
-              <CardTitle className="text-base font-semibold">Alertas</CardTitle>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col pt-4">
-          <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground">Este mes</span>
-              <span className="text-2xl font-bold">{paidPayments.length}</span>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Pagos completados
-            </div>
-          </div>
-          
-          <div className="flex-1 space-y-2 min-h-0 overflow-y-auto max-h-[150px]">
-            {alerts.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                Sin alertas pendientes
-              </div>
-            ) : (
-              alerts.map((alert, idx) => (
-                <div key={idx} className="p-2 rounded-lg border border-amber-500/20 bg-amber-500/5">
-                  <div className="flex items-center gap-2 text-xs">
-                    <AlertTriangle className="h-3 w-3 text-amber-600" />
-                    <span className="text-amber-700 dark:text-amber-400">{alert.message}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   return (
     <AppLayout title="Tesorería">
-      <div className="p-6 max-w-[1600px] mx-auto">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {activeTab === "dashboard" ? (
-            <>
-              {/* Grid de Módulos Funcionales */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {renderScheduledPaymentsModule()}
-                {renderReceiptsModule()}
-                {renderExchangeRateModule()}
-                {renderProvidersModule()}
-                {renderFinancialAlertsModule()}
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <ReceiptsModule
+                    vouchers={paymentVouchers}
+                    isLoading={vouchersLoading}
+                    onUpload={() => setIsUploadModalOpen(true)}
+                  />
+                </div>
+                <FxModule
+                  exchangeRates={exchangeRates}
+                  isLoading={ratesLoading}
+                  onViewDetail={() => setActiveTab("exchange-rates")}
+                />
+                <SuppliersModule
+                  suppliers={suppliers}
+                  isLoading={suppliersLoading}
+                  onCreateSupplier={handleOpenNewProvider}
+                />
+                <AlertsModule
+                  payments={payments}
+                  isLoading={paymentsLoading}
+                  onViewAlerts={() => setActiveTab("payments")}
+                />
               </div>
-            </>
+            </div>
           ) : null}
-          
+
           <TabsList className="hidden">
             <TabsTrigger value="payments" />
             <TabsTrigger value="receipts" />
