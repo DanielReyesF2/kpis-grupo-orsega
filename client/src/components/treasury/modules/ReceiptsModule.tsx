@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -100,6 +101,38 @@ function ReceiptsSkeleton() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DroppableColumn({
+  column,
+  vouchers,
+  children,
+}: {
+  column: (typeof BOARD_COLUMNS)[number];
+  vouchers: PaymentVoucher[];
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border border-white/10 bg-surface-muted/55 p-4 flex flex-col h-full transition-colors ${
+        isOver ? "border-pastel-teal/50 bg-surface-muted/70" : ""
+      }`}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <column.icon className="h-4 w-4 text-white/80" />
+          <h4 className="text-sm font-semibold text-white">{column.label}</h4>
+        </div>
+        <Badge className={column.badge}>{vouchers.length}</Badge>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -334,36 +367,27 @@ export function ReceiptsModule({
             >
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {grouped.map((column) => (
-                  <div
+                  <DroppableColumn
                     key={column.id}
-                    className="rounded-xl border border-white/10 bg-surface-muted/55 p-4 flex flex-col h-full"
+                    column={column}
+                    vouchers={column.vouchers}
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <column.icon className="h-4 w-4 text-white/80" />
-                        <h4 className="text-sm font-semibold text-white">
-                          {column.label}
-                        </h4>
-                      </div>
-                      <Badge className={column.badge}>{column.vouchers.length}</Badge>
-                    </div>
                     <SortableContext
                       items={column.vouchers.map((voucher) => voucher.id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-3 flex-1 min-h-[280px]">
-                        {column.vouchers.length === 0 ? (
+                        {column.vouchers.length === 0 && (
                           <div className="h-full rounded-lg border border-dashed border-white/10 flex items-center justify-center text-xs text-muted-foreground">
-                            Arrastra comprobantes aquí
+                            Vacío
                           </div>
-                        ) : (
-                          column.vouchers.map((voucher) => (
-                            <SortableVoucherCard key={voucher.id} voucher={voucher} />
-                          ))
                         )}
+                        {column.vouchers.map((voucher) => (
+                          <SortableVoucherCard key={voucher.id} voucher={voucher} />
+                        ))}
                       </div>
                     </SortableContext>
-                  </div>
+                  </DroppableColumn>
                 ))}
               </div>
             </DndContext>
