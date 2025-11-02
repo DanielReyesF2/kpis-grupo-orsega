@@ -771,97 +771,43 @@ export function registerRoutes(app: express.Application) {
       console.log('🔵 [GET /api/kpis] Endpoint llamado');
       console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId}`);
       
-      const sql = neon(process.env.DATABASE_URL!);
-      let result = [];
+      // Usar el storage en lugar de consultas directas a tablas legacy que no existen
+      let result: any[] = [];
       
-      if (companyId === 1) {
-        // Dura
-        result = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Dura' as "company"
-          FROM kpis_dura 
-          ORDER BY area, kpi_name
-        `);
-      } else if (companyId === 2) {
-        // Orsega
-        result = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Orsega' as "company"
-          FROM kpis_orsega 
-          ORDER BY area, kpi_name
-        `);
+      if (companyId) {
+        // Filtrar por compañía usando la tabla nueva
+        result = await storage.getKpisByCompany(companyId);
       } else {
-        // Sin filtro de empresa - mostrar ambos
-        const duraKpis = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Dura' as "company"
-          FROM kpis_dura 
-          ORDER BY area, kpi_name
-        `);
-        
-        const orsegaKpis = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Orsega' as "company"
-          FROM kpis_orsega 
-          ORDER BY area, kpi_name
-        `);
-        
-        result = [...duraKpis, ...orsegaKpis];
+        // Sin filtro - obtener todos los KPIs
+        result = await storage.getKpis();
       }
       
-      console.log(`📊 [GET /api/kpis] Retornando ${result.length} KPIs`);
-      res.json(result);
-    } catch (error) {
+      // Convertir al formato esperado por el frontend
+      const formattedResult = result.map(kpi => ({
+        id: kpi.id,
+        area: kpi.area?.name || kpi.areaId,
+        kpiName: kpi.name,
+        name: kpi.name, // Mantener compatibilidad
+        description: kpi.description,
+        calculationMethod: kpi.calculationMethod,
+        goal: kpi.target,
+        target: kpi.target,
+        unit: kpi.unit,
+        frequency: kpi.frequency,
+        source: kpi.source || null,
+        responsible: kpi.responsible || null,
+        period: null,
+        createdAt: kpi.createdAt,
+        companyId: kpi.companyId,
+        areaId: kpi.areaId
+      }));
+      
+      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs`);
+      res.json(formattedResult);
+    } catch (error: any) {
       console.error('❌ Error fetching KPIs:', error);
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
 
@@ -1295,70 +1241,10 @@ export function registerRoutes(app: express.Application) {
           res.json(kpiValues);
         }
       } else {
-        // NUEVA LÓGICA: Combinar valores de tabla antigua + tablas nuevas
-        const sql = neon(process.env.DATABASE_URL!);
+        // Usar la tabla nueva kpi_values directamente (las tablas legacy no existen)
+        const allValues = await storage.getKpiValues();
         
-        let allValues: any[] = [];
-        
-        // 1. Obtener valores de tabla antigua kpi_values
-        const oldValues = await storage.getKpiValues();
-        allValues.push(...oldValues);
-        
-        // 2. Obtener valores de kpi_values_orsega y convertirlos al formato esperado
-        const orsegaValues = await sql`
-          SELECT 
-            id,
-            kpi_id as "kpiId",
-            NULL as "userId",
-            value::text,
-            created_at as "date",
-            month || ' ' || year as "period",
-            NULL as "compliancePercentage",
-            NULL as "status",
-            NULL as "comments",
-            NULL as "updatedBy"
-          FROM kpi_values_orsega
-          ORDER BY year DESC,
-            CASE month
-              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
-              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
-              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
-              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
-              ELSE 13
-            END DESC
-          LIMIT 100
-        `;
-        
-        allValues.push(...orsegaValues);
-        
-        // 3. Obtener valores de kpi_values_dura y convertirlos al formato esperado
-        const duraValues = await sql`
-          SELECT 
-            id,
-            kpi_id as "kpiId",
-            NULL as "userId",
-            value::text,
-            created_at as "date",
-            month || ' ' || year as "period",
-            NULL as "compliancePercentage",
-            NULL as "status",
-            NULL as "comments",
-            NULL as "updatedBy"
-          FROM kpi_values_dura
-          ORDER BY year DESC,
-            CASE month
-              WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
-              WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
-              WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
-              WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
-              ELSE 13
-            END DESC
-          LIMIT 100
-        `;
-        
-        allValues.push(...duraValues);
-        
-        console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores (${oldValues.length} antiguos + ${orsegaValues.length} orsega + ${duraValues.length} dura)`);
+        console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores de la tabla kpi_values`);
         
         if (allValues.length > 0) {
           console.log(`[GET /api/kpi-values] Primeros 3 valores de ejemplo:`, allValues.slice(0, 3).map(v => ({ kpiId: v.kpiId, value: v.value, period: v.period })));
@@ -4171,7 +4057,12 @@ export function registerRoutes(app: express.Application) {
   const voucherUpload = multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => {
-        cb(null, 'uploads/payment-vouchers/');
+        const uploadDir = path.join(process.cwd(), 'uploads', 'payment-vouchers');
+        // Crear directorio si no existe
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
       },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -4190,7 +4081,15 @@ export function registerRoutes(app: express.Application) {
   });
 
   // POST /api/payment-vouchers/upload - Subir comprobante con análisis automático OpenAI - 🔒 Con rate limiting
-  app.post("/api/payment-vouchers/upload", jwtAuthMiddleware, uploadLimiter, voucherUpload.single('voucher'), async (req, res) => {
+  app.post("/api/payment-vouchers/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    voucherUpload.single('voucher')(req, res, (err) => {
+      if (err) {
+        console.error('❌ Multer error:', err.message);
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
       const file = req.file;
