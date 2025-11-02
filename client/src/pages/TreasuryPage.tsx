@@ -363,8 +363,16 @@ export default function TreasuryPage() {
       formData.append('companyId', companyId.toString());
       formData.append('createAsPending', createAsPending.toString());
 
+      // Get auth token
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/idrall/upload", {
         method: "POST",
+        headers,
         body: formData,
         credentials: "include",
       });
@@ -430,8 +438,16 @@ export default function TreasuryPage() {
       formData.append('clientId', clientId.toString());
       if (notes) formData.append('notes', notes);
 
+      // Get auth token
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/payment-vouchers/upload", {
         method: "POST",
+        headers,
         body: formData,
         credentials: "include",
       });
