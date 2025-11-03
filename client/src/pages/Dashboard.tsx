@@ -249,7 +249,7 @@ export default function Dashboard() {
       {/* Gráfica de Barras de Ventas */}
       <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
         {(() => {
-          const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== ''
+          const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== null
             ? Number(filters.companyId)
             : undefined;
           const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2;
