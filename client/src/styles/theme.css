@@ -37,11 +37,11 @@
 
 /* Dark theme - Charcoal with Pastel Accents */
 .dark {
-  /* Theme base colors - Charcoal gray, not absolute black */
-  --background: 220 10% 14%; /* Charcoal dark gray - darker than before but not black */
-  --foreground: 0 0% 100%; /* Pure white text for maximum readability */
-  --muted: 220 8% 70%; /* Lighter gray for secondary text */
-  --muted-foreground: 220 8% 70%;
+  /* Theme base colors - Warm cream background for perimeter areas */
+  --background: 45 18% 88%; /* Soft warm cream - not too bright, adds life to interface */
+  --foreground: 220 20% 15%; /* Dark gray text for readability on cream */
+  --muted: 220 15% 50%; /* Medium gray for secondary text */
+  --muted-foreground: 220 15% 50%;
   
   /* Card and surface colors */
   --card: 220 8% 18%; /* Slightly lighter charcoal for cards */
