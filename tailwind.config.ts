@@ -53,6 +53,17 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          muted: "hsl(var(--surface-muted))",
+        },
+        pastel: {
+          blue: "hsl(var(--pastel-blue))",
+          green: "hsl(var(--pastel-green))",
+          orange: "hsl(var(--pastel-orange))",
+          violet: "hsl(var(--pastel-violet))",
+          teal: "hsl(var(--pastel-teal))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -1,4 +1,4 @@
-import { users, companies, areas, kpis, kpiValues, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, shipmentNotifications, jobProfiles, shipmentCycleTimes, clients, paymentVouchers } from "@shared/schema";
+import { users, companies, areas, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, shipmentNotifications, jobProfiles, shipmentCycleTimes, clients, paymentVouchers } from "@shared/schema";
 import type { 
   User, InsertUser, 
   Company, InsertCompany, 
@@ -46,21 +46,23 @@ export interface IStorage {
   updateArea(id: number, area: Partial<Area>): Promise<Area | undefined>;
   
   // KPI operations
-  getKpi(id: number): Promise<Kpi | undefined>;
-  getKpis(): Promise<Kpi[]>;
+  getKpi(id: number, companyId: number): Promise<Kpi | undefined>;
+  getKpis(companyId?: number): Promise<Kpi[]>;
   getKpisByCompany(companyId: number): Promise<Kpi[]>;
   getKpisByArea(areaId: number): Promise<Kpi[]>;
+  getKpisByCompanyAndArea(companyId: number, areaId: number): Promise<Kpi[]>;
   createKpi(kpi: InsertKpi): Promise<Kpi>;
   updateKpi(id: number, kpi: Partial<Kpi>): Promise<Kpi | undefined>;
-  getKPIHistory(kpiId: number, months?: number): Promise<any[]>;
+  deleteKpi(id: number, companyId: number): Promise<boolean>;
+  getKPIHistory(kpiId: number, months?: number, companyId?: number): Promise<KpiValue[]>;
   getUserKPIHistory(userId: number, months?: number): Promise<any[]>;
   getKPIHistoryByUsers(kpiId: number, months?: number): Promise<any>;
   
   // KPI Value operations
-  getKpiValue(id: number): Promise<KpiValue | undefined>;
-  getKpiValues(): Promise<KpiValue[]>;
-  getKpiValuesByKpi(kpiId: number): Promise<KpiValue[]>;
-  getLatestKpiValues(kpiId: number, limit: number): Promise<KpiValue[]>;
+  getKpiValue(id: number, companyId?: number): Promise<KpiValue | undefined>;
+  getKpiValues(companyId?: number): Promise<KpiValue[]>;
+  getKpiValuesByKpi(kpiId: number, companyId: number): Promise<KpiValue[]>;
+  getLatestKpiValues(kpiId: number, limit: number, companyId: number): Promise<KpiValue[]>;
   createKpiValue(kpiValue: InsertKpiValue): Promise<KpiValue>;
   
   // Action Plan operations
@@ -139,7 +141,7 @@ export interface IStorage {
   updatePaymentVoucherStatus(id: number, status: string): Promise<PaymentVoucher | undefined>;
 }
 
-export class MemStorage implements IStorage {
+export class MemStorage {
   private users: Map<number, User>;
   private companies: Map<number, Company>;
   private areas: Map<number, Area>;
@@ -1319,18 +1321,23 @@ export class MemStorage implements IStorage {
   }
   
   // KPI operations
-  async getKpi(id: number): Promise<Kpi | undefined> {
-    return this.kpis.get(id);
+  async getKpi(id: number, companyId: number): Promise<Kpi | undefined> {
+    const kpi = this.kpis.get(id);
+    if (!kpi) return undefined;
+    if (kpi.companyId !== companyId) return undefined;
+    return kpi;
   }
 
-  async getKpis(): Promise<Kpi[]> {
-    return Array.from(this.kpis.values());
+  async getKpis(companyId?: number): Promise<Kpi[]> {
+    const all = Array.from(this.kpis.values());
+    if (typeof companyId === "number") {
+      return all.filter((kpi) => kpi.companyId === companyId);
+    }
+    return all;
   }
 
   async getKpisByCompany(companyId: number): Promise<Kpi[]> {
-    return Array.from(this.kpis.values()).filter(
-      (kpi) => kpi.companyId === companyId
-    );
+    return this.getKpis(companyId);
   }
 
   async getKpisByArea(areaId: number): Promise<Kpi[]> {
@@ -1339,16 +1346,36 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getKpisByCompanyAndArea(companyId: number, areaId: number): Promise<Kpi[]> {
+    return Array.from(this.kpis.values()).filter(
+      (kpi) => kpi.companyId === companyId && kpi.areaId === areaId
+    );
+  }
+
   async createKpi(insertKpi: InsertKpi): Promise<Kpi> {
     const id = this.kpiId++;
-    const kpi: Kpi = { 
-      ...insertKpi, 
+    const area = insertKpi.areaId ? this.areas.get(insertKpi.areaId) : undefined;
+    const goal = insertKpi.goal ?? insertKpi.target ?? null;
+
+    const kpi: Kpi = {
       id,
-      description: insertKpi.description || null,
-      calculationMethod: insertKpi.calculationMethod || null,
-      responsible: insertKpi.responsible || null,
-      invertedMetric: insertKpi.invertedMetric || false
+      companyId: insertKpi.companyId,
+      areaId: insertKpi.areaId ?? null,
+      area: area?.name ?? insertKpi.area ?? null,
+      name: insertKpi.name,
+      description: insertKpi.description ?? null,
+      goal,
+      target: goal,
+      unit: insertKpi.unit ?? null,
+      frequency: insertKpi.frequency ?? null,
+      calculationMethod: insertKpi.calculationMethod ?? null,
+      responsible: insertKpi.responsible ?? null,
+      source: insertKpi.source ?? null,
+      period: insertKpi.period ?? null,
+      createdAt: new Date(),
+      invertedMetric: false,
     };
+
     this.kpis.set(id, kpi);
     return kpi;
   }
@@ -1357,22 +1384,65 @@ export class MemStorage implements IStorage {
     const kpi = this.kpis.get(id);
     if (!kpi) return undefined;
     
-    const updatedKpi = { ...kpi, ...kpiData };
+    const updatedKpi: Kpi = { ...kpi, ...kpiData };
+
+    if (kpiData.goal !== undefined || kpiData.target !== undefined) {
+      const goal = (kpiData.goal ?? kpiData.target) ?? updatedKpi.goal;
+      updatedKpi.goal = goal;
+      updatedKpi.target = goal;
+    }
+
+    if (kpiData.areaId !== undefined) {
+      const area = this.areas.get(kpiData.areaId);
+      updatedKpi.areaId = kpiData.areaId;
+      if (area) {
+        updatedKpi.area = area.name;
+      }
+    }
+
+    if (kpiData.area !== undefined) {
+      updatedKpi.area = kpiData.area;
+    }
+
     this.kpis.set(id, updatedKpi);
     return updatedKpi;
   }
+
+  async deleteKpi(id: number, companyId: number): Promise<boolean> {
+    const kpi = this.kpis.get(id);
+    if (!kpi || kpi.companyId !== companyId) {
+      return false;
+    }
+    this.kpis.delete(id);
+    // Remove associated values
+    for (const [valueId, value] of this.kpiValues.entries()) {
+      if (value.kpiId === id) {
+        this.kpiValues.delete(valueId);
+      }
+    }
+    return true;
+  }
   
   // KPI Value operations
-  async getKpiValue(id: number): Promise<KpiValue | undefined> {
-    return this.kpiValues.get(id);
+  async getKpiValue(id: number, companyId?: number): Promise<KpiValue | undefined> {
+    const value = this.kpiValues.get(id);
+    if (!value) return undefined;
+    if (typeof companyId === "number" && value.companyId !== companyId) {
+      return undefined;
+    }
+    return value;
   }
 
-  async getKpiValues(): Promise<KpiValue[]> {
-    return Array.from(this.kpiValues.values());
+  async getKpiValues(companyId?: number): Promise<KpiValue[]> {
+    const values = Array.from(this.kpiValues.values());
+    if (typeof companyId === "number") {
+      return values.filter((value) => value.companyId === companyId);
+    }
+    return values;
   }
 
-  async getKpiValuesByKpi(kpiId: number): Promise<KpiValue[]> {
-    return Array.from(this.kpiValues.values())
+  async getKpiValuesByKpi(kpiId: number, companyId: number): Promise<KpiValue[]> {
+    return this.getKpiValues(companyId)
       .filter((value) => value.kpiId === kpiId)
       .sort((a, b) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;
@@ -1381,8 +1451,8 @@ export class MemStorage implements IStorage {
       });
   }
 
-  async getLatestKpiValues(kpiId: number, limit: number): Promise<KpiValue[]> {
-    return Array.from(this.kpiValues.values())
+  async getLatestKpiValues(kpiId: number, limit: number, companyId: number): Promise<KpiValue[]> {
+    return this.getKpiValues(companyId)
       .filter((value) => value.kpiId === kpiId)
       .sort((a, b) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;

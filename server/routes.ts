@@ -17,7 +17,7 @@ interface AuthRequest extends Request {
 }
 import { storage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, kpiValues, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, kpisDura, kpisOrsega, kpiValuesDura, kpiValuesOrsega } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
@@ -39,6 +39,9 @@ import path from "path";
 import fs from "fs";
 import { neon } from '@neondatabase/serverless';
 import multer from "multer";
+
+// Tenant validation middleware - VUL-001 fix
+import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
 
 // Database connection for client preferences queries
 const sql = neon(process.env.DATABASE_URL!);
@@ -142,9 +145,9 @@ export function registerRoutes(app: express.Application) {
   const server = app.listen;
 
   // ========================================
-  // REGISTER CATALOG ROUTES FIRST (NO AUTH REQUIRED)
+  // REGISTER CATALOG ROUTES WITH AUTH - VUL-001 fix
   // ========================================
-  app.use("/api", catalogRouter);
+  app.use("/api", jwtAuthMiddleware, catalogRouter);
   // IMPORTANTE: logisticsRouter tiene POST /api/shipments que entra en conflicto
   // con el endpoint principal de shipments en esta misma línea 1949.
   // El endpoint principal usa insertShipmentSchema y maneja items, fechas, etc.
@@ -156,6 +159,8 @@ export function registerRoutes(app: express.Application) {
   // ========================================
   // RATE LIMITERS - Protección contra abuso
   // ========================================
+  // NOTA: El globalApiLimiter está configurado en server/index.ts
+  // para aplicar a TODA la API antes de que se registren las rutas
   
   // Rate limiter para login - Previene fuerza bruta
   const loginLimiter = rateLimit({
@@ -766,86 +771,23 @@ export function registerRoutes(app: express.Application) {
   app.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
-      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : null;
-      
-      console.log('🔵 [GET /api/kpis] Endpoint llamado');
-      console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId}`);
-      
-      // Usar tabla unificada kpis con companyId
-      let result: any[] = [];
-      
-      if (companyId === 1 || companyId === 2) {
-        // Filtrar por companyId específico
-        result = await sql(`
-          SELECT 
-            k.id,
-            a.name as area,
-            k.name as "kpiName",
-            k.description,
-            k.calculation_method as "calculationMethod",
-            k.target as goal,
-            k.unit,
-            k.frequency,
-            NULL as source,
-            k.responsible,
-            NULL as period,
-            NULL as "createdAt",
-            k.company_id as "companyId"
-          FROM kpis k
-          LEFT JOIN areas a ON a.id = k.area_id
-          WHERE k.company_id = ${companyId}
-          ORDER BY a.name, k.name
-        `);
-      } else if (!companyId) {
-        // Sin filtro - obtener todos los KPIs
-        result = await sql(`
-          SELECT 
-            k.id,
-            a.name as area,
-            k.name as "kpiName",
-            k.description,
-            k.calculation_method as "calculationMethod",
-            k.target as goal,
-            k.unit,
-            k.frequency,
-            NULL as source,
-            k.responsible,
-            NULL as period,
-            NULL as "createdAt",
-            k.company_id as "companyId"
-          FROM kpis k
-          LEFT JOIN areas a ON a.id = k.area_id
-          ORDER BY k.company_id, a.name, k.name
-        `);
-      } else {
-        return res.status(400).json({ error: 'Invalid company ID. Use 1 for Dura or 2 for Orsega' });
+      const rawCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+      console.log("🔵 [GET /api/kpis] Endpoint llamado");
+      console.log(`📊 Usuario: ${user.name}, Company ID: ${rawCompanyId ?? "ALL"}`);
+
+      if (rawCompanyId !== undefined) {
+        if (rawCompanyId !== 1 && rawCompanyId !== 2) {
+          return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
+        }
+        const result = await storage.getKpis(rawCompanyId);
+        return res.json(result);
       }
-      
-      // Convertir al formato esperado por el frontend
-      const formattedResult = result.map(kpi => ({
-        id: kpi.id,
-        area: kpi.area,
-        kpiName: kpi.kpiName,
-        name: kpi.kpiName, // Mantener compatibilidad
-        description: kpi.description,
-        calculationMethod: kpi.calculationMethod,
-        goal: kpi.goal,
-        target: kpi.goal,
-        unit: kpi.unit,
-        frequency: kpi.frequency,
-        source: kpi.source || null,
-        responsible: kpi.responsible || null,
-        period: kpi.period || null,
-        createdAt: kpi.createdAt,
-        companyId: kpi.companyId,
-        areaId: null // No hay areaId en kpis_dura/kpis_orsega
-      }));
-      
-      console.log(`📊 [GET /api/kpis] Retornando ${formattedResult.length} KPIs desde tabla unificada kpis`);
-      res.json(formattedResult);
+
+      const result = await storage.getKpis();
+      res.json(result);
     } catch (error: any) {
-      console.error('❌ Error fetching KPIs:', error);
-      console.error('Error stack:', error.stack);
+      console.error("❌ Error fetching KPIs:", error);
       res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
@@ -863,13 +805,14 @@ export function registerRoutes(app: express.Application) {
       const { neon } = await import('@neondatabase/serverless');
       const sql = neon(process.env.DATABASE_URL!);
 
-      // KPI de Volumen de Ventas de Dura: id 39 por convención; si cambia, intentamos también por nombre
+      // KPI de Volumen de Ventas de Dura: id 39 por convención
       const MONTHLY_GOAL = 53480; // en KG
       const UNIT = 'KG';
+      const monthlyGoalStr = MONTHLY_GOAL.toString();
 
       const resultById = await sql`
         UPDATE kpis_dura
-        SET goal = ${MONTHLY_GOAL}, unit = ${UNIT}
+        SET goal = ${monthlyGoalStr}, unit = ${UNIT}
         WHERE id = 39
         RETURNING id, kpi_name, goal, unit
       `;
@@ -879,7 +822,7 @@ export function registerRoutes(app: express.Application) {
       if (updatedRows === 0) {
         const resultByName = await sql`
           UPDATE kpis_dura
-          SET goal = ${MONTHLY_GOAL}, unit = ${UNIT}
+          SET goal = ${monthlyGoalStr}, unit = ${UNIT}
           WHERE lower(kpi_name) LIKE '%ventas%'
           RETURNING id, kpi_name, goal, unit
         `;
@@ -895,29 +838,32 @@ export function registerRoutes(app: express.Application) {
 
   app.get("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const kpi = await storage.getKpi(id);
-      
-      if (!kpi) {
+      const id = parseInt(req.params.id, 10);
+      let companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        const allKpis = await storage.getKpis();
+        const match = allKpis.find((item) => item.id === id);
+        if (!match) {
+          return res.status(400).json({ message: "companyId query param es requerido (1=Dura, 2=Orsega)" });
+        }
+        companyId = match.companyId ?? undefined;
+      }
+
+      const kpi = companyId ? await storage.getKpi(id, companyId) : undefined;
+      if (!companyId || !kpi) {
         return res.status(404).json({ message: "KPI not found" });
       }
-      
-      // All collaborators can access all KPIs from both companies since they work for both
-      // No access restrictions by company
-      
-      // Determinar si este KPI se trata de un indicador donde un valor menor es mejor
-      const isLowerBetter = kpi.name.includes("Rotación de cuentas por cobrar") ||
-                           kpi.name.includes("Velocidad de rotación") || 
-                          (kpi.name.includes("Tiempo") && !kpi.name.includes("entrega"));
-      
+
+      const isLowerBetter = isLowerBetterKPI(kpi.name || "");
       console.log(`[GET KPI/${id}] Calculando para "${kpi.name}". ¿Es invertido?: ${isLowerBetter}`);
-      
-      // Añadir propiedad isLowerBetter al KPI para facilitar cálculos en el front
+
       res.json({
         ...kpi,
-        isLowerBetter
+        isLowerBetter,
       });
     } catch (error) {
+      console.error(`[GET /api/kpis/${req.params.id}] Error:`, error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -931,6 +877,12 @@ export function registerRoutes(app: express.Application) {
       }
       
       const validatedData = insertKpiSchema.parse(req.body);
+      
+      // VUL-001: Validar acceso multi-tenant
+      if (validatedData.companyId) {
+        validateTenantAccess(req as AuthRequest, validatedData.companyId);
+      }
+      
       const kpi = await storage.createKpi(validatedData);
       res.status(201).json(kpi);
     } catch (error) {
@@ -949,16 +901,29 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ message: "No tienes permisos para actualizar KPIs" });
       }
       
-      const id = parseInt(req.params.id);
-      const validatedData = updateKpiSchema.parse(req.body);
+      const id = parseInt(req.params.id, 10);
+      const bodyCompanyId = req.body?.companyId;
+      const queryCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+      const companyId = bodyCompanyId ?? queryCompanyId;
+
+      if (companyId !== 1 && companyId !== 2) {
+        return res.status(400).json({ message: "companyId debe ser 1 (Dura) o 2 (Orsega)" });
+      }
+
+      const validatedData = updateKpiSchema.parse({
+        ...req.body,
+        companyId,
+      });
       
       console.log(`[PUT /api/kpis/${id}] Datos validados:`, validatedData);
       
+      // VUL-001: Validar acceso multi-tenant
+      if (companyId) {
+        validateTenantAccess(req as AuthRequest, companyId);
+      }
+      
       const kpi = await storage.updateKpi(id, validatedData);
       
-      if (!kpi) {
-        return res.status(404).json({ message: "KPI not found" });
-      }
       
       console.log(`[PUT /api/kpis/${id}] KPI actualizado:`, kpi);
       res.json(kpi);
@@ -980,8 +945,24 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ message: "No tienes permisos para eliminar KPIs" });
       }
       
-      const id = parseInt(req.params.id);
-      const success = await storage.deleteKpi(id);
+      const id = parseInt(req.params.id, 10);
+      let companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+      const allKpis = await storage.getKpis();
+      const match = allKpis.find((item) => item.id === id);
+      if (!match) {
+        return res.status(404).json({ message: "KPI not found" });
+      }
+      companyId = match.companyId ?? undefined;
+    }
+
+    // VUL-001: Validar acceso multi-tenant
+    if (companyId) {
+      validateTenantAccess(req as AuthRequest, companyId);
+    }
+
+    const success = companyId ? await storage.deleteKpi(id, companyId) : false;
       
       if (!success) {
         return res.status(404).json({ message: "KPI not found" });
@@ -993,203 +974,46 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // ========================================
-  // ENDPOINTS ESPECÍFICOS PARA KPIs POR EMPRESA
-  // ========================================
-
-  // GET /api/kpis-dura - Obtener KPIs de Dura
-  app.get("/api/kpis-dura", jwtAuthMiddleware, async (req, res) => {
-    try {
-      console.log('🔵 [GET /api/kpis-dura] Endpoint llamado');
-      
-      const sql = neon(process.env.DATABASE_URL!);
-      const result = await sql(`
-        SELECT 
-          id,
-          area,
-          kpi_name as "kpiName",
-          description,
-          calculation_method as "calculationMethod",
-          goal,
-          unit,
-          frequency,
-          source,
-          responsible,
-          period,
-          created_at as "createdAt"
-        FROM kpis_dura 
-        ORDER BY area, kpi_name
-      `);
-      
-      console.log(`📊 [GET /api/kpis-dura] Retornando ${result.length} KPIs de Dura`);
-      res.json(result);
-    } catch (error) {
-      console.error('❌ Error fetching Dura KPIs:', error);
-      res.status(500).json({ error: 'Failed to fetch Dura KPIs' });
-    }
-  });
-
-  // GET /api/kpis-orsega - Obtener KPIs de Orsega
-  app.get("/api/kpis-orsega", jwtAuthMiddleware, async (req, res) => {
-    try {
-      console.log('🔵 [GET /api/kpis-orsega] Endpoint llamado');
-      
-      const sql = neon(process.env.DATABASE_URL!);
-      const result = await sql(`
-        SELECT 
-          id,
-          area,
-          kpi_name as "kpiName",
-          description,
-          calculation_method as "calculationMethod",
-          goal,
-          unit,
-          frequency,
-          source,
-          responsible,
-          period,
-          created_at as "createdAt"
-        FROM kpis_orsega 
-        ORDER BY area, kpi_name
-      `);
-      
-      console.log(`📊 [GET /api/kpis-orsega] Retornando ${result.length} KPIs de Orsega`);
-      res.json(result);
-    } catch (error) {
-      console.error('❌ Error fetching Orsega KPIs:', error);
-      res.status(500).json({ error: 'Failed to fetch Orsega KPIs' });
-    }
-  });
-
-  // GET /api/kpis-by-company/:companyId - Obtener KPIs por empresa (1=Dura, 2=Orsega)
-  app.get("/api/kpis-by-company/:companyId", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const companyId = parseInt(req.params.companyId);
-      console.log(`🔵 [GET /api/kpis-by-company/${companyId}] Endpoint llamado`);
-      
-      const sql = neon(process.env.DATABASE_URL!);
-      let result;
-      
-      if (companyId === 1) {
-        // Dura
-        result = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Dura' as "company"
-          FROM kpis_dura 
-          ORDER BY area, kpi_name
-        `);
-      } else if (companyId === 2) {
-        // Orsega
-        result = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Orsega' as "company"
-          FROM kpis_orsega 
-          ORDER BY area, kpi_name
-        `);
-      } else {
-        return res.status(400).json({ error: 'Invalid company ID. Use 1 for Dura or 2 for Orsega' });
-      }
-      
-      console.log(`📊 [GET /api/kpis-by-company/${companyId}] Retornando ${result.length} KPIs`);
-      res.json(result);
-    } catch (error) {
-      console.error('❌ Error fetching KPIs by company:', error);
-      res.status(500).json({ error: 'Failed to fetch KPIs by company' });
-    }
-  });
 
   // GET /api/kpis-by-user/:userId - Obtener KPIs específicos de un usuario
   app.get("/api/kpis-by-user/:userId", jwtAuthMiddleware, async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = parseInt(req.params.userId, 10);
       console.log(`🔵 [GET /api/kpis-by-user/${userId}] Endpoint llamado`);
-      
-      // Primero obtener información del usuario
+
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      
-      const sql = neon(process.env.DATABASE_URL!);
-      let result: any[] = [];
-      
-      // Determinar qué tabla usar basado en el nombre del usuario
-      if (user.name.toLowerCase().includes('omar') || user.name.toLowerCase().includes('thalia')) {
-        // Buscar en ambas tablas y filtrar por responsable
-        const duraKpis = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Dura' as "company"
-          FROM kpis_dura 
-          WHERE responsible ILIKE '%${user.name.split(' ')[0]}%'
-          ORDER BY area, kpi_name
-        `);
-        
-        const orsegaKpis = await sql(`
-          SELECT 
-            id,
-            area,
-            kpi_name as "kpiName",
-            description,
-            calculation_method as "calculationMethod",
-            goal,
-            unit,
-            frequency,
-            source,
-            responsible,
-            period,
-            created_at as "createdAt",
-            'Orsega' as "company"
-          FROM kpis_orsega 
-          WHERE responsible ILIKE '%${user.name.split(' ')[0]}%'
-          ORDER BY area, kpi_name
-        `);
-        
-        result = [...duraKpis, ...orsegaKpis];
+
+      const userKpis = await storage.getUserKpis(userId);
+      const aggregated: any[] = [];
+      aggregated.push(...userKpis);
+
+      if (aggregated.length === 0) {
+        const companiesToCheck = user.companyId ? [user.companyId] : [1, 2];
+        const responsibleKey = (user.name?.split(' ')[0] || '').toLowerCase();
+
+        for (const companyId of companiesToCheck) {
+          if (companyId !== 1 && companyId !== 2) continue;
+          const kpisByCompany = await storage.getKpis(companyId);
+          const matches = kpisByCompany.filter((kpi) =>
+            (kpi.responsible ?? '').toLowerCase().includes(responsibleKey)
+          );
+          aggregated.push(...matches);
+        }
       }
-      
-      console.log(`📊 [GET /api/kpis-by-user/${userId}] Retornando ${result.length} KPIs para ${user.name}`);
-      res.json(result);
+
+      const deduped = Array.from(new Map(aggregated.map((kpi) => [kpi.id, kpi])).values());
+
+      console.log(`📊 [GET /api/kpis-by-user/${userId}] Retornando ${deduped.length} KPIs para ${user.name}`);
+      res.json(deduped);
     } catch (error) {
       console.error('❌ Error fetching KPIs by user:', error);
       res.status(500).json({ error: 'Failed to fetch KPIs by user' });
     }
   });
+
 
   // ========================================
 
@@ -1197,107 +1021,137 @@ export function registerRoutes(app: express.Application) {
   app.delete("/api/user-kpis/:kpiId", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
-      const kpiId = parseInt(req.params.kpiId);
-      
-      // Verificar que el KPI existe
-      const kpi = await storage.getKpi(kpiId);
-      if (!kpi) {
-        return res.status(404).json({ message: "KPI not found" });
+      const kpiId = parseInt(req.params.kpiId, 10);
+      const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+      const companyId = companyIdParam ?? user.companyId ?? null;
+
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        return res.status(400).json({ message: "companyId query param es requerido (1=Dura, 2=Orsega)" });
       }
-      
-      // Eliminar solo los valores de este KPI para este usuario específico
-      const success = await storage.deleteKpiValuesByUser(user.id, kpiId);
-      
-      if (!success) {
-        // Si no se encontraron valores, significa que el usuario no tiene este KPI
-        // Esto no es un error, simplemente no había nada que eliminar
-        return res.json({ message: "No había valores de KPI para este usuario (ya estaba eliminado)" });
-      }
-      
-      res.json({ message: "KPI eliminado para el usuario específico" });
+
+      const kpi = await storage.getKpi(kpiId, companyId);
+
+      res.json({
+        message: "Los KPIs se gestionan a nivel de compañía; no existen valores específicos por usuario que eliminar en este esquema.",
+      });
     } catch (error) {
       console.error("Error eliminating user-specific KPI:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
+
   // KPI Value routes
   // Endpoint para obtener top performers por área
   app.get("/api/top-performers", jwtAuthMiddleware, async (req, res) => {
     try {
       const { companyId } = req.query;
-      
-      if (!companyId) {
-        return res.status(400).json({ message: 'companyId es requerido' });
+      const parsedCompanyId = companyId ? parseInt(companyId as string, 10) : NaN;
+
+      if (parsedCompanyId !== 1 && parsedCompanyId !== 2) {
+        return res.status(400).json({ message: 'companyId es requerido (1=Dura, 2=Orsega)' });
       }
 
-      const query = `
-        SELECT 
-          a.name as area_name,
-          a.id as area_id,
-          COUNT(k.id) as total_kpis,
-          COUNT(CASE WHEN kv.status = 'complies' THEN 1 END) as compliant_kpis,
-          COALESCE(ROUND(COUNT(CASE WHEN kv.status = 'complies' THEN 1 END) * 100.0 / NULLIF(COUNT(k.id), 0), 2), 0) as compliance_percentage
-        FROM areas a 
-        LEFT JOIN kpis k ON a.id = k.area_id 
-        LEFT JOIN kpi_values kv ON k.id = kv.kpi_id 
-        WHERE k.company_id = $1
-        GROUP BY a.id, a.name 
-        HAVING COUNT(k.id) > 0
-        ORDER BY compliance_percentage DESC, total_kpis DESC
-        LIMIT 5
-      `;
+      const [areasList, kpis, values] = await Promise.all([
+        storage.getAreasByCompany(parsedCompanyId),
+        storage.getKpis(parsedCompanyId),
+        storage.getKpiValues(parsedCompanyId),
+      ]);
 
-      const result = await sql(query, [companyId]);
-      
-      res.json(result);
+      const areaById = new Map(areasList.map((area) => [area.id, area]));
+      const stats = new Map<number, { areaId: number; areaName: string; total: number; compliant: number }>();
+
+      const valuesByKpi = new Map<number, any[]>();
+      for (const value of values) {
+        if (!valuesByKpi.has(value.kpiId)) {
+          valuesByKpi.set(value.kpiId, []);
+        }
+        valuesByKpi.get(value.kpiId)!.push(value);
+      }
+
+      for (const valueList of valuesByKpi.values()) {
+        valueList.sort((a, b) => {
+          const aTime = a.date ? new Date(a.date).getTime() : 0;
+          const bTime = b.date ? new Date(b.date).getTime() : 0;
+          return bTime - aTime;
+        });
+      }
+
+      for (const kpi of kpis) {
+        if (!kpi.areaId) continue;
+        const area = areaById.get(kpi.areaId);
+        if (!area) continue;
+
+        if (!stats.has(area.id)) {
+          stats.set(area.id, { areaId: area.id, areaName: area.name, total: 0, compliant: 0 });
+        }
+
+        const areaStats = stats.get(area.id)!;
+        areaStats.total += 1;
+
+        const latest = valuesByKpi.get(kpi.id)?.[0];
+        if (latest?.status === 'complies') {
+          areaStats.compliant += 1;
+        }
+      }
+
+      const response = Array.from(stats.values())
+        .map((stat) => {
+          const compliance = stat.total === 0 ? 0 : (stat.compliant * 100) / stat.total;
+          return {
+            area_name: stat.areaName,
+            area_id: stat.areaId,
+            total_kpis: stat.total,
+            compliant_kpis: stat.compliant,
+            compliance_percentage: Number(compliance.toFixed(2)),
+          };
+        })
+        .sort((a, b) => {
+          if (b.compliance_percentage === a.compliance_percentage) {
+            return b.total_kpis - a.total_kpis;
+          }
+          return b.compliance_percentage - a.compliance_percentage;
+        })
+        .slice(0, 5);
+
+      res.json(response);
     } catch (error) {
       console.error('Error fetching top performers:', error);
       res.status(500).json({ message: 'Error interno del servidor' });
     }
   });
 
+
   app.get("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
     try {
-      const user = getAuthUser(req as AuthRequest);
-      
+      const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+      if (companyIdParam !== undefined && companyIdParam !== 1 && companyIdParam !== 2) {
+        return res.status(400).json({ error: "companyId query param inválido (1=Dura, 2=Orsega)" });
+      }
+
       if (req.query.kpiId) {
-        const kpiId = parseInt(req.query.kpiId as string);
-        const kpi = await storage.getKpi(kpiId);
-        
-        if (!kpi) {
+        const kpiId = parseInt(req.query.kpiId as string, 10);
+        if (companyIdParam !== undefined) {
+          const kpi = await storage.getKpi(kpiId, companyIdParam);
+          if (!kpi) {
+            return res.status(404).json({ message: "KPI not found for this company" });
+          }
+          const kpiValues = await storage.getKpiValuesByKpi(kpiId, companyIdParam);
+          return res.json(kpiValues);
+        }
+
+        const allKpis = await storage.getKpis();
+        const match = allKpis.find((item) => item.id === kpiId);
+        if (!match?.companyId) {
           return res.status(404).json({ message: "KPI not found" });
         }
-        
-        // Para colaboradores, mostrar solo sus propios KPIs
-        // Para managers/admins, mostrar todos los KPIs
-        if (user.role === 'collaborator') {
-          const kpiValues = await storage.getKpiValuesByKpi(kpiId);
-          const userKpiValues = kpiValues.filter(kv => kv.userId === user.id);
-          res.json(userKpiValues);
-        } else {
-          const kpiValues = await storage.getKpiValuesByKpi(kpiId);
-          res.json(kpiValues);
-        }
-      } else {
-        // Usar la tabla nueva kpi_values directamente (las tablas legacy no existen)
-        const allValues = await storage.getKpiValues();
-        
-        console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores de la tabla kpi_values`);
-        
-        if (allValues.length > 0) {
-          console.log(`[GET /api/kpi-values] Primeros 3 valores de ejemplo:`, allValues.slice(0, 3).map(v => ({ kpiId: v.kpiId, value: v.value, period: v.period })));
-        }
-        
-        if (user.role === 'collaborator') {
-          // Colaboradores solo ven sus propios KPIs
-          const userKpiValues = allValues.filter(kv => kv.userId === user.id);
-          res.json(userKpiValues);
-        } else {
-          // Managers/admins ven todos los KPIs
-          res.json(allValues);
-        }
+        const kpiValues = await storage.getKpiValuesByKpi(kpiId, match.companyId);
+        return res.json(kpiValues);
       }
+
+      const allValues = await storage.getKpiValues(companyIdParam);
+      console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores para companyId=${companyIdParam ?? 'ALL'}`);
+      res.json(allValues);
     } catch (error) {
       console.error("[GET /api/kpi-values] Error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -1307,334 +1161,81 @@ export function registerRoutes(app: express.Application) {
   app.post("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
-      const validatedData = insertKpiValueSchema.parse({
-        ...req.body,
-        userId: user.id // Asegurar que el KPI se asocie al usuario actual
-      });
-      
-      console.log(`[POST /api/kpi-values] Actualizando KPI ${validatedData.kpiId} para usuario ${user.id}`);
-      
-      // Buscar el KPI primero en la tabla nueva (kpis)
-      let kpi: any = await storage.getKpi(validatedData.kpiId);
-      let kpiSource: 'kpis' | 'kpis_dura' | 'kpis_orsega' = 'kpis';
-      
-      // Si no se encuentra en la tabla nueva, buscar en las tablas antiguas
-      if (!kpi && typeof db !== 'undefined') {
-        try {
-          // Buscar en kpis_dura
-          const duraKpi = await db
-            .select()
-            .from(kpisDura)
-            .where(eq(kpisDura.id, validatedData.kpiId))
-            .limit(1);
-          
-          if (duraKpi.length > 0) {
-            kpi = {
-              id: duraKpi[0].id,
-              name: duraKpi[0].kpiName,
-              description: duraKpi[0].description,
-              target: duraKpi[0].goal,
-              unit: duraKpi[0].unit,
-              frequency: duraKpi[0].frequency,
-              calculationMethod: duraKpi[0].calculationMethod,
-              responsible: duraKpi[0].responsible,
-              area: duraKpi[0].area,
-              company: 'Dura'
-            };
-            kpiSource = 'kpis_dura';
-            console.log(`[POST /api/kpi-values] KPI encontrado en kpis_dura: ${kpi.name}`);
-          } else {
-            // Buscar en kpis_orsega
-            const orsegaKpi = await db
-              .select()
-              .from(kpisOrsega)
-              .where(eq(kpisOrsega.id, validatedData.kpiId))
-              .limit(1);
-            
-            if (orsegaKpi.length > 0) {
-              kpi = {
-                id: orsegaKpi[0].id,
-                name: orsegaKpi[0].kpiName,
-                description: orsegaKpi[0].description,
-                target: orsegaKpi[0].goal,
-                unit: orsegaKpi[0].unit,
-                frequency: orsegaKpi[0].frequency,
-                calculationMethod: orsegaKpi[0].calculationMethod,
-                responsible: orsegaKpi[0].responsible,
-                area: orsegaKpi[0].area,
-                company: 'Orsega'
-              };
-              kpiSource = 'kpis_orsega';
-              console.log(`[POST /api/kpi-values] KPI encontrado en kpis_orsega: ${kpi.name}`);
-            }
-          }
-        } catch (error) {
-          console.error('[POST /api/kpi-values] Error buscando en tablas antiguas:', error);
-        }
+      const validatedData = insertKpiValueSchema.parse(req.body);
+      let companyId = validatedData.companyId;
+
+      if (!companyId) {
+        const allKpis = await storage.getKpis();
+        const match = allKpis.find((item: any) => item.id === validatedData.kpiId);
+        companyId = match?.companyId ?? undefined;
       }
-      
+
+      if (!companyId) {
+        return res.status(400).json({ message: "Debe especificarse companyId (1=Dura, 2=Orsega)" });
+      }
+
+      const kpi = await storage.getKpi(validatedData.kpiId, companyId);
       if (!kpi) {
-        console.error(`[POST /api/kpi-values] KPI ${validatedData.kpiId} no encontrado en ninguna tabla`);
+        console.error(`[POST /api/kpi-values] KPI ${validatedData.kpiId} no encontrado para companyId=${companyId}`);
         return res.status(404).json({ message: "KPI not found" });
       }
 
-      // Obtener el último valor para comparar cambios de estado (solo para KPIs nuevos)
-      let previousStatus: string | null = null;
-      if (kpiSource === 'kpis') {
-        const lastValues = await storage.getLatestKpiValues(validatedData.kpiId, 1);
-        previousStatus = lastValues.length > 0 ? lastValues[0].status : null;
-      }
-      
-      // Calcular el cumplimiento si hay un objetivo con validación mejorada
-      if (kpi.target || kpi.goal) {
-        const currentValue = validatedData.value;
-        const target = kpi.target || kpi.goal;
-        
-        // Validación robusta de valores numéricos
-        const numericCurrentValue = extractNumericValue(currentValue);
-        const numericTarget = extractNumericValue(target);
-        
+      const [previous] = await storage.getLatestKpiValues(validatedData.kpiId, 1, companyId);
+      let status = validatedData.status ?? null;
+      let compliancePercentage = validatedData.compliancePercentage ?? null;
+
+      const targetReference = kpi.target ?? kpi.goal;
+      if (targetReference) {
+        const numericCurrentValue = extractNumericValue(validatedData.value);
+        const numericTarget = extractNumericValue(targetReference);
+
         if (!isNaN(numericCurrentValue) && !isNaN(numericTarget)) {
+          const lowerBetter = isLowerBetterKPI(kpi.name || "");
           let percentage: number;
-          
-          // Determinar si es una métrica invertida usando lógica mejorada
-          const isLowerBetter = isLowerBetterKPI(kpi.name || kpi.kpiName || '');
-          
-          console.log(`[KPI Calculation] Calculando para "${kpi.name || kpi.kpiName}". ¿Es invertido?: ${isLowerBetter}`);
-          
-          if (isLowerBetter) {
-            // Para métricas donde un valor menor es mejor (como días de cobro)
-            percentage = Math.min(numericTarget / numericCurrentValue * 100, 100);
-            
-            // Determinar estado basado en porcentaje de cumplimiento
+
+          if (lowerBetter) {
+            percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
             if (numericCurrentValue <= numericTarget) {
-              validatedData.status = 'complies';
-            } else if (numericCurrentValue <= numericTarget * 1.1) { // 10% de margen para alerta
-              validatedData.status = 'alert';
+              status = "complies";
+            } else if (numericCurrentValue <= numericTarget * 1.1) {
+              status = "alert";
             } else {
-              validatedData.status = 'not_compliant';
+              status = "not_compliant";
             }
           } else {
-            // Para métricas normales donde un valor mayor es mejor
-            percentage = Math.min(numericCurrentValue / numericTarget * 100, 100);
-            
-            // Determinar estado basado en porcentaje de cumplimiento
+            percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
             if (numericCurrentValue >= numericTarget) {
-              validatedData.status = 'complies';
-            } else if (numericCurrentValue >= numericTarget * 0.9) { // 90% del objetivo para alerta
-              validatedData.status = 'alert';
+              status = "complies";
+            } else if (numericCurrentValue >= numericTarget * 0.9) {
+              status = "alert";
             } else {
-              validatedData.status = 'not_compliant';
+              status = "not_compliant";
             }
           }
-          
-          validatedData.compliancePercentage = `${percentage.toFixed(1)}%`;
+
+          const formattedPercentage = percentage.toFixed(1);
+          compliancePercentage = `${formattedPercentage}%`;
         }
       }
-      
-      // Manejar la inserción según la fuente del KPI
-      let kpiValue: any;
-      
-      if (kpiSource === 'kpis_dura' || kpiSource === 'kpis_orsega') {
-        // Guardar en tablas antiguas (kpi_values_dura o kpi_values_orsega)
-        // Parsear el período para extraer mes y año
-        // Puede venir en formato "Semana X - Mes Año" o solo "Mes Año"
-        let periodMatch = validatedData.period.match(/Semana\s+\d+\s+-\s+(\w+)\s+(\d{4})/);
-        if (!periodMatch) {
-          // Intentar formato simple "Mes Año"
-          periodMatch = validatedData.period.match(/(\w+)\s+(\d{4})/);
-        }
-        
-        // Extraer valores del match o usar valores por defecto
-        let monthName: string;
-        let year: number;
-        
-        if (periodMatch) {
-          monthName = periodMatch[1];
-          year = parseInt(periodMatch[2]);
-        } else {
-          // Si no se encuentra, usar el mes y año actual
-          const now = new Date();
-          const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-          monthName = months[now.getMonth()];
-          year = now.getFullYear();
-          console.log(`[POST /api/kpi-values] No se pudo parsear período "${validatedData.period}", usando período actual: ${monthName} ${year}`);
-        }
-        
-        const numericValue = extractNumericValue(validatedData.value);
-        
-        if (isNaN(numericValue)) {
-          return res.status(400).json({ message: "El valor debe ser numérico" });
-        }
-        
-        // Mapear nombres de meses en español a mayúsculas para coincidir con el formato de la BD
-        const monthMap: { [key: string]: string } = {
-          'enero': 'ENERO', 'febrero': 'FEBRERO', 'marzo': 'MARZO', 'abril': 'ABRIL',
-          'mayo': 'MAYO', 'junio': 'JUNIO', 'julio': 'JULIO', 'agosto': 'AGOSTO',
-          'septiembre': 'SEPTIEMBRE', 'octubre': 'OCTUBRE', 'noviembre': 'NOVIEMBRE', 'diciembre': 'DICIEMBRE'
-        };
-        
-        // Convertir nombre de mes a mayúsculas usando el mapa
-        const monthLower = monthName.toLowerCase();
-        const finalMonth = monthMap[monthLower] || monthName.toUpperCase();
-        
-        if (kpiSource === 'kpis_dura') {
-          // Verificar si ya existe un registro para este período
-          const existing = await sql`
-            SELECT * FROM kpi_values_dura 
-            WHERE kpi_id = ${validatedData.kpiId} 
-            AND month = ${finalMonth} 
-            AND year = ${year}
-            LIMIT 1
-          `;
-          
-          if (existing.length > 0) {
-            // Actualizar registro existente
-            const updated = await sql`
-              UPDATE kpi_values_dura 
-              SET value = ${numericValue}, created_at = NOW()
-              WHERE id = ${existing[0].id}
-              RETURNING *
-            `;
-            kpiValue = {
-              id: updated[0].id,
-              kpiId: updated[0].kpi_id,
-              value: updated[0].value.toString(),
-              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
-              date: updated[0].created_at,
-              compliancePercentage: validatedData.compliancePercentage,
-              status: validatedData.status,
-              comments: validatedData.comments,
-              updatedBy: user.id
-            };
-          } else {
-            // Crear nuevo registro
-            const inserted = await sql`
-              INSERT INTO kpi_values_dura (kpi_id, month, year, value, created_at)
-              VALUES (${validatedData.kpiId}, ${finalMonth}, ${year}, ${numericValue}, NOW())
-              RETURNING *
-            `;
-            kpiValue = {
-              id: inserted[0].id,
-              kpiId: inserted[0].kpi_id,
-              value: inserted[0].value.toString(),
-              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
-              date: inserted[0].created_at,
-              compliancePercentage: validatedData.compliancePercentage,
-              status: validatedData.status,
-              comments: validatedData.comments,
-              updatedBy: user.id
-            };
-          }
-        } else {
-          // kpis_orsega
-          const existing = await sql`
-            SELECT * FROM kpi_values_orsega 
-            WHERE kpi_id = ${validatedData.kpiId} 
-            AND month = ${finalMonth} 
-            AND year = ${year}
-            LIMIT 1
-          `;
-          
-          if (existing.length > 0) {
-            // Actualizar registro existente
-            const updated = await sql`
-              UPDATE kpi_values_orsega 
-              SET value = ${numericValue}, created_at = NOW()
-              WHERE id = ${existing[0].id}
-              RETURNING *
-            `;
-            kpiValue = {
-              id: updated[0].id,
-              kpiId: updated[0].kpi_id,
-              value: updated[0].value.toString(),
-              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
-              date: updated[0].created_at,
-              compliancePercentage: validatedData.compliancePercentage,
-              status: validatedData.status,
-              comments: validatedData.comments,
-              updatedBy: user.id
-            };
-          } else {
-            // Crear nuevo registro
-            const inserted = await sql`
-              INSERT INTO kpi_values_orsega (kpi_id, month, year, value, created_at)
-              VALUES (${validatedData.kpiId}, ${finalMonth}, ${year}, ${numericValue}, NOW())
-              RETURNING *
-            `;
-            kpiValue = {
-              id: inserted[0].id,
-              kpiId: inserted[0].kpi_id,
-              value: inserted[0].value.toString(),
-              period: `${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()} ${year}`,
-              date: inserted[0].created_at,
-              compliancePercentage: validatedData.compliancePercentage,
-              status: validatedData.status,
-              comments: validatedData.comments,
-              updatedBy: user.id
-            };
-          }
-        }
-        
-        console.log(`[POST /api/kpi-values] Valor guardado en ${kpiSource}:`, kpiValue);
-      } else {
-        // KPI de tabla nueva (kpis) - usar lógica existente
-        // Agregar el ID del usuario que está creando el valor KPI
-        const kpiValueWithUser = {
-          ...validatedData,
-          updatedBy: user.id
-        };
-        
-        // Upsert por periodo: si ya existe un registro del mismo kpiId y period, actualizar en lugar de duplicar
-        if (kpiValueWithUser.period) {
-          try {
-            const existingForKpi = await storage.getKpiValuesByKpi(kpiValueWithUser.kpiId);
-            const existingSamePeriod = existingForKpi.find((v: any) => v.period === kpiValueWithUser.period);
-            if (existingSamePeriod) {
-              // Actualizar el registro existente conservando su id y fecha
-              const { id } = existingSamePeriod;
-              // Si DatabaseStorage está en uso, hacemos update directo vía drizzle; si es MemStorage, hacemos reemplazo manual
-              if (typeof db !== 'undefined') {
-                const [updated] = await db
-                  .update(kpiValues)
-                  .set({
-                    value: kpiValueWithUser.value,
-                    period: kpiValueWithUser.period,
-                    compliancePercentage: kpiValueWithUser.compliancePercentage ?? null,
-                    status: kpiValueWithUser.status ?? null,
-                    comments: kpiValueWithUser.comments ?? null,
-                    updatedBy: kpiValueWithUser.updatedBy ?? null,
-                    date: new Date()
-                  })
-                  .where(eq(kpiValues.id, id))
-                  .returning();
-                kpiValue = updated;
-              } else {
-                // Fallback para MemStorage (no BD): eliminar/crear mantiene comportamiento de upsert simple
-                await storage.createKpiValue({ ...kpiValueWithUser });
-                kpiValue = { ...existingSamePeriod, ...kpiValueWithUser };
-              }
-            } else {
-              kpiValue = await storage.createKpiValue(kpiValueWithUser);
-            }
-          } catch (e) {
-            // Si algo falla en la detección, crear nuevo para no bloquear la operación
-            kpiValue = await storage.createKpiValue(kpiValueWithUser);
-          }
-        } else {
-          kpiValue = await storage.createKpiValue(kpiValueWithUser);
-        }
-        
-        // Crear notificación automática si hay cambio de estado crítico (solo para KPIs nuevos)
-        if (previousStatus && validatedData.status && previousStatus !== validatedData.status) {
-          await createKPIStatusChangeNotification(kpi, user, previousStatus, validatedData.status, storage);
-        }
+
+      const payload = {
+        ...validatedData,
+        companyId,
+        status,
+        compliancePercentage,
+        updatedBy: user.id,
+      };
+
+      const kpiValue = await storage.createKpiValue(payload);
+
+      if (previous?.status && kpiValue.status && previous.status !== kpiValue.status) {
+        await createKPIStatusChangeNotification(kpi, user, previous.status, kpiValue.status, storage);
       }
-      
+
       res.status(201).json(kpiValue);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[POST /api/kpi-values] Validation error:', error.errors);
         return res.status(400).json({ message: error.errors });
       }
       console.error('Error creating KPI value:', error);
@@ -1704,7 +1305,7 @@ export function registerRoutes(app: express.Application) {
         );
         
         if (volumeKpi) {
-          const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+          const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? salesData.companyId);
           const monthlyRecord = kpiValues.find(value => 
             value.period === `${targetMonth} ${targetYear}` && !value.period.includes('Semana')
           );
@@ -1767,56 +1368,54 @@ export function registerRoutes(app: express.Application) {
       
       const { value, companyId, month, year, period } = req.body;
       const user = getAuthUser(req as AuthRequest);
-      
-      // Validaciones básicas
-      if (!value || !companyId || !month || !year) {
+
+      const numericCompanyId = Number(companyId);
+      const numericYear = Number(year);
+
+      if (!value || isNaN(numericCompanyId) || !month || isNaN(numericYear)) {
         return res.status(400).json({
           success: false,
           message: "Faltan datos requeridos: valor, compañía, mes y año"
         });
       }
 
-      // Determinar el KPI ID según la compañía
-      const kpiId = companyId === 1 ? 39 : 10; // 39=Dura Volumen de ventas, 10=Orsega Volumen de ventas
-      
-      // Construir el período en formato "Mes Año"
-      const periodString = period || `${month} ${year}`;
-      
-      console.log(`[POST /api/sales/update-month] Actualizando KPI ${kpiId} para período: ${periodString}`);
-
-      // Buscar si ya existe un registro para este período
-      const existingRecords = await storage.getKpiValuesByKpi(kpiId);
-      const existingRecord = existingRecords.find((r: any) => r.period === periodString);
-
-      if (existingRecord) {
-        // Eliminar el registro existente
-        await db.delete(kpiValues).where(eq(kpiValues.id, existingRecord.id));
-        console.log(`[POST /api/sales/update-month] Registro anterior eliminado: ${periodString}`);
+      if (numericCompanyId !== 1 && numericCompanyId !== 2) {
+        return res.status(400).json({
+          success: false,
+          message: "companyId debe ser 1 (Dura) o 2 (Orsega)"
+        });
       }
 
-      // Crear el nuevo registro (siempre)
-      await storage.createKpiValue({
-        kpiId: kpiId,
+      const kpiId = numericCompanyId === 1 ? 39 : 10;
+      const periodString = period || `${month} ${numericYear}`;
+
+      console.log(`[POST /api/sales/update-month] Actualizando KPI ${kpiId} para período: ${periodString}`);
+
+      const createdValue = await storage.createKpiValue({
+        companyId: numericCompanyId,
+        kpiId,
         value: value.toString(),
         period: periodString,
-        userId: user.id
+        month,
+        year: numericYear,
+        updatedBy: user.id,
       });
-      
-      console.log(`[POST /api/sales/update-month] ✅ Registro creado: ${periodString} = ${value}`);
 
-
-      // Calcular meta mensual
-      const monthlyTarget = companyId === 1 ? 55620 : 858373;
-      const compliance = Math.round((value / monthlyTarget) * 100);
+      const monthlyTarget = numericCompanyId === 1 ? 55620 : 858373;
+      const numericValue = extractNumericValue(value);
+      const compliance = isNaN(numericValue)
+        ? null
+        : Math.round((numericValue / monthlyTarget) * 100);
 
       res.status(200).json({
         success: true,
         message: `Ventas de ${periodString} actualizadas correctamente`,
         data: {
           period: periodString,
-          value: value,
-          monthlyTarget: monthlyTarget,
-          compliance: compliance
+          value,
+          monthlyTarget,
+          compliance,
+          record: createdValue,
         }
       });
 
@@ -1931,7 +1530,10 @@ export function registerRoutes(app: express.Application) {
       }
       
       // Verificar si ya existe un registro mensual
-      const existingKpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+      const existingKpiValues = await storage.getKpiValuesByKpi(
+        volumeKpi.id,
+        volumeKpi.companyId ?? parseInt(companyId)
+      );
       const existingMonthlyRecord = existingKpiValues.find(value => 
         value.period === targetPeriod && !value.period.includes('Semana')
       );
@@ -2011,7 +1613,10 @@ export function registerRoutes(app: express.Application) {
       }
       
       // Buscar registro mensual y semanal
-      const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+      const kpiValues = await storage.getKpiValuesByKpi(
+        volumeKpi.id,
+        volumeKpi.companyId ?? parseInt(companyId as string)
+      );
       const monthlyRecord = kpiValues.find(value => 
         value.period === targetPeriod && !value.period.includes('Semana')
       );
@@ -2214,6 +1819,11 @@ export function registerRoutes(app: express.Application) {
       // Validar datos con Zod
       const validatedData = insertShipmentSchema.parse(transformedData);
       console.log("[POST /api/shipments] Datos validados:", JSON.stringify(validatedData, null, 2));
+      
+      // VUL-001: Validar acceso multi-tenant
+      if (validatedData.companyId) {
+        validateTenantAccess(req as AuthRequest, validatedData.companyId);
+      }
       
       // Crear el envío
       const shipment = await storage.createShipment(validatedData);
@@ -2874,7 +2484,13 @@ export function registerRoutes(app: express.Application) {
     try {
       const kpiId = parseInt(req.params.kpiId);
       const months = parseInt(req.query.months as string) || 12;
-      const kpiHistory = await storage.getKPIHistory(kpiId, months);
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        return res.status(400).json({ message: "companyId query param es requerido (1=Dura, 2=Orsega)" });
+      }
+
+      const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
       res.json(kpiHistory);
     } catch (error) {
       console.error("[GET /api/kpi-history/:kpiId] Error:", error);
@@ -2919,114 +2535,8 @@ export function registerRoutes(app: express.Application) {
   });
 
   // Endpoint para verificar duplicados (solo lectura)
-  app.get("/api/check-kpi-duplicates", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const user = (req as any).user;
-      
-      if (user.role !== 'admin') {
-        return res.status(403).json({ message: "No autorizado" });
-      }
 
-      const sql = neon(process.env.DATABASE_URL!);
-
-      // Verificar duplicados (company-level: userId IS NULL)
-      const companyDuplicates = await sql`
-        SELECT kpi_id, period, COUNT(*) as count, ARRAY_AGG(id ORDER BY id DESC) as ids
-        FROM kpi_values
-        WHERE user_id IS NULL
-        GROUP BY kpi_id, period
-        HAVING COUNT(*) > 1
-      `;
-
-      console.log("[CHECK KPI DUPLICATES] Found:", companyDuplicates);
-      res.json({
-        duplicatesFound: companyDuplicates,
-        totalDuplicateGroups: companyDuplicates.length
-      });
-    } catch (error) {
-      console.error("[GET /api/check-kpi-duplicates] Error:", error);
-      res.status(500).json({ message: "Error interno del servidor", error: String(error) });
-    }
-  });
-
-  // Endpoint temporal para limpiar duplicados en kpi_values y crear índices únicos
   // ADMIN ONLY - Se ejecuta una sola vez para limpiar la base de datos
-  app.post("/api/fix-kpi-duplicates", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const user = (req as any).user;
-      
-      // Solo administradores pueden ejecutar este endpoint
-      if (user.role !== 'admin') {
-        return res.status(403).json({ message: "No autorizado" });
-      }
-
-      const sql = neon(process.env.DATABASE_URL!);
-      const results: any = {
-        duplicatesFound: [],
-        duplicatesDeleted: 0,
-        indexesCreated: [],
-        errors: []
-      };
-
-      // 1. Identificar duplicados (company-level: userId IS NULL)
-      const companyDuplicates = await sql`
-        SELECT kpi_id, period, COUNT(*) as count, ARRAY_AGG(id ORDER BY id DESC) as ids
-        FROM kpi_values
-        WHERE user_id IS NULL
-        GROUP BY kpi_id, period
-        HAVING COUNT(*) > 1
-      `;
-
-      results.duplicatesFound = companyDuplicates;
-
-      // 2. Eliminar duplicados manteniendo el registro con ID más alto (más reciente)
-      for (const dup of companyDuplicates) {
-        const idsToDelete = dup.ids.slice(1); // Mantener el primero (ID más alto), eliminar el resto
-        if (idsToDelete.length > 0) {
-          // Convertir array a formato PostgreSQL
-          const idsArray = `{${idsToDelete.join(',')}}`;
-          const deleted = await sql`
-            DELETE FROM kpi_values
-            WHERE id = ANY(${idsArray}::integer[])
-          `;
-          results.duplicatesDeleted += idsToDelete.length;
-        }
-      }
-
-      // 3. Crear índices únicos (si no existen)
-      try {
-        await sql`
-          CREATE UNIQUE INDEX IF NOT EXISTS user_kpi_unique 
-          ON kpi_values (kpi_id, user_id, period) 
-          WHERE user_id IS NOT NULL
-        `;
-        results.indexesCreated.push('user_kpi_unique');
-      } catch (error: any) {
-        results.errors.push({ index: 'user_kpi_unique', error: error.message });
-      }
-
-      try {
-        await sql`
-          CREATE UNIQUE INDEX IF NOT EXISTS company_kpi_unique 
-          ON kpi_values (kpi_id, period) 
-          WHERE user_id IS NULL
-        `;
-        results.indexesCreated.push('company_kpi_unique');
-      } catch (error: any) {
-        results.errors.push({ index: 'company_kpi_unique', error: error.message });
-      }
-
-      console.log("[FIX KPI DUPLICATES] Results:", results);
-      res.json({
-        success: true,
-        message: "Duplicados eliminados e índices creados correctamente",
-        details: results
-      });
-    } catch (error) {
-      console.error("[POST /api/fix-kpi-duplicates] Error:", error);
-      res.status(500).json({ message: "Error interno del servidor", error: String(error) });
-    }
-  });
 
   // Clients Database API - Nueva tabla de clientes
   const sql = neon(process.env.DATABASE_URL!);
@@ -3287,7 +2797,7 @@ export function registerRoutes(app: express.Application) {
   // });
 
   // POST /api/clients - Crear un nuevo cliente
-  app.post("/api/clients", jwtAuthMiddleware, async (req, res) => {
+  app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId'), async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       

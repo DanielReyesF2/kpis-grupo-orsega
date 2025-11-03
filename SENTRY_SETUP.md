@@ -226,3 +226,5 @@ Sentry.init({
 
 **Next:** Implementar Frontend Sentry + Rate Limiting
 
+
+

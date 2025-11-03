@@ -10,6 +10,7 @@ import { securityMonitorMiddleware, loginMonitorMiddleware, uploadMonitorMiddlew
 import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
 import fs from "fs";
+import rateLimit from "express-rate-limit";
 
 // Initialize Sentry before anything else
 import * as Sentry from "@sentry/node";
@@ -191,6 +192,17 @@ app.use(helmet({
     preload: true
   }
 }));
+
+// 🔒 RATE LIMITING - VUL-002: Protección global contra DDOS
+const globalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 requests por 15 min por IP
+  message: 'Demasiadas solicitudes. Por favor, intenta de nuevo en 15 minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health' || req.path === '/healthz' || req.path === '/api/health',
+});
+app.use('/api', globalApiLimiter);
 
 // 🔒 SECURITY MONITORING (SIN RIESGO - Solo monitoreo)
 app.use('/api', securityMonitorMiddleware);

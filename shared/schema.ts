@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -129,47 +129,86 @@ export const kpiValuesOrsega = pgTable("kpi_values_orsega", {
 export type KpiValueDura = typeof kpiValuesDura.$inferSelect;
 export type KpiValueOrsega = typeof kpiValuesOrsega.$inferSelect;
 
-// KPI schema
-export const kpis = pgTable("kpis", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  areaId: integer("area_id").notNull(),
-  companyId: integer("company_id").notNull(),
-  unit: text("unit").notNull(),
-  target: text("target").notNull(),
-  frequency: text("frequency").notNull(), // weekly, monthly, quarterly, annual
-  calculationMethod: text("calculation_method"),
-  responsible: text("responsible"),
-  invertedMetric: boolean("inverted_metric").default(false), // true si valores menores son mejores
+export const companyIdSchema = z.union([z.literal(1), z.literal(2)]);
+export type CompanyId = z.infer<typeof companyIdSchema>;
+
+const stringOrNumberToString = z.union([z.string(), z.number()]).transform((val) =>
+  typeof val === "number" ? val.toString() : val
+);
+
+export const insertKpiSchema = z
+  .object({
+    companyId: companyIdSchema.optional(),
+    areaId: z.number().int().positive().optional(),
+    area: z.string().min(1, "El área es requerida").optional(),
+    name: z.string().min(1, "El nombre es requerido"),
+    description: z.string().optional().nullable(),
+    target: stringOrNumberToString.optional(),
+    goal: stringOrNumberToString.optional(),
+    unit: z.string().optional().nullable(),
+    frequency: z.string().optional().nullable(),
+    calculationMethod: z.string().optional().nullable(),
+    responsible: z.string().optional().nullable(),
+    source: z.string().optional().nullable(),
+    period: z.string().optional().nullable(),
+  })
+  .refine((data) => data.areaId !== undefined || !!data.area, {
+    message: "Debe seleccionarse un área válida",
+    path: ["areaId"],
+  });
+
+export type InsertKpi = z.infer<typeof insertKpiSchema>;
+
+export type Kpi = {
+  id: number;
+  companyId: CompanyId;
+  areaId: number | null;
+  area: string | null;
+  name: string;
+  description: string | null;
+  goal: string | null;
+  target: string | null;
+  unit: string | null;
+  frequency: string | null;
+  calculationMethod: string | null;
+  responsible: string | null;
+  source: string | null;
+  period: string | null;
+  createdAt: Date | null;
+  invertedMetric?: boolean | null;
+};
+
+export const insertCompanyKpiValueSchema = z.object({
+  companyId: companyIdSchema.optional(),
+  kpiId: z.number().int().positive(),
+  value: stringOrNumberToString,
+  period: z.string().optional().nullable(),
+  month: z.string().optional().nullable(),
+  year: z.number().int().optional().nullable(),
+  compliancePercentage: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  comments: z.string().optional().nullable(),
+  updatedBy: z.number().int().optional().nullable(),
 });
 
-export const insertKpiSchema = createInsertSchema(kpis).omit({ id: true });
-export type InsertKpi = z.infer<typeof insertKpiSchema>;
-export type Kpi = typeof kpis.$inferSelect;
-
-// KPI Value schema
-export const kpiValues = pgTable("kpi_values", {
-  id: serial("id").primaryKey(),
-  kpiId: integer("kpi_id").notNull(),
-  userId: integer("user_id"), // ID del usuario específico (NULL = datos a nivel empresa)
-  value: text("value").notNull(),
-  date: timestamp("date").defaultNow(),
-  period: text("period").notNull(), // Month/Quarter/Year the value belongs to
-  compliancePercentage: text("compliance_percentage"),
-  status: text("status"), // complies, alert, not_compliant
-  comments: text("comments"),
-  updatedBy: integer("updated_by"), // ID del usuario que actualizó este KPI
-}, (table) => ({
-  // Índice único para KPIs de usuarios específicos
-  userKpiUnique: uniqueIndex("user_kpi_unique").on(table.kpiId, table.userId, table.period).where(sql`${table.userId} IS NOT NULL`),
-  // Índice único para KPIs a nivel empresa (userId NULL)
-  companyKpiUnique: uniqueIndex("company_kpi_unique").on(table.kpiId, table.period).where(sql`${table.userId} IS NULL`),
-}));
-
-export const insertKpiValueSchema = createInsertSchema(kpiValues).omit({ id: true, date: true });
+export const insertKpiValueSchema = insertCompanyKpiValueSchema;
 export type InsertKpiValue = z.infer<typeof insertKpiValueSchema>;
-export type KpiValue = typeof kpiValues.$inferSelect;
+export type InsertCompanyKpiValue = InsertKpiValue;
+
+export type KpiValue = {
+  id: number;
+  kpiId: number;
+  companyId: CompanyId;
+  value: string;
+  period: string | null;
+  month: string | null;
+  year: number | null;
+  date: Date | null;
+  compliancePercentage: string | null;
+  status: string | null;
+  comments: string | null;
+  updatedBy: number | null;
+};
 
 // Action Plan schema
 export const actionPlans = pgTable("action_plans", {
@@ -204,15 +243,17 @@ export const updateKpiValueSchema = insertKpiValueSchema.extend({
 export const updateKpiSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
-  areaId: z.number().optional(),
-  companyId: z.number().optional(),
+  areaId: z.number().int().positive().optional(),
+  area: z.string().optional(),
+  companyId: companyIdSchema.optional(),
   unit: z.string().optional(),
-  target: z.union([z.string(), z.number()]).transform((val) => 
-    typeof val === 'number' ? val.toString() : val
-  ).optional(),
+  target: stringOrNumberToString.optional(),
+  goal: stringOrNumberToString.optional(),
   frequency: z.string().optional(),
   calculationMethod: z.string().optional(),
   responsible: z.string().optional(),
+  source: z.string().optional(),
+  period: z.string().optional(),
   invertedMetric: z.boolean().optional(),
 });
 

@@ -31,7 +31,7 @@ export async function getLastWeeklyUpdate(companyId: number): Promise<any | null
     
     if (!volumeKpi) return null;
     
-    const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+    const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? companyId);
     const weeklyValues = kpiValues.filter(value => 
       value.period.includes("Semana")
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -130,7 +130,7 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     console.log(`[UpdateWeeklySales] Encontrado KPI: ${volumeKpi.name} (ID: ${volumeKpi.id})`);
     
     // 3. Verificar si ya existe un registro para esta semana
-    const existingWeeklyRecords = await storage.getKpiValuesByKpi(volumeKpi.id);
+    const existingWeeklyRecords = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? selectedCompanyId);
     const existingThisWeek = existingWeeklyRecords.find(record => 
       record.period === currentPeriod.period
     );
@@ -156,10 +156,13 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
                         weeklyCompliance >= 85 ? "alert" : "not_compliant";
     
     const weeklyKpiValue = {
+      companyId: volumeKpi.companyId ?? selectedCompanyId,
       kpiId: volumeKpi.id,
       userId: salesData.userId || 1, // Usuario que actualiza (Omar)
       value: fullFormattedValue,
       period: currentPeriod.period,
+      month: currentPeriod.month,
+      year: currentPeriod.year,
       compliancePercentage: `${weeklyCompliance.toFixed(1)}%`,
       status: weeklyStatus,
       comments: `${isUpdate ? 'Actualización' : 'Registro'} semanal automático`,
@@ -172,7 +175,7 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     
     // 7. Calcular total mensual actualizado
     // Recalcular total mensual con todos los registros semanales
-    const updatedKpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+    const updatedKpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? selectedCompanyId);
     const currentMonthWeeklySales = updatedKpiValues.filter(value => 
       value.period.includes(currentPeriod.month) && 
       value.period.includes(currentPeriod.year.toString()) &&
@@ -253,7 +256,7 @@ export async function autoCloseMonth(companyId: number, month?: string, year?: n
     }
     
     // Obtener todas las ventas semanales del mes
-    const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id);
+    const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? companyId);
     const weeklyRecords = kpiValues.filter(value => 
       value.period.includes(targetMonth) && 
       value.period.includes(targetYear.toString()) &&

@@ -1,7 +1,8 @@
 // SCRIPT DE SEEDING PARA PRODUCTION
 // Este script pobla la base de datos de producción con datos esenciales
 import { db } from "./db";
-import { companies, areas, kpis, users } from "../shared/schema";
+import { companies, areas, users } from "../shared/schema";
+import { storage } from "./storage";
 
 export async function seedProductionData() {
   try {
@@ -10,7 +11,7 @@ export async function seedProductionData() {
     // 1. Verificar estado actual
     const existingCompanies = await db.select().from(companies);
     const existingAreas = await db.select().from(areas);
-    const existingKpis = await db.select().from(kpis);
+    const existingKpis = await storage.getKpis();
     
     console.log(`📊 Estado actual: companies=${existingCompanies.length}, areas=${existingAreas.length}, kpis=${existingKpis.length}`);
     

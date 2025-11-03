@@ -1,12 +1,37 @@
 import { 
-  users, companies, areas, kpis, kpiValues, kpiValuesDura, kpiValuesOrsega, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, jobProfiles, shipmentCycleTimes, userActivationTokens, clients, paymentVouchers 
+  users,
+  companies,
+  areas,
+  kpisDura,
+  kpisOrsega,
+  kpiValuesDura,
+  kpiValuesOrsega,
+  actionPlans,
+  shipments,
+  shipmentItems,
+  shipmentUpdates,
+  notifications,
+  jobProfiles,
+  shipmentCycleTimes,
+  userActivationTokens,
+  clients,
+  paymentVouchers,
+  type InsertKpiDura,
+  type InsertKpiOrsega,
+  type KpiDura,
+  type KpiOrsega,
+  type KpiValueDura,
+  type KpiValueOrsega
 } from "@shared/schema";
 import type { 
   User, InsertUser, 
   Company, InsertCompany, 
   Area, InsertArea, 
-  Kpi, InsertKpi,
-  KpiValue, InsertKpiValue,
+  InsertKpi,
+  Kpi,
+  InsertKpiValue,
+  KpiValue,
+  CompanyId,
   ActionPlan, InsertActionPlan,
   Shipment, InsertShipment,
   ShipmentItem, InsertShipmentItem,
@@ -21,12 +46,213 @@ import type {
   PaymentVoucher, InsertPaymentVoucher
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, isNotNull, isNull, sql, avg, count, gte } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import type { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
   constructor() {
     // Removed session store since JWT is used for authentication
+  }
+
+  private resolveCompany(companyId: number): 1 | 2 {
+    if (companyId === 1 || companyId === 2) {
+      return companyId;
+    }
+    throw new Error(`Unsupported companyId ${companyId}. Use 1 for Dura or 2 for Orsega.`);
+  }
+
+  private getKpiTable(companyId: 1 | 2) {
+    return companyId === 1 ? kpisDura : kpisOrsega;
+  }
+
+  private getKpiValuesTable(companyId: 1 | 2) {
+    return companyId === 1 ? kpiValuesDura : kpiValuesOrsega;
+  }
+
+  private async getCompanyAreaMap(companyId: 1 | 2) {
+    const areaRows = await db.select().from(areas).where(eq(areas.companyId, companyId));
+    const areaMap = new Map<string, Area>();
+    for (const area of areaRows) {
+      areaMap.set(area.name.trim().toLowerCase(), area);
+    }
+    return areaMap;
+  }
+
+  private normalizeAreaName(area?: string | null) {
+    return area ? area.trim().toLowerCase() : null;
+  }
+
+  private async findCompanyForKpiId(kpiId: number): Promise<1 | 2 | undefined> {
+    const [duraMatch] = await db
+      .select({ id: kpisDura.id })
+      .from(kpisDura)
+      .where(eq(kpisDura.id, kpiId))
+      .limit(1);
+    if (duraMatch) return 1;
+
+    const [orsegaMatch] = await db
+      .select({ id: kpisOrsega.id })
+      .from(kpisOrsega)
+      .where(eq(kpisOrsega.id, kpiId))
+      .limit(1);
+    if (orsegaMatch) return 2;
+
+    return undefined;
+  }
+
+  private async findCompanyForKpiValueId(valueId: number): Promise<1 | 2 | undefined> {
+    const [duraMatch] = await db
+      .select({ id: kpiValuesDura.id })
+      .from(kpiValuesDura)
+      .where(eq(kpiValuesDura.id, valueId))
+      .limit(1);
+    if (duraMatch) return 1;
+
+    const [orsegaMatch] = await db
+      .select({ id: kpiValuesOrsega.id })
+      .from(kpiValuesOrsega)
+      .where(eq(kpiValuesOrsega.id, valueId))
+      .limit(1);
+    if (orsegaMatch) return 2;
+
+    return undefined;
+  }
+
+  private mapKpiRecord(record: any, companyId: 1 | 2, areaMap: Map<string, Area>) {
+    const normalizedArea = this.normalizeAreaName(record.area);
+    const areaMatch = normalizedArea ? areaMap.get(normalizedArea) : undefined;
+    return {
+      id: record.id,
+      area: areaMatch?.name ?? record.area ?? null,
+      kpiName: record.kpiName,
+      name: record.kpiName,
+      description: record.description ?? null,
+      calculationMethod: record.calculationMethod ?? null,
+      goal: record.goal ?? null,
+      target: record.goal ?? null,
+      unit: record.unit ?? null,
+      frequency: record.frequency ?? null,
+      source: record.source ?? null,
+      responsible: record.responsible ?? null,
+      period: record.period ?? null,
+      createdAt: record.createdAt ?? null,
+      companyId,
+      areaId: areaMatch?.id ?? null,
+    };
+  }
+
+  private mapKpiValueRecord(record: any, companyId: 1 | 2) {
+    const period =
+      record.month && record.year
+        ? `${record.month.charAt(0).toUpperCase()}${record.month.slice(1).toLowerCase()} ${record.year}`
+        : null;
+    return {
+      id: record.id,
+      kpiId: record.kpi_id,
+      value: record.value?.toString() ?? "0",
+      period,
+      date: record.created_at ?? new Date(),
+      compliancePercentage: null,
+      status: null,
+      comments: null,
+      updatedBy: null,
+      month: record.month ?? null,
+      year: record.year ?? null,
+      companyId,
+    };
+  }
+
+  async getCompanyKpisNormalized(companyId: number) {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiTable(resolved);
+    const areaMap = await this.getCompanyAreaMap(resolved);
+    const records = await db.select().from(table);
+    return records.map((record) => this.mapKpiRecord(record, resolved, areaMap));
+  }
+
+  async getAllCompanyKpisNormalized() {
+    const dura = await this.getCompanyKpisNormalized(1);
+    const orsega = await this.getCompanyKpisNormalized(2);
+    return [...dura, ...orsega];
+  }
+
+  async getCompanyKpiNormalized(companyId: number, kpiId: number) {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiTable(resolved);
+    const areaMap = await this.getCompanyAreaMap(resolved);
+    const records = await db.select().from(table).where(eq(table.id, kpiId)).limit(1);
+    if (records.length === 0) return undefined;
+    return this.mapKpiRecord(records[0], resolved, areaMap);
+  }
+
+  async getCompanyKpiValuesNormalized(companyId: number) {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiValuesTable(resolved);
+    const records = await db.select().from(table);
+    return records.map((record) => this.mapKpiValueRecord(record, resolved));
+  }
+
+  async getCompanyKpiValuesByKpiNormalized(companyId: number, kpiId: number) {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiValuesTable(resolved);
+    const records = await db
+      .select()
+      .from(table)
+      .where(eq(table.kpi_id, kpiId))
+      .orderBy(desc(table.year), desc(table.created_at));
+    return records.map((record) => this.mapKpiValueRecord(record, resolved));
+  }
+
+  async upsertCompanyKpiValueNormalized(companyId: number, data: {
+    kpiId: number;
+    month: string;
+    year: number;
+    value: number;
+    compliancePercentage?: string | null;
+    status?: string | null;
+    comments?: string | null;
+    updatedBy?: number | null;
+  }) {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiValuesTable(resolved);
+    const monthUpper = data.month.toUpperCase();
+
+    const existing = await db
+      .select()
+      .from(table)
+      .where(
+        and(
+          eq(table.kpi_id, data.kpiId),
+          eq(table.month, monthUpper),
+          eq(table.year, data.year)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(table)
+        .set({
+          value: data.value,
+          created_at: new Date(),
+        })
+        .where(eq(table.id, existing[0].id))
+        .returning();
+      return this.mapKpiValueRecord(updated, resolved);
+    }
+
+    const [inserted] = await db
+      .insert(table)
+      .values({
+        kpi_id: data.kpiId,
+        month: monthUpper,
+        year: data.year,
+        value: data.value,
+        created_at: new Date(),
+      })
+      .returning();
+
+    return this.mapKpiValueRecord(inserted, resolved);
   }
 
   // User operations
@@ -222,19 +448,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // KPI operations
-  async getKpi(id: number): Promise<Kpi | undefined> {
+  async getKpi(id: number, companyId: number): Promise<Kpi | undefined> {
     try {
-      const [kpi] = await db.select().from(kpis).where(eq(kpis.id, id));
-      return kpi;
+      const resolved = this.resolveCompany(companyId);
+      const table = this.getKpiTable(resolved);
+      const areaMap = await this.getCompanyAreaMap(resolved);
+      const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1);
+      if (!record) return undefined;
+      return this.mapKpiRecord(record, resolved, areaMap);
     } catch (error) {
       console.error("Error getting KPI:", error);
       return undefined;
     }
   }
 
-  async getKpis(): Promise<Kpi[]> {
+  async getKpis(companyId?: number): Promise<Kpi[]> {
     try {
-      return await db.select().from(kpis);
+      if (typeof companyId === "number") {
+        return await this.getCompanyKpisNormalized(companyId);
+      }
+      return await this.getAllCompanyKpisNormalized();
     } catch (error) {
       console.error("Error getting KPIs:", error);
       return [];
@@ -243,7 +476,7 @@ export class DatabaseStorage implements IStorage {
 
   async getKpisByCompany(companyId: number): Promise<Kpi[]> {
     try {
-      return await db.select().from(kpis).where(eq(kpis.companyId, companyId));
+      return await this.getCompanyKpisNormalized(companyId);
     } catch (error) {
       console.error("Error getting KPIs by company:", error);
       return [];
@@ -252,7 +485,20 @@ export class DatabaseStorage implements IStorage {
 
   async getKpisByArea(areaId: number): Promise<Kpi[]> {
     try {
-      return await db.select().from(kpis).where(eq(kpis.areaId, areaId));
+      const [areaRecord] = await db.select().from(areas).where(eq(areas.id, areaId)).limit(1);
+      if (!areaRecord) {
+        return [];
+      }
+
+      const resolved = this.resolveCompany(areaRecord.companyId);
+      const table = this.getKpiTable(resolved);
+      const areaMap = await this.getCompanyAreaMap(resolved);
+      const normalizedName = this.normalizeAreaName(areaRecord.name);
+
+      const records = await db.select().from(table);
+      return records
+        .filter((record) => this.normalizeAreaName(record.area) === normalizedName)
+        .map((record) => this.mapKpiRecord(record, resolved, areaMap));
     } catch (error) {
       console.error("Error getting KPIs by area:", error);
       return [];
@@ -261,9 +507,20 @@ export class DatabaseStorage implements IStorage {
 
   async getKpisByCompanyAndArea(companyId: number, areaId: number): Promise<Kpi[]> {
     try {
-      return await db.select().from(kpis).where(
-        and(eq(kpis.companyId, companyId), eq(kpis.areaId, areaId))
-      );
+      const resolved = this.resolveCompany(companyId);
+      const [areaRecord] = await db.select().from(areas).where(eq(areas.id, areaId)).limit(1);
+      if (!areaRecord || this.resolveCompany(areaRecord.companyId) !== resolved) {
+        return [];
+      }
+
+      const table = this.getKpiTable(resolved);
+      const areaMap = await this.getCompanyAreaMap(resolved);
+      const normalizedName = this.normalizeAreaName(areaRecord.name);
+      const records = await db.select().from(table);
+
+      return records
+        .filter((record) => this.normalizeAreaName(record.area) === normalizedName)
+        .map((record) => this.mapKpiRecord(record, resolved, areaMap));
     } catch (error) {
       console.error("Error getting KPIs by company and area:", error);
       return [];
@@ -272,8 +529,42 @@ export class DatabaseStorage implements IStorage {
 
   async createKpi(kpi: InsertKpi): Promise<Kpi> {
     try {
-      const [createdKpi] = await db.insert(kpis).values(kpi).returning();
-      return createdKpi;
+      const resolved = this.resolveCompany(kpi.companyId);
+      const table = this.getKpiTable(resolved);
+
+      let areaRecord: Area | undefined;
+      if (kpi.areaId) {
+        const [area] = await db.select().from(areas).where(eq(areas.id, kpi.areaId)).limit(1);
+        if (!area) {
+          throw new Error(`Area with id ${kpi.areaId} not found`);
+        }
+        if (this.resolveCompany(area.companyId) !== resolved) {
+          throw new Error(`La área ${area.id} pertenece a otra compañía`);
+        }
+        areaRecord = area;
+      }
+
+      const areaName = (areaRecord?.name ?? kpi.area)?.trim();
+      if (!areaName) {
+        throw new Error("Debe especificarse un área válida para el KPI");
+      }
+
+      const insertPayload = {
+        area: areaName,
+        kpiName: kpi.name,
+        description: kpi.description ?? null,
+        calculationMethod: kpi.calculationMethod ?? null,
+        goal: kpi.goal ?? kpi.target ?? null,
+        unit: kpi.unit ?? null,
+        frequency: kpi.frequency ?? null,
+        source: kpi.source ?? null,
+        responsible: kpi.responsible ?? null,
+        period: kpi.period ?? null,
+      };
+
+      const [created] = await db.insert(table).values(insertPayload).returning();
+      const areaMap = await this.getCompanyAreaMap(resolved);
+      return this.mapKpiRecord(created, resolved, areaMap);
     } catch (error) {
       console.error("Error creating KPI:", error);
       throw error;
@@ -282,25 +573,73 @@ export class DatabaseStorage implements IStorage {
 
   async updateKpi(id: number, kpiData: Partial<Kpi>): Promise<Kpi | undefined> {
     try {
-      const [updatedKpi] = await db
-        .update(kpis)
-        .set(kpiData)
-        .where(eq(kpis.id, id))
+      const companyId = kpiData.companyId ?? (await this.findCompanyForKpiId(id));
+      if (!companyId) {
+        console.warn(`[DatabaseStorage] No se encontró compañía para KPI ${id}`);
+        return undefined;
+      }
+
+      const resolved = this.resolveCompany(companyId);
+      const table = this.getKpiTable(resolved);
+      const updates: Record<string, any> = {};
+
+      if (kpiData.name !== undefined) updates.kpiName = kpiData.name;
+      if (kpiData.description !== undefined) updates.description = kpiData.description;
+      if (kpiData.calculationMethod !== undefined) updates.calculationMethod = kpiData.calculationMethod;
+      if (kpiData.target !== undefined || kpiData.goal !== undefined) {
+        updates.goal = kpiData.goal ?? kpiData.target;
+      }
+      if (kpiData.unit !== undefined) updates.unit = kpiData.unit;
+      if (kpiData.frequency !== undefined) updates.frequency = kpiData.frequency;
+      if (kpiData.source !== undefined) updates.source = kpiData.source;
+      if (kpiData.responsible !== undefined) updates.responsible = kpiData.responsible;
+      if (kpiData.period !== undefined) updates.period = kpiData.period;
+
+      if (kpiData.areaId !== undefined || kpiData.area !== undefined) {
+        let areaName = kpiData.area;
+        if (kpiData.areaId !== undefined) {
+          const [area] = await db.select().from(areas).where(eq(areas.id, kpiData.areaId)).limit(1);
+          if (!area) {
+            throw new Error(`Area with id ${kpiData.areaId} not found`);
+          }
+          if (this.resolveCompany(area.companyId) !== resolved) {
+            throw new Error(`La área ${area.id} pertenece a otra compañía`);
+          }
+          areaName = area.name;
+        }
+        if (areaName) {
+          updates.area = areaName;
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return await this.getKpi(id, resolved);
+      }
+
+      const [updated] = await db
+        .update(table)
+        .set(updates)
+        .where(eq(table.id, id))
         .returning();
-      return updatedKpi;
+
+      if (!updated) return undefined;
+
+      const areaMap = await this.getCompanyAreaMap(resolved);
+      return this.mapKpiRecord(updated, resolved, areaMap);
     } catch (error) {
       console.error("Error updating KPI:", error);
       return undefined;
     }
   }
 
-  async deleteKpi(id: number): Promise<boolean> {
+  async deleteKpi(id: number, companyId: number): Promise<boolean> {
     try {
-      // Primero eliminar todos los valores asociados al KPI
-      await db.delete(kpiValues).where(eq(kpiValues.kpiId, id));
-      
-      // Luego eliminar el KPI
-      const result = await db.delete(kpis).where(eq(kpis.id, id));
+      const resolved = this.resolveCompany(companyId);
+      const valuesTable = this.getKpiValuesTable(resolved);
+      await db.delete(valuesTable).where(eq(valuesTable.kpi_id, id));
+
+      const table = this.getKpiTable(resolved);
+      const result = await db.delete(table).where(eq(table.id, id));
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error deleting KPI:", error);
@@ -309,101 +648,130 @@ export class DatabaseStorage implements IStorage {
   }
 
   // KPI Value operations
-  async getKpiValue(id: number): Promise<KpiValue | undefined> {
+  async getKpiValue(id: number, companyId?: number): Promise<KpiValue | undefined> {
     try {
-      const [kpiValue] = await db.select().from(kpiValues).where(eq(kpiValues.id, id));
-      return kpiValue;
+      let resolved: 1 | 2 | undefined;
+      if (companyId !== undefined) {
+        resolved = this.resolveCompany(companyId);
+      } else {
+        resolved = await this.findCompanyForKpiValueId(id);
+      }
+
+      if (!resolved) return undefined;
+
+      const table = this.getKpiValuesTable(resolved);
+      const [record] = await db.select().from(table).where(eq(table.id, id)).limit(1);
+      if (!record) return undefined;
+      return this.mapKpiValueRecord(record, resolved);
     } catch (error) {
       console.error("Error getting KPI value:", error);
       return undefined;
     }
   }
 
-  async getKpiValues(): Promise<KpiValue[]> {
+  async getKpiValues(companyId?: number): Promise<KpiValue[]> {
     try {
-      return await db.select().from(kpiValues);
+      if (typeof companyId === "number") {
+        return await this.getCompanyKpiValuesNormalized(companyId);
+      }
+
+      const dura = await this.getCompanyKpiValuesNormalized(1);
+      const orsega = await this.getCompanyKpiValuesNormalized(2);
+      return [...dura, ...orsega];
     } catch (error) {
       console.error("Error getting KPI values:", error);
       return [];
     }
   }
 
-  async getKpiValuesByKpi(kpiId: number): Promise<KpiValue[]> {
+  async getKpiValuesByKpi(kpiId: number, companyId: number): Promise<KpiValue[]> {
     try {
-      return await db.select().from(kpiValues).where(eq(kpiValues.kpiId, kpiId));
+      return await this.getCompanyKpiValuesByKpiNormalized(companyId, kpiId);
     } catch (error) {
       console.error("Error getting KPI values by KPI:", error);
       return [];
     }
   }
 
-  async getKpiValuesByUser(userId: number): Promise<KpiValue[]> {
-    try {
-      return await db.select().from(kpiValues).where(eq(kpiValues.userId, userId));
-    } catch (error) {
-      console.error("Error getting KPI values by user:", error);
-      return [];
-    }
+  async getKpiValuesByUser(_userId: number): Promise<KpiValue[]> {
+    // Las tablas específicas por empresa no guardan valores por usuario
+    return [];
   }
 
-  async deleteKpiValuesByUser(userId: number, kpiId: number): Promise<boolean> {
-    try {
-      const result = await db.delete(kpiValues).where(
-        and(eq(kpiValues.userId, userId), eq(kpiValues.kpiId, kpiId))
-      );
-      return (result.rowCount ?? 0) > 0;
-    } catch (error) {
-      console.error("Error deleting KPI values by user:", error);
-      return false;
-    }
+  async deleteKpiValuesByUser(_userId: number, _kpiId: number): Promise<boolean> {
+    // No hay valores específicos por usuario en las tablas por empresa
+    return false;
   }
 
-  async getLatestKpiValues(kpiId: number, limit: number): Promise<KpiValue[]> {
+  async getLatestKpiValues(kpiId: number, limit: number, companyId: number): Promise<KpiValue[]> {
     try {
-      return await db
-        .select()
-        .from(kpiValues)
-        .where(eq(kpiValues.kpiId, kpiId))
-        .orderBy(desc(kpiValues.date))
-        .limit(limit);
+      const values = await this.getCompanyKpiValuesByKpiNormalized(companyId, kpiId);
+      return values.slice(0, limit);
     } catch (error) {
       console.error("Error getting latest KPI values:", error);
       return [];
     }
   }
 
+  private extractMonthYear(data: { month?: string | null; year?: number | null; period?: string | null }) {
+    if (data.month && data.year) {
+      return {
+        month: data.month.toUpperCase(),
+        year: data.year,
+      };
+    }
+
+    if (data.period) {
+      const parts = data.period.trim().split(/[\s/-]+/);
+      const maybeYear = parseInt(parts[parts.length - 1], 10);
+      if (!Number.isFinite(maybeYear)) {
+        throw new Error(`No se pudo determinar el año a partir del periodo "${data.period}"`);
+      }
+      const monthPart = parts.slice(0, -1).join(" ");
+      if (!monthPart) {
+        throw new Error(`No se pudo determinar el mes a partir del periodo "${data.period}"`);
+      }
+      return {
+        month: monthPart.toUpperCase(),
+        year: maybeYear,
+      };
+    }
+
+    const now = new Date();
+    const month = now.toLocaleString("es-MX", { month: "long" }).toUpperCase();
+    const year = now.getFullYear();
+    return { month, year };
+  }
+
   async createKpiValue(kpiValue: InsertKpiValue): Promise<KpiValue> {
     try {
-      // Asegurarse de que la fecha se establezca correctamente para nuevos valores
-      const valueWithDate = {
-        ...kpiValue,
-        date: new Date()
-      };
-      
-      const [createdKpiValue] = await db.insert(kpiValues).values(valueWithDate).returning();
-      return createdKpiValue;
+      const companyIdInput =
+        kpiValue.companyId ?? (await this.findCompanyForKpiId(kpiValue.kpiId));
+      if (!companyIdInput) {
+        throw new Error(`Unable to determine company for KPI ${kpiValue.kpiId}`);
+      }
+
+      const resolved = this.resolveCompany(companyIdInput);
+      const { month, year } = this.extractMonthYear(kpiValue);
+      const numericValue =
+        typeof kpiValue.value === "string" ? parseFloat(kpiValue.value) : Number(kpiValue.value);
+
+      if (!Number.isFinite(numericValue)) {
+        throw new Error(`El valor del KPI debe ser numérico. Recibido: ${kpiValue.value}`);
+      }
+
+      return await this.upsertCompanyKpiValueNormalized(resolved, {
+        kpiId: kpiValue.kpiId,
+        month,
+        year,
+        value: numericValue,
+        compliancePercentage: kpiValue.compliancePercentage ?? null,
+        status: kpiValue.status ?? null,
+        comments: kpiValue.comments ?? null,
+        updatedBy: kpiValue.updatedBy ?? null,
+      });
     } catch (error) {
       console.error("Error creating KPI value:", error);
-      // Reparar desincronización de secuencia si aplica (duplicate key on primary key)
-      const err: any = error;
-      if (err?.code === '23505' && String(err?.detail || '').includes('kpi_values_pkey')) {
-        try {
-          console.warn('[KPI] Detected sequence mismatch on kpi_values.id. Repairing sequence and retrying...');
-          // Set sequence to max(id)+1
-          await db.execute(sql`SELECT setval(
-            pg_get_serial_sequence('kpi_values','id'),
-            COALESCE((SELECT MAX(id) + 1 FROM kpi_values), 1),
-            false
-          )`);
-          const [createdAfterFix] = await db.insert(kpiValues).values({
-            ...kpiValue,
-            date: new Date()
-          }).returning();
-          return createdAfterFix;
-        } catch (repairError) {
-          console.error('[KPI] Sequence repair failed:', repairError);
-        }
-      }
       throw error;
     }
   }
@@ -711,24 +1079,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team activity operations
-  async getLastKpiUpdateByUser(userId: number): Promise<{ kpiName: string; updateDate: Date; } | undefined> {
-    try {
-      const [latestUpdate] = await db
-        .select({
-          kpiName: kpis.name,
-          updateDate: kpiValues.date
-        })
-        .from(kpiValues)
-        .leftJoin(kpis, eq(kpiValues.kpiId, kpis.id))
-        .where(eq(kpiValues.updatedBy, userId))
-        .orderBy(desc(kpiValues.date))
-        .limit(1);
-      
-      return latestUpdate;
-    } catch (error) {
-      console.error("Error getting last KPI update by user:", error);
-      return undefined;
-    }
+  async getLastKpiUpdateByUser(_userId: number): Promise<{ kpiName: string; updateDate: Date; } | undefined> {
+    // Las tablas por empresa no guardan historial por usuario; se regresa undefined
+    return undefined;
   }
 
   async getTeamActivitySummary(): Promise<Array<{ userId: number; lastLogin: Date | null; lastKpiUpdate: { kpiName: string; updateDate: Date; } | null; }>> {
@@ -874,10 +1227,8 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      const userKpis = await db.select().from(kpis).where(
-        and(eq(kpis.areaId, user.areaId), eq(kpis.companyId, user.companyId))
-      );
-      return userKpis;
+      const companyKpis = await this.getCompanyKpisNormalized(user.companyId);
+      return companyKpis.filter((kpi) => kpi.areaId === user.areaId);
     } catch (error) {
       console.error("Error getting user KPIs:", error);
       return [];
@@ -886,81 +1237,127 @@ export class DatabaseStorage implements IStorage {
 
   async getKPIOverview(): Promise<any[]> {
     try {
-      const result = await db.select({
-        userId: users.id,
-        userName: users.name,
-        userEmail: users.email,
-        areaName: areas.name,
-        companyName: companies.name,
-        kpiId: kpis.id,
-        kpiName: kpis.name,
-        kpiTarget: kpis.target,
-        kpiFrequency: kpis.frequency,
-        kpiValue: kpiValues.value,
-        lastUpdate: kpiValues.date
-      })
-      .from(users)
-      .innerJoin(areas, eq(users.areaId, areas.id))
-      .innerJoin(companies, eq(users.companyId, companies.id))
-      .innerJoin(kpis, and(eq(kpis.areaId, areas.id), eq(kpis.companyId, companies.id)))
-      .leftJoin(kpiValues, eq(kpiValues.kpiId, kpis.id))
-      .where(and(isNotNull(users.areaId), isNotNull(users.companyId)))
-      .orderBy(desc(kpiValues.date));
+      const [allUsers, areasList, companiesList] = await Promise.all([
+        db.select().from(users),
+        db.select().from(areas),
+        db.select().from(companies),
+      ]);
 
-      // Agrupar por usuario y KPI, tomando el valor más reciente
-      const groupedResults = new Map();
-      
-      for (const row of result) {
-        const key = `${row.userId}-${row.kpiId}`;
-        if (!groupedResults.has(key)) {
-          // Calcular estado basado en el valor actual vs target
-          let status = 'non-compliant'; // Por defecto es no cumple si no hay datos
-          
-          if (row.kpiValue && row.kpiTarget) {
-            // Función para extraer valores numéricos
-            const extractNumericValue = (value: string): number => {
-              const cleanValue = value.replace(/[^\d.-]/g, '');
-              return parseFloat(cleanValue);
-            };
-            
-            const currentValue = extractNumericValue(row.kpiValue);
-            const targetValue = extractNumericValue(row.kpiTarget);
-            
-            if (!isNaN(currentValue) && !isNaN(targetValue)) {
-              // Determinar si es una métrica invertida (menor es mejor)
-              const isLowerBetter = this.isLowerBetterKPI(row.kpiName);
-              
-              if (isLowerBetter) {
-                // Para métricas donde menor es mejor
-                if (currentValue <= targetValue) {
-                  status = 'compliant';
-                } else if (currentValue <= targetValue * 1.1) {
-                  status = 'alert';
-                } else {
-                  status = 'non-compliant';
-                }
+      const assignedUsers = allUsers.filter(
+        (user) => user.areaId !== null && user.areaId !== undefined && user.companyId !== null && user.companyId !== undefined
+      );
+
+      const areaById = new Map(areasList.map((area) => [area.id, area]));
+      const companyById = new Map(companiesList.map((company) => [company.id, company]));
+
+      const uniqueCompanyIds = Array.from(
+        new Set(
+          assignedUsers
+            .map((user) => user.companyId)
+            .filter((companyId): companyId is number => typeof companyId === "number")
+        )
+      );
+
+      const kpisByCompany = new Map<number, Kpi[]>();
+      const valuesByCompany = new Map<number, KpiValue[]>();
+
+      for (const companyId of uniqueCompanyIds) {
+        try {
+          const resolved = this.resolveCompany(companyId);
+          const companyKpis = await this.getCompanyKpisNormalized(resolved);
+          kpisByCompany.set(companyId, companyKpis);
+
+          const companyValues = await this.getCompanyKpiValuesNormalized(resolved);
+          valuesByCompany.set(companyId, companyValues);
+        } catch (error) {
+          console.warn(`[getKPIOverview] Company ${companyId} skipped: ${(error as Error).message}`);
+        }
+      }
+
+      const latestValueMap = new Map<string, KpiValue>();
+      for (const [companyId, values] of valuesByCompany.entries()) {
+        for (const value of values) {
+          const key = `${companyId}-${value.kpiId}`;
+          const existing = latestValueMap.get(key);
+          const valueDate = value.date ? new Date(value.date) : null;
+          const existingDate = existing?.date ? new Date(existing.date) : null;
+          if (!existing || (valueDate && existingDate && valueDate > existingDate)) {
+            latestValueMap.set(key, value);
+          }
+        }
+      }
+
+      const parseNumericValue = (raw?: string | null) => {
+        if (!raw) return NaN;
+        const cleaned = raw.replace(/[^\d.-]/g, "");
+        return parseFloat(cleaned);
+      };
+
+      const overview: any[] = [];
+
+      for (const user of assignedUsers) {
+        const area = user.areaId ? areaById.get(user.areaId) : undefined;
+        const company = user.companyId ? companyById.get(user.companyId) : undefined;
+
+        if (!area || !company) continue;
+
+        const companyKpis = kpisByCompany.get(user.companyId!) ?? [];
+        const relevantKpis = companyKpis.filter((kpi) => kpi.areaId === user.areaId);
+
+        for (const kpi of relevantKpis) {
+          const key = `${user.companyId}-${kpi.id}`;
+          const latestValue = latestValueMap.get(key);
+
+          const target = kpi.target ?? kpi.goal ?? null;
+          const currentValue = latestValue?.value ?? null;
+          const lastUpdate = latestValue?.date ?? null;
+
+          let status = "non-compliant";
+          const targetNumber = parseNumericValue(target);
+          const currentNumber = parseNumericValue(currentValue);
+
+          if (!isNaN(targetNumber) && !isNaN(currentNumber)) {
+            const lowerBetter = this.isLowerBetterKPI(kpi.name);
+            if (lowerBetter) {
+              if (currentNumber <= targetNumber) {
+                status = "compliant";
+              } else if (currentNumber <= targetNumber * 1.1) {
+                status = "alert";
               } else {
-                // Para métricas donde mayor es mejor
-                if (currentValue >= targetValue) {
-                  status = 'compliant';
-                } else if (currentValue >= targetValue * 0.9) {
-                  status = 'alert';
-                } else {
-                  status = 'non-compliant';
-                }
+                status = "non-compliant";
+              }
+            } else {
+              if (currentNumber >= targetNumber) {
+                status = "compliant";
+              } else if (currentNumber >= targetNumber * 0.9) {
+                status = "alert";
+              } else {
+                status = "non-compliant";
               }
             }
+          } else if (currentValue) {
+            status = "alert";
           }
 
-          groupedResults.set(key, {
-            ...row,
+          overview.push({
+            userId: user.id,
+            userName: user.name,
+            userEmail: user.email,
+            areaName: area.name,
+            companyName: company.name,
+            kpiId: kpi.id,
+            kpiName: kpi.name,
+            kpiTarget: target,
+            kpiFrequency: kpi.frequency,
+            kpiValue: currentValue,
+            lastUpdate,
             status,
-            trend: 'stable' // Por ahora, después implementaremos cálculo de tendencia
+            trend: "stable",
           });
         }
       }
 
-      return Array.from(groupedResults.values());
+      return overview;
     } catch (error) {
       console.error("Error getting KPI overview:", error);
       return [];
@@ -991,153 +1388,45 @@ export class DatabaseStorage implements IStorage {
 
 
 
-  async getKPIHistory(kpiId: number, months: number = 12): Promise<any[]> {
+  async getKPIHistory(kpiId: number, months: number = 12, companyId?: number): Promise<KpiValue[]> {
     try {
-      // Usar tabla unificada kpi_values
-      const result = await db.select({
-        id: kpiValues.id,
-        kpiId: kpiValues.kpiId,
-        value: kpiValues.value,
-        date: kpiValues.date,
-        period: kpiValues.period,
-        compliancePercentage: kpiValues.compliancePercentage,
-        status: kpiValues.status,
-        comments: kpiValues.comments,
-        updatedBy: kpiValues.updatedBy
-      })
-      .from(kpiValues)
-      .where(and(eq(kpiValues.kpiId, kpiId), isNull(kpiValues.userId)))
-      .orderBy(desc(kpiValues.date))
-      .limit(months);
+      const resolved =
+        typeof companyId === "number"
+          ? this.resolveCompany(companyId)
+          : await this.findCompanyForKpiId(kpiId);
 
-      console.log(`[getKPIHistory] KPI ${kpiId} history: ${result.length} records`);
-      return result;
+      if (!resolved) {
+        return [];
+      }
+
+      const values = await this.getCompanyKpiValuesByKpiNormalized(resolved, kpiId);
+      return values.slice(0, months);
     } catch (error) {
       console.error("Error getting KPI history:", error);
       return [];
     }
   }
 
-  async getUserKPIHistory(userId: number, months: number = 6): Promise<any[]> {
-    try {
-      // Calcular fecha límite (X meses atrás desde hoy)
-      const cutoffDate = new Date();
-      cutoffDate.setMonth(cutoffDate.getMonth() - months);
-
-      const userKPIHistory = await db.select({
-        kpiId: kpiValues.kpiId,
-        kpiName: kpis.name,
-        kpiTarget: kpis.target,
-        kpiUnit: kpis.unit,
-        kpiFrequency: kpis.frequency,
-        companyId: kpis.companyId,
-        companyName: companies.name,
-        areaName: areas.name,
-        valueId: kpiValues.id,
-        value: kpiValues.value,
-        date: kpiValues.date,
-        period: kpiValues.period,
-        compliancePercentage: kpiValues.compliancePercentage,
-        status: kpiValues.status,
-        comments: kpiValues.comments,
-      })
-      .from(kpiValues)
-      .innerJoin(kpis, eq(kpiValues.kpiId, kpis.id))
-      .innerJoin(companies, eq(kpis.companyId, companies.id))
-      .innerJoin(areas, eq(kpis.areaId, areas.id))
-      .where(
-        and(
-          eq(kpiValues.userId, userId),
-          gte(kpiValues.date, cutoffDate)
-        )
-      )
-      .orderBy(desc(kpiValues.date));
-
-      console.log(`[getUserKPIHistory] User ${userId} history (${userKPIHistory.length} records) desde ${cutoffDate.toISOString()}`);
-      return userKPIHistory;
-    } catch (error) {
-      console.error("Error getting user KPI history:", error);
-      return [];
-    }
+  async getUserKPIHistory(_userId: number, _months: number = 6): Promise<any[]> {
+    // No existen valores históricos por usuario en las tablas específicas
+    return [];
   }
 
-  async getKPIHistoryByUsers(kpiId: number, months: number = 6): Promise<any> {
+  async getKPIHistoryByUsers(kpiId: number, _months: number = 6): Promise<any> {
     try {
-      // Calcular fecha de corte (X meses atrás)
-      const cutoffDate = new Date();
-      cutoffDate.setMonth(cutoffDate.getMonth() - months);
-
-      // Obtener información del KPI
-      const [kpiInfo] = await db.select({
-        id: kpis.id,
-        name: kpis.name,
-        target: kpis.target,
-        unit: kpis.unit,
-        frequency: kpis.frequency,
-        companyId: kpis.companyId,
-        companyName: companies.name,
-        areaId: kpis.areaId,
-        areaName: areas.name,
-      })
-      .from(kpis)
-      .innerJoin(companies, eq(kpis.companyId, companies.id))
-      .innerJoin(areas, eq(kpis.areaId, areas.id))
-      .where(eq(kpis.id, kpiId));
-
-      if (!kpiInfo) {
+      const companyId = await this.findCompanyForKpiId(kpiId);
+      if (!companyId) {
         return null;
       }
 
-      // Obtener todos los valores del KPI con información de usuarios
-      const kpiHistory = await db.select({
-        valueId: kpiValues.id,
-        userId: users.id,
-        userName: users.name,
-        userEmail: users.email,
-        value: kpiValues.value,
-        date: kpiValues.date,
-        period: kpiValues.period,
-        compliancePercentage: kpiValues.compliancePercentage,
-        status: kpiValues.status,
-        comments: kpiValues.comments,
-      })
-      .from(kpiValues)
-      .innerJoin(users, eq(kpiValues.userId, users.id))
-      .where(
-        and(
-          eq(kpiValues.kpiId, kpiId),
-          gte(kpiValues.date, cutoffDate)
-        )
-      )
-      .orderBy(desc(kpiValues.date));
-
-      // Agrupar por usuario
-      const userHistoryMap = new Map();
-      for (const record of kpiHistory) {
-        if (!userHistoryMap.has(record.userId)) {
-          userHistoryMap.set(record.userId, {
-            userId: record.userId,
-            userName: record.userName,
-            userEmail: record.userEmail,
-            values: []
-          });
-        }
-        userHistoryMap.get(record.userId).values.push({
-          valueId: record.valueId,
-          value: record.value,
-          date: record.date,
-          period: record.period,
-          compliancePercentage: record.compliancePercentage,
-          status: record.status,
-          comments: record.comments,
-        });
+      const kpi = await this.getCompanyKpiNormalized(companyId, kpiId);
+      if (!kpi) {
+        return null;
       }
 
-      console.log(`[getKPIHistoryByUsers] KPI ${kpiId} history: ${userHistoryMap.size} users, ${kpiHistory.length} total records desde ${cutoffDate.toISOString()}`);
-
       return {
-        kpi: kpiInfo,
-        users: Array.from(userHistoryMap.values())
+        kpi,
+        users: [],
       };
     } catch (error) {
       console.error("Error getting KPI history by users:", error);

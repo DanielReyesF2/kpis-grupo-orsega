@@ -5,6 +5,21 @@ import { sql } from './db-logistics.js'
 import { createClientSchema, updateClientSchema, createProviderSchema, updateProviderSchema, createProviderChannelSchema } from '../shared/logistics-schema.js'
 import { insertSupplierSchema } from '../shared/schema.js'
 
+// Tenant validation middleware - VUL-001 fix
+import { validateTenantFromBody, validateTenantAccess } from './middleware/tenant-validation.js'
+
+// Extended Request type for authenticated routes
+interface AuthRequest extends any {
+  user?: {
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+    areaId?: number | null;
+    companyId?: number | null;
+  };
+}
+
 export const catalogRouter = Router()
 
 // CLIENTS
@@ -30,7 +45,7 @@ catalogRouter.get('/clients', async (req, res) => {
   }
 })
 
-catalogRouter.post('/clients', async (req, res) => {
+catalogRouter.post('/clients', validateTenantFromBody('companyId'), async (req, res) => {
   try {
     console.log('🔵 [POST /clients] Creando nuevo cliente');
     console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
@@ -88,12 +103,16 @@ catalogRouter.post('/clients', async (req, res) => {
 catalogRouter.patch('/clients/:id', async (req, res) => {
   try {
     console.log(`🔵 [PATCH /clients/${req.params.id}] Actualizando cliente`);
-    // Sanitizar payload: remover campos no soportados y normalizar tipos
+    
+    // VUL-001: Validar acceso primero si se está cambiando companyId
     const { phone, billingAddr, shippingAddr, ...rest } = req.body as any
     const payload = { ...rest, id: parseInt(req.params.id) }
-    // Normalizar companyId si viene como string
-    if (payload.companyId !== undefined) payload.companyId = parseInt(payload.companyId)
-
+    if (payload.companyId !== undefined) {
+      payload.companyId = parseInt(payload.companyId)
+      validateTenantAccess(req as AuthRequest, payload.companyId)
+    }
+    
+    // Sanitizar payload: remover campos no soportados y normalizar tipos
     const validated = updateClientSchema.parse(payload)
     const address = billingAddr || shippingAddr || undefined
     
@@ -340,7 +359,7 @@ catalogRouter.get('/suppliers', async (req, res) => {
 })
 
 // POST /api/suppliers - Crear nuevo proveedor de tesorería
-catalogRouter.post('/suppliers', async (req, res) => {
+catalogRouter.post('/suppliers', validateTenantFromBody('companyId'), async (req, res) => {
   try {
     console.log('🔵 [POST /suppliers] Creando nuevo proveedor de tesorería');
     
@@ -379,6 +398,11 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
     console.log(`🔵 [PATCH /suppliers/${id}] Actualizando proveedor`);
     
     const validatedData = insertSupplierSchema.partial().parse(req.body)
+    
+    // VUL-001: Validar acceso si se está cambiando companyId
+    if (validatedData.companyId !== undefined) {
+      validateTenantAccess(req as AuthRequest, validatedData.companyId)
+    }
     
     const result = await sql(`
       UPDATE suppliers 

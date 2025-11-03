@@ -372,3 +372,5 @@ npm run dev
 
 **Next Step:** Empezar con Fase 1, Día 1 - Implementación de Sentry
 
+
+

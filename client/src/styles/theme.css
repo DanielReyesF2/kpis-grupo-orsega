@@ -24,77 +24,95 @@
   --danger-foreground: 0 0% 100%;
   --ring: 250 84% 61%;
   --radius: 8px;
+
+  /* Pastel accents (light theme) */
+  --pastel-blue: 217 84% 68%;
+  --pastel-green: 142 63% 58%;
+  --pastel-orange: 38 92% 66%;
+  --pastel-violet: 285 70% 72%;
+  --pastel-teal: 190 68% 62%;
+  --surface: 210 20% 96%;
+  --surface-muted: 210 20% 92%;
 }
 
-/* Dark theme - Professional Modern Look (Cursor/OpenAI style) */
+/* Dark theme - Charcoal with Pastel Accents */
 .dark {
-  /* Theme base colors - Neutral dark with better depth */
-  --background: 220 10% 12%; /* #1c1f23 - más claro que negro, con matiz azul sutil */
-  --foreground: 0 0% 96%; /* #F5F5F5 - texto muy claro */
-  --muted: 220 8% 65%; /* #9CA3AF - gris neutro medio */
-  --muted-foreground: 220 8% 65%;
+  /* Theme base colors - Charcoal gray, not absolute black */
+  --background: 220 10% 14%; /* Charcoal dark gray - darker than before but not black */
+  --foreground: 0 0% 100%; /* Pure white text for maximum readability */
+  --muted: 220 8% 70%; /* Lighter gray for secondary text */
+  --muted-foreground: 220 8% 70%;
   
   /* Card and surface colors */
-  --card: 220 8% 16%; /* #25282d - más claro que background para profundidad */
-  --card-foreground: 0 0% 96%;
-  --popover: 220 8% 16%;
-  --popover-foreground: 0 0% 96%;
+  --card: 220 8% 18%; /* Slightly lighter charcoal for cards */
+  --card-foreground: 0 0% 100%; /* White text on cards */
+  --popover: 220 8% 18%;
+  --popover-foreground: 0 0% 100%;
   
   /* Borders and dividers */
-  --border: 220 10% 30%; /* #4a5058 - bordes más visibles */
-  --input: 220 8% 20%; /* #333639 */
-  --ring: 217 85% 60%; /* Azul neutral con menos saturación - #3B82F6 */
+  --border: 220 10% 35%; /* Softer, more visible borders */
+  --input: 220 8% 20%;
+  --ring: 217 70% 65%; /* Pastel blue */
   
-  /* Primary colors - Azul neutral (no morado) */
-  --primary: 217 85% 60%; /* #3B82F6 - azul neutral estilo OpenAI, menos saturado */
-  --primary-foreground: 0 0% 100%;
+  /* Primary colors - Pastel blue */
+  --primary: 217 70% 65%; /* Soft pastel blue */
+  --primary-foreground: 0 0% 100%; /* White text on primary */
   
   /* Secondary */
-  --secondary: 220 8% 20%; /* #333639 */
-  --secondary-foreground: 0 0% 96%;
+  --secondary: 220 8% 22%; /* Slightly lighter than card */
+  --secondary-foreground: 0 0% 100%; /* White text */
   
-  /* Accent colors */
-  --accent: 217 85% 60%; /* #3B82F6 - mismo azul neutral */
+  /* Accent colors - Pastel palette */
+  --accent: 200 70% 65%; /* Soft pastel cyan-blue */
   --accent-foreground: 0 0% 100%;
   
-  /* Status colors */
-  --success: 142 71% 45%; /* #22C55E - verde */
+  /* Status colors - Pastel versions */
+  --success: 142 60% 55%; /* Soft mint green */
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%; /* #F59E0B - naranja */
+  --warning: 38 80% 60%; /* Soft pastel orange */
   --warning-foreground: 0 0% 100%;
   
   /* Destructive */
-  --destructive: 0 84% 60%; /* #EF4444 - rojo */
+  --destructive: 0 70% 65%; /* Soft pastel red */
   --destructive-foreground: 0 0% 100%;
-  --danger: 0 84% 60%;
+  --danger: 0 70% 65%;
   --danger-foreground: 0 0% 100%;
   
-  /* Sidebar colors */
-  --sidebar-background: 220 10% 12%; /* Mismo que background */
-  --sidebar-foreground: 0 0% 96%;
-  --sidebar-primary: 217 85% 60%; /* Azul neutral */
+  /* Sidebar colors - Consistent with pastel theme */
+  --sidebar-background: 220 10% 14%; /* Match background */
+  --sidebar-foreground: 0 0% 100%; /* White text */
+  --sidebar-primary: 217 70% 65%; /* Pastel blue */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 8% 20%; /* #333639 */
-  --sidebar-accent-foreground: 0 0% 96%;
-  --sidebar-border: 220 10% 30%; /* #4a5058 */
-  --sidebar-ring: 217 85% 60%; /* Azul neutral */
+  --sidebar-accent: 220 8% 18%; /* Card color */
+  --sidebar-accent-foreground: 0 0% 100%; /* White text */
+  --sidebar-border: 220 10% 35%; /* Match border */
+  --sidebar-ring: 217 70% 65%; /* Pastel blue */
   
-  /* Chart colors */
-  --chart-1: 217 85% 60%; /* #3B82F6 - azul neutral */
-  --chart-2: 142 71% 45%; /* #22C55E - verde */
-  --chart-3: 38 92% 50%; /* #F59E0B - naranja */
-  --chart-4: 0 84% 60%; /* #EF4444 - rojo */
-  --chart-5: 220 8% 65%; /* #9CA3AF - gris neutro */
+  /* Chart colors - Pastel palette */
+  --chart-1: 217 70% 65%; /* Soft pastel blue */
+  --chart-2: 142 60% 55%; /* Soft mint green */
+  --chart-3: 38 80% 60%; /* Soft pastel orange */
+  --chart-4: 300 60% 70%; /* Soft pastel violet */
+  --chart-5: 200 70% 65%; /* Soft pastel cyan */
   
   /* Chart axis and grid colors */
-  --chart-axis: 0 0% 90%; /* #E5E7EB - líneas de eje claras */
-  --chart-grid: 220 10% 25%; /* #3d4147 - grid sutil */
+  --chart-axis: 220 8% 70%; /* Light gray for axes */
+  --chart-grid: 220 10% 25%; /* Very subtle grid */
   
   /* Special variables */
   --radius: 8px;
-  --navbar-bg: rgba(28, 31, 35, 0.8); /* #1c1f23 con transparencia */
+  --navbar-bg: rgba(28, 31, 35, 0.8); /* Charcoal with transparency */
   --navbar-blur: blur(10px);
-  --shadow-soft: 0 1px 4px rgba(0, 0, 0, 0.5); /* Shadow más fuerte */
+  --shadow-soft: 0 1px 5px rgba(0, 0, 0, 0.3); /* Softer, more diffused shadow */
+
+  /* Pastel accent palette */
+  --pastel-blue: 217 70% 70%;
+  --pastel-green: 148 62% 62%;
+  --pastel-orange: 35 82% 64%;
+  --pastel-violet: 285 60% 72%;
+  --pastel-teal: 190 65% 65%;
+  --surface: 220 8% 20%;
+  --surface-muted: 220 8% 24%;
 }
 
 /* Base styles */
@@ -136,6 +154,7 @@
   .card-modern:hover {
     @apply shadow-lg;
     transform: translateY(-1px);
+    border-color: hsl(var(--border));
   }
   
   /* Button modern styles */
@@ -147,7 +166,7 @@
   
   .btn-primary-modern:hover {
     @apply bg-primary/90;
-    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); /* Azul neutral #3B82F6 */
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.4); /* Pastel blue glow */
   }
   
   /* Input modern styles - Google-like */
@@ -182,8 +201,73 @@
   }
 }
 
+/* Breathing and pulse animations */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Utility classes */
 @layer utilities {
+  /* Animations */
+  .animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--muted)) 50%,
+      hsl(var(--card)) 100%
+    );
+    background-size: 1000px 100%;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+  
   /* Text colors */
   .text-muted-foreground {
     color: hsl(var(--muted-foreground));
@@ -221,4 +305,3 @@
     display: none !important;
   }
 }
-
