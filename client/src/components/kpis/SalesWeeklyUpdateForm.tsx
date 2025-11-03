@@ -121,7 +121,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       });
       
       // Invalidar y refrescar consultas inmediatamente
-      const kpiId = selectedCompanyId === 1 ? 39 : 10;
+      const kpiId = selectedCompanyId === 1 ? 39 : 1;
       
       // Invalidar todas las consultas relacionadas
       await queryClient.invalidateQueries({ queryKey: ["/api/kpi-values"] });

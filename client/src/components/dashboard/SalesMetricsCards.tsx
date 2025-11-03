@@ -42,7 +42,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     }
   }, [salesKpi, companyId]);
 
-  const kpiId = salesKpi?.id || (companyId === 1 ? 39 : 10);
+  const kpiId = salesKpi?.id || (companyId === 1 ? 39 : 1);
 
   // Cargar datos históricos
   const { data: kpiHistory } = useQuery<any[]>({

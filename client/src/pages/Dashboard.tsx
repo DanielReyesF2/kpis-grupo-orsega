@@ -256,7 +256,7 @@ export default function Dashboard() {
             ? Number(filters.companyId)
             : undefined;
           const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2;
-          const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 10;
+          const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 1;
           const effectiveTarget = effectiveCompanyId === 1 ? "55620" : "858373";
           return (
             <SalesVolumeChart 

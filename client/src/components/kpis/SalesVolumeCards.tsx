@@ -35,7 +35,7 @@ export function SalesVolumeCards({
   const [monthsData, setMonthsData] = useState<MonthData[]>([]);
   
   // KPI IDs para volumen de ventas
-  const kpiId = companyId === 1 ? 39 : 10; // 39=Dura, 10=Orsega
+  const kpiId = companyId === 1 ? 39 : 1; // 39=Dura, 1=Orsega
   const unit = companyId === 1 ? 'KG' : 'unidades';
   
   // Meta mensual según la empresa

@@ -40,7 +40,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
            name.includes('sales');
   });
 
-  const kpiId = salesKpi?.id || (currentCompanyId === 1 ? 39 : 10); // Fallback a IDs antiguos
+  const kpiId = salesKpi?.id || (currentCompanyId === 1 ? 39 : 1); // Fallback a IDs actualizados
   const unit = currentCompanyId === 1 ? 'KG' : 'unidades';
 
   // Debug logging

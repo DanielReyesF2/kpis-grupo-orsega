@@ -136,7 +136,7 @@ export function SalesVolumeChart({
 
   // Usar kpiId proporcionado o buscar por nombre, con fallback a IDs conocidos
   // Prioridad: providedKpiId > salesKpi por nombre > IDs conocidos por companyId
-  const kpiId = providedKpiId || salesKpi?.id || (companyId === 1 ? 39 : 10);
+  const kpiId = providedKpiId || salesKpi?.id || (companyId === 1 ? 39 : 1);
   
   console.log("[SalesVolumeChart] 🔍 Búsqueda de KPI:", {
     companyId,

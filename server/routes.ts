@@ -1386,7 +1386,7 @@ export function registerRoutes(app: express.Application) {
         });
       }
 
-      const kpiId = numericCompanyId === 1 ? 39 : 10;
+      const kpiId = numericCompanyId === 1 ? 39 : 1;
       const periodString = period || `${month} ${numericYear}`;
 
       console.log(`[POST /api/sales/update-month] Actualizando KPI ${kpiId} para período: ${periodString}`);

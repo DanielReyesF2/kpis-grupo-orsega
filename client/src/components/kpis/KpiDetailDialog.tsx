@@ -286,7 +286,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
   // Solo mostrar formulario de ventas para KPIs específicos de ventas
   const isSalesKpi = kpi && (
     kpi.id === 39 || // Dura Volumen de ventas
-    kpi.id === 10 || // Orsega Volumen de ventas
+    kpi.id === 1 || // Orsega Volumen de ventas
     (kpi.name && 
      kpi.name.toLowerCase().includes('volumen') && 
      kpi.name.toLowerCase().includes('ventas') &&
