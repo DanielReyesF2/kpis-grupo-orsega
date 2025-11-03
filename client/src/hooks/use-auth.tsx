@@ -131,11 +131,22 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       
       // Guardar el token en localStorage usando nuestra función mejorada
       setAuthToken(token);
+
+      // Verificar que el token se guardó correctamente
+      const savedToken = getAuthToken();
+      if (!savedToken || savedToken !== token) {
+        console.error('[Auth] Error: Token no se guardó correctamente');
+        throw new Error('Error al guardar el token de autenticación');
+      }
       
       // Actualizar el estado del usuario
       setUser(data.user);
       
-      // Invalidar todas las consultas para que se recargen con el nuevo token
+      // Esperar un ciclo completo del event loop para asegurar que el token esté disponible
+      // antes de invalidar queries y que las queries puedan accederlo
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Invalidar todas las consultas para que se recarguen con el nuevo token
       queryClient.invalidateQueries();
       
       

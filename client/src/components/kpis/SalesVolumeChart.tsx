@@ -15,6 +15,8 @@ import {
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -356,6 +358,18 @@ export function SalesVolumeChart({
 
   const trendData = getTrendData();
 
+  // Calcular valores min/max para el tamaño de los puntos y líneas de referencia
+  const valueRange = useMemo(() => {
+    if (!chartDataWithTarget || chartDataWithTarget.length === 0) {
+      return { minValue: 0, maxValue: 0, range: 0 };
+    }
+    const values = chartDataWithTarget.map((d: any) => d.value);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const range = maxValue - minValue;
+    return { minValue, maxValue, range };
+  }, [chartDataWithTarget]);
+
   // Mostrar skeleton mientras carga
   if (isLoadingHistory) {
     return (
@@ -403,18 +417,10 @@ export function SalesVolumeChart({
             
             <TabsContent value="monthly" className="h-[350px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
+                <LineChart
                   data={chartDataWithTarget}
-                  margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
-                  barCategoryGap="25%"
+                  margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
                 >
-                  <defs>
-                    {/* Gradiente premium tipo Oura Ring: negro → gris claro (fade ascendente) */}
-                    <linearGradient id="barGray" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="#000000" />
-                      <stop offset="100%" stopColor="#9ca3af" />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid 
                     stroke="#2a2a2a"
                     vertical={false}
@@ -434,7 +440,7 @@ export function SalesVolumeChart({
                     axisLine={{ stroke: "#2a2a2a" }}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
                     contentStyle={{
                       backgroundColor: "#181818",
                       border: "1px solid #2a2a2a",
@@ -448,56 +454,62 @@ export function SalesVolumeChart({
                     }}
                     labelFormatter={(label: any) => `${label}`}
                   />
-                  <Bar 
-                    dataKey="value" 
-                    name={`Volumen (${getUnit()})`} 
-                    fill="url(#barGray)"
-                    radius={[4, 4, 0, 0]}
-                    barSize={70} 
-                    animationDuration={1200}
-                    animationEasing="ease-in-out"
-                    maxBarSize={90}
-                    shape={(props: any) => {
-                      const { x, y, width, height } = props;
+                  {/* Líneas de referencia (superior e inferior) basadas en los datos */}
+                  {valueRange.range > 0 && (
+                    <>
+                      <ReferenceLine
+                        y={valueRange.maxValue - valueRange.range * 0.2}
+                        stroke="#ffffff"
+                        strokeWidth={1}
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.5}
+                      />
+                      <ReferenceLine
+                        y={valueRange.minValue + valueRange.range * 0.2}
+                        stroke="#ffffff"
+                        strokeWidth={1}
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.5}
+                      />
+                    </>
+                  )}
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#ffffff"
+                    strokeWidth={0.5}
+                    dot={(props: any) => {
+                      const { cx, cy, payload, index } = props;
+                      if (!cx || !cy) return null;
+                      
+                      // Calcular tamaño del punto basado en el volumen de ventas
+                      const normalizedValue = valueRange.range > 0 
+                        ? (payload.value - valueRange.minValue) / valueRange.range 
+                        : 0.5;
+                      
+                      // Tamaño base pequeño, más grande para valores altos
+                      const baseSize = 3;
+                      const maxSize = 8;
+                      const pointSize = baseSize + (normalizedValue * (maxSize - baseSize));
+                      
+                      // Primer punto gris, el resto blanco
+                      const isFirstPoint = index === 0;
+                      const fillColor = isFirstPoint ? "#9ca3af" : "#ffffff";
+                      
                       return (
-                        <g>
-                          {/* Barra con degradado negro → gris claro (ascendente) */}
-                          <rect 
-                            x={x} 
-                            y={y} 
-                            width={width} 
-                            height={height} 
-                            fill="url(#barGray)" 
-                            rx={4} 
-                            ry={4}
-                            className="transition-all duration-200 hover:opacity-90"
-                          />
-                          {/* Línea blanca delgada en la parte superior */}
-                          {height > 5 && (
-                            <line
-                              x1={x}
-                              y1={y}
-                              x2={x + width}
-                              y2={y}
-                              stroke="#ffffff"
-                              strokeWidth={0.5}
-                              opacity={0.4}
-                            />
-                          )}
-                        </g>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={pointSize}
+                          fill={fillColor}
+                          stroke={fillColor}
+                          strokeWidth={0.5}
+                        />
                       );
                     }}
+                    activeDot={{ r: 6, fill: "#ffffff" }}
                   />
-                  {monthlyTarget > 0 && (
-                    <ReferenceLine
-                      y={monthlyTarget}
-                      stroke="#9ca3af"
-                      strokeWidth={1}
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.4}
-                    />
-                  )}
-                </BarChart>
+                </LineChart>
               </ResponsiveContainer>
             </TabsContent>
             
