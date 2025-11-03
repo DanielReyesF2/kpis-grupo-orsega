@@ -15,7 +15,6 @@ import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
-import { CompanySelector } from '@/components/dashboard/CompanySelector';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, formatDateAndTime } from '@/lib/utils/dates';
 import { Button } from '@/components/ui/button';
@@ -227,24 +226,20 @@ export default function Dashboard() {
           <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
             Hola {user?.name?.split(' ')[0] || 'Usuario'}, bienvenido a tu Sistema Digital de Gestión
           </h2>
-          <p className="mb-4 sm:mb-6 max-w-2xl text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Aquí podrás ver los KPIs de tus colaboradores y tener acceso a datos en tiempo real 
-            para que puedas tomar decisiones informadas. <span className="font-semibold text-foreground">¿Qué te gustaría ver hoy?</span>
+          <p className="mb-6 sm:mb-8 max-w-2xl text-sm sm:text-base text-muted-foreground leading-relaxed">
+            A continuación verás los indicadores de desempeño para <strong className="text-foreground">Dura</strong> y <strong className="text-foreground">Orsega</strong> en tiempo real, sin necesidad de seleccionar una empresa.
           </p>
           
-          {/* Selector de empresa ahora visible en la cabecera */}
-          {companies && companies.length > 0 && (
-            <div className="mb-4 sm:mb-6 max-w-full sm:max-w-xs">
-              <CompanySelector 
-                companies={companies} 
-                selectedCompanyId={Number(filters.companyId) || 1} 
-                onCompanyChange={(companyId) => handleFilterChange({ companyId })} 
-              />
+          {/* Grid de tarjetas de KPIs para ambas empresas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6" data-onboarding="kpi-stats">
+            <div className="space-y-2">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Dura International</h3>
+              <SalesMetricsCards companyId={1} />
             </div>
-          )}
-          
-          <div className="mt-4 sm:mt-8" data-onboarding="kpi-stats">
-            <SalesMetricsCards companyId={Number(filters.companyId) || 1} />
+            <div className="space-y-2">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Grupo Orsega</h3>
+              <SalesMetricsCards companyId={2} />
+            </div>
           </div>
         </div>
       </div>
