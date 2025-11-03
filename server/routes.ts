@@ -2486,11 +2486,16 @@ export function registerRoutes(app: express.Application) {
       const months = parseInt(req.query.months as string) || 12;
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
 
+      console.log(`[GET /api/kpi-history/:kpiId] Request: KPI ${kpiId}, months: ${months}, companyId: ${companyId || 'undefined'}`);
+
       // getKPIHistory puede resolver automáticamente el companyId si no se proporciona
       // usando findCompanyForKpiId internamente
       const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
       
-      console.log(`[GET /api/kpi-history/:kpiId] KPI ${kpiId}, months: ${months}, companyId: ${companyId || 'auto-resolved'}, registros: ${kpiHistory.length}`);
+      console.log(`[GET /api/kpi-history/:kpiId] Response: ${kpiHistory.length} registros encontrados`);
+      if (kpiHistory.length === 0) {
+        console.warn(`[GET /api/kpi-history/:kpiId] ⚠️ No se encontraron datos históricos para KPI ${kpiId}`);
+      }
       
       res.json(kpiHistory);
     } catch (error) {
