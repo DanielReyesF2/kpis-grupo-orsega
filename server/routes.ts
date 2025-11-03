@@ -2486,11 +2486,12 @@ export function registerRoutes(app: express.Application) {
       const months = parseInt(req.query.months as string) || 12;
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
 
-      if (!companyId || (companyId !== 1 && companyId !== 2)) {
-        return res.status(400).json({ message: "companyId query param es requerido (1=Dura, 2=Orsega)" });
-      }
-
+      // getKPIHistory puede resolver automáticamente el companyId si no se proporciona
+      // usando findCompanyForKpiId internamente
       const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
+      
+      console.log(`[GET /api/kpi-history/:kpiId] KPI ${kpiId}, months: ${months}, companyId: ${companyId || 'auto-resolved'}, registros: ${kpiHistory.length}`);
+      
       res.json(kpiHistory);
     } catch (error) {
       console.error("[GET /api/kpi-history/:kpiId] Error:", error);
