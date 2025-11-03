@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request } from 'express'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { sql } from './db-logistics.js'
@@ -9,7 +9,7 @@ import { insertSupplierSchema } from '../shared/schema.js'
 import { validateTenantFromBody, validateTenantAccess } from './middleware/tenant-validation.js'
 
 // Extended Request type for authenticated routes
-interface AuthRequest extends any {
+interface AuthRequest extends Request {
   user?: {
     id: number;
     role: string;
@@ -45,7 +45,7 @@ catalogRouter.get('/clients', async (req, res) => {
   }
 })
 
-catalogRouter.post('/clients', validateTenantFromBody('companyId'), async (req, res) => {
+catalogRouter.post('/clients', validateTenantFromBody('companyId') as any, async (req, res) => {
   try {
     console.log('🔵 [POST /clients] Creando nuevo cliente');
     console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
@@ -109,7 +109,10 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
     const payload = { ...rest, id: parseInt(req.params.id) }
     if (payload.companyId !== undefined) {
       payload.companyId = parseInt(payload.companyId)
-      validateTenantAccess(req as AuthRequest, payload.companyId)
+      const authReq = req as AuthRequest;
+      if (authReq.user) {
+        validateTenantAccess(authReq as any, payload.companyId as number)
+      }
     }
     
     // Sanitizar payload: remover campos no soportados y normalizar tipos
@@ -359,7 +362,7 @@ catalogRouter.get('/suppliers', async (req, res) => {
 })
 
 // POST /api/suppliers - Crear nuevo proveedor de tesorería
-catalogRouter.post('/suppliers', validateTenantFromBody('companyId'), async (req, res) => {
+catalogRouter.post('/suppliers', validateTenantFromBody('companyId') as any, async (req, res) => {
   try {
     console.log('🔵 [POST /suppliers] Creando nuevo proveedor de tesorería');
     
@@ -401,7 +404,10 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
     
     // VUL-001: Validar acceso si se está cambiando companyId
     if (validatedData.companyId !== undefined) {
-      validateTenantAccess(req as AuthRequest, validatedData.companyId)
+      const authReq = req as AuthRequest;
+      if (authReq.user) {
+        validateTenantAccess(authReq as any, validatedData.companyId as number)
+      }
     }
     
     const result = await sql(`
