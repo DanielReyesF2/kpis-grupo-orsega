@@ -195,12 +195,23 @@ export class DatabaseStorage implements IStorage {
   async getCompanyKpiValuesByKpiNormalized(companyId: number, kpiId: number) {
     const resolved = this.resolveCompany(companyId);
     const table = this.getKpiValuesTable(resolved);
+    console.log(`[getCompanyKpiValuesByKpiNormalized] Buscando en tabla para companyId=${resolved}, kpiId=${kpiId}`);
+    
     const records = await db
       .select()
       .from(table)
       .where(eq(table.kpi_id, kpiId))
       .orderBy(desc(table.year), desc(table.created_at));
-    return records.map((record) => this.mapKpiValueRecord(record, resolved));
+    
+    console.log(`[getCompanyKpiValuesByKpiNormalized] Encontrados ${records.length} registros raw de la DB`);
+    if (records.length > 0) {
+      console.log(`[getCompanyKpiValuesByKpiNormalized] Primer registro:`, JSON.stringify(records[0], null, 2));
+    }
+    
+    const mapped = records.map((record) => this.mapKpiValueRecord(record, resolved));
+    console.log(`[getCompanyKpiValuesByKpiNormalized] Retornando ${mapped.length} registros mapeados`);
+    
+    return mapped;
   }
 
   async upsertCompanyKpiValueNormalized(companyId: number, data: {
@@ -1390,19 +1401,27 @@ export class DatabaseStorage implements IStorage {
 
   async getKPIHistory(kpiId: number, months: number = 12, companyId?: number): Promise<KpiValue[]> {
     try {
+      console.log(`[getKPIHistory] Iniciando para KPI ${kpiId}, months: ${months}, companyId: ${companyId ?? 'undefined'}`);
+      
       const resolved =
         typeof companyId === "number"
           ? this.resolveCompany(companyId)
           : await this.findCompanyForKpiId(kpiId);
 
+      console.log(`[getKPIHistory] CompanyId resuelto: ${resolved ?? 'undefined'}`);
+
       if (!resolved) {
+        console.warn(`[getKPIHistory] No se pudo resolver companyId para KPI ${kpiId}`);
         return [];
       }
 
+      console.log(`[getKPIHistory] Buscando valores en tabla para companyId=${resolved}, kpiId=${kpiId}`);
       const values = await this.getCompanyKpiValuesByKpiNormalized(resolved, kpiId);
+      console.log(`[getKPIHistory] Encontrados ${values.length} valores, retornando ${Math.min(values.length, months)}`);
+      
       return values.slice(0, months);
     } catch (error) {
-      console.error("Error getting KPI history:", error);
+      console.error("[getKPIHistory] Error getting KPI history:", error);
       return [];
     }
   }
