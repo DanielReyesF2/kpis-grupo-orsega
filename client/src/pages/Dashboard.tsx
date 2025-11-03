@@ -223,12 +223,9 @@ export default function Dashboard() {
       {/* Header con stats rápidas */}
       <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-card border border-border p-4 sm:p-8 shadow-md">
         <div className="relative">
-          <h2 className="mb-2 sm:mb-3 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+          <h2 className="mb-6 sm:mb-8 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
             Hola {user?.name?.split(' ')[0] || 'Usuario'}, bienvenido a tu Sistema Digital de Gestión
           </h2>
-          <p className="mb-6 sm:mb-8 max-w-2xl text-sm sm:text-base text-muted-foreground leading-relaxed">
-            A continuación verás los indicadores de desempeño para <strong className="text-foreground">Dura</strong> y <strong className="text-foreground">Orsega</strong> en tiempo real, sin necesidad de seleccionar una empresa.
-          </p>
           
           {/* Grid de tarjetas de KPIs para ambas empresas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6" data-onboarding="kpi-stats">
