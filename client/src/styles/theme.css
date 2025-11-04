@@ -78,15 +78,15 @@
   --danger: 0 70% 65%;
   --danger-foreground: 0 0% 100%;
   
-  /* Sidebar colors - Turquesa del botón "Acceder al Sistema" (#00a8a8) */
-  --sidebar-background: 178 100% 33%; /* Turquesa #00a8a8 - igual al botón del login */
-  --sidebar-foreground: 0 0% 100%; /* White text sobre turquesa */
-  --sidebar-primary: 180 100% 25%; /* Turquesa oscuro (#008080) - para elementos activos */
+  /* Sidebar colors - Azul oscuro de ORSEGA (#273949) */
+  --sidebar-background: 208 30% 22%; /* Azul oscuro #273949 - igual al color de las letras ORSEGA */
+  --sidebar-foreground: 0 0% 100%; /* White text sobre azul oscuro */
+  --sidebar-primary: 208 30% 18%; /* Azul más oscuro para elementos activos */
   --sidebar-primary-foreground: 0 0% 100%; /* White text */
-  --sidebar-accent: 180 100% 28%; /* Turquesa ligeramente más claro para hovers */
+  --sidebar-accent: 208 30% 28%; /* Azul ligeramente más claro para hovers */
   --sidebar-accent-foreground: 0 0% 100%; /* White text */
-  --sidebar-border: 180 100% 25%; /* Turquesa oscuro para bordes */
-  --sidebar-ring: 180 100% 25%; /* Turquesa oscuro */
+  --sidebar-border: 208 30% 18%; /* Azul oscuro para bordes */
+  --sidebar-ring: 208 30% 18%; /* Azul oscuro */
   
   /* Chart colors - Mantener colores pastel pero ajustar al turquesa */
   --chart-1: 178 100% 33%; /* Turquesa primary */
