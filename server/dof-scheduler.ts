@@ -180,6 +180,3 @@ export function initializeDOFScheduler() {
   console.log('📅 [DOF Scheduler] Programador de tipo de cambio DOF inicializado');
   console.log('⏰ Actualizaciones programadas: Cada hora + 9:00 AM, 12:00 PM y 5:00 PM (Hora de México)');
 }
-
-// Exportar función para ejecución manual
-export { fetchDOFExchangeRate };
