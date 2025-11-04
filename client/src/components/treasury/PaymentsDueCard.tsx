@@ -1,0 +1,158 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, Calendar, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface Payment {
+  id: number;
+  supplier_name?: string;
+  supplierName?: string;
+  amount: number;
+  currency: string;
+  due_date?: string;
+  dueDate?: string;
+  status: string;
+  company_id?: number;
+  companyId?: number;
+}
+
+interface PaymentsDueCardProps {
+  onViewAll: () => void;
+}
+
+export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
+  // Obtener pagos programados
+  const { data: payments = [], isLoading } = useQuery<Payment[]>({
+    queryKey: ["/api/treasury/payments"],
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+
+  // Filtrar pagos por pagar (vencidos o próximos 3 días)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const threeDaysFromNow = new Date(today);
+  threeDaysFromNow.setDate(today.getDate() + 3);
+
+  const paymentsDue = payments.filter((p) => {
+    if (p.status === "paid" || p.status === "cancelled") return false;
+    
+    const dueDateStr = p.due_date || p.dueDate;
+    if (!dueDateStr) return false;
+    
+    const dueDate = new Date(dueDateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    return dueDate <= threeDaysFromNow;
+  }).sort((a, b) => {
+    const dateA = new Date(a.due_date || a.dueDate || "").getTime();
+    const dateB = new Date(b.due_date || b.dueDate || "").getTime();
+    return dateA - dateB;
+  });
+
+  const isOverdue = (dueDateStr: string | undefined) => {
+    if (!dueDateStr) return false;
+    const due = new Date(dueDateStr);
+    due.setHours(0, 0, 0, 0);
+    return due < today;
+  };
+
+  return (
+    <Card className="border-2 border-primary/20 shadow-lg">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-2xl font-bold text-foreground">
+            Pagos por Pagar
+          </CardTitle>
+          <Badge variant="outline" className="text-base px-3 py-1">
+            {paymentsDue.length}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : paymentsDue.length === 0 ? (
+          <div className="text-center py-8">
+            <DollarSign className="h-16 w-16 mx-auto mb-4 text-green-500" />
+            <p className="text-lg font-semibold text-foreground mb-2">
+              Sin pagos pendientes
+            </p>
+            <p className="text-sm text-muted-foreground">
+              No hay pagos programados para los próximos 3 días
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {paymentsDue.slice(0, 5).map((payment) => {
+                const overdue = isOverdue(payment.due_date || payment.dueDate);
+                return (
+                  <div
+                    key={payment.id}
+                    className={`p-4 border-2 rounded-lg bg-card hover:border-primary/40 transition-all cursor-pointer ${
+                      overdue ? "border-red-300 dark:border-red-700" : "border-border"
+                    }`}
+                    onClick={onViewAll}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {overdue ? (
+                            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                          ) : (
+                            <Calendar className="h-5 w-5 text-primary flex-shrink-0" />
+                          )}
+                          <p className="text-base font-semibold text-foreground truncate">
+                            {payment.supplier_name || payment.supplierName || "Sin proveedor"}
+                          </p>
+                        </div>
+                        <p className="text-lg font-bold text-primary">
+                          {payment.currency} ${payment.amount.toLocaleString("es-MX", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                        {(payment.due_date || payment.dueDate) && (
+                          <p className={`text-sm mt-1 ${overdue ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"}`}>
+                            Vence: {format(new Date(payment.due_date || payment.dueDate || ""), "dd 'de' MMMM", { locale: es })}
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        variant={overdue ? "destructive" : "outline"}
+                        className="text-sm"
+                      >
+                        {overdue ? "Vencido" : "Próximo"}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {paymentsDue.length > 5 && (
+              <div className="pt-2 border-t">
+                <p className="text-sm text-center text-muted-foreground">
+                  Y {paymentsDue.length - 5} más...
+                </p>
+              </div>
+            )}
+            <button
+              onClick={onViewAll}
+              className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+            >
+              Ver Todos los Pagos
+            </button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+

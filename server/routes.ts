@@ -2495,16 +2495,9 @@ export function registerRoutes(app: express.Application) {
       const months = parseInt(req.query.months as string) || 12;
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
 
-      console.log(`[GET /api/kpi-history/:kpiId] Request: KPI ${kpiId}, months: ${months}, companyId: ${companyId || 'undefined'}`);
-
       // getKPIHistory puede resolver automáticamente el companyId si no se proporciona
       // usando findCompanyForKpiId internamente
       const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
-      
-      console.log(`[GET /api/kpi-history/:kpiId] Response: ${kpiHistory.length} registros encontrados`);
-      if (kpiHistory.length === 0) {
-        console.warn(`[GET /api/kpi-history/:kpiId] ⚠️ No se encontraron datos históricos para KPI ${kpiId}`);
-      }
       
       res.json(kpiHistory);
     } catch (error) {
@@ -3262,11 +3255,17 @@ export function registerRoutes(app: express.Application) {
   // GET /api/treasury/exchange-rates - Listar tipos de cambio
   app.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) => {
     try {
-      const { limit = 30 } = req.query;
+      // Para el histórico 24h necesitamos más registros, aumentar a 100 por defecto
+      const { limit = 100 } = req.query;
       
       const result = await sql(`
         SELECT 
-          er.*,
+          er.id,
+          er.buy_rate,
+          er.sell_rate,
+          er.source,
+          er.date,
+          er.notes,
           u.name as created_by_name,
           u.email as created_by_email
         FROM exchange_rates er
@@ -3279,6 +3278,26 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('Error fetching exchange rates:', error);
       res.status(500).json({ error: 'Failed to fetch exchange rates' });
+    }
+  });
+
+  // POST /api/treasury/exchange-rates/refresh-dof - Forzar actualización del DOF (admin)
+  app.post("/api/treasury/exchange-rates/refresh-dof", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      console.log(`🔄 [Manual DOF Refresh] Solicitado por usuario ${user.id} (${user.email})`);
+      
+      const { fetchDOFExchangeRate } = await import("./dof-scheduler");
+      await fetchDOFExchangeRate();
+      
+      res.json({ 
+        success: true, 
+        message: "Actualización del DOF ejecutada correctamente",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error al actualizar DOF manualmente:', error);
+      res.status(500).json({ error: 'Failed to refresh DOF exchange rate' });
     }
   });
 

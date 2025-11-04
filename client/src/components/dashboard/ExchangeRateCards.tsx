@@ -1,8 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Building2, FileText } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Building2, FileText, ChevronRight, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface ExchangeRate {
   id: number;
@@ -12,182 +18,433 @@ interface ExchangeRate {
   date: string;
 }
 
+interface RateCardData {
+  rate: ExchangeRate | null;
+  buyChange: number;
+  sellChange: number;
+  buyTrend: 'up' | 'down' | 'stable';
+  sellTrend: 'up' | 'down' | 'stable';
+  buyInterpretation: string;
+  sellInterpretation: string;
+  updateCount: number;
+  lastUpdate: Date | null;
+  history24h: ExchangeRate[];
+}
+
 export function ExchangeRateCards() {
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [valueAnimations, setValueAnimations] = useState<Record<string, boolean>>({});
+  const previousValuesRef = useRef<Record<string, { buy: number; sell: number }>>({});
+
   const { data: exchangeRates = [], isLoading } = useQuery<ExchangeRate[]>({
     queryKey: ['/api/treasury/exchange-rates'],
-    staleTime: 1 * 60 * 1000, // Cache por 1 minuto
+    staleTime: 30 * 1000, // Cache por 30 segundos
     refetchInterval: 30000, // Refrescar cada 30 segundos
   });
 
-  // Obtener los tipos de cambio más recientes de cada fuente
-  const getLatestRate = (source: string) => {
-    const rates = exchangeRates.filter(rate => rate.source === source);
-    return rates.length > 0 ? rates[0] : null;
+  // Detectar cambios y activar animaciones
+  useEffect(() => {
+    if (exchangeRates.length > 0) {
+      const newAnimations: Record<string, boolean> = {};
+      
+      ['Santander', 'MONEX', 'DOF'].forEach(source => {
+        const latest = exchangeRates.find(r => r.source === source);
+        if (!latest) return;
+        
+        const key = `${source}-buy`;
+        const prevBuy = previousValuesRef.current[key];
+        
+        if (prevBuy !== undefined && prevBuy !== latest.buy_rate) {
+          newAnimations[key] = true;
+          setTimeout(() => setValueAnimations(prev => ({ ...prev, [key]: false })), 500);
+        }
+        
+        previousValuesRef.current[key] = latest.buy_rate;
+        
+        const sellKey = `${source}-sell`;
+        const prevSell = previousValuesRef.current[sellKey];
+        
+        if (prevSell !== undefined && prevSell !== latest.sell_rate) {
+          newAnimations[sellKey] = true;
+          setTimeout(() => setValueAnimations(prev => ({ ...prev, [sellKey]: false })), 500);
+        }
+        
+        previousValuesRef.current[sellKey] = latest.sell_rate;
+      });
+      
+      if (Object.keys(newAnimations).length > 0) {
+        setValueAnimations(newAnimations);
+      }
+    }
+  }, [exchangeRates]);
+
+  // Procesar datos para cada fuente
+  const processSourceData = (source: string): RateCardData => {
+    const rates = exchangeRates
+      .filter(r => r.source === source)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    const latest = rates[0] || null;
+    const previous = rates[1] || null;
+    
+    // Calcular cambios
+    const buyChange = latest && previous ? latest.buy_rate - previous.buy_rate : 0;
+    const sellChange = latest && previous ? latest.sell_rate - previous.sell_rate : 0;
+    
+    // Determinar tendencias
+    const buyTrend = buyChange > 0.001 ? 'up' : buyChange < -0.001 ? 'down' : 'stable';
+    const sellTrend = sellChange > 0.001 ? 'up' : sellChange < -0.001 ? 'down' : 'stable';
+    
+    // Generar interpretaciones
+    const generateInterpretation = (change: number, trend: string) => {
+      const absChange = Math.abs(change);
+      if (absChange < 0.01) return 'Sin cambios significativos';
+      
+      const magnitude = absChange < 0.05 ? 'Ligera' : absChange < 0.15 ? 'Moderada' : 'Pronunciada';
+      const direction = trend === 'up' ? 'alza' : trend === 'down' ? 'baja' : 'estable';
+      const timeOfDay = new Date().getHours() < 12 ? 'mañana' : new Date().getHours() < 18 ? 'tarde' : 'noche';
+      
+      return `${magnitude} ${direction} durante la ${timeOfDay} (${change > 0 ? '+' : ''}${change.toFixed(4)})`;
+    };
+    
+    const buyInterpretation = generateInterpretation(buyChange, buyTrend);
+    const sellInterpretation = generateInterpretation(sellChange, sellTrend);
+    
+    // Contar actualizaciones del día
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const updateCount = rates.filter(r => {
+      const rateDate = new Date(r.date);
+      rateDate.setHours(0, 0, 0, 0);
+      return rateDate.getTime() === today.getTime();
+    }).length;
+    
+    // Historial 24h para sparkline
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+    const history24h = rates.filter(r => new Date(r.date) >= yesterday);
+    
+    return {
+      rate: latest,
+      buyChange,
+      sellChange,
+      buyTrend,
+      sellTrend,
+      buyInterpretation,
+      sellInterpretation,
+      updateCount,
+      lastUpdate: latest ? new Date(latest.date) : null,
+      history24h: history24h.reverse(), // Más antiguo a más reciente
+    };
   };
 
-  const santanderRate = getLatestRate('Santander');
-  const monexRate = getLatestRate('MONEX');
-  const dofRate = getLatestRate('DOF');
+  const santanderData = useMemo(() => processSourceData('Santander'), [exchangeRates]);
+  const monexData = useMemo(() => processSourceData('MONEX'), [exchangeRates]);
+  const dofData = useMemo(() => processSourceData('DOF'), [exchangeRates]);
 
-  // Calcular tendencia comparando con el segundo más reciente
-  const getTrend = (source: string) => {
-    const rates = exchangeRates.filter(rate => rate.source === source);
-    if (rates.length < 2) return 'stable';
-    const latest = rates[0];
-    const previous = rates[1];
-    if (latest.buy_rate > previous.buy_rate) return 'up';
-    if (latest.buy_rate < previous.buy_rate) return 'down';
-    return 'stable';
-  };
-
+  // Configuración de colores con 15% más contraste
   const getSourceConfig = (source: string) => {
-    const configs: Record<string, { gradient: string; icon: any; color: string }> = {
+    const configs: Record<string, { 
+      bg: string; 
+      border: string; 
+      text: string; 
+      icon: any; 
+      accent: string;
+      gradient: string;
+    }> = {
       'Santander': {
-        gradient: 'from-red-500 to-red-600',
+        bg: 'bg-green-50 dark:bg-green-950/20',
+        border: 'border-green-500 dark:border-green-600',
+        text: 'text-green-700 dark:text-green-300',
         icon: Building2,
-        color: 'text-red-600'
+        accent: 'text-green-600 dark:text-green-400',
+        gradient: 'from-green-500 to-green-600',
       },
       'MONEX': {
-        gradient: 'from-blue-500 to-blue-600',
+        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        border: 'border-blue-600 dark:border-blue-500',
+        text: 'text-blue-700 dark:text-blue-300',
         icon: DollarSign,
-        color: 'text-blue-600'
+        accent: 'text-blue-600 dark:text-blue-400',
+        gradient: 'from-blue-600 to-blue-700',
       },
       'DOF': {
-        gradient: 'from-emerald-500 to-emerald-600',
+        bg: 'bg-orange-50 dark:bg-orange-950/20',
+        border: 'border-orange-500 dark:border-orange-600',
+        text: 'text-orange-700 dark:text-orange-300',
         icon: FileText,
-        color: 'text-emerald-600'
-      }
+        accent: 'text-orange-600 dark:text-orange-400',
+        gradient: 'from-orange-500 to-orange-600',
+      },
     };
-    return configs[source] || { gradient: 'from-gray-500 to-gray-600', icon: DollarSign, color: 'text-gray-600' };
+    return configs[source] || {
+      bg: 'bg-gray-50 dark:bg-gray-950/20',
+      border: 'border-gray-500',
+      text: 'text-gray-700',
+      icon: DollarSign,
+      accent: 'text-gray-600',
+      gradient: 'from-gray-500 to-gray-600',
+    };
+  };
+
+  const RateValue = ({ 
+    value, 
+    change, 
+    trend, 
+    interpretation,
+    source,
+    type,
+    isAnimated 
+  }: { 
+    value: number; 
+    change: number; 
+    trend: 'up' | 'down' | 'stable';
+    interpretation: string;
+    source: string;
+    type: 'buy' | 'sell';
+    isAnimated: boolean;
+  }) => {
+    const config = getSourceConfig(source);
+    const trendColor = trend === 'up' ? 'text-green-600 dark:text-green-400' : 
+                      trend === 'down' ? 'text-red-600 dark:text-red-400' : 
+                      'text-gray-500 dark:text-gray-400';
+    
+    const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
+    
+    return (
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+            {type === 'buy' ? 'Compra' : 'Venta'}
+          </span>
+          <div className={`flex items-center gap-1 ${trendColor}`}>
+            <TrendIcon className="h-4 w-4" />
+            <span className="text-xs font-bold">
+              {change > 0 ? '+' : ''}{change.toFixed(4)}
+            </span>
+          </div>
+        </div>
+        
+        <div 
+          className={`text-2xl font-extrabold leading-none transition-all duration-500 ${
+            isAnimated ? 'animate-pulse scale-110 brightness-125' : ''
+          } ${config.accent}`}
+          style={{ fontSize: '24px' }}
+        >
+          ${value.toFixed(4)}
+        </div>
+        
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-relaxed">
+          {interpretation}
+        </p>
+      </div>
+    );
   };
 
   const RateCard = ({ 
     source, 
-    rate, 
-    isLoading: cardLoading
+    data, 
+    isLoading: cardLoading 
   }: { 
     source: string; 
-    rate: ExchangeRate | null; 
+    data: RateCardData; 
     isLoading: boolean;
   }) => {
-    const trend = rate ? getTrend(source) : 'stable';
     const config = getSourceConfig(source);
     const Icon = config.icon;
     
+    const buyAnimated = valueAnimations[`${source}-buy`] || false;
+    const sellAnimated = valueAnimations[`${source}-sell`] || false;
+    
     return (
-        <Card className="border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden relative bg-white dark:bg-gray-800">
-          {/* Gradient accent bar */}
-          <div className={`h-2 bg-gradient-to-r ${config.gradient}`} />
-          
-          <CardHeader className="pb-4 pt-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${config.gradient} text-white shadow-lg`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">
-                  {source}
-                </CardTitle>
+      <Card className={`border-2 ${config.border} shadow-xl ${config.bg} overflow-hidden relative`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg bg-gradient-to-br ${config.gradient} text-white shadow-md`}>
+                <Icon className="h-5 w-5" />
               </div>
-              {cardLoading ? (
-                <Skeleton className="h-7 w-7 rounded-full" />
-              ) : trend === 'up' ? (
-                <div className="flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800">
-                  <TrendingUp className="h-4 w-4 text-green-700 dark:text-green-400" />
-                  <span className="text-xs font-bold text-green-700 dark:text-green-400">↑</span>
-                </div>
-              ) : trend === 'down' ? (
-                <div className="flex items-center gap-1.5 bg-red-100 dark:bg-red-900/30 px-3 py-1.5 rounded-full border border-red-200 dark:border-red-800">
-                  <TrendingDown className="h-4 w-4 text-red-700 dark:text-red-400" />
-                  <span className="text-xs font-bold text-red-700 dark:text-red-400">↓</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full">
-                  <Minus className="h-4 w-4 text-gray-500" />
-                </div>
-              )}
+              <CardTitle className={`text-xl font-bold ${config.text}`}>
+                {source}
+              </CardTitle>
             </div>
-          </CardHeader>
+          </div>
           
-          <CardContent className="pt-0 pb-5">
-            {cardLoading ? (
-              <div className="space-y-4">
-                <Skeleton className="h-16 w-full rounded-xl" />
-                <Skeleton className="h-16 w-full rounded-xl" />
+          {/* Última actualización con contador */}
+          {data.lastUpdate && (
+            <div className="mt-3 space-y-2">
+              <div className={`text-sm font-bold text-gray-900 dark:text-gray-100`}>
+                Última actualización: <span className={config.accent}>{format(data.lastUpdate, "HH:mm:ss", { locale: es })}</span>
               </div>
-            ) : rate ? (
-              <div className="space-y-4">
-                {/* Compra y Venta en grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Compra */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 mb-2 uppercase tracking-wider">
-                      Compra
-                    </div>
-                    <div className="text-3xl font-extrabold text-gray-900 dark:text-white leading-tight">
-                      ${rate.buy_rate.toFixed(2)}
-                    </div>
-                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">USD → MXN</div>
-                  </div>
-                  
-                  {/* Venta */}
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 mb-2 uppercase tracking-wider">
-                      Venta
-                    </div>
-                    <div className="text-3xl font-extrabold text-gray-900 dark:text-white leading-tight">
-                      ${rate.sell_rate.toFixed(2)}
-                    </div>
-                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">MXN → USD</div>
-                  </div>
-                </div>
-                
-                {/* Spread */}
-                <div className="flex items-center justify-between text-sm pt-3 mt-3 border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2.5">
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">Spread</span>
-                  <span className="font-bold text-lg text-gray-900 dark:text-white">
-                    ${(rate.sell_rate - rate.buy_rate).toFixed(2)}
+              <Badge variant="outline" className={`${config.border} ${config.text} text-xs font-semibold bg-white dark:bg-gray-800`}>
+                {data.updateCount} actualizaciones hoy
+              </Badge>
+            </div>
+          )}
+        </CardHeader>
+        
+        <CardContent className="space-y-4 pt-2">
+          {cardLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : data.rate ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <RateValue
+                  value={data.rate.buy_rate}
+                  change={data.buyChange}
+                  trend={data.buyTrend}
+                  interpretation={data.buyInterpretation}
+                  source={source}
+                  type="buy"
+                  isAnimated={buyAnimated}
+                />
+                <RateValue
+                  value={data.rate.sell_rate}
+                  change={data.sellChange}
+                  trend={data.sellTrend}
+                  interpretation={data.sellInterpretation}
+                  source={source}
+                  type="sell"
+                  isAnimated={sellAnimated}
+                />
+              </div>
+              
+              {/* Spread */}
+              <div className={`pt-3 border-t-2 ${config.border} ${config.bg} rounded-lg px-3 py-2`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Spread</span>
+                  <span className={`text-lg font-bold ${config.accent}`}>
+                    ${(data.rate.sell_rate - data.rate.buy_rate).toFixed(4)}
                   </span>
                 </div>
-                
-                {/* Fecha */}
-                {rate.date && (
-                  <div className="text-xs text-gray-700 dark:text-gray-300 text-center font-semibold mt-2">
-                    Actualizado: {new Date(rate.date).toLocaleString('es-MX', { 
-                      day: '2-digit', 
-                      month: 'short', 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </div>
-                )}
               </div>
-            ) : (
-              <div className="text-center py-10 text-gray-400 dark:text-gray-500">
-                <Icon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">Sin datos disponibles</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              
+              {/* Botón Ver Detalle */}
+              <Button
+                variant="outline"
+                className={`w-full border-2 ${config.border} ${config.text} hover:${config.bg} transition-all`}
+                onClick={() => setSelectedSource(source)}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Ver detalle
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <Icon className="h-10 w-10 mx-auto mb-3 opacity-50 text-gray-400 dark:text-gray-500" />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sin datos disponibles</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     );
   };
 
+  // Modal con sparkline 24h
+  const selectedData = selectedSource === 'Santander' ? santanderData :
+                      selectedSource === 'MONEX' ? monexData :
+                      selectedSource === 'DOF' ? dofData : null;
+
+  const sparklineData = selectedData?.history24h.map(r => ({
+    time: format(new Date(r.date), 'HH:mm'),
+    buy: r.buy_rate,
+    sell: r.sell_rate,
+    date: new Date(r.date),
+  })) || [];
+
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
-        {isLoading && (
-          <div className="flex items-center gap-2 text-gray-400">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span className="text-xs">Actualizando...</span>
-          </div>
-        )}
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          Compara diferentes fuentes de tipo de cambio
+        </h2>
       </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <RateCard source="Santander" rate={santanderRate} isLoading={isLoading} />
-        <RateCard source="MONEX" rate={monexRate} isLoading={isLoading} />
-        <RateCard source="DOF" rate={dofRate} isLoading={isLoading} />
+        <RateCard source="Santander" data={santanderData} isLoading={isLoading} />
+        <RateCard source="MONEX" data={monexData} isLoading={isLoading} />
+        <RateCard source="DOF" data={dofData} isLoading={isLoading} />
       </div>
+
+      {/* Modal de detalle con sparkline */}
+      <Dialog open={!!selectedSource} onOpenChange={() => setSelectedSource(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">
+              Histórico 24h - {selectedSource}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedData && sparklineData.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">Compra</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    ${selectedData.rate?.buy_rate.toFixed(4) || '0.0000'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">Venta</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    ${selectedData.rate?.sell_rate.toFixed(4) || '0.0000'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sparklineData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis 
+                      dataKey="time" 
+                      tick={{ fontSize: 12 }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => `$${value.toFixed(4)}`}
+                      labelFormatter={(label) => `Hora: ${label}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="buy" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      name="Compra"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="sell" 
+                      stroke="#ef4444" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      name="Venta"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <p>Total de puntos: {sparklineData.length}</p>
+                <p>Rango: {sparklineData[0]?.time} - {sparklineData[sparklineData.length - 1]?.time}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-700 dark:text-gray-300 font-semibold">No hay datos históricos disponibles</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
