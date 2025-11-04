@@ -20,7 +20,6 @@ import { es } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ReceiptsModule } from "@/components/treasury/modules/ReceiptsModule";
 import { FxModule } from "@/components/treasury/modules/FxModule";
 import { SuppliersModule } from "@/components/treasury/modules/SuppliersModule";
 import { AlertsModule } from "@/components/treasury/modules/AlertsModule";
@@ -786,13 +785,6 @@ export default function TreasuryPage() {
           {activeTab === "dashboard" ? (
             <div className="space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  <ReceiptsModule
-                    vouchers={paymentVouchers}
-                    isLoading={vouchersLoading}
-                    onUpload={() => setIsUploadModalOpen(true)}
-                  />
-                </div>
                 <FxModule
                   exchangeRates={exchangeRates}
                   isLoading={ratesLoading}
