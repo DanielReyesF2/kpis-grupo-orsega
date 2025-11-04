@@ -154,14 +154,14 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border border-white/10 bg-surface-muted/55 p-4 flex flex-col h-full transition-all ${
-        isOver ? "border-pastel-teal/50 bg-surface-muted/70 ring-2 ring-pastel-teal/30 ring-offset-2" : ""
+      className={`rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-surface-muted/55 p-4 flex flex-col h-full transition-all ${
+        isOver ? "border-blue-400 dark:border-pastel-teal/50 bg-blue-50 dark:bg-surface-muted/70 ring-2 ring-blue-300 dark:ring-pastel-teal/30 ring-offset-2" : ""
       }`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <column.icon className="h-4 w-4 text-white/80" />
-          <h4 className="text-sm font-semibold text-white">{column.label}</h4>
+          <column.icon className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{column.label}</h4>
         </div>
         <Badge className={column.badge}>{vouchers.length}</Badge>
       </div>
@@ -169,7 +169,7 @@ function DroppableColumn({
         {children}
         {isOver && vouchers.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-pastel-teal/20 border-2 border-pastel-teal/50 rounded-lg px-4 py-2 text-sm font-medium text-white">
+            <div className="bg-blue-100 dark:bg-pastel-teal/20 border-2 border-blue-400 dark:border-pastel-teal/50 rounded-lg px-4 py-2 text-sm font-semibold text-blue-700 dark:text-white">
               Suelta aquí
             </div>
           </div>
@@ -210,21 +210,21 @@ function SortableVoucherCard({ voucher }: { voucher: PaymentVoucher }) {
       {...attributes}
       {...listeners}
       layout
-      className="rounded-lg border border-white/10 bg-surface/80 px-4 py-3 text-white shadow-[0_14px_25px_-20px_rgba(0,0,0,0.7)] transition-all hover:border-pastel-blue/40 hover:bg-surface-muted/90 touch-none select-none"
+      className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-surface/80 px-4 py-3 shadow-[0_14px_25px_-20px_rgba(0,0,0,0.7)] transition-all hover:border-blue-400 dark:hover:border-pastel-blue/40 hover:bg-gray-50 dark:hover:bg-surface-muted/90 touch-none select-none"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold truncate text-white">
+          <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">
             {voucher.clientName}
           </p>
           {voucher.voucherFileName && (
-            <p className="text-xs text-muted-foreground truncate mt-1">
+            <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-1 font-medium">
               {voucher.voucherFileName}
             </p>
           )}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground mt-2">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
         {voucher.createdAt
           ? new Date(voucher.createdAt).toLocaleDateString("es-MX", {
               day: "2-digit",
