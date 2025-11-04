@@ -37,36 +37,36 @@
 
 /* Dark theme - Charcoal with Pastel Accents */
 .dark {
-  /* Theme base colors - Warm cream background for perimeter areas */
-  --background: 45 18% 88%; /* Soft warm cream - not too bright, adds life to interface */
-  --foreground: 220 20% 15%; /* Dark gray text for readability on cream */
-  --muted: 220 15% 50%; /* Medium gray for secondary text */
-  --muted-foreground: 220 15% 50%;
+  /* Theme base colors - Blanco cremoso/hueso del login aplicado a toda la app */
+  --background: 45 15% 98%; /* Blanco cremoso/hueso - similar al fondo del login (blanco cálido, no blanco puro) */
+  --foreground: 222 47% 11%; /* Dark gray text (gray-900) for readability - igual al login */
+  --muted: 215 16% 47%; /* Medium gray (gray-500) for secondary text - igual al login */
+  --muted-foreground: 215 16% 47%; /* Igual al muted */
   
-  /* Card and surface colors */
-  --card: 220 8% 18%; /* Slightly lighter charcoal for cards */
-  --card-foreground: 0 0% 100%; /* White text on cards */
-  --popover: 220 8% 18%;
-  --popover-foreground: 0 0% 100%;
+  /* Card and surface colors - Cards blancos como en login */
+  --card: 0 0% 100%; /* White cards - igual al login */
+  --card-foreground: 222 47% 11%; /* Dark gray text (gray-900) on white cards - igual al login */
+  --popover: 0 0% 100%; /* White popovers */
+  --popover-foreground: 222 47% 11%; /* Dark gray text */
   
-  /* Borders and dividers */
-  --border: 220 10% 35%; /* Softer, more visible borders */
-  --input: 220 8% 20%;
-  --ring: 217 70% 65%; /* Pastel blue */
+  /* Borders and dividers - Bordes grises como en login */
+  --border: 210 20% 91%; /* Light gray border (gray-200) - igual a border-gray-200 del login */
+  --input: 210 14% 84%; /* Medium gray border (gray-300) - igual a border-gray-300 del login */
+  --ring: 178 100% 33%; /* Turquesa primary color (#00a8a8) - igual al login */
   
-  /* Primary colors - Pastel blue */
-  --primary: 217 70% 65%; /* Soft pastel blue */
-  --primary-foreground: 0 0% 100%; /* White text on primary */
+  /* Primary colors - Turquesa del login (#00a8a8) */
+  --primary: 178 100% 33%; /* Turquesa #00a8a8 - igual al login */
+  --primary-foreground: 0 0% 100%; /* White text on primary - igual al login */
   
-  /* Secondary */
-  --secondary: 220 8% 22%; /* Slightly lighter than card */
-  --secondary-foreground: 0 0% 100%; /* White text */
+  /* Secondary - Gris claro para elementos secundarios */
+  --secondary: 210 20% 91%; /* Light gray (gray-200) - similar a bordes */
+  --secondary-foreground: 222 47% 11%; /* Dark gray text (gray-900) */
   
-  /* Accent colors - Pastel palette */
-  --accent: 200 70% 65%; /* Soft pastel cyan-blue */
-  --accent-foreground: 0 0% 100%;
+  /* Accent colors - Variación del turquesa */
+  --accent: 180 100% 25%; /* Turquesa oscuro (#008080) - hover color del login */
+  --accent-foreground: 0 0% 100%; /* White text */
   
-  /* Status colors - Pastel versions */
+  /* Status colors - Mantener colores suaves pero funcionales */
   --success: 142 60% 55%; /* Soft mint green */
   --success-foreground: 0 0% 100%;
   --warning: 38 80% 60%; /* Soft pastel orange */
@@ -78,41 +78,41 @@
   --danger: 0 70% 65%;
   --danger-foreground: 0 0% 100%;
   
-  /* Sidebar colors - Consistent with pastel theme */
-  --sidebar-background: 220 10% 14%; /* Match background */
-  --sidebar-foreground: 0 0% 100%; /* White text */
-  --sidebar-primary: 217 70% 65%; /* Pastel blue */
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 8% 18%; /* Card color */
+  /* Sidebar colors - Turquesa del botón "Acceder al Sistema" (#00a8a8) */
+  --sidebar-background: 178 100% 33%; /* Turquesa #00a8a8 - igual al botón del login */
+  --sidebar-foreground: 0 0% 100%; /* White text sobre turquesa */
+  --sidebar-primary: 180 100% 25%; /* Turquesa oscuro (#008080) - para elementos activos */
+  --sidebar-primary-foreground: 0 0% 100%; /* White text */
+  --sidebar-accent: 180 100% 28%; /* Turquesa ligeramente más claro para hovers */
   --sidebar-accent-foreground: 0 0% 100%; /* White text */
-  --sidebar-border: 220 10% 35%; /* Match border */
-  --sidebar-ring: 217 70% 65%; /* Pastel blue */
+  --sidebar-border: 180 100% 25%; /* Turquesa oscuro para bordes */
+  --sidebar-ring: 180 100% 25%; /* Turquesa oscuro */
   
-  /* Chart colors - Pastel palette */
-  --chart-1: 217 70% 65%; /* Soft pastel blue */
+  /* Chart colors - Mantener colores pastel pero ajustar al turquesa */
+  --chart-1: 178 100% 33%; /* Turquesa primary */
   --chart-2: 142 60% 55%; /* Soft mint green */
   --chart-3: 38 80% 60%; /* Soft pastel orange */
   --chart-4: 300 60% 70%; /* Soft pastel violet */
-  --chart-5: 200 70% 65%; /* Soft pastel cyan */
+  --chart-5: 180 100% 25%; /* Turquesa oscuro */
   
   /* Chart axis and grid colors */
-  --chart-axis: 220 8% 70%; /* Light gray for axes */
-  --chart-grid: 220 10% 25%; /* Very subtle grid */
+  --chart-axis: 215 16% 47%; /* Medium gray (gray-500) */
+  --chart-grid: 210 20% 91%; /* Light gray grid (gray-200) */
   
   /* Special variables */
   --radius: 8px;
-  --navbar-bg: rgba(28, 31, 35, 0.8); /* Charcoal with transparency */
+  --navbar-bg: rgba(255, 255, 255, 0.95); /* White navbar with slight transparency */
   --navbar-blur: blur(10px);
-  --shadow-soft: 0 1px 5px rgba(0, 0, 0, 0.3); /* Softer, more diffused shadow */
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.1); /* Softer shadow for white cards */
 
-  /* Pastel accent palette */
-  --pastel-blue: 217 70% 70%;
+  /* Pastel accent palette - Ajustar algunos al turquesa */
+  --pastel-blue: 178 100% 33%; /* Turquesa primary */
   --pastel-green: 148 62% 62%;
   --pastel-orange: 35 82% 64%;
   --pastel-violet: 285 60% 72%;
-  --pastel-teal: 190 65% 65%;
-  --surface: 220 8% 20%;
-  --surface-muted: 220 8% 24%;
+  --pastel-teal: 178 100% 33%; /* Turquesa primary */
+  --surface: 0 0% 100%; /* White surface */
+  --surface-muted: 210 20% 91%; /* Light gray (gray-200) */
 }
 
 /* Base styles */
