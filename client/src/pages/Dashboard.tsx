@@ -234,11 +234,43 @@ export default function Dashboard() {
           {/* Grid de tarjetas de KPIs para ambas empresas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
             <div className="space-y-2">
-              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Dura International</h3>
+              {/* Logo de Dura International centrado */}
+              <div className="flex justify-center items-center mb-4">
+                <img 
+                  src="/logodura.jpg" 
+                  alt="Dura International Logo" 
+                  className="h-16 sm:h-20 object-contain max-w-full"
+                  onError={(e) => {
+                    // Fallback si la imagen no carga
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<h3 class="text-lg sm:text-xl font-semibold text-foreground text-center">Dura International</h3>';
+                    }
+                  }}
+                />
+              </div>
               <SalesMetricsCards companyId={1} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Grupo Orsega</h3>
+              {/* Logo de Grupo Orsega centrado */}
+              <div className="flex justify-center items-center mb-4">
+                <img 
+                  src="/logo orsega.jpg" 
+                  alt="Grupo Orsega Logo" 
+                  className="h-16 sm:h-20 object-contain max-w-full"
+                  onError={(e) => {
+                    // Fallback si la imagen no carga
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<h3 class="text-lg sm:text-xl font-semibold text-foreground text-center">Grupo Orsega</h3>';
+                    }
+                  }}
+                />
+              </div>
               <SalesMetricsCards companyId={2} />
             </div>
           </div>
