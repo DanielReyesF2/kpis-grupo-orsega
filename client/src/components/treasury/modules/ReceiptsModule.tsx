@@ -372,10 +372,10 @@ export function ReceiptsModule({
       <Card className="border border-border/40 bg-surface/60 backdrop-blur-md shadow-[0_25px_60px_-35px_rgba(8,12,18,0.8)] h-full">
         <CardHeader className="flex md:flex-row flex-col md:items-center md:justify-between gap-4 border-b border-white/5">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs uppercase tracking-wide text-gray-300 dark:text-gray-400 font-medium">
               Flujo de comprobantes
             </p>
-            <h3 className="text-2xl font-semibold text-white mt-1">
+            <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
               Comprobantes electrónicos
             </h3>
           </div>
@@ -410,34 +410,34 @@ export function ReceiptsModule({
             {BOARD_COLUMNS.map((column) => (
               <div
                 key={column.id}
-                className={`rounded-lg border border-white/10 ${column.accent} px-4 py-3 flex items-center justify-between text-white`}
+                className={`rounded-lg border border-gray-200 dark:border-white/10 ${column.accent} bg-white/80 dark:bg-surface-muted/40 px-4 py-3 flex items-center justify-between`}
               >
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-wide text-white/70">
+                  <p className="text-xs uppercase tracking-wide text-gray-700 dark:text-gray-200 font-semibold">
                     {column.label}
                   </p>
-                  <p className="text-xl font-semibold text-white">
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
                     {stats[column.id]}
                   </p>
                 </div>
-                <column.icon className="h-5 w-5 text-white/80" />
+                <column.icon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
               </div>
             ))}
           </div>
 
           {vouchers.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-surface-muted/50 py-16 text-center space-y-4 text-white relative z-10">
-              <div className="mx-auto w-16 h-16 rounded-full bg-pastel-blue/20 flex items-center justify-center">
-                <FileText className="h-7 w-7" />
+            <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-surface-muted/50 py-16 text-center space-y-4 relative z-10">
+              <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 dark:bg-pastel-blue/20 flex items-center justify-center">
+                <FileText className="h-7 w-7 text-blue-600 dark:text-blue-300" />
               </div>
-              <h4 className="text-lg font-semibold">Sin comprobantes cargados</h4>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Sin comprobantes cargados</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-300 max-w-sm mx-auto font-medium">
                 Sube un comprobante para comenzar a monitorear el flujo y moverlo entre etapas.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <Button
                   variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10 transition-colors relative z-20"
+                  className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors relative z-20 font-medium"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigate('/treasury?tab=receipts');
@@ -448,7 +448,7 @@ export function ReceiptsModule({
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-pastel-blue/60 text-white hover:bg-pastel-blue/20 relative z-20"
+                  className="border-blue-500 dark:border-pastel-blue/60 text-blue-700 dark:text-white bg-blue-50 dark:bg-transparent hover:bg-blue-100 dark:hover:bg-pastel-blue/20 relative z-20 font-medium"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleUpload();
@@ -479,7 +479,7 @@ export function ReceiptsModule({
                     >
                       <div className="space-y-3 flex-1 min-h-[280px]">
                         {column.vouchers.length === 0 && (
-                          <div className="h-full rounded-lg border border-dashed border-white/10 flex items-center justify-center text-xs text-muted-foreground transition-all">
+                          <div className="h-full rounded-lg border border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 font-medium transition-all">
                             Vacío
                           </div>
                         )}
