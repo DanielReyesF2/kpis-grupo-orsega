@@ -256,23 +256,16 @@ export default function Dashboard() {
               
               {/* Botón para mostrar gráfico de Dura centrado debajo de las tarjetas */}
               <div className="flex justify-center pt-2">
-                <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
-                  <TabsList className="grid w-full max-w-xs grid-cols-2 bg-muted border border-border">
-                    <TabsTrigger 
-                      value="1" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
-                    >
-                      Ver Gráfica
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="2" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
-                      disabled
-                    >
-                      Orsega
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <button
+                  onClick={() => setSelectedChartCompany(1)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    selectedChartCompany === 1
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
+                  }`}
+                >
+                  Ver Gráfica
+                </button>
               </div>
             </div>
             <div className="space-y-4">
@@ -298,23 +291,16 @@ export default function Dashboard() {
               
               {/* Botón para mostrar gráfico de Orsega centrado debajo de las tarjetas */}
               <div className="flex justify-center pt-2">
-                <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
-                  <TabsList className="grid w-full max-w-xs grid-cols-2 bg-muted border border-border">
-                    <TabsTrigger 
-                      value="1" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
-                      disabled
-                    >
-                      Dura
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="2" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
-                    >
-                      Ver Gráfica
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <button
+                  onClick={() => setSelectedChartCompany(2)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    selectedChartCompany === 2
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
+                  }`}
+                >
+                  Ver Gráfica
+                </button>
               </div>
             </div>
           </div>
