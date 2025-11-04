@@ -11,7 +11,6 @@ import { SalesSummary } from '@/components/dashboard/SalesSummary';
 import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
 import { DofChart } from '@/components/dashboard/DofChart';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
-import { TreasuryPreview } from '@/components/dashboard/TreasuryPreview';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -341,12 +340,6 @@ export default function Dashboard() {
       <div className="mb-6 sm:mb-12" data-onboarding="logistics-preview">
         <LogisticsPreview />
       </div>
-
-      {/* Preview de Tesorería */}
-      <div className="mb-6 sm:mb-12" data-onboarding="treasury-preview">
-        <TreasuryPreview />
-      </div>
-      
 
       
       {/* Sección de Huella de Carbono eliminada a petición del usuario - ahora solo mostrada en la página de trazabilidad de envíos */}
