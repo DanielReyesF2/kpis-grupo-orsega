@@ -13,7 +13,7 @@ COPY package.json package-lock.json* ./
 
 # Install ALL dependencies (including devDependencies for build)
 # Use npm ci for faster, reliable, reproducible builds
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,id=npm-cache \
     if [ -f package-lock.json ]; then \
       npm ci --prefer-offline --no-audit --progress=false; \
     else \
@@ -43,7 +43,7 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 
 # Install ONLY production dependencies with cache
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,id=npm-cache-prod \
     if [ -f package-lock.json ]; then \
       npm ci --omit=dev --prefer-offline --no-audit --progress=false && \
       npm cache clean --force; \
