@@ -1,14 +1,15 @@
-# Dependencies
+# Dependencies (will be installed in container)
 node_modules
 npm-debug.log
 yarn-error.log
-package-lock.json
 
-# Build outputs
+# Build outputs (will be created during build)
 dist
 build
 .next
 out
+server/dist
+server/public
 
 # Development files
 .git
@@ -17,6 +18,7 @@ out
 .env.development.local
 .env.test.local
 .env.production.local
+.env
 
 # IDE and editor files
 .vscode
@@ -28,6 +30,12 @@ out
 # Testing
 coverage
 .nyc_output
+test
+tests
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
 
 # Logs
 logs
@@ -42,15 +50,54 @@ temp
 .DS_Store
 Thumbs.db
 
-# Documentation (keep only essential)
+# Documentation (not needed in build)
 *.md
 !README.md
 
-# Assets (may not be needed in image)
+# Large assets (not needed in build)
 attached_assets
+uploads
+server/public/assets
 
 # Railway specific
 .railway
+.railwayignore
+railway.json
 
 # CI/CD
 .github
+.git
+
+# Scripts (not needed in production)
+scripts
+*.sql
+*.mjs
+*.js
+!dist/**/*.js
+!server/dist/**/*.js
+
+# TypeScript build info
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Cache
+.cache
+node_modules/.cache
+
+# Other unnecessary files
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+test-*
+*.txt
+!package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.ts
+!tailwind.config.ts
+!postcss.config.js
+!drizzle.config.ts
+!components.json
