@@ -78,15 +78,15 @@
   --danger: 0 70% 65%;
   --danger-foreground: 0 0% 100%;
   
-  /* Sidebar colors - Azul oscuro de ORSEGA (#273949) */
-  --sidebar-background: 208 30% 22%; /* Azul oscuro #273949 - igual al color de las letras ORSEGA */
-  --sidebar-foreground: 0 0% 100%; /* White text sobre azul oscuro */
-  --sidebar-primary: 208 30% 18%; /* Azul más oscuro para elementos activos */
+  /* Sidebar colors - Azul celeste de ORSEGA (#195891) */
+  --sidebar-background: 208 71% 33%; /* Azul celeste #195891 - color exacto de las letras ORSEGA */
+  --sidebar-foreground: 0 0% 100%; /* White text sobre azul celeste */
+  --sidebar-primary: 208 71% 28%; /* Azul más oscuro para elementos activos */
   --sidebar-primary-foreground: 0 0% 100%; /* White text */
-  --sidebar-accent: 208 30% 28%; /* Azul ligeramente más claro para hovers */
+  --sidebar-accent: 208 71% 38%; /* Azul ligeramente más claro para hovers */
   --sidebar-accent-foreground: 0 0% 100%; /* White text */
-  --sidebar-border: 208 30% 18%; /* Azul oscuro para bordes */
-  --sidebar-ring: 208 30% 18%; /* Azul oscuro */
+  --sidebar-border: 208 71% 28%; /* Azul más oscuro para bordes */
+  --sidebar-ring: 208 71% 28%; /* Azul más oscuro */
   
   /* Chart colors - Mantener colores pastel pero ajustar al turquesa */
   --chart-1: 178 100% 33%; /* Turquesa primary */
