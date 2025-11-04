@@ -23,6 +23,9 @@ RUN if [ -f package-lock.json ]; then \
 COPY client/ ./client/
 COPY server/ ./server/
 COPY shared/ ./shared/
+# Copy required script for server routes (create directory first)
+RUN mkdir -p ./scripts
+COPY scripts/weekly_sales_update.ts ./scripts/weekly_sales_update.ts
 COPY vite.config.ts ./
 COPY tailwind.config.ts ./
 COPY postcss.config.js ./

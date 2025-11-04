@@ -68,8 +68,9 @@ railway.json
 .github
 .git
 
-# Scripts (not needed in production)
+# Scripts (not needed in production, except weekly_sales_update.ts)
 scripts
+!scripts/weekly_sales_update.ts
 *.sql
 *.mjs
 *.js
