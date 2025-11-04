@@ -13,6 +13,7 @@ import { DofChart } from '@/components/dashboard/DofChart';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,6 +63,9 @@ export default function Dashboard() {
   
   // Estado para el onboarding del dashboard
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  
+  // Estado para la empresa seleccionada en el gráfico de histórico de ventas (dentro del div de bienvenida)
+  const [selectedChartCompany, setSelectedChartCompany] = useState<number>(1); // Por defecto Dura
   
   // Verificar si el usuario ya completó el onboarding
   useEffect(() => {
@@ -228,7 +232,7 @@ export default function Dashboard() {
           </h2>
           
           {/* Grid de tarjetas de KPIs para ambas empresas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6" data-onboarding="kpi-stats">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
             <div className="space-y-2">
               <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Dura International</h3>
               <SalesMetricsCards companyId={1} />
@@ -238,33 +242,40 @@ export default function Dashboard() {
               <SalesMetricsCards companyId={2} />
             </div>
           </div>
+
+          {/* Gráfico de Histórico de Ventas con pestañas para alternar entre empresas */}
+          <div className="mt-6" data-onboarding="sales-chart">
+            <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
+              <TabsList className="grid w-full max-w-xs grid-cols-2 mb-4">
+                <TabsTrigger value="1">Dura International</TabsTrigger>
+                <TabsTrigger value="2">Grupo Orsega</TabsTrigger>
+              </TabsList>
+              <TabsContent value="1" className="mt-0">
+                <SalesVolumeChart 
+                  companyId={1}
+                  kpiId={39}
+                  target="55620"
+                  limit={12}
+                  showControls={true}
+                />
+              </TabsContent>
+              <TabsContent value="2" className="mt-0">
+                <SalesVolumeChart 
+                  companyId={2}
+                  kpiId={1}
+                  target="858373"
+                  limit={12}
+                  showControls={true}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
 
       {/* Comparativa de Tipos de Cambio */}
       <div className="mb-6 sm:mb-12" data-onboarding="dof-chart">
         <DofChart />
-      </div>
-
-      {/* Gráfica de Barras de Ventas */}
-      <div className="mb-6 sm:mb-12" data-onboarding="sales-chart">
-        {(() => {
-          const parsedFilterCompany = filters.companyId !== undefined && filters.companyId !== null
-            ? Number(filters.companyId)
-            : undefined;
-          const effectiveCompanyId = (selectedCompany ?? parsedFilterCompany) || 2;
-          const effectiveKpiId = effectiveCompanyId === 1 ? 39 : 1;
-          const effectiveTarget = effectiveCompanyId === 1 ? "55620" : "858373";
-          return (
-            <SalesVolumeChart 
-              companyId={effectiveCompanyId}
-              kpiId={effectiveKpiId}
-              target={effectiveTarget}
-              limit={12}
-              showControls={true}
-            />
-          );
-        })()}
       </div>
 
       {/* Preview de Logística */}
