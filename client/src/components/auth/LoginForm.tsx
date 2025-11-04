@@ -64,7 +64,14 @@ export default function LoginForm() {
       // El efecto se encargará de la redirección
     } catch (err) {
       console.error('[LoginForm] Error en inicio de sesión:', err);
-      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      
+      // Manejo especial para error 429 (Rate Limiting)
+      if (err instanceof Error && err.message.includes('429')) {
+        const errorMessage = err.message.replace('429: ', '');
+        setError(errorMessage || "Has excedido el límite de intentos de login. Por favor, espera 15 minutos antes de intentar nuevamente.");
+      } else {
+        setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      }
     } finally {
       setIsLoading(false);
     }

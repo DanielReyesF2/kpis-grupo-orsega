@@ -47,6 +47,25 @@ async function throwIfResNotOk(res: Response) {
       }
     }
     
+    // Manejo especial para error 429 (Rate Limiting)
+    if (res.status === 429) {
+      let errorMessage = 'Demasiadas solicitudes. Por favor, intenta de nuevo en 15 minutos.';
+      try {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } else {
+          const text = await res.text();
+          if (text) errorMessage = text;
+        }
+      } catch (e) {
+        // Si no se puede parsear, usar el mensaje por defecto
+        console.warn('[API] No se pudo parsear el mensaje de error 429:', e);
+      }
+      throw new Error(`429: ${errorMessage}`);
+    }
+    
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }

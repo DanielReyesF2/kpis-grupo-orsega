@@ -156,11 +156,23 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       });
     } catch (error: any) {
       console.error('[Auth] Error login:', error);
-      toast({
-        title: "Error al iniciar sesión",
-        description: error.message || "Credenciales incorrectas",
-        variant: "destructive",
-      });
+      
+      // Manejo especial para error 429 (Rate Limiting)
+      if (error.message && error.message.includes('429')) {
+        const errorMessage = error.message.replace('429: ', '');
+        toast({
+          title: "Demasiados intentos de login",
+          description: errorMessage || "Has excedido el límite de intentos de login. Por favor, espera 15 minutos antes de intentar nuevamente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error al iniciar sesión",
+          description: error.message || "Credenciales incorrectas",
+          variant: "destructive",
+        });
+      }
+      
       throw error;
     } finally {
       setIsLoading(false);
