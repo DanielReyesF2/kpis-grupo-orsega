@@ -234,12 +234,12 @@ export default function Dashboard() {
           {/* Grid de tarjetas de KPIs para ambas empresas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
             <div className="space-y-4">
-              {/* Logo de Dura International centrado con proporciones correctas */}
-              <div className="flex justify-center items-center mb-4">
+              {/* Logo de Dura International centrado con tamaño visual consistente */}
+              <div className="flex justify-center items-center mb-4 h-24 sm:h-28">
                 <img 
                   src="/logodura.jpg" 
                   alt="Dura International Logo" 
-                  className="max-h-20 sm:max-h-24 w-auto object-contain"
+                  className="h-full w-auto object-contain"
                   style={{ maxWidth: '200px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
@@ -264,17 +264,17 @@ export default function Dashboard() {
                       : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
                   }`}
                 >
-                  Ver Gráfica
+                  Ventas mensuales
                 </button>
               </div>
             </div>
             <div className="space-y-4">
-              {/* Logo de Grupo Orsega centrado con proporciones correctas */}
-              <div className="flex justify-center items-center mb-4">
+              {/* Logo de Grupo Orsega centrado con tamaño visual consistente */}
+              <div className="flex justify-center items-center mb-4 h-24 sm:h-28">
                 <img 
                   src="/logo orsega.jpg" 
                   alt="Grupo Orsega Logo" 
-                  className="max-h-20 sm:max-h-24 w-auto object-contain"
+                  className="h-full w-auto object-contain"
                   style={{ maxWidth: '200px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
@@ -299,7 +299,7 @@ export default function Dashboard() {
                       : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
                   }`}
                 >
-                  Ver Gráfica
+                  Ventas mensuales
                 </button>
               </div>
             </div>
