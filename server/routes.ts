@@ -3264,7 +3264,7 @@ export function registerRoutes(app: express.Application) {
           er.buy_rate,
           er.sell_rate,
           er.source,
-          er.date,
+          er.date::text as date,
           er.notes,
           u.name as created_by_name,
           u.email as created_by_email
@@ -3274,7 +3274,13 @@ export function registerRoutes(app: express.Application) {
         LIMIT $1
       `, [parseInt(limit as string)]);
 
-      res.json(result);
+      // Convertir todas las fechas a ISO string para formato consistente
+      const formattedResult = result.map((row: any) => ({
+        ...row,
+        date: new Date(row.date).toISOString()
+      }));
+
+      res.json(formattedResult);
     } catch (error) {
       console.error('Error fetching exchange rates:', error);
       res.status(500).json({ error: 'Failed to fetch exchange rates' });
@@ -3307,13 +3313,31 @@ export function registerRoutes(app: express.Application) {
       const user = getAuthUser(req as AuthRequest);
       const { buyRate, sellRate, source, notes } = req.body;
 
+      // Usar NOW() con timezone explícito para asegurar que la fecha tenga la hora exacta
       const result = await sql(`
-        INSERT INTO exchange_rates (buy_rate, sell_rate, source, notes, created_by)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *
+        INSERT INTO exchange_rates (buy_rate, sell_rate, source, notes, created_by, date)
+        VALUES ($1, $2, $3, $4, $5, NOW() AT TIME ZONE 'America/Mexico_City')
+        RETURNING id, buy_rate, sell_rate, source, date::text as date, notes, created_by
       `, [buyRate, sellRate, source || null, notes || null, user.id]);
 
-      res.status(201).json(result[0]);
+      const inserted = result[0];
+      const dateObj = new Date(inserted.date);
+      const formattedResult = {
+        ...inserted,
+        date: dateObj.toISOString()
+      };
+      
+      console.log(`[Exchange Rate POST] Registro creado:`, {
+        id: inserted.id,
+        source: source,
+        buyRate: buyRate,
+        sellRate: sellRate,
+        rawDate: inserted.date,
+        isoDate: formattedResult.date,
+        timestamp: new Date().toISOString()
+      });
+
+      res.status(201).json(formattedResult);
     } catch (error) {
       console.error('Error creating exchange rate:', error);
       res.status(500).json({ error: 'Failed to create exchange rate' });
@@ -3664,7 +3688,9 @@ export function registerRoutes(app: express.Application) {
   });
 
   // POST /api/payment-vouchers/upload - Subir comprobante con análisis automático OpenAI - 🔒 Con rate limiting
+  console.log('✅ [Routes] Registrando endpoint POST /api/payment-vouchers/upload');
   app.post("/api/payment-vouchers/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    console.log('📤 [Upload] Petición recibida en /api/payment-vouchers/upload');
     voucherUpload.single('voucher')(req, res, (err) => {
       if (err) {
         console.error('❌ Multer error:', err.message);

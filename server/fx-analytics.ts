@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { exchangeRates } from "@shared/schema";
-import { gte, eq, and } from "drizzle-orm";
+import { gte, eq, and, desc } from "drizzle-orm";
 
 interface RatePoint {
   date: Date;
@@ -37,15 +37,53 @@ export async function getSourceSeries(
         gte(exchangeRates.date, cutoffDate)
       )
     )
-    .orderBy(exchangeRates.date);
+    .orderBy(desc(exchangeRates.date)); // Más reciente primero
 
-  const series = rates.map((r: { date: Date; buy: number; sell: number }) => ({
-    date: r.date.toISOString().split("T")[0],
-    buy: r.buy,
-    sell: r.sell,
-  }));
+  console.log(`[getSourceSeries] ${source}: ${rates.length} registros encontrados`);
+  if (rates.length > 0) {
+    const firstRate = rates[0];
+    console.log(`[getSourceSeries] ${source} - Más reciente (RAW):`, {
+      dateType: typeof firstRate.date,
+      dateValue: firstRate.date,
+      dateString: String(firstRate.date),
+      dateISO: firstRate.date instanceof Date ? firstRate.date.toISOString() : 'NOT A DATE',
+      dateLocal: firstRate.date instanceof Date ? firstRate.date.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'NOT A DATE',
+      buy: firstRate.buy,
+      sell: firstRate.sell
+    });
+  }
 
-  const lastUpdate = rates.length > 0 ? rates[rates.length - 1].date.toISOString().split("T")[0] : null;
+  // Mantener la fecha y hora completa para que el frontend pueda mostrar la hora exacta
+  const series = rates.map((r: { date: Date; buy: number; sell: number }) => {
+    // Asegurar que la fecha sea un objeto Date válido
+    let dateObj: Date;
+    if (r.date instanceof Date) {
+      dateObj = r.date;
+    } else if (typeof r.date === 'string') {
+      dateObj = new Date(r.date);
+    } else {
+      // Si es un objeto de fecha de PostgreSQL (que puede venir como string o Date)
+      dateObj = new Date(r.date);
+    }
+    
+    return {
+      date: dateObj.toISOString(), // Mantener fecha y hora completa
+      buy: r.buy,
+      sell: r.sell,
+    };
+  });
+
+  // Calcular lastUpdate con manejo seguro de fechas
+  let lastUpdate: string | null = null;
+  if (rates.length > 0) {
+    const firstDate = rates[0].date;
+    if (firstDate instanceof Date) {
+      lastUpdate = firstDate.toISOString();
+    } else {
+      const dateObj = new Date(firstDate);
+      lastUpdate = dateObj.toISOString();
+    }
+  }
 
   return {
     source,

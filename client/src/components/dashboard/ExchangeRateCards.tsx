@@ -1,14 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, DollarSign, Building2, FileText, ChevronRight, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Building2, FileText, ChevronRight, Sparkles, Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 
 interface ExchangeRate {
   id: number;
@@ -32,14 +33,33 @@ interface RateCardData {
 }
 
 export function ExchangeRateCards() {
+  const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [showRateForm, setShowRateForm] = useState(false);
+  const [formSource, setFormSource] = useState<string | undefined>(undefined);
   const [valueAnimations, setValueAnimations] = useState<Record<string, boolean>>({});
   const previousValuesRef = useRef<Record<string, { buy: number; sell: number }>>({});
 
   const { data: exchangeRates = [], isLoading } = useQuery<ExchangeRate[]>({
     queryKey: ['/api/treasury/exchange-rates'],
-    staleTime: 30 * 1000, // Cache por 30 segundos
+    staleTime: 0, // No cachear para que siempre obtenga los datos más recientes
     refetchInterval: 30000, // Refrescar cada 30 segundos
+    refetchOnWindowFocus: true, // Refrescar cuando la ventana recupera el foco
+    cacheTime: 0, // No cachear para asegurar datos frescos
+    onSuccess: (data) => {
+      console.log('[ExchangeRateCards] Datos recibidos:', data.length, 'registros');
+      if (data.length > 0) {
+        const santander = data.filter(r => r.source === 'Santander').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        if (santander) {
+          console.log('[ExchangeRateCards] Último Santander:', {
+            id: santander.id,
+            date: santander.date,
+            parsed: new Date(santander.date).toISOString(),
+            formatted: format(new Date(santander.date), "dd/MM/yyyy HH:mm:ss", { locale: es })
+          });
+        }
+      }
+    }
   });
 
   // Detectar cambios y activar animaciones
@@ -87,6 +107,27 @@ export function ExchangeRateCards() {
     const latest = rates[0] || null;
     const previous = rates[1] || null;
     
+    // Debug: Log detallado para todas las fuentes
+    if (latest) {
+      const dateStr = latest.date;
+      const parsedDate = new Date(dateStr);
+      const isValidDate = !isNaN(parsedDate.getTime());
+      
+      console.log(`[ExchangeRateCards] ${source}:`, {
+        totalRates: rates.length,
+        latestId: latest.id,
+        latestBuyRate: latest.buy_rate,
+        latestSellRate: latest.sell_rate,
+        rawDate: dateStr,
+        parsedDate: isValidDate ? parsedDate.toISOString() : 'INVALID DATE',
+        localString: isValidDate ? parsedDate.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'INVALID',
+        formatted: isValidDate ? format(parsedDate, "dd/MM/yyyy HH:mm:ss", { locale: es }) : 'INVALID',
+        lastUpdate: isValidDate ? parsedDate : null
+      });
+    } else {
+      console.log(`[ExchangeRateCards] ${source}: NO HAY DATOS`);
+    }
+    
     // Calcular cambios
     const buyChange = latest && previous ? latest.buy_rate - previous.buy_rate : 0;
     const sellChange = latest && previous ? latest.sell_rate - previous.sell_rate : 0;
@@ -124,6 +165,26 @@ export function ExchangeRateCards() {
     yesterday.setHours(yesterday.getHours() - 24);
     const history24h = rates.filter(r => new Date(r.date) >= yesterday);
     
+    // Calcular lastUpdate con logging detallado
+    let lastUpdate: Date | null = null;
+    if (latest) {
+      const dateStr = latest.date;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        console.error(`[ExchangeRateCards] ${source} - Invalid date:`, dateStr);
+        lastUpdate = null;
+      } else {
+        lastUpdate = date;
+        const formatted = format(date, "dd/MM/yyyy HH:mm:ss", { locale: es });
+        console.log(`[ExchangeRateCards] ${source} - lastUpdate final:`, {
+          input: dateStr,
+          parsed: date.toISOString(),
+          formatted: formatted,
+          willDisplay: formatted
+        });
+      }
+    }
+    
     return {
       rate: latest,
       buyChange,
@@ -133,7 +194,7 @@ export function ExchangeRateCards() {
       buyInterpretation,
       sellInterpretation,
       updateCount,
-      lastUpdate: latest ? new Date(latest.date) : null,
+      lastUpdate,
       history24h: history24h.reverse(), // Más antiguo a más reciente
     };
   };
@@ -244,7 +305,7 @@ export function ExchangeRateCards() {
   const RateCard = ({ 
     source, 
     data, 
-    isLoading: cardLoading 
+    isLoading: cardLoading
   }: { 
     source: string; 
     data: RateCardData; 
@@ -260,32 +321,40 @@ export function ExchangeRateCards() {
       <Card className={`border-2 ${config.border} shadow-xl ${config.bg} overflow-hidden relative`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg bg-gradient-to-br ${config.gradient} text-white shadow-md`}>
-                <Icon className="h-5 w-5" />
-              </div>
+                  <Icon className="h-5 w-5" />
+                </div>
               <CardTitle className={`text-xl font-bold ${config.text}`}>
-                {source}
-              </CardTitle>
-            </div>
-          </div>
+                  {source}
+                </CardTitle>
+              </div>
+                </div>
           
           {/* Última actualización con contador */}
-          {data.lastUpdate && (
+          {data.lastUpdate ? (
             <div className="mt-3 space-y-2">
               <div className={`text-sm font-bold text-gray-900 dark:text-gray-100`}>
-                Última actualización: <span className={config.accent}>{format(data.lastUpdate, "HH:mm:ss", { locale: es })}</span>
+                Última actualización: <span className={config.accent}>{format(data.lastUpdate, "dd/MM/yyyy HH:mm:ss", { locale: es })}</span>
               </div>
-              <Badge variant="outline" className={`${config.border} ${config.text} text-xs font-semibold bg-white dark:bg-gray-800`}>
-                {data.updateCount} actualizaciones hoy
-              </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className={`${config.border} ${config.text} text-xs font-semibold bg-white dark:bg-gray-800`}>
+                  {data.updateCount} actualizaciones hoy
+                </Badge>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <div className={`text-sm font-bold text-gray-900 dark:text-gray-100`}>
+                Última actualización: <span className="text-red-500">Sin datos</span>
+              </div>
             </div>
           )}
-        </CardHeader>
-        
+          </CardHeader>
+          
         <CardContent className="space-y-4 pt-2">
-          {cardLoading ? (
-            <div className="space-y-4">
+            {cardLoading ? (
+              <div className="space-y-4">
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </div>
@@ -310,9 +379,9 @@ export function ExchangeRateCards() {
                   type="sell"
                   isAnimated={sellAnimated}
                 />
-              </div>
-              
-              {/* Spread */}
+                </div>
+                
+                {/* Spread */}
               <div className={`pt-3 border-t-2 ${config.border} ${config.bg} rounded-lg px-3 py-2`}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Spread</span>
@@ -322,25 +391,39 @@ export function ExchangeRateCards() {
                 </div>
               </div>
               
-              {/* Botón Ver Detalle */}
-              <Button
-                variant="outline"
-                className={`w-full border-2 ${config.border} ${config.text} hover:${config.bg} transition-all`}
-                onClick={() => setSelectedSource(source)}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Ver detalle
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
+              {/* Botones de acción */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`border-2 ${config.border} ${config.text} hover:${config.bg} transition-all text-sm`}
+                  onClick={() => {
+                    setFormSource(source);
+                    setShowRateForm(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Actualizar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`border-2 ${config.border} ${config.text} hover:${config.bg} transition-all text-sm`}
+                  onClick={() => setSelectedSource(source)}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Ver detalle
+                </Button>
+              </div>
             </>
           ) : (
             <div className="text-center py-8">
               <Icon className="h-10 w-10 mx-auto mb-3 opacity-50 text-gray-400 dark:text-gray-500" />
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sin datos disponibles</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
     );
   };
 
@@ -357,7 +440,7 @@ export function ExchangeRateCards() {
   })) || [];
 
   return (
-      <div className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Compara diferentes fuentes de tipo de cambio
@@ -445,6 +528,18 @@ export function ExchangeRateCards() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de formulario para actualizar tipo de cambio */}
+      <ExchangeRateForm
+        isOpen={showRateForm}
+        onClose={async () => {
+          setShowRateForm(false);
+          setFormSource(undefined);
+          // Forzar refetch cuando se cierra el modal para asegurar actualización
+          await queryClient.refetchQueries({ queryKey: ['/api/treasury/exchange-rates'] });
+        }}
+        source={formSource}
+      />
     </div>
   );
 }

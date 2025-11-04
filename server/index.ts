@@ -126,9 +126,13 @@ try {
 
 const app = express();
 
+// Set Express environment explicitly based on NODE_ENV
+const nodeEnv = process.env.NODE_ENV || 'development';
+app.set('env', nodeEnv);
+
 // Configure trust proxy for Railway FIRST (before healthcheck)
 // Railway uses healthcheck.railway.app for healthchecks
-if (process.env.NODE_ENV === 'production') {
+if (nodeEnv === 'production') {
   app.set('trust proxy', 1);
 }
 
@@ -176,12 +180,12 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Permitir inline scripts para Vite HMR
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"], // Permitir blob URLs para previews de imágenes
       connectSrc: ["'self'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+      mediaSrc: ["'self'", "blob:"], // Permitir blob URLs para videos/audio
+      frameSrc: ["'self'", "blob:"], // Permitir blob URLs para iframes de PDFs
     },
   },
   crossOriginEmbedderPolicy: false, // Compatible con Vite

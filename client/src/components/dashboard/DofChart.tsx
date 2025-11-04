@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function DofChart() {
   const { user } = useAuth();
@@ -29,20 +31,29 @@ export function DofChart() {
   // Obtener datos de las 3 fuentes
   const { data: monexSeries, isLoading: monexLoading } = useQuery<any>({
     queryKey: [`/api/fx/source-series?source=MONEX&days=${fxPeriodDays}`],
-    staleTime: 1 * 60 * 1000,
+    staleTime: 0, // No cachear para obtener datos frescos
+    gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const { data: santanderSeries, isLoading: santanderLoading } = useQuery<any>({
     queryKey: [`/api/fx/source-series?source=Santander&days=${fxPeriodDays}`],
-    staleTime: 1 * 60 * 1000,
+    staleTime: 0, // No cachear para obtener datos frescos
+    gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const { data: dofSeries, isLoading: dofLoading } = useQuery<any>({
     queryKey: [`/api/fx/source-series?source=DOF&days=${fxPeriodDays}`],
-    staleTime: 1 * 60 * 1000,
+    staleTime: 0, // No cachear para obtener datos frescos
+    gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const isLoading = monexLoading || santanderLoading || dofLoading;
@@ -111,11 +122,28 @@ export function DofChart() {
   const getLatestData = (series: any, sourceName: string) => {
     if (!series?.series || series.series.length === 0) return null;
     
-    const latest = series.series[series.series.length - 1];
-    const previous = series.series.length > 1 ? series.series[series.series.length - 2] : null;
+    // El backend ya ordena por fecha descendente (más reciente primero)
+    // Tomar el primer elemento que es el más reciente
+    const latest = series.series[0];
+    const previous = series.series.length > 1 ? series.series[1] : null;
     
     const buyChange = previous ? latest.buy - previous.buy : 0;
     const sellChange = previous ? latest.sell - previous.sell : 0;
+    
+    // Log para debug
+    const dateObj = new Date(latest.date);
+    console.log(`[DofChart] ${sourceName}:`, {
+      totalSeries: series.series.length,
+      rawDate: latest.date,
+      dateType: typeof latest.date,
+      parsedDate: dateObj.toISOString(),
+      parsedDateLocal: dateObj.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+      formatted: format(dateObj, "dd/MM/yyyy HH:mm:ss", { locale: es }),
+      buy: latest.buy,
+      sell: latest.sell,
+      buyChange: buyChange,
+      sellChange: sellChange
+    });
     
     return {
       source: sourceName,
@@ -124,7 +152,7 @@ export function DofChart() {
       spread: latest.sell - latest.buy,
       buyChange,
       sellChange,
-      date: latest.date,
+      date: latest.date, // Mantener la fecha completa con hora
       hasData: true
     };
   };
@@ -263,26 +291,22 @@ export function DofChart() {
                           </CardTitle>
                           <div className="h-3 w-3 rounded-full" style={{ backgroundColor: config.color }}></div>
                         </div>
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          a {new Date(data.date).toLocaleTimeString('es-MX', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: false
-                          })} tipo de cambio
+                        <div className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                          Última actualización: {format(new Date(data.date), "dd/MM/yyyy HH:mm:ss", { locale: es })}
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* Compra */}
                       <div className="space-y-1">
-                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">COMPRA (USD → MXN)</div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">COMPRA (USD → MXN)</div>
                         <div className="flex items-center justify-between">
                           <span className="text-2xl font-bold" style={{ color: config.color }}>
                             ${data.buy.toFixed(4)}
                           </span>
                           <div className="flex items-center gap-1">
                             {getTrendIcon(data.buyChange)}
-                            <span className={`text-xs font-medium ${data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                            <span className={`text-sm font-semibold ${data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
                               {data.buyChange !== 0 ? `${data.buyChange > 0 ? '+' : ''}${data.buyChange.toFixed(4)}` : 'Sin cambio'}
                             </span>
                           </div>
@@ -291,14 +315,14 @@ export function DofChart() {
 
                       {/* Venta */}
                       <div className="space-y-1">
-                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">VENTA (MXN → USD)</div>
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">VENTA (MXN → USD)</div>
                         <div className="flex items-center justify-between">
                           <span className="text-2xl font-bold" style={{ color: config.color }}>
                             ${data.sell.toFixed(4)}
                           </span>
                           <div className="flex items-center gap-1">
                             {getTrendIcon(data.sellChange)}
-                            <span className={`text-xs font-medium ${data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                            <span className={`text-sm font-semibold ${data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
                               {data.sellChange !== 0 ? `${data.sellChange > 0 ? '+' : ''}${data.sellChange.toFixed(4)}` : 'Sin cambio'}
                             </span>
                           </div>
@@ -308,7 +332,7 @@ export function DofChart() {
                       {/* Spread */}
                       <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Spread</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Spread</span>
                           <span className="text-lg font-bold text-gray-900 dark:text-white">
                             ${data.spread.toFixed(4)}
                           </span>
@@ -501,14 +525,7 @@ export function DofChart() {
                     <span className="font-bold">${selectedCard.buy.toFixed(4)} MXN</span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    Última actualización: {new Date(selectedCard.date).toLocaleString('es-MX', { 
-                      day: '2-digit', 
-                      month: 'short', 
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
+                    Última actualización: {format(new Date(selectedCard.date), "dd/MM/yyyy HH:mm:ss", { locale: es })}
                   </div>
                 </div>
               </div>
