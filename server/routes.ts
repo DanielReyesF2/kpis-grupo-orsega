@@ -3664,10 +3664,10 @@ export function registerRoutes(app: express.Application) {
 
       // Validar request body
       const uploadSchema = z.object({
-        companyId: z.string().transform((val) => {
+        payerCompanyId: z.string().transform((val) => {
           const num = Number(val);
           if (!num || num <= 0) {
-            throw new Error("CompanyId inválido");
+            throw new Error("PayerCompanyId inválido");
           }
           return num;
         }),
@@ -3678,8 +3678,20 @@ export function registerRoutes(app: express.Application) {
           }
           return num;
         }),
+        companyId: z.string().optional().transform((val) => {
+          if (!val) return undefined;
+          const num = Number(val);
+          if (!num || num <= 0) {
+            throw new Error("CompanyId inválido");
+          }
+          return num;
+        }),
         scheduledPaymentId: z.string().optional().transform(v => v ? Number(v) : undefined),
         notes: z.string().optional(),
+        notify: z.string().optional().transform(v => v === 'true' || v === '1'),
+        emailTo: z.string().optional().transform(v => v ? v.split(',').map(e => e.trim()).filter(e => e) : []),
+        emailCc: z.string().optional().transform(v => v ? v.split(',').map(e => e.trim()).filter(e => e) : []),
+        emailMessage: z.string().optional(),
       });
 
       const validatedData = uploadSchema.parse(req.body);
@@ -3696,23 +3708,55 @@ export function registerRoutes(app: express.Application) {
       // Analizar el documento con OpenAI
       const { analyzePaymentDocument } = await import("./document-analyzer");
       const fs = await import('fs');
+      const path = await import('path');
       const fileBuffer = fs.readFileSync(file.path);
       
       const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
 
-      // Determinar estado inicial automáticamente
-      const initialStatus = client.requiresPaymentComplement 
-        ? 'pendiente_complemento' 
-        : 'factura_pagada';
+      // Determinar estado inicial basado en calidad del OCR
+      // Si todos los campos críticos están presentes -> VALIDADO
+      // Si faltan campos críticos -> PENDIENTE_VALIDACIÓN
+      const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
+      const hasAllCriticalFields = criticalFields.every(field => {
+        const value = analysis[field as keyof typeof analysis];
+        return value !== null && value !== undefined;
+      });
+      
+      let initialStatus: string;
+      if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
+        initialStatus = 'validado';
+      } else {
+        initialStatus = 'pendiente_validacion';
+      }
+
+      // Guardar archivo en estructura organizada: /uploads/comprobantes/{año}/{mes}/
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const uploadDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
+      
+      // Crear directorio si no existe
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      // Mover archivo al directorio organizado
+      const fileName = `${Date.now()}-${file.originalname}`;
+      const newFilePath = path.join(uploadDir, fileName);
+      fs.renameSync(file.path, newFilePath);
+
+      // Usar companyId del cliente si no se especifica
+      const voucherCompanyId = validatedData.companyId || client.companyId || validatedData.payerCompanyId;
 
       // Crear comprobante usando storage
       const newVoucher: InsertPaymentVoucher = {
-        companyId: validatedData.companyId,
+        companyId: voucherCompanyId,
+        payerCompanyId: validatedData.payerCompanyId,
         clientId: validatedData.clientId,
         clientName: client.name,
         scheduledPaymentId: validatedData.scheduledPaymentId || null,
-        status: initialStatus,
-        voucherFileUrl: file.path,
+        status: initialStatus as any,
+        voucherFileUrl: newFilePath,
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,
         extractedAmount: analysis.extractedAmount,
@@ -3720,30 +3764,174 @@ export function registerRoutes(app: express.Application) {
         extractedBank: analysis.extractedBank,
         extractedReference: analysis.extractedReference,
         extractedCurrency: analysis.extractedCurrency,
+        extractedOriginAccount: analysis.extractedOriginAccount,
+        extractedDestinationAccount: analysis.extractedDestinationAccount,
+        extractedTrackingKey: analysis.extractedTrackingKey,
+        extractedBeneficiaryName: analysis.extractedBeneficiaryName,
         ocrConfidence: analysis.ocrConfidence,
+        notify: validatedData.notify || false,
+        emailTo: validatedData.emailTo || [],
+        emailCc: validatedData.emailCc || [],
+        emailMessage: validatedData.emailMessage || null,
         notes: validatedData.notes || null,
         uploadedBy: user.id,
       };
 
       const voucher = await storage.createPaymentVoucher(newVoucher);
 
-      // 🏦 AUTOMATIZACIÓN: Enviar comprobante automáticamente al proveedor
+      // 🏦 AUTOMATIZACIÓN: Procesamiento automático
+      let finalStatus = initialStatus;
+      let linkedInvoiceId: number | null = null;
+      let linkedInvoiceUuid: string | null = null;
+
       try {
-        const { TreasuryAutomation } = await import('./treasury-automation');
-        const automationResult = await TreasuryAutomation.processAutomaticFlow(
-          voucher.id, 
-          validatedData.clientId, 
-          validatedData.companyId
-        );
-        
-        console.log(`🤖 [Automation] Flujo automático: ${automationResult.message}`);
-        
-        // Actualizar estado si cambió y es válido
-        const validStatuses = ['factura_pagada', 'pendiente_complemento', 'complemento_recibido', 'cierre_contable'];
-        if (automationResult.nextStatus !== initialStatus && validStatuses.includes(automationResult.nextStatus)) {
-          await storage.updatePaymentVoucherStatus(voucher.id, automationResult.nextStatus);
-          voucher.status = automationResult.nextStatus as any;
+        // 1. Intentar vincular con factura/pago programado
+        if (validatedData.scheduledPaymentId) {
+          const scheduledPayment = await storage.getScheduledPayment?.(validatedData.scheduledPaymentId);
+          if (scheduledPayment) {
+            // Verificar si el monto coincide (con tolerancia del 1%)
+            const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
+            if (amountDiff <= 0.01) {
+              // Monto coincide -> CERRADO
+              finalStatus = 'cerrado';
+              linkedInvoiceId = scheduledPayment.id;
+              console.log(`🔗 [Automation] Vinculado con pago programado ${scheduledPayment.id}`);
+            } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
+              // Pago parcial -> PENDIENTE_COMPLEMENTO
+              finalStatus = 'pendiente_complemento';
+              console.log(`⚠️ [Automation] Pago parcial detectado`);
+            } else {
+              // Monto diferente -> PENDIENTE_ASOCIACIÓN
+              finalStatus = 'pendiente_asociacion';
+              console.log(`❓ [Automation] Monto no coincide, requiere asociación`);
+            }
+          }
+        } else if (analysis.extractedAmount && analysis.extractedReference) {
+          // Buscar pagos programados por monto o referencia
+          // (Nota: Esto requeriría una función de búsqueda en storage)
+          // Por ahora, dejar en PENDIENTE_ASOCIACIÓN
+          finalStatus = 'pendiente_asociacion';
         }
+
+        // 2. Si el cliente requiere complemento y no está cerrado
+        if (client.requiresPaymentComplement && finalStatus !== 'cerrado') {
+          if (finalStatus === 'validado') {
+            finalStatus = 'pendiente_complemento';
+          }
+        }
+
+        // Actualizar estado si cambió
+        if (finalStatus !== initialStatus) {
+          await storage.updatePaymentVoucher(voucher.id, {
+            status: finalStatus as any,
+            linkedInvoiceId,
+            linkedInvoiceUuid,
+          });
+          voucher.status = finalStatus as any;
+        }
+
+        // 3. Enviar correo automáticamente si notify=true
+        if (validatedData.notify && (validatedData.emailTo?.length || client.email)) {
+          const { emailService } = await import('./email-service');
+          const fs = await import('fs');
+          
+          const emailAddresses = validatedData.emailTo?.length 
+            ? validatedData.emailTo 
+            : client.email 
+              ? [client.email] 
+              : [];
+          
+          if (emailAddresses.length > 0) {
+            try {
+              // Obtener nombre de la empresa pagadora
+              const payerCompany = await storage.getCompany(validatedData.payerCompanyId);
+              const companyName = payerCompany?.name || 'Empresa';
+
+              // Crear contenido del email
+              const subject = `Comprobante de pago – ${companyName} – ${analysis.extractedCurrency || 'MXN'} ${analysis.extractedAmount?.toLocaleString('es-MX') || 'N/A'}`;
+              
+              const emailHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px;">
+                    Comprobante de Pago
+                  </h2>
+                  
+                  <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 16px;"><strong>Estimado/a ${client.name},</strong></p>
+                    <p style="margin: 10px 0; font-size: 14px;">
+                      Se ha registrado el siguiente comprobante de pago:
+                    </p>
+                  </div>
+
+                  <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                    <p style="margin: 5px 0;"><strong>Empresa Pagadora:</strong> ${companyName}</p>
+                    ${analysis.extractedAmount ? `<p style="margin: 5px 0;"><strong>Monto:</strong> ${analysis.extractedCurrency || 'MXN'} $${analysis.extractedAmount.toLocaleString('es-MX')}</p>` : ''}
+                    ${analysis.extractedDate ? `<p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date(analysis.extractedDate).toLocaleDateString('es-MX')}</p>` : ''}
+                    ${analysis.extractedBank ? `<p style="margin: 5px 0;"><strong>Banco:</strong> ${analysis.extractedBank}</p>` : ''}
+                    ${analysis.extractedReference ? `<p style="margin: 5px 0;"><strong>Referencia:</strong> ${analysis.extractedReference}</p>` : ''}
+                    ${analysis.extractedTrackingKey ? `<p style="margin: 5px 0;"><strong>Clave de Rastreo:</strong> ${analysis.extractedTrackingKey}</p>` : ''}
+                  </div>
+
+                  ${validatedData.emailMessage ? `<div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 14px;"><strong>Mensaje:</strong></p>
+                    <p style="margin: 5px 0; font-size: 14px;">${validatedData.emailMessage}</p>
+                  </div>` : ''}
+
+                  <p style="margin-top: 20px; font-size: 14px;">
+                    El comprobante se encuentra adjunto a este correo.
+                  </p>
+
+                  <p style="margin-top: 20px; font-size: 14px;">
+                    Saludos cordiales,<br>
+                    <strong>Lolita</strong><br>
+                    Equipo de Tesorería - Econova
+                  </p>
+                </div>
+              `;
+
+              // Preparar archivo adjunto
+              const fileBuffer = fs.readFileSync(newFilePath);
+              const attachment = {
+                filename: file.originalname,
+                content: fileBuffer,
+                type: file.mimetype,
+              };
+
+              // Enviar email (nota: emailService necesita soporte para attachments)
+              // Por ahora, solo enviar el HTML
+              const emailResult = await emailService.sendEmail({
+                to: emailAddresses[0],
+                subject,
+                html: emailHtml,
+              }, 'treasury');
+
+              // Registrar en email_outbox
+              if (emailResult.success || emailResult.error) {
+                const { db } = await import('./db');
+                const { emailOutbox } = await import('@shared/schema');
+                
+                await db.insert(emailOutbox).values({
+                  voucherId: voucher.id,
+                  emailTo: emailAddresses,
+                  emailCc: validatedData.emailCc || [],
+                  subject,
+                  htmlContent: emailHtml,
+                  status: emailResult.success ? 'sent' : 'failed',
+                  messageId: emailResult.messageId || null,
+                  errorMessage: emailResult.error || null,
+                  sentAt: emailResult.success ? new Date() : null,
+                });
+
+                console.log(`📧 [Email] ${emailResult.success ? 'Enviado' : 'Error'}: ${emailAddresses[0]}`);
+              }
+            } catch (emailError) {
+              console.error('📧 [Email] Error enviando correo:', emailError);
+              // No fallar el upload si el email falla
+            }
+          }
+        }
+
+        console.log(`🤖 [Automation] Flujo automático completado: ${finalStatus}`);
       } catch (automationError) {
         console.error('🤖 [Automation] Error en flujo automático:', automationError);
         // No fallar el upload si la automatización falla
@@ -3773,7 +3961,15 @@ export function registerRoutes(app: express.Application) {
 
       // Validar request body
       const statusSchema = z.object({
-        status: z.enum(['factura_pagada', 'pendiente_complemento', 'complemento_recibido', 'cierre_contable']),
+        status: z.enum([
+          'pendiente_validacion',
+          'validado',
+          'pendiente_asociacion',
+          'pendiente_complemento',
+          'complemento_recibido',
+          'cerrado',
+          'cierre_contable'
+        ]),
       });
 
       const validatedData = statusSchema.parse(req.body);

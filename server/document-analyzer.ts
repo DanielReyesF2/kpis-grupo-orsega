@@ -7,6 +7,10 @@ export interface DocumentAnalysisResult {
   extractedBank: string | null;
   extractedReference: string | null;
   extractedCurrency: string | null;
+  extractedOriginAccount: string | null;
+  extractedDestinationAccount: string | null;
+  extractedTrackingKey: string | null;
+  extractedBeneficiaryName: string | null;
   ocrConfidence: number; // 0-1
   rawResponse?: string;
 }
@@ -54,14 +58,18 @@ export async function analyzePaymentDocument(
     const dataUrl = base64Data ? `data:${imageType};base64,${base64Data}` : '';
 
     // Prompt optimizado para extraer información de comprobantes bancarios
-    const prompt = `Analiza este comprobante de pago bancario y extrae la siguiente información en formato JSON:
+    const prompt = `Analiza este comprobante de pago bancario (SPEI, transferencia, etc.) y extrae la siguiente información en formato JSON:
 
 {
   "amount": número del monto total (solo número, sin símbolos de moneda),
   "date": fecha del comprobante en formato ISO 8601 (YYYY-MM-DD),
-  "bank": nombre del banco emisor,
+  "bank": nombre del banco emisor o receptor,
   "reference": número de referencia, folio o número de operación,
-  "currency": código de moneda (MXN, USD, etc.)
+  "currency": código de moneda (MXN, USD, etc.),
+  "originAccount": número de cuenta origen o CLABE origen,
+  "destinationAccount": número de cuenta destino o CLABE destino,
+  "trackingKey": clave de rastreo SPEI (CLABE interbancaria o clave de rastreo),
+  "beneficiaryName": nombre completo del beneficiario o receptor del pago
 }
 
 Si no puedes encontrar algún dato, usa null para ese campo.
@@ -128,6 +136,10 @@ Responde SOLO con el JSON, sin texto adicional.`;
         extractedBank: bankMatch ? bankMatch[0] : null,
         extractedReference: referenceMatch ? referenceMatch[0] : null,
         extractedCurrency: 'MXN',
+        extractedOriginAccount: null,
+        extractedDestinationAccount: null,
+        extractedTrackingKey: null,
+        extractedBeneficiaryName: null,
         ocrConfidence: 0.3, // Baja confianza para datos extraídos manualmente
         rawResponse,
       };
@@ -140,6 +152,10 @@ Responde SOLO con el JSON, sin texto adicional.`;
       extractedBank: parsedData.bank || null,
       extractedReference: parsedData.reference || null,
       extractedCurrency: parsedData.currency || null,
+      extractedOriginAccount: parsedData.originAccount || parsedData.origin_account || null,
+      extractedDestinationAccount: parsedData.destinationAccount || parsedData.destination_account || null,
+      extractedTrackingKey: parsedData.trackingKey || parsedData.tracking_key || parsedData.clabe || null,
+      extractedBeneficiaryName: parsedData.beneficiaryName || parsedData.beneficiary_name || parsedData.beneficiario || null,
       ocrConfidence: calculateConfidence(parsedData),
       rawResponse,
     };
@@ -162,13 +178,26 @@ Responde SOLO con el JSON, sin texto adicional.`;
  */
 function calculateConfidence(data: any): number {
   let fieldsFound = 0;
-  let totalFields = 5;
-
-  if (data.amount !== null && data.amount !== undefined) fieldsFound++;
-  if (data.date !== null && data.date !== undefined) fieldsFound++;
-  if (data.bank !== null && data.bank !== undefined) fieldsFound++;
-  if (data.reference !== null && data.reference !== undefined) fieldsFound++;
-  if (data.currency !== null && data.currency !== undefined) fieldsFound++;
-
-  return fieldsFound / totalFields;
+  // Campos críticos (más importantes)
+  const criticalFields = ['amount', 'date', 'bank', 'reference', 'currency'];
+  // Campos adicionales (menos críticos pero valiosos)
+  const additionalFields = ['originAccount', 'origin_account', 'destinationAccount', 'destination_account', 
+                            'trackingKey', 'tracking_key', 'clabe', 'beneficiaryName', 'beneficiary_name', 'beneficiario'];
+  
+  // Contar campos críticos
+  criticalFields.forEach(field => {
+    if (data[field] !== null && data[field] !== undefined) fieldsFound++;
+  });
+  
+  // Contar campos adicionales (con menor peso)
+  let additionalFound = 0;
+  additionalFields.forEach(field => {
+    if (data[field] !== null && data[field] !== undefined) additionalFound++;
+  });
+  
+  // Peso: campos críticos = 80%, adicionales = 20%
+  const criticalWeight = fieldsFound / criticalFields.length * 0.8;
+  const additionalWeight = Math.min(additionalFound / 3, 1) * 0.2; // Máximo 3 campos adicionales
+  
+  return Math.min(criticalWeight + additionalWeight, 1);
 }

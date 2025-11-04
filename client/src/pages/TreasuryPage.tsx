@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,20 @@ import { AlertsModule } from "@/components/treasury/modules/AlertsModule";
 export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [location] = useLocation();
+  
+  // Leer el parámetro tab de la URL
+  const urlParams = new URLSearchParams(location.split('?')[1]);
+  const tabFromUrl = urlParams.get('tab');
+  
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "dashboard");
+  
+  // Sincronizar el tab cuando cambia la URL
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   // Helper para obtener headers con autenticación
   const getAuthHeaders = () => {
@@ -82,10 +96,14 @@ export default function TreasuryPage() {
 
   // Upload Voucher Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedCompanyForVoucher, setSelectedCompanyForVoucher] = useState<number | null>(null);
-  const [selectedClientForVoucher, setSelectedClientForVoucher] = useState<number | null>(null);
+  const [payerCompanyId, setPayerCompanyId] = useState<number | null>(null); // Empresa pagadora
+  const [selectedClientForVoucher, setSelectedClientForVoucher] = useState<number | null>(null); // Cliente/beneficiario
   const [voucherFile, setVoucherFile] = useState<File | null>(null);
   const [voucherNotes, setVoucherNotes] = useState("");
+  const [notifyClient, setNotifyClient] = useState(false); // Enviar correo
+  const [emailTo, setEmailTo] = useState(""); // Emails principales (separados por comas)
+  const [emailCc, setEmailCc] = useState(""); // Emails en copia (separados por comas)
+  const [emailMessage, setEmailMessage] = useState(""); // Mensaje personalizado
   const [uploadAnalysis, setUploadAnalysis] = useState<any>(null);
 
   // IDRALL Integration State
@@ -150,15 +168,15 @@ export default function TreasuryPage() {
     enabled: true, // Siempre cargar para dashboard
   });
 
-  // Clients Query for Voucher Upload - Filtrar por empresa seleccionada
+  // Clients Query for Voucher Upload - Filtrar por empresa pagadora
   const { data: clients = [] } = useQuery<any[]>({
     queryKey: ["/api/clients-db"],
-    enabled: isUploadModalOpen && !!selectedCompanyForVoucher,
+    enabled: isUploadModalOpen && !!payerCompanyId,
   });
 
-  // Filtrar clientes por empresa seleccionada
-  const filteredClients = selectedCompanyForVoucher 
-    ? clients.filter((client: any) => client.companyId === selectedCompanyForVoucher)
+  // Filtrar clientes por empresa pagadora
+  const filteredClients = payerCompanyId 
+    ? clients.filter((client: any) => client.companyId === payerCompanyId)
     : clients;
 
   // Suppliers Query (Treasury)
@@ -436,12 +454,34 @@ export default function TreasuryPage() {
 
   // Upload Payment Voucher Mutation
   const uploadVoucherMutation = useMutation({
-    mutationFn: async ({ file, clientId, companyId, notes }: { file: File; clientId: number; companyId: number; notes: string }) => {
+    mutationFn: async ({ 
+      file, 
+      clientId, 
+      payerCompanyId, 
+      notes, 
+      notify, 
+      emailTo, 
+      emailCc, 
+      emailMessage 
+    }: { 
+      file: File; 
+      clientId: number; 
+      payerCompanyId: number; 
+      notes: string;
+      notify: boolean;
+      emailTo: string;
+      emailCc: string;
+      emailMessage: string;
+    }) => {
       const formData = new FormData();
       formData.append('voucher', file);
-      formData.append('companyId', companyId.toString());
+      formData.append('payerCompanyId', payerCompanyId.toString());
       formData.append('clientId', clientId.toString());
       if (notes) formData.append('notes', notes);
+      if (notify) formData.append('notify', 'true');
+      if (emailTo) formData.append('emailTo', emailTo);
+      if (emailCc) formData.append('emailCc', emailCc);
+      if (emailMessage) formData.append('emailMessage', emailMessage);
 
       const res = await fetch("/api/payment-vouchers/upload", {
         method: "POST",
@@ -465,10 +505,14 @@ export default function TreasuryPage() {
         description: `Estado inicial: ${data.autoStatus === 'factura_pagada' ? 'Factura Pagada' : 'Pendiente Complemento'}` 
       });
       // Reset form
-      setSelectedCompanyForVoucher(null);
+      setPayerCompanyId(null);
       setSelectedClientForVoucher(null);
       setVoucherFile(null);
       setVoucherNotes("");
+      setNotifyClient(false);
+      setEmailTo("");
+      setEmailCc("");
+      setEmailMessage("");
     },
     onError: (error: any) => {
       toast({
@@ -480,10 +524,20 @@ export default function TreasuryPage() {
   });
 
   const handleUploadVoucher = () => {
-    if (!voucherFile || !selectedClientForVoucher || !selectedCompanyForVoucher) {
+    if (!voucherFile || !selectedClientForVoucher || !payerCompanyId) {
       toast({ 
         title: "Error", 
-        description: "Selecciona empresa, cliente y archivo", 
+        description: "Selecciona empresa pagadora, cliente/beneficiario y archivo", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Validar emails si notify está activado
+    if (notifyClient && !emailTo && !selectedClientForVoucher) {
+      toast({ 
+        title: "Error", 
+        description: "Si deseas enviar correo, proporciona al menos un email o selecciona un cliente con email", 
         variant: "destructive" 
       });
       return;
@@ -492,8 +546,12 @@ export default function TreasuryPage() {
     uploadVoucherMutation.mutate({
       file: voucherFile,
       clientId: selectedClientForVoucher,
-      companyId: selectedCompanyForVoucher,
+      payerCompanyId: payerCompanyId,
       notes: voucherNotes,
+      notify: notifyClient,
+      emailTo: emailTo,
+      emailCc: emailCc,
+      emailMessage: emailMessage,
     });
   };
 
@@ -1765,17 +1823,17 @@ export default function TreasuryPage() {
                   </DialogHeader>
 
                   <div className="space-y-4 py-4">
-                    {/* Selector de Empresa */}
+                    {/* Selector de Empresa Pagadora */}
                     <div className="space-y-2">
-                      <Label htmlFor="company-select">Empresa *</Label>
+                      <Label htmlFor="payer-company-select">Empresa Pagadora *</Label>
                       <Select
-                        value={selectedCompanyForVoucher?.toString() || ""}
+                        value={payerCompanyId?.toString() || ""}
                         onValueChange={(value) => {
-                          setSelectedCompanyForVoucher(parseInt(value));
+                          setPayerCompanyId(parseInt(value));
                           setSelectedClientForVoucher(null); // Reset cliente al cambiar empresa
                         }}
                       >
-                        <SelectTrigger id="company-select" data-testid="select-company-voucher">
+                        <SelectTrigger id="payer-company-select" data-testid="select-payer-company-voucher">
                           <SelectValue placeholder="Selecciona la empresa que está pagando" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1783,18 +1841,19 @@ export default function TreasuryPage() {
                           <SelectItem value="2">Grupo Orsega</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">Empresa que realiza el pago</p>
                     </div>
 
-                    {/* Selector de Cliente */}
+                    {/* Selector de Cliente/Beneficiario */}
                     <div className="space-y-2">
-                      <Label htmlFor="client-select">Cliente/Proveedor *</Label>
+                      <Label htmlFor="client-select">Cliente/Beneficiario *</Label>
                       <Select
                         value={selectedClientForVoucher?.toString() || ""}
                         onValueChange={(value) => setSelectedClientForVoucher(parseInt(value))}
-                        disabled={!selectedCompanyForVoucher}
+                        disabled={!payerCompanyId}
                       >
                         <SelectTrigger id="client-select" data-testid="select-client-voucher">
-                          <SelectValue placeholder={selectedCompanyForVoucher ? "Selecciona un cliente" : "Primero selecciona la empresa"} />
+                          <SelectValue placeholder={payerCompanyId ? "Selecciona un cliente/beneficiario" : "Primero selecciona la empresa pagadora"} />
                         </SelectTrigger>
                         <SelectContent>
                           {filteredClients.map((client: any) => (
@@ -1809,9 +1868,10 @@ export default function TreasuryPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {selectedCompanyForVoucher && filteredClients.length === 0 && (
+                      {payerCompanyId && filteredClients.length === 0 && (
                         <p className="text-sm text-slate-500">No hay clientes registrados para esta empresa</p>
                       )}
+                      <p className="text-xs text-muted-foreground">Cliente o proveedor que recibe el pago</p>
                     </div>
 
                     {/* Subir Archivo */}
@@ -1828,6 +1888,61 @@ export default function TreasuryPage() {
                         <p className="text-sm text-slate-600 dark:text-slate-400">
                           Archivo: {voucherFile.name} ({(voucherFile.size / 1024).toFixed(2)} KB)
                         </p>
+                      )}
+                    </div>
+
+                    {/* Configuración de Envío de Correo */}
+                    <div className="space-y-3 border-t pt-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="notify-client"
+                          checked={notifyClient}
+                          onCheckedChange={(checked) => setNotifyClient(checked as boolean)}
+                        />
+                        <Label htmlFor="notify-client" className="font-medium cursor-pointer">
+                          Enviar comprobante por correo al cliente
+                        </Label>
+                      </div>
+
+                      {notifyClient && (
+                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
+                          <div className="space-y-2">
+                            <Label htmlFor="email-to">Emails Destinatarios (separados por comas) *</Label>
+                            <Input
+                              id="email-to"
+                              type="email"
+                              value={emailTo}
+                              onChange={(e) => setEmailTo(e.target.value)}
+                              placeholder="cliente@ejemplo.com, otro@ejemplo.com"
+                              data-testid="input-email-to"
+                            />
+                            <p className="text-xs text-muted-foreground">Se usará el email del cliente si está vacío</p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="email-cc">Emails en Copia (separados por comas)</Label>
+                            <Input
+                              id="email-cc"
+                              type="email"
+                              value={emailCc}
+                              onChange={(e) => setEmailCc(e.target.value)}
+                              placeholder="copia@ejemplo.com"
+                              data-testid="input-email-cc"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="email-message">Mensaje Personalizado (Opcional)</Label>
+                            <textarea
+                              id="email-message"
+                              value={emailMessage}
+                              onChange={(e) => setEmailMessage(e.target.value)}
+                              placeholder="Mensaje adicional que se incluirá en el correo..."
+                              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              data-testid="input-email-message"
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
 

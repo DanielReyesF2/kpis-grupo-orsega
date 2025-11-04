@@ -612,10 +612,13 @@ export type Product = typeof products.$inferSelect;
 
 // Enum para estados del flujo de comprobantes
 export const voucherStatusEnum = pgEnum('voucher_status', [
-  'factura_pagada',        // Recién subido
-  'pendiente_complemento', // Esperando complemento del proveedor
-  'complemento_recibido',  // Complemento ya subido
-  'cierre_contable'        // Finalizado
+  'pendiente_validacion',    // Esperando validación de datos OCR
+  'validado',                // Datos completos validados
+  'pendiente_asociacion',    // Esperando asociación con factura
+  'pendiente_complemento',   // Esperando complemento del proveedor
+  'complemento_recibido',    // Complemento ya subido
+  'cerrado',                 // Asociado con factura y cerrado
+  'cierre_contable'          // Finalizado contablemente
 ]);
 
 // Pagos Programados
@@ -697,15 +700,16 @@ export type ExchangeRate = typeof exchangeRates.$inferSelect;
 // Comprobantes Bancarios (Payment Vouchers) - Sistema Kanban
 export const paymentVouchers = pgTable("payment_vouchers", {
   id: serial("id").primaryKey(),
-  companyId: integer("company_id").notNull(),
-  clientId: integer("client_id").notNull(), // Relación con tabla clients
+  companyId: integer("company_id").notNull(), // Empresa del cliente/beneficiario
+  payerCompanyId: integer("payer_company_id").notNull(), // Empresa pagadora (Orsega/Dura)
+  clientId: integer("client_id").notNull(), // Cliente/beneficiario (payeeClientId)
   clientName: text("client_name").notNull(), // Nombre del cliente (denormalizado para búsqueda rápida)
   
   // Vinculación opcional a pago programado
   scheduledPaymentId: integer("scheduled_payment_id"), // Opcional
   
   // Estado del flujo Kanban
-  status: voucherStatusEnum("status").notNull().default('factura_pagada'),
+  status: voucherStatusEnum("status").notNull().default('pendiente_validacion'),
   
   // Archivos subidos
   voucherFileUrl: text("voucher_file_url").notNull(), // Comprobante bancario (obligatorio)
@@ -726,7 +730,21 @@ export const paymentVouchers = pgTable("payment_vouchers", {
   extractedBank: text("extracted_bank"), // Banco emisor
   extractedReference: text("extracted_reference"), // Número de referencia/folio
   extractedCurrency: text("extracted_currency"), // MXN, USD
+  extractedOriginAccount: text("extracted_origin_account"), // Cuenta origen
+  extractedDestinationAccount: text("extracted_destination_account"), // Cuenta destino
+  extractedTrackingKey: text("extracted_tracking_key"), // Clave de rastreo (SPEI)
+  extractedBeneficiaryName: text("extracted_beneficiary_name"), // Nombre del beneficiario
   ocrConfidence: real("ocr_confidence"), // Confianza del análisis (0-1)
+  
+  // Configuración de envío de correo
+  notify: boolean("notify").default(false), // Si se debe enviar correo automáticamente
+  emailTo: text("email_to").array(), // Emails principales (destinatarios)
+  emailCc: text("email_cc").array(), // Emails en copia
+  emailMessage: text("email_message"), // Mensaje personalizado para el correo
+  
+  // Vinculación con facturas
+  linkedInvoiceId: integer("linked_invoice_id"), // ID de factura asociada (si existe)
+  linkedInvoiceUuid: text("linked_invoice_uuid"), // UUID de factura asociada
   
   // Metadatos
   notes: text("notes"), // Notas adicionales de Lolita
@@ -742,6 +760,26 @@ export const paymentVouchers = pgTable("payment_vouchers", {
 export const insertPaymentVoucherSchema = createInsertSchema(paymentVouchers).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPaymentVoucher = z.infer<typeof insertPaymentVoucherSchema>;
 export type PaymentVoucher = typeof paymentVouchers.$inferSelect;
+
+// Email Outbox - Tracking de envíos de correo
+export const emailOutbox = pgTable("email_outbox", {
+  id: serial("id").primaryKey(),
+  voucherId: integer("voucher_id").references(() => paymentVouchers.id, { onDelete: "cascade" }),
+  emailTo: text("email_to").notNull().array(), // Emails principales
+  emailCc: text("email_cc").array(), // Emails en copia
+  subject: text("subject").notNull(),
+  htmlContent: text("html_content").notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, failed
+  messageId: text("message_id"), // ID del mensaje del proveedor de email (Resend/SendGrid)
+  errorMessage: text("error_message"), // Mensaje de error si falla
+  sentAt: timestamp("sent_at"), // Fecha de envío exitoso
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertEmailOutboxSchema = createInsertSchema(emailOutbox).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEmailOutbox = z.infer<typeof insertEmailOutboxSchema>;
+export type EmailOutbox = typeof emailOutbox.$inferSelect;
 
 // KPI Detail type for dashboard components
 export interface KpiDetail {
