@@ -194,14 +194,32 @@ app.use(helmet({
 }));
 
 // 🔒 RATE LIMITING - VUL-002: Protección global contra DDOS
-const globalApiLimiter = rateLimit({
+// === RATE LIMITER CONFIGURACIÓN ADAPTATIVA ===
+const baseRateLimit = {
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // 100 requests por 15 min por IP
-  message: 'Demasiadas solicitudes. Por favor, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/health' || req.path === '/healthz' || req.path === '/api/health',
-});
+  handler: (req: express.Request, res: express.Response) => {
+    res.status(429).json({
+      message: 'Demasiadas solicitudes. Intenta nuevamente más tarde.',
+      retryAfter: 900,
+    });
+  },
+  skip: (req: express.Request) => req.path === '/health' || req.path === '/healthz' || req.path === '/api/health',
+};
+
+// === CONFIGURACIÓN SEGÚN ENTORNO ===
+const globalApiLimiter =
+  process.env.NODE_ENV === 'production'
+    ? rateLimit({
+        ...baseRateLimit,
+        max: 1000, // Producción: hasta 1000 requests cada 15 min por IP
+      })
+    : rateLimit({
+        ...baseRateLimit,
+        max: 5000, // Desarrollo: límite mucho más alto
+      });
+
 app.use('/api', globalApiLimiter);
 
 // 🔒 SECURITY MONITORING (SIN RIESGO - Solo monitoreo)

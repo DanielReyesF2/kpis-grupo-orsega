@@ -145,18 +145,6 @@ export function registerRoutes(app: express.Application) {
   const server = app.listen;
 
   // ========================================
-  // REGISTER CATALOG ROUTES WITH AUTH - VUL-001 fix
-  // ========================================
-  app.use("/api", jwtAuthMiddleware, catalogRouter);
-  // IMPORTANTE: logisticsRouter tiene POST /api/shipments que entra en conflicto
-  // con el endpoint principal de shipments en esta misma línea 1949.
-  // El endpoint principal usa insertShipmentSchema y maneja items, fechas, etc.
-  // El endpoint de logisticsRouter usa createShipmentSchema (schema legacy diferente).
-  // Se mantiene montado pero debería deshabilitarse si causa conflictos.
-  // app.use("/api", logisticsRouter); // Temporalmente deshabilitado - causa conflictos con POST /api/shipments
-  app.use("/api/logistics-legacy", logisticsRouter); // Montado en ruta diferente para evitar conflictos
-
-  // ========================================
   // RATE LIMITERS - Protección contra abuso
   // ========================================
   // NOTA: El globalApiLimiter está configurado en server/index.ts
@@ -188,6 +176,47 @@ export function registerRoutes(app: express.Application) {
     standardHeaders: true,
     legacyHeaders: false,
   });
+
+  // ========================================
+  // RUTAS PÚBLICAS (SIN AUTENTICACIÓN) - DEBEN IR PRIMERO
+  // ========================================
+  // Login route - 🔒 Con rate limiting pero SIN autenticación JWT
+  app.post("/api/login", loginLimiter, async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      
+      const result = await loginUser(username, password);
+      
+      if (!result) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("[POST /api/login] Error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+
+
+  // ========================================
+  // REGISTER CATALOG ROUTES WITH AUTH - VUL-001 fix
+  // ========================================
+  // IMPORTANTE: Estas rutas REQUIEREN autenticación JWT
+  // Deben ir DESPUÉS de las rutas públicas (login, register)
+  app.use("/api", jwtAuthMiddleware, catalogRouter);
+  // IMPORTANTE: logisticsRouter tiene POST /api/shipments que entra en conflicto
+  // con el endpoint principal de shipments en esta misma línea 1949.
+  // El endpoint principal usa insertShipmentSchema y maneja items, fechas, etc.
+  // El endpoint de logisticsRouter usa createShipmentSchema (schema legacy diferente).
+  // Se mantiene montado pero debería deshabilitarse si causa conflictos.
+  // app.use("/api", logisticsRouter); // Temporalmente deshabilitado - causa conflictos con POST /api/shipments
+  app.use("/api/logistics-legacy", logisticsRouter); // Montado en ruta diferente para evitar conflictos
 
   // ========================================
   // PRODUCTION DEBUGGING ENDPOINTS (ADMIN ONLY)
@@ -382,27 +411,7 @@ export function registerRoutes(app: express.Application) {
     });
   });
 
-  // Login route - 🔒 Con rate limiting
-  app.post("/api/login", loginLimiter, async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
-      }
-      
-      const result = await loginUser(username, password);
-      
-      if (!result) {
-        return res.status(401).json({ message: "Invalid username or password" });
-      }
-      
-      res.json(result);
-    } catch (error) {
-      console.error("[POST /api/login] Error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+
 
   // GET /api/user - Obtener información del usuario autenticado
   app.get("/api/user", jwtAuthMiddleware, async (req, res) => {
