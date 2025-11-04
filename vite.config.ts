@@ -23,6 +23,15 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
+  server: {
+    // En desarrollo, Vite se maneja a través del servidor Express
+    // No necesitamos configurar puerto aquí ya que Express lo maneja
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 8080,
+    },
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,

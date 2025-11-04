@@ -311,13 +311,15 @@ if (!port || isNaN(port)) {
 try {
   server.listen(port, "0.0.0.0", () => {
     console.log(`✅ Server listening on port ${port}`);
-    console.log(`🌐 Accessible on 0.0.0.0:${port}`);
+    console.log(`🌐 Accessible on:`);
+    console.log(`   - http://localhost:${port}`);
+    console.log(`   - http://127.0.0.1:${port}`);
+    console.log(`   - http://0.0.0.0:${port}`);
     console.log(`📊 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
     console.log(`🗄️ DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
     console.log(`🔑 JWT_SECRET exists: ${!!process.env.JWT_SECRET}`);
-    console.log(`🏥 Healthcheck available at: http://0.0.0.0:${port}/health`);
-    console.log(`🏥 Healthcheck alternative: http://0.0.0.0:${port}/healthz`);
-    console.log(`✅ Railway healthcheck should work now!`);
+    console.log(`🏥 Healthcheck available at: http://localhost:${port}/health`);
+    console.log(`✅ Server ready! Open http://localhost:${port} in your browser`);
   });
 
   // Handle server errors gracefully
