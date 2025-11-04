@@ -253,7 +253,7 @@ export default function Dashboard() {
               <TabsContent value="1" className="mt-0">
                 <SalesVolumeChart 
                   companyId={1}
-                  kpiId={39}
+                  kpiId={1}
                   target="55620"
                   limit={12}
                   showControls={true}
