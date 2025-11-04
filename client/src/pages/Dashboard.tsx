@@ -233,13 +233,14 @@ export default function Dashboard() {
           
           {/* Grid de tarjetas de KPIs para ambas empresas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
-            <div className="space-y-2">
-              {/* Logo de Dura International centrado */}
+            <div className="space-y-4">
+              {/* Logo de Dura International centrado con proporciones correctas */}
               <div className="flex justify-center items-center mb-4">
                 <img 
                   src="/logodura.jpg" 
                   alt="Dura International Logo" 
-                  className="h-16 sm:h-20 object-contain max-w-full"
+                  className="max-h-20 sm:max-h-24 w-auto object-contain"
+                  style={{ maxWidth: '200px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
                     const target = e.target as HTMLImageElement;
@@ -252,14 +253,36 @@ export default function Dashboard() {
                 />
               </div>
               <SalesMetricsCards companyId={1} />
+              
+              {/* Botón para mostrar gráfico de Dura centrado debajo de las tarjetas */}
+              <div className="flex justify-center pt-2">
+                <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
+                  <TabsList className="grid w-full max-w-xs grid-cols-2 bg-muted border border-border">
+                    <TabsTrigger 
+                      value="1" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                    >
+                      Ver Gráfica
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="2" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                      disabled
+                    >
+                      Orsega
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
-            <div className="space-y-2">
-              {/* Logo de Grupo Orsega centrado */}
+            <div className="space-y-4">
+              {/* Logo de Grupo Orsega centrado con proporciones correctas */}
               <div className="flex justify-center items-center mb-4">
                 <img 
                   src="/logo orsega.jpg" 
                   alt="Grupo Orsega Logo" 
-                  className="h-16 sm:h-20 object-contain max-w-full"
+                  className="max-h-20 sm:max-h-24 w-auto object-contain"
+                  style={{ maxWidth: '200px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
                     const target = e.target as HTMLImageElement;
@@ -272,16 +295,33 @@ export default function Dashboard() {
                 />
               </div>
               <SalesMetricsCards companyId={2} />
+              
+              {/* Botón para mostrar gráfico de Orsega centrado debajo de las tarjetas */}
+              <div className="flex justify-center pt-2">
+                <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
+                  <TabsList className="grid w-full max-w-xs grid-cols-2 bg-muted border border-border">
+                    <TabsTrigger 
+                      value="1" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                      disabled
+                    >
+                      Dura
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="2" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                    >
+                      Ver Gráfica
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
           </div>
 
-          {/* Gráfico de Histórico de Ventas con pestañas para alternar entre empresas */}
+          {/* Gráfico de Histórico de Ventas - Se muestra según la empresa seleccionada */}
           <div className="mt-6" data-onboarding="sales-chart">
             <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
-              <TabsList className="grid w-full max-w-xs grid-cols-2 mb-4">
-                <TabsTrigger value="1">Dura International</TabsTrigger>
-                <TabsTrigger value="2">Grupo Orsega</TabsTrigger>
-              </TabsList>
               <TabsContent value="1" className="mt-0">
                 <SalesVolumeChart 
                   companyId={1}

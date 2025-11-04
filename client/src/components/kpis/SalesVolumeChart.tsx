@@ -409,9 +409,19 @@ export function SalesVolumeChart({
         {chartDataWithTarget.length > 0 ? (
           <Tabs defaultValue="monthly" className="w-full">
             {showControls && (
-              <TabsList className="grid w-full max-w-xs grid-cols-2 mb-4">
-                <TabsTrigger value="monthly">Mensual</TabsTrigger>
-                <TabsTrigger value="weekly">Seguimiento Semanal</TabsTrigger>
+              <TabsList className="grid w-full max-w-xs grid-cols-2 mb-4 bg-muted border border-border">
+                <TabsTrigger 
+                  value="monthly"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                >
+                  Mensual
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="weekly"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
+                >
+                  Seguimiento Semanal
+                </TabsTrigger>
               </TabsList>
             )}
             
@@ -515,20 +525,12 @@ export function SalesVolumeChart({
               </ResponsiveContainer>
             </TabsContent>
             
-            <TabsContent value="weekly" className="h-[250px] sm:h-[300px]">
+            <TabsContent value="weekly" className="h-[350px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={generateWeeklyData()}
-                  margin={{ top: 10, right: 0, left: 0, bottom: 0 }}
-                  barCategoryGap="25%"
+                <LineChart
+                  data={generateWeeklyData().map((item: any) => ({ ...item, value: item.valor, period: item.semana }))}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
                 >
-                  <defs>
-                    {/* Gradiente premium tipo Oura Ring: negro → gris claro (fade ascendente) */}
-                    <linearGradient id="weeklyBarGray" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="#000000" />
-                      <stop offset="100%" stopColor="#9ca3af" />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid 
                     stroke="#e5e7eb"
                     vertical={false}
@@ -536,24 +538,21 @@ export function SalesVolumeChart({
                     strokeOpacity={0.5}
                   />
                   <XAxis 
-                    dataKey="semana" 
+                    dataKey="period" 
                     stroke="#6b7280"
                     tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
                     axisLine={{ stroke: "#d1d5db" }}
                   />
                   <YAxis 
-                    domain={companyId === 1 ? [0, 20000] : [0, 300000]}
-                    padding={{ top: 20 }}
-                    tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
                     stroke="#6b7280"
                     tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
                     axisLine={{ stroke: "#d1d5db" }}
                   />
-                  <Tooltip 
-                    cursor={{ fill: "rgba(25, 88, 145, 0.05)" }}
-                    contentStyle={{ 
+                  <Tooltip
+                    cursor={{ stroke: "rgba(25, 88, 145, 0.1)", strokeWidth: 1 }}
+                    contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       color: "hsl(var(--foreground))",
@@ -565,64 +564,90 @@ export function SalesVolumeChart({
                       const unit = getUnit();
                       return `${formatNumber(value as number)} ${unit}`;
                     }}
+                    labelFormatter={(label: any) => `${label}`}
                   />
-                  <defs>
-                    {/* Gradiente azul celeste de ORSEGA para las barras */}
-                    <linearGradient id="weeklyBarBlue" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="#195891" />
-                      <stop offset="100%" stopColor="#2563eb" />
-                    </linearGradient>
-                  </defs>
-                  <Bar 
-                    dataKey="valor" 
-                    name={`Volumen (${getUnit()})`} 
-                    fill="url(#weeklyBarBlue)"
-                    radius={[4, 4, 0, 0]}
-                    barSize={60} 
-                    animationDuration={1200}
-                    animationEasing="ease-in-out"
-                    maxBarSize={80}
-                    shape={(props: any) => {
-                      const { x, y, width, height } = props;
+                  {/* Líneas de referencia (superior e inferior) basadas en los datos semanales */}
+                  {(() => {
+                    const weeklyData = generateWeeklyData();
+                    if (weeklyData.length === 0) return null;
+                    const values = weeklyData.map((d: any) => d.valor);
+                    const minValue = Math.min(...values);
+                    const maxValue = Math.max(...values);
+                    const range = maxValue - minValue;
+                    if (range > 0) {
                       return (
-                        <g>
-                          {/* Barra con degradado azul celeste */}
-                          <rect 
-                            x={x} 
-                            y={y} 
-                            width={width} 
-                            height={height} 
-                            fill="url(#weeklyBarBlue)" 
-                            rx={4} 
-                            ry={4}
-                            className="transition-all duration-200 hover:opacity-90"
+                        <>
+                          <ReferenceLine
+                            y={maxValue - range * 0.2}
+                            stroke="#9ca3af"
+                            strokeWidth={1}
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.4}
                           />
-                          {/* Línea delgada en la parte superior */}
-                          {height > 5 && (
-                            <line
-                              x1={x}
-                              y1={y}
-                              x2={x + width}
-                              y2={y}
-                              stroke="#195891"
-                              strokeWidth={0.5}
-                              opacity={0.6}
-                            />
-                          )}
-                        </g>
+                          <ReferenceLine
+                            y={minValue + range * 0.2}
+                            stroke="#9ca3af"
+                            strokeWidth={1}
+                            strokeDasharray="3 3"
+                            strokeOpacity={0.4}
+                          />
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#195891"
+                    strokeWidth={0.5}
+                    dot={(props: any) => {
+                      const { cx, cy, payload, index } = props;
+                      if (!cx || !cy) return null;
+                      
+                      const weeklyData = generateWeeklyData();
+                      const values = weeklyData.map((d: any) => d.valor);
+                      const minValue = Math.min(...values);
+                      const maxValue = Math.max(...values);
+                      const range = maxValue - minValue;
+                      
+                      // Calcular tamaño del punto basado en el volumen de ventas
+                      const normalizedValue = range > 0 
+                        ? (payload.value - minValue) / range 
+                        : 0.5;
+                      
+                      // Tamaño base pequeño, más grande para valores altos
+                      const baseSize = 3;
+                      const maxSize = 8;
+                      const pointSize = baseSize + (normalizedValue * (maxSize - baseSize));
+                      
+                      // Primer punto gris, el resto azul celeste
+                      const isFirstPoint = index === 0;
+                      const fillColor = isFirstPoint ? "#9ca3af" : "#195891";
+                      
+                      return (
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={pointSize}
+                          fill={fillColor}
+                          stroke={fillColor}
+                          strokeWidth={0.5}
+                        />
                       );
                     }}
+                    activeDot={{ r: 6, fill: "#195891" }}
                   />
                   {monthlyTarget > 0 && (
                     <ReferenceLine
                       y={monthlyTarget / 4}
                       stroke="#9ca3af"
                       strokeWidth={1}
-                      strokeDasharray="4 4"
+                      strokeDasharray="3 3"
                       strokeOpacity={0.4}
                     />
                   )}
-                </BarChart>
+                </LineChart>
               </ResponsiveContainer>
             </TabsContent>
           </Tabs>
