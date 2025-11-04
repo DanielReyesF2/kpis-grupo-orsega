@@ -28,8 +28,7 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Build the application
-# Skip prebuild hook to avoid verification delays
-RUN npm run build -- --no-verify || npm run build
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine
