@@ -353,6 +353,9 @@ export function ReceiptsModule({
   const handleUpload = () => {
     if (onUpload) {
       onUpload();
+    } else {
+      // Si no hay handler, navegar al módulo completo con el tab de receipts
+      navigate('/treasury?tab=receipts');
     }
   };
 
@@ -381,7 +384,10 @@ export function ReceiptsModule({
               size="sm"
               variant="outline"
               className="border-white/20 text-white hover:bg-white/10 transition-colors"
-              onClick={() => navigate('/treasury?tab=receipts')}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/treasury?tab=receipts');
+              }}
             >
               Ver módulo completo
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -389,7 +395,10 @@ export function ReceiptsModule({
             <Button
               size="sm"
               className="bg-pastel-teal/80 text-white hover:bg-pastel-teal transition-colors"
-              onClick={handleUpload}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUpload();
+              }}
             >
               <UploadCloud className="h-4 w-4 mr-2" />
               Subir comprobante
@@ -417,7 +426,7 @@ export function ReceiptsModule({
           </div>
 
           {vouchers.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-surface-muted/50 py-16 text-center space-y-4 text-white">
+            <div className="rounded-xl border border-white/10 bg-surface-muted/50 py-16 text-center space-y-4 text-white relative z-10">
               <div className="mx-auto w-16 h-16 rounded-full bg-pastel-blue/20 flex items-center justify-center">
                 <FileText className="h-7 w-7" />
               </div>
@@ -428,16 +437,22 @@ export function ReceiptsModule({
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <Button
                   variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10 transition-colors"
-                  onClick={() => navigate('/treasury?tab=receipts')}
+                  className="border-white/20 text-white hover:bg-white/10 transition-colors relative z-20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/treasury?tab=receipts');
+                  }}
                 >
                   Ver módulo completo
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-pastel-blue/60 text-white hover:bg-pastel-blue/20"
-                  onClick={handleUpload}
+                  className="border-pastel-blue/60 text-white hover:bg-pastel-blue/20 relative z-20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpload();
+                  }}
                 >
                   <UploadCloud className="h-4 w-4 mr-2" />
                   Subir comprobante
