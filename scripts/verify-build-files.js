@@ -25,11 +25,14 @@ function getTrackedFiles() {
   try {
     const output = execSync('git ls-files', { 
       cwd: rootDir,
-      encoding: 'utf-8'
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     return new Set(output.trim().split('\n').filter(Boolean));
   } catch (error) {
-    console.error('Error ejecutando git ls-files:', error.message);
+    // En CI/CD (Railway, etc) git puede no estar disponible
+    // En ese caso, asumimos que todos los archivos están trackeados
+    console.warn('⚠️  Git no disponible en este entorno, saltando verificación de archivos trackeados');
     return new Set();
   }
 }
@@ -39,7 +42,8 @@ function getUntrackedFiles() {
   try {
     const output = execSync('git status --porcelain', { 
       cwd: rootDir,
-      encoding: 'utf-8'
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe']
     });
     return output
       .trim()
@@ -48,7 +52,8 @@ function getUntrackedFiles() {
       .filter(line => line.startsWith('??'))
       .map(line => line.substring(3).trim());
   } catch (error) {
-    console.error('Error ejecutando git status:', error.message);
+    // En CI/CD git puede no estar disponible
+    console.warn('⚠️  Git no disponible, saltando verificación de archivos no trackeados');
     return [];
   }
 }
@@ -108,9 +113,51 @@ function verifyCriticalFiles() {
   return { missing, untracked };
 }
 
+// Verificar si git está disponible
+function isGitAvailable() {
+  try {
+    execSync('git --version', { 
+      cwd: rootDir,
+      stdio: 'ignore'
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Main
 console.log('🔍 Verificando archivos requeridos para el build...\n');
 
+// Si git no está disponible (como en Railway), solo verificar que los archivos existan
+if (!isGitAvailable()) {
+  console.log('⚠️  Git no disponible en este entorno (CI/CD), verificando solo existencia de archivos...\n');
+  
+  const missing = [];
+  criticalFiles.forEach(file => {
+    const fullPath = resolve(rootDir, file);
+    if (!existsSync(fullPath)) {
+      console.error(`❌ Archivo no existe: ${file}`);
+      missing.push(file);
+    } else {
+      console.log(`✅ Archivo existe: ${file}`);
+    }
+  });
+  
+  if (missing.length > 0) {
+    console.log('\n❌ PROBLEMAS DETECTADOS:');
+    console.log('\n🔴 Archivos faltantes:');
+    missing.forEach(file => {
+      console.log(`   - ${file}`);
+    });
+    process.exit(1);
+  } else {
+    console.log('\n✅ Todos los archivos críticos existen.\n');
+    process.exit(0);
+  }
+}
+
+// Si git está disponible, hacer verificación completa
 const { missing, untracked } = verifyCriticalFiles();
 const imports = findImports();
 
