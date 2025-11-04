@@ -384,16 +384,16 @@ export function SalesVolumeChart({
   }
 
   return (
-    <Card className="bg-[#181818] border-0 shadow-none">
+    <Card className="bg-card border border-border shadow-md">
       <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-semibold text-[#9ca3af]">Histórico de Ventas</CardTitle>
+        <CardTitle className="text-xl font-semibold text-foreground">Histórico de Ventas</CardTitle>
         {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
           <div className="flex items-center mt-2">
-            <span className="text-sm text-[#9ca3af] mr-2 opacity-70">
+            <span className="text-sm text-muted-foreground mr-2">
               vs mes anterior:
             </span>
             <span className={`text-sm flex items-center font-medium ${
-              trendData.isPositive ? 'text-[#9ca3af]' : 'text-[#9ca3af] opacity-60'
+              trendData.isPositive ? 'text-foreground' : 'text-muted-foreground'
             }`}>
               {trendData.isPositive ? (
                 <TrendingUp className="h-4 w-4 mr-1" />
@@ -405,7 +405,7 @@ export function SalesVolumeChart({
           </div>
         )}
       </CardHeader>
-      <CardContent className="pt-0 pb-4 bg-[#181818]">
+      <CardContent className="pt-0 pb-4 bg-card">
         {chartDataWithTarget.length > 0 ? (
           <Tabs defaultValue="monthly" className="w-full">
             {showControls && (
@@ -422,31 +422,33 @@ export function SalesVolumeChart({
                   margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
                 >
                   <CartesianGrid 
-                    stroke="#2a2a2a"
+                    stroke="#e5e7eb"
                     vertical={false}
-                    strokeDasharray="0"
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.5}
                   />
                   <XAxis 
                     dataKey="period" 
-                    stroke="#9ca3af"
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    stroke="#6b7280"
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
-                    axisLine={{ stroke: "#2a2a2a" }}
+                    axisLine={{ stroke: "#d1d5db" }}
                   />
                   <YAxis 
-                    stroke="#9ca3af"
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    stroke="#6b7280"
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
-                    axisLine={{ stroke: "#2a2a2a" }}
+                    axisLine={{ stroke: "#d1d5db" }}
                   />
                   <Tooltip
-                    cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
+                    cursor={{ stroke: "rgba(25, 88, 145, 0.1)", strokeWidth: 1 }}
                     contentStyle={{
-                      backgroundColor: "#181818",
-                      border: "1px solid #2a2a2a",
-                      color: "#9ca3af",
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      color: "hsl(var(--foreground))",
                       fontSize: "12px",
-                      borderRadius: "4px",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
                     formatter={(value: any) => {
                       const unit = getUnit();
@@ -459,24 +461,24 @@ export function SalesVolumeChart({
                     <>
                       <ReferenceLine
                         y={valueRange.maxValue - valueRange.range * 0.2}
-                        stroke="#ffffff"
+                        stroke="#9ca3af"
                         strokeWidth={1}
                         strokeDasharray="3 3"
-                        strokeOpacity={0.5}
+                        strokeOpacity={0.4}
                       />
                       <ReferenceLine
                         y={valueRange.minValue + valueRange.range * 0.2}
-                        stroke="#ffffff"
+                        stroke="#9ca3af"
                         strokeWidth={1}
                         strokeDasharray="3 3"
-                        strokeOpacity={0.5}
+                        strokeOpacity={0.4}
                       />
                     </>
                   )}
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#ffffff"
+                    stroke="#195891"
                     strokeWidth={0.5}
                     dot={(props: any) => {
                       const { cx, cy, payload, index } = props;
@@ -492,9 +494,9 @@ export function SalesVolumeChart({
                       const maxSize = 8;
                       const pointSize = baseSize + (normalizedValue * (maxSize - baseSize));
                       
-                      // Primer punto gris, el resto blanco
+                      // Primer punto gris, el resto azul celeste
                       const isFirstPoint = index === 0;
-                      const fillColor = isFirstPoint ? "#9ca3af" : "#ffffff";
+                      const fillColor = isFirstPoint ? "#9ca3af" : "#195891";
                       
                       return (
                         <circle
@@ -507,7 +509,7 @@ export function SalesVolumeChart({
                         />
                       );
                     }}
-                    activeDot={{ r: 6, fill: "#ffffff" }}
+                    activeDot={{ r: 6, fill: "#195891" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -528,44 +530,53 @@ export function SalesVolumeChart({
                     </linearGradient>
                   </defs>
                   <CartesianGrid 
-                    stroke="#2a2a2a"
+                    stroke="#e5e7eb"
                     vertical={false}
-                    strokeDasharray="0"
+                    strokeDasharray="3 3"
+                    strokeOpacity={0.5}
                   />
                   <XAxis 
                     dataKey="semana" 
-                    stroke="#9ca3af"
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    stroke="#6b7280"
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
-                    axisLine={{ stroke: "#2a2a2a" }}
+                    axisLine={{ stroke: "#d1d5db" }}
                   />
                   <YAxis 
                     domain={companyId === 1 ? [0, 20000] : [0, 300000]}
                     padding={{ top: 20 }}
                     tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                    stroke="#9ca3af"
-                    tick={{ fill: "#9ca3af", fontSize: 12 }}
+                    stroke="#6b7280"
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
                     tickLine={false}
-                    axisLine={{ stroke: "#2a2a2a" }}
+                    axisLine={{ stroke: "#d1d5db" }}
                   />
                   <Tooltip 
-                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    cursor={{ fill: "rgba(25, 88, 145, 0.05)" }}
                     contentStyle={{ 
-                      backgroundColor: "#181818",
-                      border: "1px solid #2a2a2a",
-                      color: "#9ca3af",
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      color: "hsl(var(--foreground))",
                       fontSize: "12px",
-                      borderRadius: "4px",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
                     formatter={(value: any) => {
                       const unit = getUnit();
                       return `${formatNumber(value as number)} ${unit}`;
                     }}
                   />
+                  <defs>
+                    {/* Gradiente azul celeste de ORSEGA para las barras */}
+                    <linearGradient id="weeklyBarBlue" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#195891" />
+                      <stop offset="100%" stopColor="#2563eb" />
+                    </linearGradient>
+                  </defs>
                   <Bar 
                     dataKey="valor" 
                     name={`Volumen (${getUnit()})`} 
-                    fill="url(#weeklyBarGray)"
+                    fill="url(#weeklyBarBlue)"
                     radius={[4, 4, 0, 0]}
                     barSize={60} 
                     animationDuration={1200}
@@ -575,27 +586,27 @@ export function SalesVolumeChart({
                       const { x, y, width, height } = props;
                       return (
                         <g>
-                          {/* Barra con degradado negro → gris claro (ascendente) */}
+                          {/* Barra con degradado azul celeste */}
                           <rect 
                             x={x} 
                             y={y} 
                             width={width} 
                             height={height} 
-                            fill="url(#weeklyBarGray)" 
+                            fill="url(#weeklyBarBlue)" 
                             rx={4} 
                             ry={4}
                             className="transition-all duration-200 hover:opacity-90"
                           />
-                          {/* Línea blanca delgada en la parte superior */}
+                          {/* Línea delgada en la parte superior */}
                           {height > 5 && (
                             <line
                               x1={x}
                               y1={y}
                               x2={x + width}
                               y2={y}
-                              stroke="#ffffff"
+                              stroke="#195891"
                               strokeWidth={0.5}
-                              opacity={0.4}
+                              opacity={0.6}
                             />
                           )}
                         </g>
@@ -623,14 +634,14 @@ export function SalesVolumeChart({
             )}
             {!kpiHistoryError && !isLoadingHistory && (!kpiHistoryData || kpiHistoryData.length === 0) && (
               <div className="text-center space-y-2">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-medium text-muted-foreground">
                   No hay datos históricos de ventas disponibles
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   KPI ID: {kpiId} | Company ID: {companyId} | 
                   {companyId === 1 ? ' (Dura - tabla: kpi_values_dura)' : ' (Orsega - tabla: kpi_values_orsega)'}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {companyId === 1 
                     ? 'Asegúrate de haber ingresado datos de ventas para Dura International'
                     : 'Asegúrate de haber ingresado datos de ventas para Grupo Orsega'}
