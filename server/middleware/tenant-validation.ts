@@ -61,13 +61,23 @@ export function validateTenantAccess(
     return;
   }
 
-  // Si usuario no tiene companyId asignado, rechazar
-  if (!user.companyId) {
-    console.error(`[TenantValidation] User ${user.id} has no companyId assigned`);
-    throw new Error('Forbidden: User has no company assigned');
+  // Empresas del sistema: Dura International (1) y Grupo Orsega (2)
+  // Permitir acceso a ambas empresas para todos los usuarios
+  const ALLOWED_COMPANIES = [1, 2]; // Dura International y Grupo Orsega
+  
+  if (ALLOWED_COMPANIES.includes(resourceCompanyId)) {
+    // Permitir acceso a las empresas del sistema (Dura y Orsega)
+    console.log(`[TenantValidation] Access granted: User ${user.id} to company ${resourceCompanyId} (allowed company)`);
+    return;
   }
 
-  // Validar que el companyId del usuario coincida con el del recurso
+  // Si el usuario no tiene companyId asignado, rechazar acceso a empresas no permitidas
+  if (!user.companyId) {
+    console.error(`[TenantValidation] User ${user.id} has no companyId assigned and attempted to access company ${resourceCompanyId} (not in allowed list)`);
+    throw new Error(`Forbidden: Access denied to company ${resourceCompanyId}`);
+  }
+
+  // Validar que el companyId del usuario coincida con el del recurso (para empresas fuera de la lista permitida)
   if (user.companyId !== resourceCompanyId) {
     console.error(
       `[TenantValidation] Access denied: User ${user.id} (company ${user.companyId}) ` +
@@ -87,11 +97,18 @@ export function validateTenantAccess(
 export function validateTenantFromBody(fieldName: string = 'companyId') {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const user = req.user;
       const resourceCompanyId = (req.body as any)[fieldName];
+      
+      // Logging para debug
+      console.log(`[TenantValidation] Validando acceso para usuario ${user?.id} (${user?.name}), role: ${user?.role}, userCompanyId: ${user?.companyId}, resourceCompanyId: ${resourceCompanyId}`);
+      
       validateTenantAccess(req, resourceCompanyId);
       next();
     } catch (error) {
       console.error('[TenantValidation Middleware] Access denied:', error);
+      const user = req.user;
+      console.error(`[TenantValidation] Detalles del usuario: ID=${user?.id}, Name=${user?.name}, Role=${user?.role}, CompanyId=${user?.companyId}`);
       res.status(403).json({ 
         message: error instanceof Error ? error.message : 'Forbidden: Access denied',
         code: 'TENANT_ACCESS_DENIED'

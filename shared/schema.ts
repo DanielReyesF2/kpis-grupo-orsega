@@ -630,13 +630,13 @@ export const scheduledPayments = pgTable("scheduled_payments", {
   amount: real("amount").notNull(),
   currency: text("currency").notNull().default("MXN"), // MXN o USD
   dueDate: timestamp("due_date").notNull(),
-  status: text("status").notNull().default("hydral_imported"), // Estados del ciclo: hydral_imported, pending_approval, approved, payment_scheduled, payment_pending, payment_completed, voucher_uploaded, closed
+  status: text("status").notNull().default("idrall_imported"), // Estados del ciclo: idrall_imported, pending_approval, approved, payment_scheduled, payment_pending, payment_completed, voucher_uploaded, closed
   reference: text("reference"), // Número de factura o referencia
   notes: text("notes"),
-  // Campos para origen Hydral
-  sourceType: text("source_type").default("manual"), // 'hydral' | 'manual'
-  hydralFileUrl: text("hydral_file_url"), // URL del archivo original de Hydral
-  hydralFileName: text("hydral_file_name"), // Nombre del archivo de Hydral
+  // Campos para origen Idrall (nombres de columnas mantienen 'hydral' por compatibilidad con BD existente)
+  sourceType: text("source_type").default("manual"), // 'idrall' | 'manual'
+  hydralFileUrl: text("hydral_file_url"), // URL del archivo original de Idrall (columna mantiene nombre 'hydral' por compatibilidad)
+  hydralFileName: text("hydral_file_name"), // Nombre del archivo de Idrall (columna mantiene nombre 'hydral' por compatibilidad)
   // Campos para aprobación y pago
   approvedAt: timestamp("approved_at"),
   approvedBy: integer("approved_by"), // user_id

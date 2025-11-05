@@ -82,19 +82,21 @@ async function processPDFFile(
   fileBuffer: Buffer,
   openai: OpenAI,
   fileName: string
-): Promise<HydralCxPRecord[]> {
-  console.log(`🔍 [Hydral Processor] Analizando PDF: ${fileName}`);
+): Promise<IdrallCxPRecord[]> {
+  console.log(`🔍 [Idrall Processor] Analizando PDF: ${fileName}`);
 
   try {
     // Extraer texto del PDF
-    const pdf = (await import("pdf-parse")).default;
+    const pdfParse = await import("pdf-parse");
+    // pdf-parse puede exportar de diferentes formas según la versión
+    const pdf = (pdfParse as any).default || pdfParse;
     const pdfData = await pdf(fileBuffer);
     const textContent = pdfData.text;
 
-    console.log(`📄 [Hydral Processor] Texto extraído (${textContent.length} caracteres)`);
+    console.log(`📄 [Idrall Processor] Texto extraído (${textContent.length} caracteres)`);
 
-    // Prompt optimizado para extraer información de CxP de Hydral
-    const prompt = `Analiza este documento de Cuentas por Pagar (CxP) de Hydral y extrae TODOS los registros de pagos pendientes en formato JSON array.
+    // Prompt optimizado para extraer información de CxP de Idrall
+    const prompt = `Analiza este documento de Cuentas por Pagar (CxP) de Idrall y extrae TODOS los registros de pagos pendientes en formato JSON array.
 
 Para CADA registro de pago, extrae:
 {
@@ -125,7 +127,7 @@ Responde SOLO con el JSON array, sin texto adicional.`;
     });
 
     const rawResponse = response.choices[0]?.message?.content || "";
-    console.log(`📄 [Hydral Processor] Respuesta de OpenAI:`, rawResponse.substring(0, 200));
+    console.log(`📄 [Idrall Processor] Respuesta de OpenAI:`, rawResponse.substring(0, 200));
 
     // Parsear la respuesta JSON
     let parsedData: any;
@@ -138,15 +140,15 @@ Responde SOLO con el JSON array, sin texto adicional.`;
         parsedData = JSON.parse(rawResponse);
       }
     } catch (parseError) {
-      console.error(`❌ [Hydral Processor] Error parseando JSON:`, parseError);
+      console.error(`❌ [Idrall Processor] Error parseando JSON:`, parseError);
       throw new Error(`No se pudo parsear la respuesta de OpenAI: ${rawResponse}`);
     }
 
     // Normalizar: asegurar que sea un array
     const recordsArray = Array.isArray(parsedData) ? parsedData : [parsedData];
 
-    // Convertir a HydralCxPRecord
-    const records: HydralCxPRecord[] = recordsArray
+    // Convertir a IdrallCxPRecord
+    const records: IdrallCxPRecord[] = recordsArray
       .map((record: any) => {
         try {
           return {
@@ -159,16 +161,16 @@ Responde SOLO con el JSON array, sin texto adicional.`;
             notes: record.notes || null,
           };
         } catch (error) {
-          console.error(`❌ [Hydral Processor] Error procesando registro:`, record, error);
+          console.error(`❌ [Idrall Processor] Error procesando registro:`, record, error);
           return null;
         }
       })
-      .filter((record): record is HydralCxPRecord => record !== null && record.supplierName !== "" && record.amount > 0);
+      .filter((record): record is IdrallCxPRecord => record !== null && record.supplierName !== "" && record.amount > 0);
 
-    console.log(`✅ [Hydral Processor] ${records.length} registro(s) extraído(s) de ${fileName}`);
+    console.log(`✅ [Idrall Processor] ${records.length} registro(s) extraído(s) de ${fileName}`);
     return records;
   } catch (error: any) {
-    console.error(`❌ [Hydral Processor] Error procesando PDF ${fileName}:`, error);
+    console.error(`❌ [Idrall Processor] Error procesando PDF ${fileName}:`, error);
     throw error;
   }
 }

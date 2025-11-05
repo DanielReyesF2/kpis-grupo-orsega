@@ -50,6 +50,15 @@ catalogRouter.post('/clients', validateTenantFromBody('companyId') as any, async
     console.log('🔵 [POST /clients] Creando nuevo cliente');
     console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
     
+    // Verificar usuario autenticado
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    if (!user) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+    
+    console.log(`👤 Usuario: ${user.name} (ID: ${user.id}), Role: ${user.role}, CompanyId: ${user.companyId}`);
+    
     // Remover phone del body antes de validar (no se usa en la tabla)
     const { phone, ...bodyWithoutPhone } = req.body;
     
@@ -67,6 +76,11 @@ catalogRouter.post('/clients', validateTenantFromBody('companyId') as any, async
     return res.status(400).json({ error: 'companyId es requerido' });
   }
   const companyId = parseInt(rawCompanyId);
+  
+  // Si el usuario no tiene companyId asignado pero es admin, permitir
+  // Si el usuario no tiene companyId y no es admin, usar el companyId del request
+  // (la validación de tenant ya se hizo en el middleware)
+  const finalCompanyId = (user.role === 'admin' || !user.companyId) ? companyId : (user.companyId || companyId);
     
     const result = await sql(`
       INSERT INTO clients (name, email, is_active, company_id)
@@ -76,7 +90,7 @@ catalogRouter.post('/clients', validateTenantFromBody('companyId') as any, async
       validated.name, 
       validated.email || null, // Email es el único campo obligatorio
       validated.isActive ?? true,
-      companyId // Usar companyId proporcionado o 2 (Grupo Orsega) por defecto
+      finalCompanyId // Usar el companyId validado
     ])
     
     console.log(`✅ [POST /clients] Cliente creado: ${result.rows[0].name}`)
