@@ -13,17 +13,18 @@ import { PreviewModal } from "@/components/treasury/common/PreviewModal";
 
 interface UploadVoucherFlowProps {
   onBack: () => void;
+  preselectedCompanyId?: number | null;
 }
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
-export function UploadVoucherFlow({ onBack }: UploadVoucherFlowProps) {
+export function UploadVoucherFlow({ onBack, preselectedCompanyId }: UploadVoucherFlowProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [payerCompanyId, setPayerCompanyId] = useState<number | null>(null);
+  const [currentStep, setCurrentStep] = useState<Step>(preselectedCompanyId ? 2 : 1);
+  const [payerCompanyId, setPayerCompanyId] = useState<number | null>(preselectedCompanyId || null);
   const [selectedSupplier, setSelectedSupplier] = useState<{
     id: number;
     name: string;

@@ -61,30 +61,34 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   };
 
   return (
-    <Card className="border-2 border-primary/20 shadow-lg">
-      <CardHeader className="pb-4">
+    <Card className="relative border-2 border-primary/20 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      {/* Badge de número */}
+      <div className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+        2
+      </div>
+      <CardHeader className="pb-3 pt-12">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl font-bold text-foreground">
-            Pagos por Pagar
+          <CardTitle className="text-xl font-bold text-foreground">
+            Cuentas por Pagar
           </CardTitle>
-          <Badge variant="outline" className="text-base px-3 py-1">
+          <Badge variant="outline" className="text-sm px-3 py-1 font-semibold">
             {paymentsDue.length}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-4 pb-4">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
         ) : paymentsDue.length === 0 ? (
-          <div className="text-center py-8">
-            <DollarSign className="h-16 w-16 mx-auto mb-4 text-green-500" />
-            <p className="text-lg font-semibold text-foreground mb-2">
+          <div className="text-center py-6">
+            <DollarSign className="h-12 w-12 mx-auto mb-3 text-green-500" />
+            <p className="text-base font-semibold text-foreground mb-1">
               Sin pagos pendientes
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               No hay pagos programados para los próximos 3 días
             </p>
           </div>

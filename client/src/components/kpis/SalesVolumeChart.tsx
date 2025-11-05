@@ -161,39 +161,21 @@ export function SalesVolumeChart({
     })));
   }
   
-  // Obtener datos reales de la API
+  // Obtener datos reales de la API - Optimizado para carga rápida
   const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
-    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
+    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     enabled: !!kpiId && kpiId > 0,
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
-    refetchInterval: 30000, // Refrescar cada 30 segundos
+    staleTime: 10 * 60 * 1000, // Cache por 10 minutos (aumentado)
+    refetchInterval: 5 * 60 * 1000, // Refrescar cada 5 minutos (reducido de 30 segundos)
+    refetchOnWindowFocus: false, // No refetch al cambiar de ventana
+    refetchOnMount: false, // No refetch si ya hay datos en cache
   });
 
-  // Debug: Log del estado de la query
-  console.log("[SalesVolumeChart] Estado de query:", {
-    kpiId,
-    companyId,
-    enabled: !!kpiId && kpiId > 0,
-    isLoading: isLoadingHistory,
-    hasData: !!kpiHistoryData,
-    dataLength: kpiHistoryData?.length || 0,
-    error: kpiHistoryError,
-    sampleData: kpiHistoryData?.slice(0, 2)
-  });
-
-  // Procesar datos históricos de la API
+  // Procesar datos históricos de la API - Optimizado con useMemo
   const chartData = useMemo(() => {
     if (!kpiHistoryData || kpiHistoryData.length === 0) {
-      // Si no hay datos, retornar array vacío
-      console.log("[SalesVolumeChart] ⚠️ No hay datos históricos disponibles");
-      console.log("[SalesVolumeChart] kpiHistoryData:", kpiHistoryData);
-      console.log("[SalesVolumeChart] kpiId usado:", kpiId);
-      console.log("[SalesVolumeChart] companyId:", companyId);
       return [];
     }
-
-    console.log("[SalesVolumeChart] ✅ Datos recibidos de API:", kpiHistoryData.length, "registros");
-    console.log("[SalesVolumeChart] Muestra de datos raw:", JSON.stringify(kpiHistoryData.slice(0, 3), null, 2));
 
     // Mapeo de nombres de meses para ordenamiento
     const monthOrder: { [key: string]: number } = {
@@ -232,30 +214,12 @@ export function SalesVolumeChart({
         return a.monthOrder - b.monthOrder;
       });
 
-    console.log("[SalesVolumeChart] Datos procesados:", processedData.length, "registros");
-    console.log("[SalesVolumeChart] Períodos encontrados:", processedData.map((d: any) => d.period));
-    console.log("[SalesVolumeChart] Primeros datos procesados:", JSON.stringify(processedData.slice(0, 2), null, 2));
-
-    // Si después del filtro no hay datos, mostrar por qué
-    if (processedData.length === 0) {
-      console.warn("[SalesVolumeChart] ⚠️ Después del filtro de meses válidos, quedaron 0 registros");
-      console.warn("[SalesVolumeChart] Datos antes del filtro:", kpiHistoryData.map((d: any) => ({
-        period: d.period,
-        month: (d.period || '').split(' ')[0],
-        value: d.value
-      })));
-    }
-
     // NO aplicar slice aquí - mostrar todos los datos disponibles
     // El limit se usará solo si es necesario para mostrar los últimos N meses
     const finalData = limit > 0 && processedData.length > limit 
       ? processedData.slice(-limit) 
       : processedData;
 
-    console.log("[SalesVolumeChart] Datos finales para gráfica:", finalData.length, "registros");
-    if (finalData.length > 0) {
-      console.log("[SalesVolumeChart] Muestra de datos finales:", JSON.stringify(finalData.slice(0, 2), null, 2));
-    }
     return finalData;
   }, [kpiHistoryData, companyId, limit]);
 
@@ -264,8 +228,6 @@ export function SalesVolumeChart({
   
   // Si no hay target prop, usar valores por defecto según la compañía
   const monthlyTarget = targetValue || (companyId === 1 ? 55620 : 858373);
-  
-  console.log("[SalesVolumeChart] Target mensual:", monthlyTarget, companyId === 1 ? 'KG' : 'unidades');
   
   // Agregar una línea para el objetivo a cada punto de datos
   const chartDataWithTarget = useMemo(() => {
@@ -278,9 +240,6 @@ export function SalesVolumeChart({
     }));
   }, [chartData, monthlyTarget]);
   
-  // Debug - Ver los datos de la gráfica
-  console.log("Debug chartDataWithTarget:", chartDataWithTarget);
-
   // Calcular progreso semanal - para seguimiento actual
   const generateWeeklyData = () => {
     if (chartDataWithTarget.length === 0) return [];

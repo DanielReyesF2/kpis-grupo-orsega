@@ -3252,6 +3252,133 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // ============================================
+  // HYDRAL - Procesamiento de archivos Hydral
+  // ============================================
+
+  // Configurar multer para archivos Hydral
+  const hydralUpload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        const uploadDir = path.join(process.cwd(), 'uploads', 'hydral');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `hydral-${uniqueSuffix}-${file.originalname}`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['application/pdf', 'application/zip', 'application/x-zip-compressed'];
+      if (allowedTypes.includes(file.mimetype) || file.originalname.toLowerCase().endsWith('.pdf') || file.originalname.toLowerCase().endsWith('.zip')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos PDF o ZIP'));
+      }
+    },
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB para ZIPs
+  });
+
+  // POST /api/treasury/hydral/upload - Procesar archivos Hydral y crear CxP
+  console.log('✅ [Routes] Registrando endpoint POST /api/treasury/hydral/upload');
+  app.post("/api/treasury/hydral/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    hydralUpload.array('files', 10)(req, res, (err) => {
+      if (err) {
+        console.error('❌ Multer error (Hydral):', err.message);
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const files = req.files as Express.Multer.File[];
+      const { companyId } = req.body;
+
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'No se subieron archivos' });
+      }
+
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId es requerido' });
+      }
+
+      console.log(`📦 [Hydral Upload] Procesando ${files.length} archivo(s) para empresa ${companyId}`);
+
+      // Procesar archivos con el procesador de Hydral
+      const { processHydralFiles } = await import("./hydral-processor");
+      const filePaths = files.map(f => f.path);
+      
+      const processingResult = await processHydralFiles(filePaths, parseInt(companyId));
+
+      // Crear registros de CxP en la base de datos
+      const createdPayments = [];
+      const errors = [];
+
+      for (const record of processingResult.records) {
+        try {
+          // Buscar proveedor por nombre (fuzzy match)
+          const supplierResult = await sql(`
+            SELECT id FROM suppliers 
+            WHERE LOWER(name) LIKE LOWER($1) 
+            AND company_id = $2 
+            AND is_active = true
+            LIMIT 1
+          `, [`%${record.supplierName}%`, parseInt(companyId)]);
+
+          const supplierId = supplierResult.length > 0 ? supplierResult[0].id : null;
+
+          // Crear registro de scheduled_payment
+          const result = await sql(`
+            INSERT INTO scheduled_payments (
+              company_id, supplier_id, supplier_name, amount, currency, due_date,
+              status, reference, notes, source_type, hydral_file_url, hydral_file_name, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING *
+          `, [
+            parseInt(companyId),
+            supplierId,
+            record.supplierName,
+            record.amount,
+            record.currency || 'MXN',
+            record.dueDate,
+            'hydral_imported', // Estado inicial
+            record.reference,
+            record.notes,
+            'hydral',
+            files[0].path, // URL del archivo (guardar el primero)
+            files[0].originalname,
+            user.id
+          ]);
+
+          createdPayments.push(result[0]);
+        } catch (error: any) {
+          console.error(`❌ [Hydral Upload] Error creando registro:`, error);
+          errors.push(`Error creando CxP para ${record.supplierName}: ${error.message}`);
+        }
+      }
+
+      console.log(`✅ [Hydral Upload] Procesamiento completado: ${createdPayments.length} CxP creados, ${errors.length} errores`);
+
+      res.status(201).json({
+        success: true,
+        created: createdPayments.length,
+        payments: createdPayments,
+        processing: {
+          totalRecords: processingResult.totalRecords,
+          processedFiles: processingResult.processedFiles,
+          errors: [...processingResult.errors, ...errors]
+        }
+      });
+    } catch (error: any) {
+      console.error('❌ [Hydral Upload] Error procesando archivos Hydral:', error);
+      res.status(500).json({ error: error.message || 'Failed to process Hydral files' });
+    }
+  });
+
   // GET /api/treasury/exchange-rates - Listar tipos de cambio
   app.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) => {
     try {

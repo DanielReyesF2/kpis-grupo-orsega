@@ -49,7 +49,11 @@ export async function setupVite(app: Express, server: Server) {
   
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: { 
+      server,
+      protocol: 'ws',
+      host: 'localhost',
+    },
     allowedHosts: true as const,
   };
 
@@ -59,8 +63,14 @@ export async function setupVite(app: Express, server: Server) {
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
+        // Log errors but don't kill the server - let Vite handle retries
         viteLogger.error(msg, options);
-        process.exit(1);
+        // Only exit on critical errors, not on transform errors
+        if (msg.includes('Failed to resolve') || msg.includes('Cannot find module')) {
+          // These are critical build errors that should be fixed
+          console.error('❌ Critical Vite error - check your imports');
+        }
+        // Don't exit - let the server continue and Vite will retry
       },
     },
     server: serverOptions,

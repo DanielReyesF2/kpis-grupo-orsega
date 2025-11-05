@@ -1,8 +1,6 @@
 /* EcoNova Dashboard - Professional Dark Theme */
 /* Inspired by ChatGPT, Cursor, Google Workspace */
 
-@import url('./styles/theme.css');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

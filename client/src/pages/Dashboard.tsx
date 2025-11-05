@@ -12,7 +12,6 @@ import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
 import { DofChart } from '@/components/dashboard/DofChart';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
-import { DashboardOnboardingDialog } from '@/components/dashboard/DashboardOnboardingDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
@@ -61,19 +60,8 @@ export default function Dashboard() {
   const [isFilteredKpisModalOpen, setIsFilteredKpisModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<'complies' | 'alert' | 'not_compliant' | 'all' | undefined>(undefined);
   
-  // Estado para el onboarding del dashboard
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  
   // Estado para la empresa seleccionada en el gráfico de histórico de ventas (dentro del div de bienvenida)
   const [selectedChartCompany, setSelectedChartCompany] = useState<number>(1); // Por defecto Dura
-  
-  // Verificar si el usuario ya completó el onboarding
-  useEffect(() => {
-    const completed = localStorage.getItem('dashboard_onboarding_completed');
-    if (!completed) {
-      setIsOnboardingOpen(true);
-    }
-  }, []);
 
   // Fetch all companies with optimized refresh
   const { data: companies, isLoading: isLoadingCompanies } = useQuery<Company[]>({
@@ -362,11 +350,6 @@ export default function Dashboard() {
         onViewKpiDetails={handleViewKpiDetails}
       />
       
-      {/* Dashboard Onboarding */}
-      <DashboardOnboardingDialog
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-      />
       </div>
     </AppLayout>
   );
