@@ -578,22 +578,7 @@ export function registerRoutes(app: express.Application) {
 
   app.get("/api/users", jwtAuthMiddleware, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      const user = authReq.user;
-
-      let users = await storage.getUsers();
-
-      // Security: Multi-tenant filtering (admins can see all users)
-      if (user?.role !== 'admin') {
-        // Non-admin users only see users from their company
-        if (user?.companyId) {
-          users = users.filter(u => u.companyId === user.companyId);
-        } else {
-          // User without company cannot see any users
-          return res.json([]);
-        }
-      }
-
+      const users = await storage.getUsers();
       res.json(sanitizeUsers(users));
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -782,45 +767,24 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // KPI routes (Multi-tenant)
+  // KPI routes
   app.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
       const rawCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
 
       console.log("🔵 [GET /api/kpis] Endpoint llamado");
-      console.log(`📊 Usuario: ${user.name} (${user.role}), Company ID query: ${rawCompanyId ?? "NONE"}, User CompanyId: ${user.companyId ?? "NONE"}`);
+      console.log(`📊 Usuario: ${user.name}, Company ID: ${rawCompanyId ?? "ALL"}`);
 
-      // Security: Multi-tenant filtering
-      let targetCompanyId: number | undefined;
-
-      if (user.role === 'admin') {
-        // Admins can see all KPIs or filter by specific company
-        if (rawCompanyId !== undefined) {
-          if (rawCompanyId !== 1 && rawCompanyId !== 2) {
-            return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
-          }
-          targetCompanyId = rawCompanyId;
+      if (rawCompanyId !== undefined) {
+        if (rawCompanyId !== 1 && rawCompanyId !== 2) {
+          return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
         }
-      } else {
-        // Non-admin users can only see their company's KPIs
-        if (user.companyId) {
-          targetCompanyId = user.companyId;
-        } else {
-          // User without company cannot see any KPIs
-          return res.json([]);
-        }
+        const result = await storage.getKpis(rawCompanyId);
+        return res.json(result);
       }
 
-      let result;
-      if (targetCompanyId !== undefined) {
-        result = await storage.getKpis(targetCompanyId);
-        console.log(`📊 [GET /api/kpis] Retornando KPIs para company ${targetCompanyId}: ${result.length} registros`);
-      } else {
-        result = await storage.getKpis();
-        console.log(`📊 [GET /api/kpis] Admin sin filtro - retornando todos los KPIs: ${result.length} registros`);
-      }
-
+      const result = await storage.getKpis();
       res.json(result);
     } catch (error: any) {
       console.error("❌ Error fetching KPIs:", error);
@@ -1705,15 +1669,12 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Shipment routes with pagination and temporal filters (Multi-tenant)
+  // Shipment routes with pagination and temporal filters
   app.get("/api/shipments", jwtAuthMiddleware, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      const user = authReq.user;
-
-      const {
-        companyId,
-        status,
+      const { 
+        companyId, 
+        status, 
         limit = '50', // Default 50 envíos por página
         page = '1',
         since // Filtro temporal: 'YYYY-MM-DD' o días como '30d'
@@ -1740,30 +1701,10 @@ export function registerRoutes(app: express.Application) {
       }
 
       let shipments: any[];
-
-      // Security: Multi-tenant filtering
-      let targetCompanyId: number | undefined;
-
-      if (user?.role === 'admin') {
-        // Admins can see all shipments or filter by specific company
-        if (companyId) {
-          targetCompanyId = parseInt(companyId as string);
-        }
-      } else {
-        // Non-admin users can only see their company's shipments
-        if (user?.companyId) {
-          targetCompanyId = user.companyId;
-        } else {
-          // User without company cannot see any shipments
-          return res.json({
-            shipments: [],
-            pagination: { page: pageNum, limit: limitNum, total: 0, totalPages: 0, hasMore: false }
-          });
-        }
-      }
-
-      if (targetCompanyId) {
-        shipments = await storage.getShipmentsByCompany(targetCompanyId);
+      
+      if (companyId) {
+        const companyIdNum = parseInt(companyId as string);
+        shipments = await storage.getShipmentsByCompany(companyIdNum);
       } else {
         shipments = await storage.getShipments();
       }
@@ -2707,38 +2648,20 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/clients - Alias para LogisticsPage (retorna clientes activos con filtro multi-tenant)
+  // GET /api/clients - Alias para LogisticsPage (retorna clientes activos)
   app.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      const user = authReq.user;
-
-      let whereClause = "WHERE is_active = true";
-      const params: any[] = [];
-
-      // Security: Multi-tenant filtering (admins can see all companies)
-      if (user?.role !== 'admin') {
-        // Non-admin users only see clients from their company
-        if (user?.companyId) {
-          whereClause += " AND company_id = $1";
-          params.push(user.companyId);
-        } else {
-          // User without company cannot see any clients
-          return res.json([]);
-        }
-      }
-
       const result = await sql(`
-        SELECT
+        SELECT 
           id, name, email, phone, contact_person as contact_name,
           address as billing_addr, address as shipping_addr,
           client_code as rfc, is_active, company_id,
           email_notifications
-        FROM clients
-        ${whereClause}
+        FROM clients 
+        WHERE is_active = true
         ORDER BY name
-      `, params);
-
+      `);
+      
       res.json(result);
     } catch (error) {
       console.error('Error fetching clients for logistics:', error);
@@ -2746,49 +2669,31 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/products - Obtener productos activos (Multi-tenant)
+  // GET /api/products - Obtener productos activos
   app.get("/api/products", jwtAuthMiddleware, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      const user = authReq.user;
       const { companyId } = req.query;
-
+      console.log(`🔵 [GET /api/products] companyId recibido:`, companyId);
+      
       let whereClause = "WHERE is_active = true";
       const params: any[] = [];
-
-      // Security: Multi-tenant filtering
-      let targetCompanyId: number | undefined;
-
-      if (user?.role === 'admin') {
-        // Admins can see all products or filter by specific company
-        if (companyId) {
-          targetCompanyId = parseInt(companyId as string);
-        }
-      } else {
-        // Non-admin users can only see their company's products
-        if (user?.companyId) {
-          targetCompanyId = user.companyId;
-        } else {
-          // User without company cannot see any products
-          return res.json([]);
-        }
-      }
-
-      if (targetCompanyId) {
+      
+      if (companyId) {
+        const companyIdNum = parseInt(companyId as string);
         whereClause += " AND company_id = $1";
-        params.push(targetCompanyId);
-        console.log(`🔵 [GET /api/products] Filtrando por company_id = ${targetCompanyId}`);
+        params.push(companyIdNum);
+        console.log(`🔵 [GET /api/products] Filtrando por company_id = ${companyIdNum}`);
       } else {
-        console.log(`🔵 [GET /api/products] Admin sin filtro - retornando todos los productos`);
+        console.log(`⚠️  [GET /api/products] No se recibió companyId, retornando todos los productos activos`);
       }
-
+      
       const result = await sql(`
         SELECT id, name, company_id, is_active
-        FROM products
+        FROM products 
         ${whereClause}
         ORDER BY name
       `, params);
-
+      
       console.log(`📊 [GET /api/products] Retornando ${result.length} productos`);
       res.json(result);
     } catch (error) {
