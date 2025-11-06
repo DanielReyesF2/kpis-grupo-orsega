@@ -25,6 +25,7 @@ import {
   ResponsiveContainer,
   TooltipProps,
   ReferenceLine,
+  Label,
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -33,6 +34,72 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+
+// Componente personalizado para el label del objetivo
+const TargetLabel = (props: any) => {
+  const { viewBox, value } = props;
+  
+  // Debug: log para ver qué props recibimos
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[TargetLabel] Props recibidos:', { viewBox, value, allProps: props });
+  }
+  
+  if (!value) return null;
+  
+  // viewBox puede venir como objeto { x, y, width, height } o como string
+  // En Recharts, viewBox viene como { x, y, width, height }
+  let x = 0;
+  let y = 0;
+  
+  if (viewBox) {
+    if (typeof viewBox === 'object' && 'x' in viewBox && 'y' in viewBox) {
+      x = viewBox.x;
+      y = viewBox.y;
+    } else if (typeof viewBox === 'string') {
+      // Parsear string de viewBox si es necesario
+      const match = viewBox.match(/x="([^"]*)" y="([^"]*)"/);
+      if (match) {
+        x = parseFloat(match[1]) || 0;
+        y = parseFloat(match[2]) || 0;
+      }
+    }
+  }
+  
+  // Si no tenemos coordenadas válidas, no renderizar
+  if (x === 0 && y === 0 && !viewBox) {
+    return null;
+  }
+  
+  // Calcular el ancho del texto aproximado (7px por caracter)
+  const textWidth = value.length * 7;
+  const labelWidth = Math.max(textWidth + 16, 140);
+  
+  return (
+    <g className="target-label">
+      <rect
+        x={x + 10}
+        y={y - 12}
+        width={labelWidth}
+        height={24}
+        fill="rgba(255, 255, 255, 0.98)"
+        stroke="#6b7280"
+        strokeWidth={1.5}
+        rx={4}
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
+      />
+      <text
+        x={x + 18}
+        y={y + 5}
+        fill="#6b7280"
+        fontSize={12}
+        fontWeight={700}
+        style={{ textAnchor: 'start', fontFamily: 'system-ui, sans-serif' }}
+      >
+        {value}
+      </text>
+    </g>
+  );
+};
 
 // Componente auxiliar para un tooltip personalizado mejorado
 const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, customWidth = "220px", cursor, data }: any) => {
@@ -342,8 +409,42 @@ export function SalesVolumeChart({
     );
   }
 
+  // Determinar el logo de la empresa según companyId
+  const getCompanyLogo = () => {
+    if (companyId === 1) {
+      return '/logodura.jpg';
+    } else if (companyId === 2) {
+      return '/logo orsega.jpg';
+    }
+    return null;
+  };
+
+  const companyLogo = getCompanyLogo();
+  const companyName = companyId === 1 ? 'Dura International' : 'Grupo Orsega';
+
   return (
-    <Card className="bg-card border border-border shadow-md">
+    <Card className="bg-card border border-border shadow-md relative">
+      {/* Logo de la empresa en la esquina superior derecha */}
+      {companyLogo && (
+        <div className="absolute top-4 right-4 z-50 pointer-events-none">
+          <div className="bg-card/95 backdrop-blur-sm rounded-lg p-2 shadow-lg border border-border/50">
+            <img 
+              src={companyLogo} 
+              alt={`${companyName} Logo`}
+              className="h-12 sm:h-16 w-auto object-contain"
+              style={{ maxWidth: '120px', display: 'block' }}
+              onError={(e) => {
+                console.error('[SalesVolumeChart] Error cargando logo:', companyLogo);
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+              onLoad={() => {
+                console.log('[SalesVolumeChart] ✅ Logo cargado:', companyLogo);
+              }}
+            />
+          </div>
+        </div>
+      )}
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold text-foreground">Histórico de Ventas</CardTitle>
         {chartDataWithTarget.length > 0 && trendData.difference !== 0 && (
@@ -388,7 +489,7 @@ export function SalesVolumeChart({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={chartDataWithTarget}
-                  margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+                  margin={{ top: 20, right: 120, left: 20, bottom: 10 }}
                 >
                   <CartesianGrid 
                     stroke="#e5e7eb"
@@ -425,6 +526,24 @@ export function SalesVolumeChart({
                     }}
                     labelFormatter={(label: any) => `${label}`}
                   />
+                  {/* Línea de objetivo mensual */}
+                  {monthlyTarget > 0 && (
+                    <ReferenceLine
+                      y={monthlyTarget}
+                      stroke="#6b7280"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      strokeOpacity={0.6}
+                      label={{
+                        value: `${formatNumber(monthlyTarget)} ${getUnit()}`,
+                        position: 'right',
+                        fill: '#6b7280',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        offset: 5,
+                      }}
+                    />
+                  )}
                   {/* Líneas de referencia (superior e inferior) basadas en los datos */}
                   {valueRange.range > 0 && (
                     <>
@@ -488,7 +607,7 @@ export function SalesVolumeChart({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={generateWeeklyData().map((item: any) => ({ ...item, value: item.valor, period: item.semana }))}
-                  margin={{ top: 20, right: 20, left: 20, bottom: 10 }}
+                  margin={{ top: 20, right: 120, left: 20, bottom: 10 }}
                 >
                   <CartesianGrid 
                     stroke="#e5e7eb"
@@ -600,10 +719,18 @@ export function SalesVolumeChart({
                   {monthlyTarget > 0 && (
                     <ReferenceLine
                       y={monthlyTarget / 4}
-                      stroke="#9ca3af"
-                      strokeWidth={1}
-                      strokeDasharray="3 3"
-                      strokeOpacity={0.4}
+                      stroke="#6b7280"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      strokeOpacity={0.6}
+                      label={{
+                        value: `${formatNumber(Math.round(monthlyTarget / 4))} ${getUnit()}`,
+                        position: 'right',
+                        fill: '#6b7280',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        offset: 5,
+                      }}
                     />
                   )}
                 </LineChart>
