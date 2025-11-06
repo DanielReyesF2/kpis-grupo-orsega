@@ -150,6 +150,11 @@ export default function LogisticsPage() {
   }, [shipmentsResponse]);
 
 
+  // Get build version for debugging (only in production)
+  const buildVersion = import.meta.env.MODE === 'production' 
+    ? (import.meta.env.VITE_BUILD_VERSION as string | undefined) || 'dev'
+    : 'dev';
+
   return (
     <AppLayout title="Módulo de Logística">
       {/* Botón Dashboard */}
@@ -160,6 +165,12 @@ export default function LogisticsPage() {
             Dashboard
           </Button>
         </Link>
+        {/* Build version indicator for debugging (only visible in production) */}
+        {import.meta.env.MODE === 'production' && (
+          <div className="ml-auto text-xs text-muted-foreground font-mono">
+            v{buildVersion}
+          </div>
+        )}
       </div>
 
       {/* Main Stats - Shipments Focus */}

@@ -5,6 +5,10 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
+# Build argument to force cache invalidation on each build
+ARG BUILD_DATE=unknown
+ARG BUILD_VERSION=unknown
+
 # Install dependencies for better parallelization
 RUN apk add --no-cache libc6-compat python3 make g++
 
@@ -18,6 +22,10 @@ RUN if [ -f package-lock.json ]; then \
     else \
       npm install --prefer-offline --no-audit --progress=false --loglevel=error; \
     fi
+
+# Force cache invalidation by using BUILD_DATE before copying source files
+# This ensures Railway always gets fresh code even if Docker cache is used
+RUN echo "Build date: ${BUILD_DATE}, Version: ${BUILD_VERSION}"
 
 # Copy only necessary source files (exclude large assets)
 COPY client/ ./client/
