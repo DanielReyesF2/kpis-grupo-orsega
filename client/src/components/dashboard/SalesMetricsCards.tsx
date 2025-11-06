@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BarChart2, Award, ArrowUp, ArrowDown, Lightbulb } from 'lucide-react';
+import { BarChart2, Award, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 
 interface SalesMetricsCardsProps {
@@ -166,14 +166,14 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     ? Math.round((previousMonthSales / totalTarget) * 100) 
     : 0;
 
-  // Calcular datos mensuales para el resumen (últimos 6 meses)
+  // Calcular datos mensuales para el resumen
   const monthlyTarget = salesKpi?.goal 
     ? parseFloat(String(salesKpi.goal).replace(/[^0-9.-]+/g, '')) 
     : (companyId === 1 ? 55620 : 858373);
   
-  const monthlySummary = useMemo(() => {
-    const last6Months = salesData.slice(-6);
-    return last6Months.map(item => {
+  // Resumen de TODOS los meses del año (para cálculo de "En meta")
+  const allYearlyData = useMemo(() => {
+    return salesData.map(item => {
       const monthName = (item.period || '').split(' ')[0] || '';
       const monthShort = monthName.substring(0, 3);
       const compliance = monthlyTarget > 0 ? Math.round((item.sales / monthlyTarget) * 100) : 0;
@@ -186,11 +186,17 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     });
   }, [salesData, monthlyTarget]);
 
-  const avgCompliance = monthlySummary.length > 0
-    ? Math.round(monthlySummary.reduce((sum, m) => sum + m.compliance, 0) / monthlySummary.length)
+  // Todos los meses del año para mostrar en el gráfico visual
+  const monthlySummary = useMemo(() => {
+    return allYearlyData;
+  }, [allYearlyData]);
+
+  // Calcular promedio y meses en meta usando TODOS los meses del año
+  const avgCompliance = allYearlyData.length > 0
+    ? Math.round(allYearlyData.reduce((sum, m) => sum + m.compliance, 0) / allYearlyData.length)
     : 0;
   
-  const monthsOnTarget = monthlySummary.filter(m => m.compliance >= 100).length;
+  const monthsOnTarget = allYearlyData.filter(m => m.compliance >= 100).length;
 
   // Calcular proyección anual para insight
   const currentMonth = new Date().getMonth() + 1;
@@ -211,181 +217,133 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   };
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-      {/* Volumen Total */}
-      <Card className="border border-border/60 bg-card shadow-soft">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground mb-1 font-medium">Volumen Total</p>
-              <p className="text-lg font-bold mb-2 text-foreground">
-                {formatNumber(totalSales)}
-              </p>
-              <div className="flex items-center text-success">
-                <ArrowUp className="h-3 w-3 mr-1" />
-                <span className="text-xs font-medium">{growthRate}% vs mes anterior</span>
-              </div>
-            </div>
-            <div className="p-3 bg-primary/15 rounded-full ml-4 text-primary">
-              <BarChart2 className="h-6 w-6" />
+    <Card className="border border-border/60 bg-card shadow-soft">
+      <CardContent className="p-6">
+        {/* Header con información principal */}
+        <div className="mb-6">
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground mb-2 font-medium">Ventas del Año</p>
+            <p className="text-2xl font-bold mb-2 text-foreground">
+              {formatNumber(totalSales)}
+            </p>
+            <div className="flex items-center text-success">
+              <ArrowUp className="h-4 w-4 mr-1" />
+              <span className="text-sm font-medium">{growthRate}% vs mes anterior</span>
             </div>
           </div>
+        </div>
 
-          {/* Resumen de los últimos meses */}
-          {monthlySummary.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-border/50">
-              <p className="text-xs font-semibold text-foreground mb-3">Últimos 6 meses</p>
-              
-              {/* Gráfico de barras simplificado */}
-              <div className="flex items-end justify-between gap-2 mb-3" style={{ height: '50px' }}>
-                {monthlySummary.map((month, idx) => (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
-                    <div 
-                      className="w-full rounded-t transition-all duration-300 hover:opacity-100"
-                      style={{
-                        height: `${Math.min((month.compliance / 120) * 100, 100)}%`,
-                        backgroundColor: month.compliance >= 100 
-                          ? '#22c55e' // verde más vibrante
-                          : month.compliance >= 75 
-                          ? '#eab308' // amarillo más vibrante
-                          : '#ef4444', // rojo más vibrante
-                        opacity: month.compliance >= 100 ? 0.9 : 0.8,
-                        minHeight: '4px'
-                      }}
-                    />
-                    <div className="text-xs font-medium text-foreground">{month.month}</div>
-                    <div className={`text-xs font-bold ${
-                      month.compliance >= 100 
-                        ? 'text-green-600' 
-                        : month.compliance >= 75 
-                        ? 'text-amber-600' 
-                        : 'text-red-600'
-                    }`}>
-                      {month.compliance}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Resumen simple */}
-              <div className="flex justify-between items-center pt-2 bg-muted/30 rounded-md px-3 py-2">
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Promedio: </span>
-                  <span className="font-bold text-foreground">{avgCompliance}%</span>
-                </div>
-                <div className="text-xs">
-                  <span className="text-muted-foreground">En meta: </span>
-                  <span className="font-bold text-green-600">{monthsOnTarget}</span>
-                  <span className="text-muted-foreground">/{monthlySummary.length}</span>
-                </div>
-              </div>
+        {/* Barra de progreso del objetivo anual */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-foreground">Avance del Objetivo Anual</span>
+            <span className="text-[10px] font-semibold text-muted-foreground bg-card/95 backdrop-blur-sm px-1.5 py-0.5 rounded border border-border/50 whitespace-nowrap">
+              {formatNumber(totalTarget).replace(' unidades', '')}
+            </span>
+          </div>
+          <div className="relative w-full" style={{ overflow: 'visible', paddingTop: '8px', paddingBottom: '8px' }}>
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary mb-2">
+              <div
+                className="h-full w-full flex-1 bg-primary transition-all"
+                style={{ transform: `translateX(-${100 - (compliancePercentage > 100 ? 100 : compliancePercentage)}%)` }}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Avance del Objetivo Anual */}
-      <Card className="border border-border/60 bg-card shadow-soft">
-        <CardContent className="p-6">
+            <div 
+              className="absolute w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md transition-all duration-500 z-10 pointer-events-none"
+              style={{ 
+                left: `${Math.min(Math.max(compliancePercentage > 100 ? 100 : compliancePercentage, 4), 96)}%`,
+                top: '4px',
+                transform: 'translateX(-50%)'
+              }}
+            >
+              <span className="text-[11px] font-bold leading-none">{compliancePercentage}%</span>
+            </div>
+          </div>
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground mb-1 font-medium">Avance del Objetivo Anual</p>
-              <div className="flex items-center mb-2">
-                <p className="text-lg font-bold text-foreground">
-                  {compliancePercentage}%
-                </p>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                  {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
-                   compliancePercentage >= 75 ? 'Buen progreso' :
-                   compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
-                </span>
+            <span className={`text-xs font-medium ${
+              compliancePercentage >= 100 
+                ? 'text-green-600' 
+                : compliancePercentage >= 75 
+                ? 'text-amber-600' 
+                : 'text-red-600'
+            }`}>
+              {compliancePercentage >= 100 ? '¡Meta cumplida!' : 
+               compliancePercentage >= 75 ? 'Buen progreso' :
+               compliancePercentage >= 50 ? 'Progreso medio' : 'Requiere atención'}
+            </span>
+            {salesData.length >= 2 && previousMonthPercentage > 0 && (
+              <div className="flex items-center gap-1">
+                {compliancePercentage > previousMonthPercentage ? (
+                  <>
+                    <ArrowUp className="h-3 w-3 text-green-600" />
+                    <span className="text-xs text-green-600 font-medium">
+                      +{compliancePercentage - previousMonthPercentage}%
+                    </span>
+                  </>
+                ) : compliancePercentage < previousMonthPercentage ? (
+                  <>
+                    <ArrowDown className="h-3 w-3 text-red-600" />
+                    <span className="text-xs text-red-600 font-medium">
+                      {compliancePercentage - previousMonthPercentage}%
+                    </span>
+                  </>
+                ) : null}
               </div>
-              <div className="text-xs text-muted-foreground mb-3">
-                {formatNumber(totalSales)} de {formatNumber(totalTarget)}
-              </div>
-              
-              {/* Comparación: Este mes vs Mes anterior */}
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-medium text-foreground">Este mes</span>
-                    <span className="text-xs font-bold text-foreground">{compliancePercentage}%</span>
-                  </div>
-                  <Progress 
-                    value={compliancePercentage > 100 ? 100 : compliancePercentage} 
-                    className="h-3"
-                  />
-                </div>
-                
-                {salesData.length >= 2 && previousMonthPercentage > 0 && (
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">Mes pasado</span>
-                      <span className="text-xs font-bold text-muted-foreground">{previousMonthPercentage}%</span>
-                    </div>
-                    <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/40">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          compliancePercentage > previousMonthPercentage 
-                            ? 'bg-green-500/60' 
-                            : 'bg-red-500/60'
-                        }`}
-                        style={{ width: `${previousMonthPercentage > 100 ? 100 : previousMonthPercentage}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1 mt-1">
-                      {compliancePercentage > previousMonthPercentage ? (
-                        <>
-                          <ArrowUp className="h-3 w-3 text-green-600" />
-                          <span className="text-xs text-green-600 font-medium">
-                            Mejoró {compliancePercentage - previousMonthPercentage}%
-                          </span>
-                        </>
-                      ) : compliancePercentage < previousMonthPercentage ? (
-                        <>
-                          <ArrowDown className="h-3 w-3 text-red-600" />
-                          <span className="text-xs text-red-600 font-medium">
-                            Bajó {previousMonthPercentage - compliancePercentage}%
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </div>
+            )}
+          </div>
+        </div>
 
-              {/* Proyección anual */}
-              {monthsElapsed > 0 && monthsElapsed < 12 && (
-                <div className="mt-4 pt-3 border-t border-border/50">
-                  <div className="flex items-center gap-2 bg-muted/30 rounded-md px-3 py-2">
-                    <Lightbulb className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-foreground mb-0.5">Proyección anual</p>
-                      <p className={`text-xs font-bold ${
-                        projectedPercentage >= 100 
-                          ? 'text-green-600' 
-                          : projectedPercentage >= 90 
-                          ? 'text-amber-600' 
-                          : 'text-red-600'
-                      }`}>
-                        {projectedPercentage >= 100 
-                          ? `✅ ${projectedPercentage}% - Superará la meta`
-                          : projectedPercentage >= 90 
-                          ? `⚠️ ${projectedPercentage}% - Cerca de la meta`
-                          : `❌ ${projectedPercentage}% - Necesita mejorar`
-                        }
-                      </p>
-                    </div>
-                  </div>
+          {/* Resumen del año - Simplificado */}
+          {monthlySummary.length > 0 && (
+            <div className="pt-4 border-t border-border/50">
+              <p className="text-xs font-semibold text-foreground mb-3">Resumen del año</p>
+            
+            {/* Gráfico de barras simplificado */}
+            <div className="flex items-end justify-between gap-2 mb-4" style={{ height: '60px' }}>
+              {monthlySummary.map((month, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
+                  <div 
+                    className="w-full rounded-t transition-all duration-300"
+                    style={{
+                      height: `${Math.min((month.compliance / 120) * 100, 100)}%`,
+                      backgroundColor: month.compliance >= 100 
+                        ? '#22c55e'
+                        : month.compliance >= 75 
+                        ? '#eab308'
+                        : '#ef4444',
+                      opacity: month.compliance >= 100 ? 0.9 : 0.8,
+                      minHeight: '4px'
+                    }}
+                  />
+                  <div className="text-xs font-medium text-foreground">{month.month}</div>
                 </div>
-              )}
+              ))}
             </div>
-            <div className="p-3 bg-amber-50/30 rounded-full ml-4 text-amber-600/70">
-              <Award className="h-6 w-6" />
+
+            {/* Métricas clave - Simplificadas */}
+            <div className="flex justify-between items-center pt-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30">
+                  <BarChart2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Promedio anual</div>
+                  <div className="text-base font-bold text-foreground">{avgCompliance}%</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/30">
+                  <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Meses en meta</div>
+                  <div className="text-base font-bold text-green-600">{monthsOnTarget}/{allYearlyData.length}</div>
+                </div>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

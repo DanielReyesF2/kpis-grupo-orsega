@@ -12,15 +12,20 @@ ARG BUILD_VERSION=unknown
 # Install dependencies for better parallelization
 RUN apk add --no-cache libc6-compat python3 make g++
 
+# Update npm to stable version to avoid compatibility issues
+RUN npm install -g npm@10
+
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
 # Install ALL dependencies (including devDependencies for build)
 # Use npm ci for faster, reliable, reproducible builds
-RUN if [ -f package-lock.json ]; then \
-      npm ci --prefer-offline --no-audit --progress=false --loglevel=error; \
+RUN npm cache clean --force && \
+    if [ -f package-lock.json ]; then \
+      npm ci --prefer-offline --no-audit --progress=false || \
+      npm install --prefer-offline --no-audit --progress=false; \
     else \
-      npm install --prefer-offline --no-audit --progress=false --loglevel=error; \
+      npm install --prefer-offline --no-audit --progress=false; \
     fi
 
 # Force cache invalidation by using BUILD_DATE before copying source files
@@ -61,13 +66,14 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 
 # Install ONLY production dependencies
-RUN if [ -f package-lock.json ]; then \
-      npm ci --omit=dev --prefer-offline --no-audit --progress=false --loglevel=error && \
-      npm cache clean --force; \
+RUN npm cache clean --force && \
+    if [ -f package-lock.json ]; then \
+      npm ci --omit=dev --prefer-offline --no-audit --progress=false || \
+      npm install --omit=dev --prefer-offline --no-audit --progress=false; \
     else \
-      npm install --omit=dev --prefer-offline --no-audit --progress=false --loglevel=error && \
-      npm cache clean --force; \
-    fi
+      npm install --omit=dev --prefer-offline --no-audit --progress=false; \
+    fi && \
+    npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist

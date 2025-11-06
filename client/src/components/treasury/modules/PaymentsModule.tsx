@@ -240,14 +240,25 @@ export function PaymentsModule({
               </div>
               <div className="flex items-center gap-2 text-sm text-white">
                 <CalendarCheck2 className="h-4 w-4 text-pastel-green" />
-                <span>{progress}%</span>
               </div>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-pastel-green/80 via-pastel-blue/80 to-pastel-violet/70 transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="relative h-2 w-full overflow-visible">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-pastel-green/80 via-pastel-blue/80 to-pastel-violet/70 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span 
+                className="absolute text-xs font-medium text-white whitespace-nowrap transition-all duration-500 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                style={{ 
+                  left: `${Math.min(Math.max(progress, 5), 95)}%`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                {progress}%
+              </span>
             </div>
           </div>
 
