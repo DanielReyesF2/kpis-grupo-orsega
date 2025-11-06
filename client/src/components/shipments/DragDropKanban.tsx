@@ -18,7 +18,8 @@ import {
   Truck,
   Download,
   Clock,
-  X
+  X,
+  History
 } from "lucide-react";
 import {
   Dialog,
@@ -341,33 +342,36 @@ const KanbanColumn = ({
   isLoadingMore?: boolean;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
-  const filteredShipments = shipments.filter(s => s.status === status);
+  // Incluir cancelled en la columna de delivered (simplificación)
+  const filteredShipments = status === 'delivered' 
+    ? shipments.filter(s => s.status === 'delivered' || s.status === 'cancelled')
+    : shipments.filter(s => s.status === status);
   
-  // Agrupar por mes solo para columna cerrados (cancelled y delivered)
+  // Agrupar por mes solo para columna entregados (ahora incluye cancelled)
   const groupedShipments = useMemo(() => {
-    if (status !== 'cancelled' && status !== 'delivered') {
+    if (status !== 'delivered') {
       return [{ month: null, shipments: filteredShipments }];
     }
 
-    // Agrupar por mes para shipments cerrados
+    // Agrupar por mes para shipments entregados (incluye cancelled)
     const groups: { [key: string]: Shipment[] } = {};
     
     filteredShipments.forEach(shipment => {
-      // CORRECTED: Usar fechas de cierre/delivery apropiadas para agrupar
+      // Usar fechas de cierre/delivery apropiadas para agrupar
       let groupingDate: Date;
       
-      if (status === 'delivered') {
+      if (shipment.status === 'delivered') {
         // Para delivered: usar actualDeliveryDate con fallback a createdAt
         groupingDate = shipment.actualDeliveryDate 
           ? new Date(shipment.actualDeliveryDate) 
           : new Date(shipment.createdAt);
-      } else if (status === 'cancelled') {
+      } else if (shipment.status === 'cancelled') {
         // Para cancelled: usar updatedAt con fallback a createdAt
         groupingDate = shipment.updatedAt 
           ? new Date(shipment.updatedAt) 
           : new Date(shipment.createdAt);
       } else {
-        // Fallback para otros estados (no debería llegar aquí)
+        // Fallback para otros estados
         groupingDate = new Date(shipment.createdAt);
       }
       
@@ -385,13 +389,13 @@ const KanbanColumn = ({
       .map(([monthKey, shipments]) => ({
         month: monthKey,
         shipments: shipments.sort((a, b) => {
-          // CORRECTED: Ordenar usando las fechas correctas de cierre/delivery
+          // Ordenar usando las fechas correctas de cierre/delivery
           const getRelevantDate = (shipment: Shipment): Date => {
-            if (status === 'delivered') {
+            if (shipment.status === 'delivered') {
               return shipment.actualDeliveryDate 
                 ? new Date(shipment.actualDeliveryDate) 
                 : new Date(shipment.createdAt);
-            } else if (status === 'cancelled') {
+            } else if (shipment.status === 'cancelled') {
               return shipment.updatedAt 
                 ? new Date(shipment.updatedAt) 
                 : new Date(shipment.createdAt);
@@ -590,7 +594,7 @@ const KanbanColumn = ({
   );
 };
 
-export function DragDropKanban() {
+export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [detailsDialog, setDetailsDialog] = useState<{
@@ -1002,19 +1006,18 @@ export function DragDropKanban() {
   return (
     <div className="space-y-6">
       {/* Header con botón de nuevo envío */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Truck className="h-6 w-6 text-slate-600" />
-            Gestión de Envíos
-          </h2>
-          <p className="text-gray-600 mt-1">Arrastra las tarjetas entre columnas para actualizar el estado</p>
-        </div>
+      <div className="flex justify-end items-center mb-6">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setReportDialog(true)} className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Descargar Reporte
           </Button>
+          {onShowHistory && (
+            <Button variant="outline" onClick={onShowHistory} className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Ver Historial
+            </Button>
+          )}
           <Button onClick={() => setNewShipmentDialog(true)} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Nuevo Envío
@@ -1023,15 +1026,22 @@ export function DragDropKanban() {
       </div>
 
       {/* Estadísticas rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { status: 'pending', label: 'Por embarcar', icon: '📋', color: 'bg-slate-100 text-slate-700' },
           { status: 'in_transit', label: 'En Tránsito', icon: '🚚', color: 'bg-amber-100 text-amber-700' },
-          { status: 'delivered', label: 'Entregados', icon: '✅', color: 'bg-[#b5e951]/20 text-[#6b7a00]' },
           { status: 'delayed', label: 'Retrasados', icon: '⚠️', color: 'bg-rose-100 text-rose-700' },
-          { status: 'cancelled', label: 'Cerrados', icon: '🔒', color: 'bg-gray-100 text-gray-700' }
+          { 
+            status: 'delivered', 
+            label: 'Entregados', 
+            icon: '✅', 
+            color: 'bg-[#b5e951]/20 text-[#6b7a00]',
+            includeCancelled: true 
+          }
         ].map((item) => {
-          const count = shipments.filter(s => s.status === item.status).length;
+          const count = item.includeCancelled 
+            ? shipments.filter(s => s.status === 'delivered' || s.status === 'cancelled').length
+            : shipments.filter(s => s.status === item.status).length;
           return (
             <div key={item.status} className={`${item.color} rounded-lg p-3 text-center`}>
               <div className="text-lg">{item.icon}</div>
@@ -1060,13 +1070,6 @@ export function DragDropKanban() {
           onCardClick={handleCardClick}
         />
         <KanbanColumn 
-          title="Entregados" 
-          status="delivered" 
-          shipments={shipments} 
-          onDrop={handleDrop}
-          onCardClick={handleCardClick}
-        />
-        <KanbanColumn 
           title="Retrasados" 
           status="delayed" 
           shipments={shipments} 
@@ -1074,14 +1077,11 @@ export function DragDropKanban() {
           onCardClick={handleCardClick}
         />
         <KanbanColumn 
-          title="Cerrados" 
-          status="cancelled" 
-          shipments={shipments} 
+          title="Entregados" 
+          status="delivered" 
+          shipments={shipments.filter(s => s.status === 'delivered' || s.status === 'cancelled')} 
           onDrop={handleDrop}
           onCardClick={handleCardClick}
-          showLoadMoreButton={!loadMoreClosed}
-          onLoadMore={handleLoadMore}
-          isLoadingMore={isLoading && loadMoreClosed}
         />
       </div>
 

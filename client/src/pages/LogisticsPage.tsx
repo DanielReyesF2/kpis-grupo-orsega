@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -18,9 +17,12 @@ import {
   Trash2,
   Save,
   Box,
+  CheckCircle2,
+  History,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropKanban } from '@/components/shipments/DragDropKanban';
+import { ShipmentsHistory } from '@/components/shipments/ShipmentsHistory';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -106,6 +108,7 @@ export default function LogisticsPage() {
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
   const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -162,7 +165,7 @@ export default function LogisticsPage() {
       {/* Main Stats - Shipments Focus */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Featured Shipment Stats */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -190,6 +193,23 @@ export default function LogisticsPage() {
                 </div>
                 <div className="bg-primary/15 p-3 rounded-full">
                   <Clock className="w-10 h-10 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tarjeta destacada para Entregados */}
+          <Card className="border-2 border-success/30 bg-gradient-to-br from-success/5 to-success/10">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-success">Entregados</p>
+                  <p className="text-5xl font-extrabold text-success">
+                    {shipments.filter((s: Shipment) => s.status === 'delivered' || s.status === 'cancelled').length}
+                  </p>
+                </div>
+                <div className="bg-success/20 p-3 rounded-full">
+                  <CheckCircle2 className="w-12 h-12 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -237,8 +257,36 @@ export default function LogisticsPage() {
         </div>
       </div>
 
-      {/* Main Content - Always Show Shipments */}
-      <DragDropKanban />
+      {/* Main Content - Active View with History Button */}
+      {activeTab === 'active' ? (
+        <DragDropKanban onShowHistory={() => setActiveTab('history')} />
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <History className="h-6 w-6 text-slate-600" />
+              Historial de Embarques
+            </h2>
+            <Button variant="outline" onClick={() => setActiveTab('active')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver a Embarcaciones Activas
+            </Button>
+          </div>
+          {shipmentsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <ShipmentsHistory 
+              shipments={shipments as any[]} 
+              onShipmentClick={(shipment) => {
+                // Opcional: abrir detalles del embarque
+                console.log('Ver detalles de:', shipment);
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Clients Modal */}
       <Dialog open={activeModal === 'clients'} onOpenChange={() => setActiveModal(null)}>
