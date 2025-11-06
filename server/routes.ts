@@ -2540,13 +2540,22 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // User KPI History - Historial de todos los KPIs de un usuario  
-  app.get("/api/user-kpi-history/:userId", async (req, res) => {
+  // User KPI History - Historial de todos los KPIs de un usuario (Requiere autenticación)
+  app.get("/api/user-kpi-history/:userId", jwtAuthMiddleware, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
       const requestedUserId = parseInt(req.params.userId);
       const months = parseInt(req.query.months as string) || 6;
 
-      console.log(`[GET /api/user-kpi-history/:userId] Requested userId: ${requestedUserId}, months: ${months}`);
+      // Security: Users can only see their own history unless they are admin/manager
+      if (user?.id !== requestedUserId && user?.role !== 'admin' && user?.role !== 'manager') {
+        return res.status(403).json({
+          error: 'Acceso denegado. Solo puedes ver tu propio historial de KPIs.'
+        });
+      }
+
+      console.log(`[GET /api/user-kpi-history/:userId] User ${user?.id} requesting userId: ${requestedUserId}, months: ${months}`);
 
       const userHistory = await storage.getUserKPIHistory(requestedUserId, months);
       console.log(`[GET /api/user-kpi-history/:userId] Returning ${userHistory?.length || 0} records for user ${requestedUserId}`);
@@ -2583,18 +2592,35 @@ export function registerRoutes(app: express.Application) {
   // Clients Database API - Nueva tabla de clientes
   const sql = neon(process.env.DATABASE_URL!);
 
-  // GET /api/clients-db - Obtener todos los clientes
+  // GET /api/clients-db - Obtener todos los clientes (Multi-tenant con autenticación)
   app.get("/api/clients-db", jwtAuthMiddleware, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
       const { companyId, search } = req.query;
-      
+
       let whereClause = "WHERE is_active = true";
       const params: any[] = [];
       let paramIndex = 1;
-      
-      // ✅ ACCESO UNIVERSAL: Todos los usuarios ven todos los clientes
-      // Sin restricciones por empresa
-      
+
+      // Security: Multi-tenant filtering (admins can see all companies)
+      if (user?.role !== 'admin') {
+        // Non-admin users only see clients from their company
+        if (user?.companyId) {
+          whereClause += ` AND company_id = $${paramIndex}`;
+          params.push(user.companyId);
+          paramIndex++;
+        } else {
+          // User without company cannot see any clients
+          return res.json([]);
+        }
+      } else if (companyId) {
+        // Admins can filter by specific company if they want
+        whereClause += ` AND company_id = $${paramIndex}`;
+        params.push(parseInt(companyId as string));
+        paramIndex++;
+      }
+
       if (search) {
         whereClause += ` AND (name ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR client_code ILIKE $${paramIndex})`;
         params.push(`%${search}%`);
@@ -3157,38 +3183,75 @@ export function registerRoutes(app: express.Application) {
   // app.use("/api", catalogRouter);
   // app.use("/api", logisticsRouter);
 
-  // TEMPORARY: Production database seeding endpoint
-  app.post("/api/seed-production", async (req, res) => {
+  // Database seeding endpoint (Admin only, Development only)
+  app.post("/api/seed-production", jwtAuthMiddleware, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+
+      // Security: Only admins in development mode
+      if (user?.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: 'Acceso denegado. Solo administradores pueden acceder a este endpoint.'
+        });
+      }
+
+      // Additional security: Disable in production
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({
+          success: false,
+          error: 'Endpoint deshabilitado en producción por seguridad. No se permite seed de datos en producción.'
+        });
+      }
+
       const { seedProductionData } = await import("./seed-production");
       const result = await seedProductionData();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: "Seeding failed", 
+      res.status(500).json({
+        success: false,
+        message: "Seeding failed",
         error: error instanceof Error ? error.message : String(error)
       });
     }
   });
 
-  // TEMPORARY: Database diagnostics endpoint
-  app.get("/api/debug-database", async (req, res) => {
+  // Database diagnostics endpoint (Admin only, Development only)
+  app.get("/api/debug-database", jwtAuthMiddleware, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+
+      // Security: Only admins in development mode
+      if (user?.role !== 'admin') {
+        return res.status(403).json({
+          error: 'Acceso denegado. Solo administradores pueden acceder a este endpoint.'
+        });
+      }
+
+      // Additional security: Disable in production
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({
+          error: 'Endpoint deshabilitado en producción por seguridad.'
+        });
+      }
+
       const allCompanies = await storage.getCompanies();
       const allAreas = await storage.getAreas();
       const allKpis = await storage.getKpis();
-      
+
       res.json({
         companies: allCompanies,
         areas: allAreas,
         kpis: allKpis,
         totalCompanies: allCompanies.length,
         totalAreas: allAreas.length,
-        totalKpis: allKpis.length
+        totalKpis: allKpis.length,
+        environment: process.env.NODE_ENV || 'development'
       });
     } catch (error) {
-      res.status(500).json({ 
+      res.status(500).json({
         error: error instanceof Error ? error.message : String(error)
       });
     }
