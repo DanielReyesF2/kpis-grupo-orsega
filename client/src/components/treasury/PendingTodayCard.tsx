@@ -74,9 +74,9 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
   };
 
   return (
-    <Card className="relative border-2 border-primary/20 shadow-sm hover:shadow-md transition-all overflow-hidden">
+    <Card className="relative border-2 border-orange-500/20 shadow-sm hover:shadow-md transition-all overflow-hidden bg-orange-50/50 dark:bg-orange-950/20">
       {/* Badge de número */}
-      <div className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+      <div className="absolute top-3 left-3 bg-orange-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
         3
       </div>
       <CardHeader className="pb-3 pt-12">
@@ -120,13 +120,13 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <StatusIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                          <StatusIcon className="h-5 w-5 text-orange-600 flex-shrink-0" />
                           <p className="text-base font-semibold text-foreground truncate">
                             {voucher.clientName}
                           </p>
                         </div>
                         {voucher.extractedAmount && (
-                          <p className="text-lg font-bold text-primary">
+                          <p className="text-lg font-bold text-orange-700 dark:text-orange-400">
                             {voucher.extractedCurrency || "MXN"} ${voucher.extractedAmount.toLocaleString("es-MX", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -154,7 +154,7 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
             )}
             <button
               onClick={onViewAll}
-              className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+              className="w-full py-3 px-4 bg-orange-600 text-white rounded-lg font-semibold text-base hover:bg-orange-700 transition-all shadow-md hover:shadow-lg"
             >
               Ver Todos los Comprobantes
             </button>

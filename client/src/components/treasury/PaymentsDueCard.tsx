@@ -31,27 +31,47 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     refetchInterval: 60000,
   });
 
-  // Filtrar pagos por pagar (vencidos o próximos 3 días)
+  // Log para depuración
+  console.log('[PaymentsDueCard] payments recibidos:', payments.length, payments);
+
+  // Filtrar pagos por pagar (vencidos o próximos 7 días para mostrar más ejemplos)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const threeDaysFromNow = new Date(today);
-  threeDaysFromNow.setDate(today.getDate() + 3);
+  const sevenDaysFromNow = new Date(today);
+  sevenDaysFromNow.setDate(today.getDate() + 7);
 
   const paymentsDue = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled") return false;
+    if (p.status === "paid" || p.status === "cancelled") {
+      console.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
+      return false;
+    }
     
     const dueDateStr = p.due_date || p.dueDate;
-    if (!dueDateStr) return false;
+    if (!dueDateStr) {
+      console.log('[PaymentsDueCard] Sin fecha de vencimiento:', p.id);
+      return false;
+    }
     
     const dueDate = new Date(dueDateStr);
+    if (isNaN(dueDate.getTime())) {
+      console.log('[PaymentsDueCard] Fecha inválida:', p.id, dueDateStr);
+      return false;
+    }
     dueDate.setHours(0, 0, 0, 0);
     
-    return dueDate <= threeDaysFromNow;
+    // Incluir vencidos o próximos 7 días
+    const isInRange = dueDate <= sevenDaysFromNow;
+    if (!isInRange) {
+      console.log('[PaymentsDueCard] Fuera de rango:', p.id, dueDateStr, 'hasta', sevenDaysFromNow.toISOString());
+    }
+    return isInRange;
   }).sort((a, b) => {
     const dateA = new Date(a.due_date || a.dueDate || "").getTime();
     const dateB = new Date(b.due_date || b.dueDate || "").getTime();
     return dateA - dateB;
   });
+
+  console.log('[PaymentsDueCard] paymentsDue filtrados:', paymentsDue.length, paymentsDue);
 
   const isOverdue = (dueDateStr: string | undefined) => {
     if (!dueDateStr) return false;
@@ -61,9 +81,9 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   };
 
   return (
-    <Card className="relative border-2 border-primary/20 shadow-sm hover:shadow-md transition-all overflow-hidden">
+    <Card className="relative border-2 border-green-500/20 shadow-sm hover:shadow-md transition-all overflow-hidden bg-green-50/50 dark:bg-green-950/20">
       {/* Badge de número */}
-      <div className="absolute top-3 left-3 bg-primary text-primary-foreground rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+      <div className="absolute top-3 left-3 bg-green-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
         2
       </div>
       <CardHeader className="pb-3 pt-12">
@@ -89,7 +109,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
               Sin pagos pendientes
             </p>
             <p className="text-xs text-muted-foreground">
-              No hay pagos programados para los próximos 3 días
+              No hay pagos programados próximos
             </p>
           </div>
         ) : (
@@ -111,13 +131,13 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
                           {overdue ? (
                             <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
                           ) : (
-                            <Calendar className="h-5 w-5 text-primary flex-shrink-0" />
+                            <Calendar className="h-5 w-5 text-green-600 flex-shrink-0" />
                           )}
                           <p className="text-base font-semibold text-foreground truncate">
                             {payment.supplier_name || payment.supplierName || "Sin proveedor"}
                           </p>
                         </div>
-                        <p className="text-lg font-bold text-primary">
+                        <p className="text-lg font-bold text-green-700 dark:text-green-400">
                           {payment.currency} ${payment.amount.toLocaleString("es-MX", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -149,7 +169,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
             )}
             <button
               onClick={onViewAll}
-              className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+              className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-semibold text-base hover:bg-green-700 transition-all shadow-md hover:shadow-lg"
             >
               Ver Todos los Pagos
             </button>

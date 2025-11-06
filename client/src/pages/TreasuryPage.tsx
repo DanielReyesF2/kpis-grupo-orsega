@@ -5,16 +5,20 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, DollarSign, TrendingUp, BarChart3, RefreshCw, Plus, FolderOpen, X } from "lucide-react";
+import { Upload, FileText, DollarSign, TrendingUp, BarChart3, RefreshCw, Plus, FolderOpen, X, Users } from "lucide-react";
+import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { es } from "date-fns/locale";
 import { PendingTodayCard } from "@/components/treasury/PendingTodayCard";
 import { PaymentsDueCard } from "@/components/treasury/PaymentsDueCard";
 import { UploadVoucherFlow } from "@/components/treasury/flows/UploadVoucherFlow";
 import { ManageVouchersFlow } from "@/components/treasury/flows/ManageVouchersFlow";
 import { PaymentsFlow } from "@/components/treasury/flows/PaymentsFlow";
 import { IdrallUploadFlow } from "@/components/treasury/flows/IdrallUploadFlow";
+import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
 import { ExchangeRateForm } from "@/components/treasury/common/ExchangeRateForm";
+import { DofChart } from "@/components/dashboard/DofChart";
 
-type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall";
+type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
@@ -56,6 +60,48 @@ export default function TreasuryPage() {
   ).length;
   const totalPayments = paymentsThisMonth.length;
   const paidPayments = paymentsThisMonth.filter((p) => p.status === "paid").length;
+
+  // Calcular pagos para semana actual
+  const today = new Date();
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+  
+  const paymentsThisWeek = payments.filter((p) => {
+    if (p.status === "paid" || p.status === "cancelled") return false;
+    const dueDateStr = p.due_date || p.dueDate;
+    if (!dueDateStr) return false;
+    const dueDate = new Date(dueDateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate >= weekStart && dueDate <= weekEnd;
+  });
+  
+  const totalThisWeek = paymentsThisWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  // Calcular pagos para siguiente semana
+  const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
+  const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
+  
+  const paymentsNextWeek = payments.filter((p) => {
+    if (p.status === "paid" || p.status === "cancelled") return false;
+    const dueDateStr = p.due_date || p.dueDate;
+    if (!dueDateStr) return false;
+    const dueDate = new Date(dueDateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate >= nextWeekStart && dueDate <= nextWeekEnd;
+  });
+  
+  const totalNextWeek = paymentsNextWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  // REPs pendientes del día
+  const pendingREPs = vouchers.filter((v) => {
+    const voucherDate = new Date(v.createdAt);
+    voucherDate.setHours(0, 0, 0, 0);
+    const isToday = voucherDate.getTime() === today.getTime();
+    const isPending = v.status === "pendiente_validacion" || 
+                     v.status === "pendiente_complemento" ||
+                     v.status === "pendiente_asociacion";
+    return isToday && isPending;
+  });
 
   // Si estamos en un modo específico, mostrar ese flujo
   if (viewMode === "upload") {
@@ -104,10 +150,18 @@ export default function TreasuryPage() {
     );
   }
 
+  if (viewMode === "suppliers") {
+    return (
+      <AppLayout title="Tesorería - Proveedores">
+        <ManageSuppliersFlow onBack={() => setViewMode("main")} />
+      </AppLayout>
+    );
+  }
+
   if (viewMode === "exchange-rates") {
   return (
       <AppLayout title="Tesorería - Tipos de Cambio">
-        <div className="p-6 max-w-[1200px] mx-auto space-y-6">
+        <div className="p-6 max-w-[1400px] mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <Button onClick={() => setViewMode("main")} variant="ghost" size="lg">
               ← Volver
@@ -115,6 +169,9 @@ export default function TreasuryPage() {
             <h1 className="text-3xl font-bold text-foreground">Tipos de Cambio</h1>
             <div className="w-24" /> {/* Spacer */}
             </div>
+
+          {/* Comparativa de Tipos de Cambio */}
+          <DofChart />
 
           <Card className="border-2 border-primary/20 shadow-lg">
               <CardHeader>
@@ -216,17 +273,9 @@ export default function TreasuryPage() {
           <CardContent className="pt-0 pb-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Button
-                onClick={() => setViewMode("idrall")}
-                size="lg"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md hover:shadow-lg transition-all"
-              >
-                <FolderOpen className="h-8 w-8" />
-                        Importar Idrall
-                    </Button>
-                    <Button
                 onClick={() => setViewMode("upload")}
                   size="lg"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Upload className="h-8 w-8" />
                 Subir Comprobante
@@ -252,12 +301,21 @@ export default function TreasuryPage() {
                 <Button
                 onClick={() => setViewMode("exchange-rates")}
                 size="lg"
-                  variant="outline"
+                                variant="outline"
                 className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
               >
-                <RefreshCw className="h-8 w-8" />
-                Tipos de Cambio
-                </Button>
+                <TrendingUp className="h-8 w-8" />
+                Tipo de Cambio
+              </Button>
+                <Button
+                onClick={() => setViewMode("suppliers")}
+                size="lg"
+                                variant="outline"
+                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
+              >
+                <Users className="h-8 w-8" />
+                Proveedores
+              </Button>
                 </div>
               </CardContent>
             </Card>
@@ -271,55 +329,66 @@ export default function TreasuryPage() {
                       </CardTitle>
                 </CardHeader>
                 <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-6 bg-primary/10 rounded-lg border-2 border-primary/20">
-                <div className="text-4xl font-bold text-primary mb-2">
-                  {totalVouchers}
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Pagos Semana Actual */}
+              <div className="relative text-center p-6 bg-blue-100 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-700 shadow-sm hover:shadow-md transition-all">
+                <div className="absolute top-3 left-3 bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                  1
+                </div>
+                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2 pt-6">
+                  {paymentsThisWeek.length}
+                </div>
                 <div className="text-base font-semibold text-foreground">
-                  Comprobantes
-                    </div>
+                  Pagos Semana Actual
+                </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Este mes
-                    </div>
-                    </div>
-              <div className="text-center p-6 bg-green-100 dark:bg-green-900/20 rounded-lg border-2 border-green-300 dark:border-green-700">
-                <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
-                  {completedVouchers}
-                      </div>
+                  {format(weekStart, "dd MMM", { locale: es })} - {format(weekEnd, "dd MMM", { locale: es })}
+                </div>
+                <div className="text-lg font-bold text-blue-700 dark:text-blue-500 mt-2">
+                  ${totalThisWeek.toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+              
+              {/* Pagos Siguiente Semana */}
+              <div className="relative text-center p-6 bg-green-100 dark:bg-green-900/20 rounded-lg border-2 border-green-300 dark:border-green-700 shadow-sm hover:shadow-md transition-all">
+                <div className="absolute top-3 left-3 bg-green-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                  2
+                </div>
+                <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2 pt-6">
+                  {paymentsNextWeek.length}
+                </div>
                 <div className="text-base font-semibold text-foreground">
-                  Completados
-                          </div>
+                  Pagos Siguiente Semana
+                </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  {totalVouchers > 0
-                    ? Math.round((completedVouchers / totalVouchers) * 100)
-                    : 0}%
-                          </div>
-                          </div>
-              <div className="text-center p-6 bg-blue-100 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-700">
-                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                  {totalPayments}
-                        </div>
+                  {format(nextWeekStart, "dd MMM", { locale: es })} - {format(nextWeekEnd, "dd MMM", { locale: es })}
+                </div>
+                <div className="text-lg font-bold text-green-700 dark:text-green-500 mt-2">
+                  ${totalNextWeek.toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+              
+              {/* REPs Pendientes */}
+              <div className="relative text-center p-6 bg-orange-100 dark:bg-orange-900/20 rounded-lg border-2 border-orange-300 dark:border-orange-700 shadow-sm hover:shadow-md transition-all">
+                <div className="absolute top-3 left-3 bg-orange-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                  3
+                </div>
+                <div className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2 pt-6">
+                  {pendingREPs.length}
+                </div>
                 <div className="text-base font-semibold text-foreground">
-                  Pagos Programados
-                    </div>
+                  REPs Pendientes
+                </div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  Este mes
-                    </div>
-                              </div>
-              <div className="text-center p-6 bg-purple-100 dark:bg-purple-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-700">
-                <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                  {paidPayments}
-                              </div>
-                <div className="text-base font-semibold text-foreground">
-                  Pagos Realizados
-                              </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {totalPayments > 0
-                    ? Math.round((paidPayments / totalPayments) * 100)
-                    : 0}%
-                              </div>
-                            </div>
+                  Del día de hoy
+                </div>
+              </div>
                           </div>
                         </CardContent>
                       </Card>
