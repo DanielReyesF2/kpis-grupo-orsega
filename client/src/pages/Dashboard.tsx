@@ -215,20 +215,25 @@ export default function Dashboard() {
       {/* Header con stats rápidas */}
       <div className="relative mb-6 sm:mb-10 overflow-hidden rounded-lg sm:rounded-xl bg-card border border-border p-4 sm:p-8 shadow-md">
         <div className="relative">
-          <h2 className="mb-6 sm:mb-8 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-            Hola {user?.name?.split(' ')[0] || 'Usuario'}, bienvenido a tu Sistema Digital de Gestión
-          </h2>
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-foreground mb-2 leading-tight">
+              <span className="text-primary">Hola {user?.name?.split(' ')[0] || 'Usuario'}</span>
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground font-medium">
+              Bienvenido a tu Sistema Digital de Gestión
+            </p>
+          </div>
           
           {/* Grid de tarjetas de KPIs para ambas empresas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
             <div className="space-y-4">
               {/* Logo de Dura International centrado con tamaño visual consistente */}
-              <div className="flex justify-center items-center mb-4 h-24 sm:h-28">
+              <div className="flex justify-center items-center mb-4 h-28 sm:h-32">
                 <img 
                   src="/logodura.jpg" 
                   alt="Dura International Logo" 
                   className="h-full w-auto object-contain"
-                  style={{ maxWidth: '200px' }}
+                  style={{ maxWidth: '250px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
                     const target = e.target as HTMLImageElement;
@@ -258,12 +263,12 @@ export default function Dashboard() {
             </div>
             <div className="space-y-4">
               {/* Logo de Grupo Orsega centrado con tamaño visual consistente */}
-              <div className="flex justify-center items-center mb-4 h-24 sm:h-28">
+              <div className="flex justify-center items-center mb-4 h-28 sm:h-32">
                 <img 
                   src="/logo orsega.jpg" 
                   alt="Grupo Orsega Logo" 
                   className="h-full w-auto object-contain"
-                  style={{ maxWidth: '200px' }}
+                  style={{ maxWidth: '250px' }}
                   onError={(e) => {
                     // Fallback si la imagen no carga
                     const target = e.target as HTMLImageElement;
