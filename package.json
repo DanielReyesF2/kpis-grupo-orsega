@@ -12,7 +12,8 @@
     "build:fast": "rm -rf dist && NODE_ENV=production vite build --mode production && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --minify --external:vite --external:vite.config.ts --external:./vite.config.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "audit": "tsx scripts/audit-project.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -68,6 +69,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "compression": "^1.8.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.3",

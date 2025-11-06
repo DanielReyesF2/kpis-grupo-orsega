@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from "url";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 // Vite imports will be loaded dynamically in development only
 import { monthlyScheduler } from "./scheduler";
@@ -11,6 +12,7 @@ import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
+import { logger } from "./logger";
 
 // Initialize Sentry before anything else
 import * as Sentry from "@sentry/node";
@@ -169,6 +171,9 @@ app.get("/healthz", (req, res) => {
 app.head("/healthz", (req, res) => {
   res.status(200).end();
 });
+
+// Compression middleware - reduce tamaño de respuestas
+app.use(compression());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -417,6 +422,7 @@ process.on('uncaughtException', (error: Error) => {
       console.log("✅ API routes registered");
     } catch (error) {
       console.error("⚠️ Warning: Error registering routes (server still running):", error);
+      console.error("⚠️ Error details:", error);
     }
     
     // importantly only setup vite in development and after
@@ -459,6 +465,17 @@ process.on('uncaughtException', (error: Error) => {
     } catch (error) {
       console.error("⚠️ Warning: Failed to initialize DOF scheduler (non-critical):", error);
     }
+    
+    // Add 404 handler for API routes AFTER all routes are registered
+    // This ensures API routes return JSON 404 instead of HTML
+    app.use("/api/*", (req, res) => {
+      console.log(`❌ [404] API route not found: ${req.method} ${req.originalUrl}`);
+      res.status(404).json({ 
+        error: "API route not found",
+        path: req.originalUrl,
+        method: req.method
+      });
+    });
     
     console.log("✅ All server initialization completed");
   } catch (error) {

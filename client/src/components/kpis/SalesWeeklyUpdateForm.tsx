@@ -121,7 +121,8 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       });
       
       // Invalidar y refrescar consultas inmediatamente
-      const kpiId = selectedCompanyId === 1 ? 39 : 1;
+      // El KPI de ventas es el ID 1 para ambas empresas
+      const kpiId = 1;
       
       // Invalidar todas las consultas relacionadas
       await queryClient.invalidateQueries({ queryKey: ["/api/kpi-values"] });

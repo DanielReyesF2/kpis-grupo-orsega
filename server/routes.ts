@@ -15,13 +15,14 @@ interface AuthRequest extends Request {
     companyId?: number | null;
   };
 }
-import { storage } from "./storage";
+import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
 import { emailService } from "./email-service";
+import { logger } from "./logger";
 
 // Helper to get authenticated user with proper type narrowing
 function getAuthUser(req: AuthRequest): NonNullable<AuthRequest['user']> {
@@ -47,30 +48,35 @@ import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess 
 const sql = neon(process.env.DATABASE_URL!);
 
 // Security helpers: Remove sensitive data from user objects
-function sanitizeUser(user: any) {
+interface UserWithPassword {
+  password?: string;
+  [key: string]: unknown;
+}
+
+function sanitizeUser<T extends UserWithPassword>(user: T): Omit<T, 'password'> {
   if (!user) return user;
   const { password, ...safeUser } = user;
   return safeUser;
 }
 
-function sanitizeUsers(users: any[]) {
+function sanitizeUsers<T extends UserWithPassword>(users: T[]): Array<Omit<T, 'password'>> {
   return users.map(sanitizeUser);
 }
 
 // Security helper: Redact sensitive data from logs
-function redactSensitiveData(obj: any): any {
+function redactSensitiveData(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj;
   
   const sensitive = ['password', 'token', 'authorization', 'apiKey', 'secret', 'jwt'];
-  const result: Record<string, any> | any[] = Array.isArray(obj) ? [] : {};
+  const result: Record<string, unknown> | unknown[] = Array.isArray(obj) ? [] : {};
   
   for (const [key, value] of Object.entries(obj)) {
     if (sensitive.some(s => key.toLowerCase().includes(s))) {
-      (result as Record<string, any>)[key] = '[REDACTED]';
+      (result as Record<string, unknown>)[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {
-      (result as Record<string, any>)[key] = redactSensitiveData(value);
+      (result as Record<string, unknown>)[key] = redactSensitiveData(value);
     } else {
-      (result as Record<string, any>)[key] = value;
+      (result as Record<string, unknown>)[key] = value;
     }
   }
   
@@ -104,7 +110,13 @@ function isLowerBetterKPI(kpiName: string): boolean {
 }
 
 // Función para crear notificaciones automáticas en cambios de estado críticos
-async function createKPIStatusChangeNotification(kpi: any, user: any, previousStatus: string, newStatus: string, storage: any) {
+async function createKPIStatusChangeNotification(
+  kpi: Pick<Kpi, 'id' | 'name' | 'companyId' | 'areaId'>,
+  user: { id: number; name: string; email: string },
+  previousStatus: string,
+  newStatus: string,
+  storage: IStorage
+) {
   try {
     // Solo notificar en cambios críticos
     const criticalChanges = [
@@ -125,18 +137,20 @@ async function createKPIStatusChangeNotification(kpi: any, user: any, previousSt
       };
       
       const notification = {
-        userId: user.id,
+        fromUserId: user.id,
+        toUserId: user.id, // Notificar al mismo usuario que hizo el cambio
         title: `Cambio de estado en KPI: ${kpi.name}`,
         message: `El KPI "${kpi.name}" ha cambiado de "${statusMap[previousStatus as keyof typeof statusMap]}" a "${statusMap[newStatus as keyof typeof statusMap]}"`,
         type: newStatus === 'complies' ? 'success' : 'warning',
-        isRead: false
+        companyId: kpi.companyId ?? null,
+        areaId: kpi.areaId ?? null,
       };
       
       await storage.createNotification(notification);
-      console.log(`[KPI Notification] Notificación creada para cambio de estado: ${kpi.name}`);
+      logger.info(`[KPI Notification] Notificación creada para cambio de estado: ${kpi.name}`, { kpiId: kpi.id, userId: user.id });
     }
   } catch (error) {
-    console.error('Error creating KPI status change notification:', error);
+      logger.error('Error creating KPI status change notification', error);
     // No fallar la operación por un error de notificación
   }
 }
@@ -197,7 +211,7 @@ export function registerRoutes(app: express.Application) {
       
       res.json(result);
     } catch (error) {
-      console.error("[POST /api/login] Error:", error);
+      logger.error("[POST /api/login] Error en login", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1395,10 +1409,23 @@ export function registerRoutes(app: express.Application) {
         });
       }
 
-      const kpiId = numericCompanyId === 1 ? 39 : 1;
+      // El KPI de ventas es el ID 1 para ambas empresas
+      const kpiId = 1;
       const periodString = period || `${month} ${numericYear}`;
 
-      console.log(`[POST /api/sales/update-month] Actualizando KPI ${kpiId} para período: ${periodString}`);
+      console.log(`[POST /api/sales/update-month] Verificando KPI ${kpiId} para companyId ${numericCompanyId}`);
+
+      // Verificar que el KPI exista antes de intentar crear el valor
+      const kpi = await storage.getKpi(kpiId, numericCompanyId);
+      if (!kpi) {
+        console.error(`[POST /api/sales/update-month] ❌ KPI ${kpiId} no encontrado para companyId ${numericCompanyId}`);
+        return res.status(404).json({
+          success: false,
+          message: `KPI de ventas no encontrado. Por favor, verifica que el KPI de ventas esté configurado para ${numericCompanyId === 1 ? 'Dura International' : 'Grupo Orsega'}.`
+        });
+      }
+
+      console.log(`[POST /api/sales/update-month] KPI encontrado: "${kpi.name}". Actualizando para período: ${periodString}`);
 
       const createdValue = await storage.createKpiValue({
         companyId: numericCompanyId,
@@ -3409,8 +3436,195 @@ export function registerRoutes(app: express.Application) {
 
       res.json(formattedResult);
     } catch (error) {
-      console.error('Error fetching exchange rates:', error);
+      logger.error('Error fetching exchange rates', error);
       res.status(500).json({ error: 'Failed to fetch exchange rates' });
+    }
+  });
+
+  // GET /api/treasury/exchange-rates/daily - Historial diario (últimas 24 horas)
+  app.get("/api/treasury/exchange-rates/daily", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const rateType = (req.query.rateType as string) || 'buy'; // 'buy' o 'sell'
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+      logger.debug(`[Daily Exchange Rates] Request - rateType: ${rateType}`, { rateType, since: twentyFourHoursAgo.toISOString() });
+
+      const result = await sql(`
+        SELECT 
+          er.buy_rate,
+          er.sell_rate,
+          er.source,
+          er.date::text as date
+        FROM exchange_rates er
+        WHERE er.date >= $1
+        ORDER BY er.date ASC
+      `, [twentyFourHoursAgo.toISOString()]);
+
+      logger.debug(`[Daily Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
+
+      // Agrupar por hora y fuente - tomar el último valor de cada fuente por hora
+      const hourMap = new Map<string, {
+        hour: string;
+        timestamp: string;
+        santander?: number;
+        monex?: number;
+        dof?: number;
+      }>();
+
+      // Primero, agrupar todos los registros por hora y fuente, guardando el más reciente de cada combinación
+      const recordsByHourSource = new Map<string, { timestamp: Date; rate: number }>();
+      
+      result.forEach((row: any) => {
+        const date = new Date(row.date);
+        // Formatear hora en formato HH:mm
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const hourKey = `${hours}:${minutes}`;
+        const source = (row.source || '').toLowerCase().trim();
+        const sourceKey = `${hourKey}_${source}`;
+        
+        const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+        
+        // Guardar el registro más reciente para cada combinación hora-fuente
+        if (!recordsByHourSource.has(sourceKey) || date > recordsByHourSource.get(sourceKey)!.timestamp) {
+          recordsByHourSource.set(sourceKey, { timestamp: date, rate: rateValue });
+        }
+      });
+
+      // Ahora construir el mapa final agrupado por hora
+      recordsByHourSource.forEach((record, sourceKey) => {
+        const [hourKey, source] = sourceKey.split('_');
+        
+        if (!hourMap.has(hourKey)) {
+          hourMap.set(hourKey, {
+            hour: hourKey,
+            timestamp: record.timestamp.toISOString(),
+            santander: undefined,
+            monex: undefined,
+            dof: undefined,
+          });
+        }
+        
+        const hourData = hourMap.get(hourKey)!;
+        // Actualizar timestamp si es más reciente
+        if (new Date(record.timestamp) > new Date(hourData.timestamp)) {
+          hourData.timestamp = record.timestamp.toISOString();
+        }
+        
+        if (source === 'santander') hourData.santander = record.rate;
+        else if (source === 'monex') hourData.monex = record.rate;
+        else if (source === 'dof') hourData.dof = record.rate;
+      });
+
+      // Convertir a array y ordenar por timestamp
+      const formattedResult = Array.from(hourMap.values())
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      logger.debug(`[Daily Exchange Rates] Resultado formateado: ${formattedResult.length} puntos de datos`, { 
+        count: formattedResult.length,
+        firstPoint: formattedResult[0] || null,
+        lastPoint: formattedResult[formattedResult.length - 1] || null
+      });
+
+      res.json(formattedResult);
+    } catch (error) {
+      logger.error('❌ [Daily Exchange Rates] Error', error);
+      res.status(500).json({ error: 'Failed to fetch daily exchange rates' });
+    }
+  });
+
+  // GET /api/treasury/exchange-rates/monthly - Promedios mensuales por día
+  app.get("/api/treasury/exchange-rates/monthly", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+      const rateType = (req.query.rateType as string) || 'buy'; // 'buy' o 'sell'
+
+      // Calcular inicio y fin del mes
+      const startDate = new Date(year, month - 1, 1);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+
+      logger.debug(`[Monthly Exchange Rates] Request`, { year, month, rateType, startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+
+      const result = await sql(`
+        SELECT 
+          er.buy_rate,
+          er.sell_rate,
+          er.source,
+          er.date::text as date
+        FROM exchange_rates er
+        WHERE er.date >= $1 AND er.date <= $2
+        ORDER BY er.date ASC
+      `, [startDate.toISOString(), endDate.toISOString()]);
+
+      logger.debug(`[Monthly Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
+
+      // Agrupar por día y fuente, calcular promedio
+      const dayMap = new Map<number, {
+        day: number;
+        date: string;
+        santander?: { sum: number; count: number };
+        monex?: { sum: number; count: number };
+        dof?: { sum: number; count: number };
+      }>();
+
+      result.forEach((row: any) => {
+        const date = new Date(row.date);
+        const day = date.getDate();
+        const dateKey = date.toISOString().split('T')[0];
+        
+        const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+        const source = (row.source || '').toLowerCase().trim();
+
+        if (!dayMap.has(day)) {
+          dayMap.set(day, {
+            day,
+            date: dateKey,
+            santander: undefined,
+            monex: undefined,
+            dof: undefined,
+          });
+        }
+
+        const dayData = dayMap.get(day)!;
+        if (source === 'santander') {
+          if (!dayData.santander) dayData.santander = { sum: 0, count: 0 };
+          dayData.santander.sum += parseFloat(rateValue);
+          dayData.santander.count += 1;
+        } else if (source === 'monex') {
+          if (!dayData.monex) dayData.monex = { sum: 0, count: 0 };
+          dayData.monex.sum += parseFloat(rateValue);
+          dayData.monex.count += 1;
+        } else if (source === 'dof') {
+          if (!dayData.dof) dayData.dof = { sum: 0, count: 0 };
+          dayData.dof.sum += parseFloat(rateValue);
+          dayData.dof.count += 1;
+        }
+      });
+
+      // Calcular promedios y formatear
+      const formattedResult = Array.from(dayMap.values())
+        .map(dayData => ({
+          day: dayData.day,
+          date: dayData.date,
+          santander: dayData.santander ? dayData.santander.sum / dayData.santander.count : undefined,
+          monex: dayData.monex ? dayData.monex.sum / dayData.monex.count : undefined,
+          dof: dayData.dof ? dayData.dof.sum / dayData.dof.count : undefined,
+        }))
+        .sort((a, b) => a.day - b.day);
+
+      logger.debug(`[Monthly Exchange Rates] Resultado formateado: ${formattedResult.length} días con datos`, {
+        count: formattedResult.length,
+        firstDay: formattedResult[0] || null,
+        lastDay: formattedResult[formattedResult.length - 1] || null
+      });
+
+      res.json(formattedResult);
+    } catch (error) {
+      logger.error('❌ [Monthly Exchange Rates] Error', error);
+      res.status(500).json({ error: 'Failed to fetch monthly exchange rates' });
     }
   });
 
@@ -4290,7 +4504,7 @@ export function registerRoutes(app: express.Application) {
   // ============================================
 
   // Configurar multer para archivos Excel de IDRALL
-  const idrallUpload = multer({
+  const idrallExcelUpload = multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => {
         cb(null, 'uploads/idrall/');
@@ -4316,7 +4530,7 @@ export function registerRoutes(app: express.Application) {
   });
 
   // POST /api/idrall/upload - Procesar Excel de IDRALL y crear pagos
-  app.post("/api/idrall/upload", jwtAuthMiddleware, idrallUpload.single('excel'), async (req, res) => {
+  app.post("/api/idrall/upload", jwtAuthMiddleware, idrallExcelUpload.single('excel'), async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
       const file = req.file;
@@ -4513,6 +4727,33 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  console.log("✅ All routes have been configured successfully");
+  logger.info("✅ All routes have been configured successfully");
+  
+  // Verificar que las rutas estén registradas correctamente (solo en desarrollo)
+  if (process.env.NODE_ENV === 'development') {
+    const routes = app._router?.stack || [];
+    const exchangeRatesRoutes = routes.filter((layer: any) => 
+      layer.route && layer.route.path && layer.route.path.includes("exchange-rates")
+    );
+
+    logger.debug(`[Routes] Found ${exchangeRatesRoutes.length} exchange-rates routes registered`, {
+      count: exchangeRatesRoutes.length,
+      routes: exchangeRatesRoutes.map((layer: any) => ({
+        path: layer.route.path,
+        methods: Object.keys(layer.route.methods).filter((m: string) => m !== '_all')
+      }))
+    });
+
+    // Verificar si hay prefijo duplicado
+    const doublePrefixed = exchangeRatesRoutes.filter((layer: any) => 
+      layer.route.path.includes("/api/api/")
+    );
+    if (doublePrefixed.length > 0) {
+      logger.warn(`⚠️ Found ${doublePrefixed.length} route(s) with double-prefixed path`, {
+        routes: doublePrefixed.map((layer: any) => layer.route.path)
+      });
+    }
+  }
+  
   return app;
 }

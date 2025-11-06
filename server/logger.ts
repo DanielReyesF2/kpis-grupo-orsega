@@ -1,95 +1,49 @@
-import fs from 'fs';
-import path from 'path';
+/**
+ * Logger estructurado para producción
+ * Reemplaza console.log con niveles de logging apropiados
+ */
 
-export enum LogLevel {
-  ERROR = 'ERROR',
-  WARN = 'WARN',
-  INFO = 'INFO',
-  DEBUG = 'DEBUG'
+type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+interface LogContext {
+  [key: string]: unknown;
 }
 
 class Logger {
-  private logDir: string;
+  private isDevelopment = process.env.NODE_ENV === 'development';
+  private isProduction = process.env.NODE_ENV === 'production';
 
-  constructor() {
-    this.logDir = path.join(process.cwd(), 'logs');
-    this.ensureLogDirectory();
-  }
-
-  private ensureLogDirectory() {
-    if (!fs.existsSync(this.logDir)) {
-      fs.mkdirSync(this.logDir, { recursive: true });
-    }
-  }
-
-  private formatMessage(level: LogLevel, message: string, meta?: any): string {
+  private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString();
-    const metaStr = meta ? ` | ${JSON.stringify(meta)}` : '';
-    return `[${timestamp}] ${level}: ${message}${metaStr}`;
+    const contextStr = context ? ` ${JSON.stringify(context)}` : '';
+    return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`;
   }
 
-  private writeToFile(level: LogLevel, message: string, meta?: any) {
-    const logFile = path.join(this.logDir, `${level.toLowerCase()}.log`);
-    const formattedMessage = this.formatMessage(level, message, meta) + '\n';
-    
-    fs.appendFileSync(logFile, formattedMessage);
+  info(message: string, context?: LogContext): void {
+    console.log(this.formatMessage('info', message, context));
   }
 
-  private shouldLog(level: LogLevel): boolean {
-    const envLevel = process.env.LOG_LEVEL || 'INFO';
-    const levels = [LogLevel.ERROR, LogLevel.WARN, LogLevel.INFO, LogLevel.DEBUG];
-    const currentLevelIndex = levels.indexOf(envLevel as LogLevel);
-    const messageLevelIndex = levels.indexOf(level);
-    
-    return messageLevelIndex <= currentLevelIndex;
+  warn(message: string, context?: LogContext): void {
+    console.warn(this.formatMessage('warn', message, context));
   }
 
-  error(message: string, meta?: any) {
-    if (this.shouldLog(LogLevel.ERROR)) {
-      console.error(`🔴 ${message}`, meta || '');
-      this.writeToFile(LogLevel.ERROR, message, meta);
+  error(message: string, error?: Error | unknown, context?: LogContext): void {
+    const errorContext = {
+      ...context,
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: this.isDevelopment ? error.stack : undefined,
+        name: error.name
+      } : error
+    };
+    console.error(this.formatMessage('error', message, errorContext));
+  }
+
+  debug(message: string, context?: LogContext): void {
+    if (this.isDevelopment) {
+      console.debug(this.formatMessage('debug', message, context));
     }
-  }
-
-  warn(message: string, meta?: any) {
-    if (this.shouldLog(LogLevel.WARN)) {
-      console.warn(`🟡 ${message}`, meta || '');
-      this.writeToFile(LogLevel.WARN, message, meta);
-    }
-  }
-
-  info(message: string, meta?: any) {
-    if (this.shouldLog(LogLevel.INFO)) {
-      console.log(`🔵 ${message}`, meta || '');
-      this.writeToFile(LogLevel.INFO, message, meta);
-    }
-  }
-
-  debug(message: string, meta?: any) {
-    if (this.shouldLog(LogLevel.DEBUG)) {
-      console.log(`🟢 ${message}`, meta || '');
-      this.writeToFile(LogLevel.DEBUG, message, meta);
-    }
-  }
-
-  // Métodos específicos para la aplicación
-  auth(message: string, meta?: any) {
-    this.info(`[AUTH] ${message}`, meta);
-  }
-
-  upload(message: string, meta?: any) {
-    this.info(`[UPLOAD] ${message}`, meta);
-  }
-
-  treasury(message: string, meta?: any) {
-    this.info(`[TREASURY] ${message}`, meta);
-  }
-
-  security(message: string, meta?: any) {
-    this.warn(`[SECURITY] ${message}`, meta);
   }
 }
 
 export const logger = new Logger();
-
-

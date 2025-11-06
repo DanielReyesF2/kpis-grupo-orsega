@@ -107,22 +107,41 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    let finalRequestUrl = '';
     try {
       const baseUrl = queryKey[0] as string;
       const params = queryKey[1] as Record<string, any> || {};
       
-      // Construir URL con query parameters
-      const url = new URL(baseUrl, window.location.origin);
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
+      // Si la URL ya tiene parámetros query, parsearlos primero
+      let requestUrl: string;
+      if (baseUrl.includes('?')) {
+        // La URL ya tiene parámetros, usar directamente
+        requestUrl = baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`;
+        // Si hay parámetros adicionales en queryKey[1], agregarlos
+        if (Object.keys(params).length > 0) {
+          const url = new URL(requestUrl, window.location.origin);
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              url.searchParams.append(key, String(value));
+            }
+          });
+          requestUrl = url.pathname + url.search;
         }
-      });
+      } else {
+        // Construir URL con query parameters desde cero
+        const url = new URL(baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`, window.location.origin);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            url.searchParams.append(key, String(value));
+          }
+        });
+        requestUrl = url.pathname + url.search;
+      }
       
-      const requestUrl = url.pathname + url.search;
-      console.log(`🔵 [QueryClient] Requesting: ${requestUrl}`);
+      finalRequestUrl = requestUrl;
+      console.log(`🔵 [QueryClient] Requesting: ${finalRequestUrl}`);
       
-      const res = await apiRequest('GET', requestUrl);
+      const res = await apiRequest('GET', finalRequestUrl);
       
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
         return null;
@@ -132,12 +151,16 @@ export const getQueryFn: <T>(options: {
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
-        console.error(`❌ [QueryClient] Non-JSON response for ${requestUrl}:`, text.substring(0, 200));
+        console.error(`❌ [QueryClient] Non-JSON response for ${finalRequestUrl}:`, text.substring(0, 200));
         throw new Error(`Expected JSON but received ${contentType}`);
       }
       
-      return await res.json();
+      const jsonData = await res.json();
+      console.log(`✅ [QueryClient] Respuesta recibida para ${finalRequestUrl}:`, jsonData);
+      console.log(`✅ [QueryClient] Tipo de dato:`, Array.isArray(jsonData) ? 'Array' : typeof jsonData, 'Longitud:', Array.isArray(jsonData) ? jsonData.length : 'N/A');
+      return jsonData;
     } catch (error) {
+      console.error(`❌ [QueryClient] Error en ${finalRequestUrl || 'unknown URL'}:`, error);
       // Si hay un error 401, manejarlo según la configuración
       if (error instanceof Error && error.message.includes('401')) {
         if (unauthorizedBehavior === "returnNull") {
