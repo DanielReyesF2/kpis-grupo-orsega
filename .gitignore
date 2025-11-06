@@ -118,3 +118,4 @@ uploads/*
 
 # Cursor
 .cursor/
+NEW_JWT_SECRET.txt
