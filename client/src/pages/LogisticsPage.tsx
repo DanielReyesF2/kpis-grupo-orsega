@@ -1413,14 +1413,16 @@ function ProductFormDialog({
                   <FormLabel>Empresa (Opcional)</FormLabel>
                   <FormControl>
                     <Select 
-                      value={field.value || ''} 
-                      onValueChange={field.onChange}
+                      value={field.value || 'none'} 
+                      onValueChange={(value) => {
+                        field.onChange(value === 'none' ? '' : value);
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona una empresa (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin asignar (ambas empresas)</SelectItem>
+                        <SelectItem value="none">Sin asignar (ambas empresas)</SelectItem>
                         {companies.map((company: any) => (
                           <SelectItem key={company.id} value={company.id.toString()}>
                             {company.name}
