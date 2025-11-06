@@ -18,6 +18,8 @@ interface Shipment {
   purchaseOrder?: string;
   purchase_order?: string;
   trackingCode?: string;
+  customerName?: string;
+  client_name?: string;
 }
 
 export function LogisticsPreview() {
@@ -122,14 +124,29 @@ export function LogisticsPreview() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
+                    {/* Nombre del Cliente */}
+                    {(shipment.customerName || shipment.client_name) && (
+                      <div className="mb-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          {shipment.customerName || shipment.client_name}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Orden de Compra */}
                     <div className="flex items-center gap-3 mb-3">
                       <div className="p-2 bg-primary/15 rounded-lg text-primary">
                         <Package className="h-4 w-4" />
                       </div>
-                      <span className="text-base font-bold text-foreground truncate">
-                        {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Orden de compra</span>
+                        <span className="text-base font-bold text-foreground truncate">
+                          {(shipment.purchaseOrder || shipment.purchase_order) || shipment.trackingCode || `Envío #${shipment.id}`}
+                        </span>
+                      </div>
                     </div>
+                    
+                    {/* Origen, Destino y Fecha */}
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-primary" />
