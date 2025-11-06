@@ -1,10 +1,20 @@
 /**
  * Middleware de Validación Multi-Tenant
- * 
- * Previene que usuarios accedan o modifiquen datos de otras empresas.
- * 
- * VUL-001: Validación Multi-Tenant Insuficiente (CVSS 6.5)
- * 
+ *
+ * CONTEXTO DE NEGOCIO:
+ * Este sistema es para un GRUPO EMPRESARIAL INTERNO (Dura International + Grupo Orsega).
+ * El mismo equipo de 9 personas opera AMBAS empresas con acceso cruzado completo.
+ *
+ * NO es un SaaS multi-tenant con clientes externos aislados.
+ * El acceso cruzado entre empresas 1 y 2 es INTENCIONAL y REQUERIDO.
+ *
+ * Reglas de Acceso:
+ * - Admin: acceso a todas las empresas
+ * - Usuarios del grupo: acceso a Dura (1) y Orsega (2) - ACCESO CRUZADO PERMITIDO
+ * - Usuarios externos (si existen): solo su propia empresa
+ *
+ * @see ALLOWED_COMPANIES para empresas del grupo con acceso cruzado
+ *
  * Uso:
  * validateTenantAccess(req, resourceCompanyId)
  */
@@ -25,11 +35,12 @@ interface AuthRequest extends Request {
 
 /**
  * Valida que el usuario autenticado tenga acceso a los recursos de la empresa especificada
- * 
- * Reglas:
+ *
+ * Reglas para Grupo Empresarial:
  * - Admin: acceso a todas las empresas
- * - Usuarios normales: solo acceso a su propia empresa
- * 
+ * - Usuarios del grupo (empresas 1 y 2): acceso cruzado completo entre Dura y Orsega
+ * - Usuarios externos: solo acceso a su propia empresa
+ *
  * @param req - Request con usuario autenticado
  * @param resourceCompanyId - ID de la empresa del recurso
  * @throws Error si el acceso es denegado
@@ -61,13 +72,15 @@ export function validateTenantAccess(
     return;
   }
 
-  // Empresas del sistema: Dura International (1) y Grupo Orsega (2)
-  // Permitir acceso a ambas empresas para todos los usuarios
+  // ✅ ACCESO CRUZADO INTENCIONAL - Grupo Empresarial Interno
+  // Dura International (ID:1) y Grupo Orsega (ID:2) son el mismo equipo operativo
+  // El equipo de 9 personas trabaja en AMBAS empresas con total flexibilidad
+  // Este NO es un bug de seguridad - es un requerimiento del negocio
   const ALLOWED_COMPANIES = [1, 2]; // Dura International y Grupo Orsega
-  
+
   if (ALLOWED_COMPANIES.includes(resourceCompanyId)) {
-    // Permitir acceso a las empresas del sistema (Dura y Orsega)
-    console.log(`[TenantValidation] Access granted: User ${user.id} to company ${resourceCompanyId} (allowed company)`);
+    // INTENCIONAL: Permitir acceso cruzado entre empresas del grupo
+    console.log(`[TenantValidation] ✅ Cross-company access granted: User ${user.id} to company ${resourceCompanyId} (internal group)`);
     return;
   }
 
