@@ -1,4 +1,4 @@
-import { 
+import {
   users,
   companies,
   areas,
@@ -16,6 +16,7 @@ import {
   userActivationTokens,
   clients,
   paymentVouchers,
+  scheduledPayments,
   type InsertKpiDura,
   type InsertKpiOrsega,
   type KpiDura,
@@ -23,10 +24,10 @@ import {
   type KpiValueDura,
   type KpiValueOrsega
 } from "@shared/schema";
-import type { 
-  User, InsertUser, 
-  Company, InsertCompany, 
-  Area, InsertArea, 
+import type {
+  User, InsertUser,
+  Company, InsertCompany,
+  Area, InsertArea,
   InsertKpi,
   Kpi,
   InsertKpiValue,
@@ -43,7 +44,8 @@ import type {
   CycleTimeMetrics,
   UserActivationToken, InsertUserActivationToken,
   Client, InsertClient,
-  PaymentVoucher, InsertPaymentVoucher
+  PaymentVoucher, InsertPaymentVoucher,
+  ScheduledPayment, InsertScheduledPayment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -1875,12 +1877,77 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Scheduled Payment operations (placeholder for IDRALL integration)
-  async createScheduledPayment(payment: any): Promise<any> {
-    // This is a placeholder method for IDRALL integration
-    // In a real implementation, this would create a scheduled payment record
-    console.log('Creating scheduled payment:', payment);
-    return { id: Date.now(), ...payment };
+  // Scheduled Payment operations
+  async createScheduledPayment(payment: InsertScheduledPayment): Promise<ScheduledPayment> {
+    try {
+      const [createdPayment] = await db
+        .insert(scheduledPayments)
+        .values({
+          ...payment,
+          updatedAt: new Date()
+        })
+        .returning();
+
+      console.log('[DatabaseStorage] Scheduled payment created:', createdPayment.id);
+      return createdPayment;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error creating scheduled payment:', error);
+      throw error;
+    }
+  }
+
+  async getScheduledPayment(id: number): Promise<ScheduledPayment | undefined> {
+    try {
+      const [payment] = await db
+        .select()
+        .from(scheduledPayments)
+        .where(eq(scheduledPayments.id, id))
+        .limit(1);
+      return payment;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting scheduled payment:', error);
+      return undefined;
+    }
+  }
+
+  async getScheduledPaymentsByCompany(companyId: number): Promise<ScheduledPayment[]> {
+    try {
+      const payments = await db
+        .select()
+        .from(scheduledPayments)
+        .where(eq(scheduledPayments.companyId, companyId))
+        .orderBy(scheduledPayments.dueDate);
+      return payments;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting scheduled payments by company:', error);
+      return [];
+    }
+  }
+
+  async updateScheduledPayment(id: number, payment: Partial<InsertScheduledPayment>): Promise<ScheduledPayment | undefined> {
+    try {
+      const [updatedPayment] = await db
+        .update(scheduledPayments)
+        .set({ ...payment, updatedAt: new Date() })
+        .where(eq(scheduledPayments.id, id))
+        .returning();
+      return updatedPayment;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error updating scheduled payment:', error);
+      return undefined;
+    }
+  }
+
+  async deleteScheduledPayment(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(scheduledPayments)
+        .where(eq(scheduledPayments.id, id));
+      return true;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error deleting scheduled payment:', error);
+      return false;
+    }
   }
 
   async updatePaymentVoucher(id: number, voucherData: Partial<PaymentVoucher>): Promise<PaymentVoucher | undefined> {
