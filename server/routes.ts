@@ -237,29 +237,6 @@ export function registerRoutes(app: express.Application) {
   // ========================================
   
   // Health check endpoint - 🔒 Solo administradores
-  // COMENTADO: Interfiere con Railway healthcheck
-  // app.get('/health', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {
-  //   const nodeEnv = process.env.NODE_ENV || 'undefined';
-  //   const expressEnv = app.get('env');
-  //   
-  //   const health = {
-  //     status: 'ok',
-  //     timestamp: new Date().toISOString(),
-  //     environment: {
-  //       NODE_ENV: nodeEnv,
-  //       express_env: expressEnv,
-  //       is_production: expressEnv === 'production'
-  //     },
-  //     server: {
-  //       uptime: process.uptime(),
-  //       memory: process.memoryUsage(),
-  //       port: 5000
-  //     }
-  //   };
-  //   
-  //   res.json(health);
-  // });
-  
   // Environment check endpoint (más detallado) - 🔒 Solo administradores
   app.get('/env-check', jwtAuthMiddleware, jwtAdminMiddleware, (req, res) => {
     const nodeEnv = process.env.NODE_ENV || 'undefined';
@@ -2941,24 +2918,6 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/providers - Obtener proveedores de transporte (COMENTADO: usando catalogRouter)
-  // app.get("/api/providers", jwtAuthMiddleware, async (req, res) => {
-  //   try {
-  //     const result = await sql(`
-  //       SELECT 
-  //         id, name, email, phone, contact_name, rating, is_active
-  //       FROM provider 
-  //       WHERE is_active = true
-  //       ORDER BY name
-  //     `);
-  //     
-  //     res.json(result);
-  //   } catch (error) {
-  //     console.error('Error fetching providers:', error);
-  //     res.status(500).json({ error: 'Failed to fetch providers' });
-  //   }
-  // });
-
   // POST /api/clients - Crear un nuevo cliente
   app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId'), async (req, res) => {
     try {
@@ -3007,40 +2966,6 @@ export function registerRoutes(app: express.Application) {
       res.status(500).json({ error: 'Failed to create client' });
     }
   });
-
-  // POST /api/providers - Crear un nuevo proveedor de transporte (COMENTADO: usando catalogRouter)
-  // app.post("/api/providers", jwtAuthMiddleware, async (req, res) => {
-  //   try {
-  //     const validatedData = insertProviderSchema.parse(req.body);
-  //     const providerId = crypto.randomUUID(); // Generate UUID in Node.js
-  //     
-  //     const result = await sql(`
-  //       INSERT INTO provider (
-  //         id, name, email, phone, contact_name, notes, rating, is_active
-  //       ) VALUES (
-  //         $1, $2, $3, $4, $5, $6, $7, $8
-  //       )
-  //       RETURNING *
-  //     `, [
-  //       providerId,
-  //       validatedData.name,
-  //       validatedData.email || null,
-  //       validatedData.phone || null,
-  //       validatedData.contactName || null,
-  //       validatedData.notes || null,
-  //       validatedData.rating || null,
-  //       validatedData.isActive ?? true,
-  //     ]);
-  //     
-  //     res.status(201).json(result[0]);
-  //   } catch (error) {
-  //     console.error('Error creating provider:', error);
-  //     if (error instanceof z.ZodError) {
-  //       return res.status(400).json({ error: 'Validación fallida', details: error.errors });
-  //     }
-  //     res.status(500).json({ error: 'Failed to create provider' });
-  //   }
-  // });
 
   // =============================================
   // 🔐 USER ACTIVATION SYSTEM ENDPOINTS
@@ -3273,10 +3198,6 @@ export function registerRoutes(app: express.Application) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });
-
-  // Integrate Logistics Routes
-  // app.use("/api", catalogRouter);
-  // app.use("/api", logisticsRouter);
 
   // Database seeding endpoint (Admin only, Development only)
   app.post("/api/seed-production", jwtAuthMiddleware, async (req, res) => {
