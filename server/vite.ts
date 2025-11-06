@@ -132,7 +132,22 @@ export function serveStatic(app: Express) {
   }
 
   console.log(`✅ Serving static files from: ${finalDistPath}`);
-  app.use(express.static(finalDistPath));
+  
+  // Serve static files with cache control headers
+  // Assets with hashes can be cached long-term, but index.html should not be cached
+  app.use(express.static(finalDistPath, {
+    maxAge: '1y', // Cache assets for 1 year (they have hashes, so safe)
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      // Don't cache index.html - always get fresh version
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (req, res, next) => {
@@ -143,6 +158,10 @@ export function serveStatic(app: Express) {
     
     const indexPath = path.resolve(finalDistPath, "index.html");
     if (fs.existsSync(indexPath)) {
+      // Ensure index.html is never cached
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(indexPath);
     } else {
       // If index.html doesn't exist, at least return 200 for healthcheck
