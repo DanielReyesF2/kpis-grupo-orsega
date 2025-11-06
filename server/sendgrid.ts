@@ -1,3 +1,15 @@
+/**
+ * @deprecated This SendGrid service with templates is deprecated. Use email-service.ts (Resend) instead.
+ * This file is maintained for backward compatibility only.
+ *
+ * Migration plan:
+ * 1. Migrate email templates to email-service.ts
+ * 2. Replace sendGridEmail() calls with emailService.sendEmail()
+ * 3. Remove this file once migration is complete
+ *
+ * Current usage: routes.ts (1 instance)
+ */
+
 import { MailService } from '@sendgrid/mail';
 
 if (process.env.SENDGRID_API_KEY) {

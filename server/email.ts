@@ -1,3 +1,15 @@
+/**
+ * @deprecated This email service is deprecated. Use email-service.ts (Resend) instead.
+ * This file is maintained for backward compatibility only.
+ *
+ * Migration plan:
+ * 1. Replace all sendEmail() calls with emailService.sendEmail()
+ * 2. Update templates to work with email-service.ts
+ * 3. Remove this file once migration is complete
+ *
+ * Current usage: routes.ts (2 instances)
+ */
+
 import sgMail from '@sendgrid/mail';
 
 if (process.env.SENDGRID_API_KEY) {
