@@ -61,23 +61,14 @@ export function validateTenantAccess(
     return;
   }
 
-  // Empresas del sistema: Dura International (1) y Grupo Orsega (2)
-  // Permitir acceso a ambas empresas para todos los usuarios
-  const ALLOWED_COMPANIES = [1, 2]; // Dura International y Grupo Orsega
-  
-  if (ALLOWED_COMPANIES.includes(resourceCompanyId)) {
-    // Permitir acceso a las empresas del sistema (Dura y Orsega)
-    console.log(`[TenantValidation] Access granted: User ${user.id} to company ${resourceCompanyId} (allowed company)`);
-    return;
-  }
-
-  // Si el usuario no tiene companyId asignado, rechazar acceso a empresas no permitidas
+  // SECURITY: Usuarios no-admin solo pueden acceder a su propia empresa
+  // Si el usuario no tiene companyId asignado, rechazar acceso
   if (!user.companyId) {
-    console.error(`[TenantValidation] User ${user.id} has no companyId assigned and attempted to access company ${resourceCompanyId} (not in allowed list)`);
-    throw new Error(`Forbidden: Access denied to company ${resourceCompanyId}`);
+    console.error(`[TenantValidation] User ${user.id} has no companyId assigned and attempted to access company ${resourceCompanyId}`);
+    throw new Error(`Forbidden: User has no company assigned`);
   }
 
-  // Validar que el companyId del usuario coincida con el del recurso (para empresas fuera de la lista permitida)
+  // Validar que el companyId del usuario coincida con el del recurso
   if (user.companyId !== resourceCompanyId) {
     console.error(
       `[TenantValidation] Access denied: User ${user.id} (company ${user.companyId}) ` +
