@@ -21,7 +21,6 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ShipmentsPage from "@/pages/ShipmentsPage";
 import NewShipmentPage from "@/pages/NewShipmentPage";
-import TeamManagement from "@/pages/TeamManagement";
 import TreasuryPage from "@/pages/TreasuryPage";
 
 function Router() {

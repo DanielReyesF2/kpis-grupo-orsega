@@ -1,5 +1,5 @@
 import express from "express";
-import { hash as bcryptHash } from "bcryptjs";
+import { hash as bcryptHash } from "bcrypt";
 import { z } from "zod";
 import type { Request } from "express";
 import rateLimit from "express-rate-limit";
