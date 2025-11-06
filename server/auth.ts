@@ -56,9 +56,18 @@ export function jwtAuthMiddleware(req: Request, res: Response, next: NextFunctio
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(" ")[1]; // Format: "Bearer TOKEN"
   
-  console.log('[JWT Auth] Checking token:', !!token);
+  // Logging detallado para debugging
+  console.log('[JWT Auth] ========== AUTENTICACIÓN ==========');
+  console.log('[JWT Auth] Path:', req.path);
+  console.log('[JWT Auth] Method:', req.method);
+  console.log('[JWT Auth] Authorization header presente:', !!authHeader);
+  console.log('[JWT Auth] Authorization header completo:', authHeader ? `${authHeader.substring(0, 20)}...` : 'null');
+  console.log('[JWT Auth] Token extraído:', !!token);
+  console.log('[JWT Auth] Todos los headers:', Object.keys(req.headers));
   
   if (!token) {
+    console.error('[JWT Auth] ❌ Token no encontrado');
+    console.error('[JWT Auth] Headers disponibles:', Object.keys(req.headers));
     return res.status(401).json({ 
       message: "Unauthorized", 
       details: "No authentication token provided" 

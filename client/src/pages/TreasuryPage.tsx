@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, DollarSign, TrendingUp, BarChart3, RefreshCw, Plus, FolderOpen, X, Users } from "lucide-react";
+import { Upload, DollarSign, TrendingUp, Plus, X, Users } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 import { PendingTodayCard } from "@/components/treasury/PendingTodayCard";
@@ -17,17 +19,141 @@ import { IdrallUploadFlow } from "@/components/treasury/flows/IdrallUploadFlow";
 import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
 import { ExchangeRateForm } from "@/components/treasury/common/ExchangeRateForm";
 import { DofChart } from "@/components/dashboard/DofChart";
+import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPaymentsKanban";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>("main");
   const [showRateForm, setShowRateForm] = useState(false);
   const [dragOverUpload, setDragOverUpload] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedCompanyForUpload, setSelectedCompanyForUpload] = useState<number | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
+
+  // Mutación para subir factura directamente
+  const uploadInvoiceMutation = useMutation({
+    mutationFn: async ({ file, payerCompanyId }: { file: File; payerCompanyId: number }) => {
+      try {
+        const formData = new FormData();
+        formData.append('voucher', file); // El endpoint acepta 'voucher' como nombre del campo
+        formData.append('payerCompanyId', payerCompanyId.toString());
+
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          throw new Error("No se encontró token de autenticación");
+        }
+
+        console.log('📤 [Upload] Iniciando upload de archivo:', file.name, 'para empresa:', payerCompanyId);
+        console.log('📤 [Upload] Token presente:', !!token);
+        console.log('📤 [Upload] Token (primeros 20 chars):', token.substring(0, 20) + '...');
+        
+        // ⚠️ IMPORTANTE: Cuando se envía FormData, NO se debe establecer Content-Type manualmente
+        // El navegador lo establecerá automáticamente con el boundary correcto
+        const res = await fetch("/api/payment-vouchers/upload", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            // NO incluir Content-Type - el navegador lo establecerá automáticamente para FormData
+          },
+          body: formData,
+        });
+
+        console.log('📥 [Upload] Respuesta recibida:', res.status, res.statusText);
+
+        // Leer el body de la respuesta una sola vez
+        const contentType = res.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+        
+        let responseData: any;
+        const text = await res.text();
+        
+        if (isJson && text) {
+          try {
+            responseData = JSON.parse(text);
+          } catch (parseError) {
+            console.error('❌ [Upload] Error parseando JSON de respuesta:', parseError);
+            console.error('❌ [Upload] Texto recibido:', text.substring(0, 500));
+            throw new Error(`Error al procesar respuesta del servidor: ${res.status} ${res.statusText}`);
+          }
+        } else {
+          responseData = text ? { message: text } : { message: res.statusText };
+        }
+
+        if (!res.ok) {
+          // Extraer el mensaje de error de manera más robusta
+          let errorMessage = `Error ${res.status}: ${res.statusText}`;
+          
+          if (responseData) {
+            // Intentar extraer el mensaje de diferentes campos posibles
+            errorMessage = responseData.details || 
+                          responseData.error || 
+                          responseData.message || 
+                          (typeof responseData === 'string' ? responseData : errorMessage);
+            
+            // Si es un objeto, intentar stringificarlo
+            if (typeof responseData === 'object' && !responseData.details && !responseData.error && !responseData.message) {
+              errorMessage = JSON.stringify(responseData);
+            }
+          }
+          
+          console.error('❌ [Upload] Error del servidor:', {
+            status: res.status,
+            statusText: res.statusText,
+            response: responseData,
+            errorMessage: errorMessage
+          });
+          
+          throw new Error(errorMessage);
+        }
+
+        console.log('✅ [Upload] Upload exitoso:', responseData);
+        return responseData;
+      } catch (error) {
+        console.error('❌ [Upload] Error en mutationFn:', error);
+        // Si ya es un Error, re-lanzarlo
+        if (error instanceof Error) {
+          throw error;
+        }
+        // Si es otro tipo de error, convertirlo a Error
+        throw new Error(error?.toString() || "Error desconocido al subir documento");
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+      
+      if (data.documentType === 'invoice' && data.scheduledPayment) {
+        toast({
+          title: "✅ Factura procesada exitosamente",
+          description: data.message || "La cuenta por pagar ha sido creada automáticamente",
+        });
+      } else {
+        toast({
+          title: "✅ Documento procesado",
+          description: "El documento ha sido procesado correctamente",
+        });
+      }
+      
+      setIsUploadingInvoice(false);
+      setShowUploadModal(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al procesar documento",
+        description: error.message || "No se pudo procesar el documento",
+        variant: "destructive",
+      });
+      setIsUploadingInvoice(false);
+    },
+  });
+
+  const handleDirectFileUpload = async (file: File, companyId: number) => {
+    setIsUploadingInvoice(true);
+    uploadInvoiceMutation.mutate({ file, payerCompanyId: companyId });
+  };
 
   // Estadísticas del mes
   const { data: vouchers = [] } = useQuery<any[]>({
@@ -161,39 +287,41 @@ export default function TreasuryPage() {
   if (viewMode === "exchange-rates") {
   return (
       <AppLayout title="Tesorería - Tipos de Cambio">
-        <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <Button onClick={() => setViewMode("main")} variant="ghost" size="lg">
+        <div className="p-6 max-w-[1400px] mx-auto space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <Button onClick={() => setViewMode("main")} variant="ghost" size="sm">
               ← Volver
               </Button>
-            <h1 className="text-3xl font-bold text-foreground">Tipos de Cambio</h1>
-            <div className="w-24" /> {/* Spacer */}
+            <h1 className="text-2xl font-bold text-foreground">Tipos de Cambio</h1>
+            <div className="w-20" /> {/* Spacer */}
             </div>
+
+          {/* Botón de Actualizar Tipo de Cambio */}
+          <Card className="border border-primary/20 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Actualiza los tipos de cambio de MONEX, Santander o DOF
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    El DOF se actualiza automáticamente, pero puedes registrarlo manualmente si es necesario
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowRateForm(true)}
+                  size="default"
+                  className="ml-4"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Registrar Tipo de Cambio
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Comparativa de Tipos de Cambio */}
           <DofChart />
-
-          <Card className="border-2 border-primary/20 shadow-lg">
-              <CardHeader>
-              <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <DollarSign className="h-6 w-6" />
-                Registrar Nuevo Tipo de Cambio
-                </CardTitle>
-              </CardHeader>
-            <CardContent>
-              <p className="text-base text-muted-foreground mb-6">
-                Actualiza los tipos de cambio de MONEX, Santander o DOF. El DOF se actualiza automáticamente, pero puedes registrarlo manualmente si es necesario.
-              </p>
-                <Button
-                onClick={() => setShowRateForm(true)}
-                  size="lg"
-                className="h-16 text-lg font-semibold"
-              >
-                <Plus className="h-6 w-6 mr-2" />
-                Registrar Tipo de Cambio
-                </Button>
-              </CardContent>
-            </Card>
                 </div>
 
         {/* Modal de formulario para actualizar tipo de cambio */}
@@ -209,6 +337,106 @@ export default function TreasuryPage() {
                         return (
     <AppLayout title="Tesorería">
       <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+        {/* Resumen del Mes con Acciones Rápidas */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Tarjetas principales del Resumen del Mes */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Pagos Semana Actual */}
+            <div className="relative text-center p-6 bg-blue-100 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-700 shadow-sm hover:shadow-md transition-all">
+              <div className="absolute top-3 left-3 bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                1
+              </div>
+              <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2 pt-6">
+                {paymentsThisWeek.length}
+              </div>
+              <div className="text-base font-semibold text-foreground">
+                Pagos Semana Actual
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {format(weekStart, "dd MMM", { locale: es })} - {format(weekEnd, "dd MMM", { locale: es })}
+              </div>
+              <div className="text-lg font-bold text-blue-700 dark:text-blue-500 mt-2">
+                ${totalThisWeek.toLocaleString("es-MX", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+            
+            {/* Pagos Siguiente Semana */}
+            <div className="relative text-center p-6 bg-green-100 dark:bg-green-900/20 rounded-lg border-2 border-green-300 dark:border-green-700 shadow-sm hover:shadow-md transition-all">
+              <div className="absolute top-3 left-3 bg-green-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                2
+              </div>
+              <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2 pt-6">
+                {paymentsNextWeek.length}
+              </div>
+              <div className="text-base font-semibold text-foreground">
+                Pagos Siguiente Semana
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {format(nextWeekStart, "dd MMM", { locale: es })} - {format(nextWeekEnd, "dd MMM", { locale: es })}
+              </div>
+              <div className="text-lg font-bold text-green-700 dark:text-green-500 mt-2">
+                ${totalNextWeek.toLocaleString("es-MX", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+            
+            {/* Actualizar Tipo de Cambio */}
+            <button
+              onClick={() => setViewMode("exchange-rates")}
+              className="relative text-center p-6 bg-orange-100 dark:bg-orange-900/20 rounded-lg border-2 border-orange-300 dark:border-orange-700 shadow-sm hover:shadow-md transition-all cursor-pointer w-full"
+            >
+              <div className="absolute top-3 left-3 bg-orange-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
+                3
+              </div>
+              <div className="pt-6">
+                <TrendingUp className="h-12 w-12 mx-auto mb-3 text-orange-600 dark:text-orange-400" />
+                <div className="text-base font-semibold text-foreground">
+                  Tipos de Cambio
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Ver historial y actualizar
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Acciones Rápidas - Columna vertical */}
+          <div className="space-y-4" data-onboarding="quick-actions">
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-all" 
+              onClick={() => setViewMode("suppliers")}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Users className="w-5 h-5 text-primary mr-2" />
+                    <span className="text-sm text-muted-foreground">Proveedores</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-all" 
+              onClick={() => setViewMode("exchange-rates")}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <TrendingUp className="w-5 h-5 text-primary mr-2" />
+                    <span className="text-sm text-muted-foreground">Tipos de Cambio</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
         {/* Área de Drag & Drop para Cuentas por Pagar (Idrall) - Paso 1 */}
         <Card 
           data-onboarding="create-cxp"
@@ -247,10 +475,10 @@ export default function TreasuryPage() {
               }`} />
               <div>
                 <h3 className="text-xl font-bold text-foreground mb-1">
-                  {dragOverUpload ? "Suelta aquí tus archivos" : "Crear Cuentas por Pagar"}
+                  {dragOverUpload ? "Suelta aquí tus archivos" : "Subir Factura o Documento"}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Archivos Idrall (PDF, ZIP) para crear CxP
+                  Facturas (PDF, XML, JPG, PNG, JPEG) o Archivos Idrall (PDF, ZIP)
                 </p>
               </div>
             </div>
@@ -263,135 +491,17 @@ export default function TreasuryPage() {
           <PendingTodayCard onViewAll={() => setViewMode("vouchers")} />
         </div>
 
-        {/* Sección 2: Acciones Rápidas */}
-        <Card className="border-2 border-primary/20 shadow-lg" data-onboarding="quick-actions">
-          <CardHeader className="pb-4">
+        {/* Kanban de Cuentas por Pagar */}
+        <Card className="border-2 border-primary/20 shadow-lg">
+          <CardHeader>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Acciones Rápidas
+              Cuentas por Pagar
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <Button
-                onClick={() => setViewMode("upload")}
-                  size="lg"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <Upload className="h-8 w-8" />
-                Subir Comprobante
-                    </Button>
-                    <Button
-                onClick={() => setViewMode("vouchers")}
-                size="lg"
-                                variant="outline"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
-              >
-                <FileText className="h-8 w-8" />
-                Ver Comprobantes
-                    </Button>
-                <Button
-                onClick={() => setViewMode("payments")}
-                size="lg"
-                                variant="outline"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
-                  >
-                <DollarSign className="h-8 w-8" />
-                Ver Pagos
-                </Button>
-                <Button
-                onClick={() => setViewMode("exchange-rates")}
-                size="lg"
-                                variant="outline"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
-              >
-                <TrendingUp className="h-8 w-8" />
-                Tipo de Cambio
-              </Button>
-                <Button
-                onClick={() => setViewMode("suppliers")}
-                size="lg"
-                                variant="outline"
-                className="h-20 text-lg font-semibold flex flex-col items-center justify-center gap-2 border-2 hover:bg-primary/10 transition-all"
-              >
-                <Users className="h-8 w-8" />
-                Proveedores
-              </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-        {/* Sección 3: Resumen del Mes */}
-        <Card className="border-2 border-primary/20 shadow-lg">
-                <CardHeader>
-            <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="h-6 w-6" />
-              Resumen del Mes
-                      </CardTitle>
-                </CardHeader>
-                <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Pagos Semana Actual */}
-              <div className="relative text-center p-6 bg-blue-100 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-700 shadow-sm hover:shadow-md transition-all">
-                <div className="absolute top-3 left-3 bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
-                  1
-                </div>
-                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2 pt-6">
-                  {paymentsThisWeek.length}
-                </div>
-                <div className="text-base font-semibold text-foreground">
-                  Pagos Semana Actual
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {format(weekStart, "dd MMM", { locale: es })} - {format(weekEnd, "dd MMM", { locale: es })}
-                </div>
-                <div className="text-lg font-bold text-blue-700 dark:text-blue-500 mt-2">
-                  ${totalThisWeek.toLocaleString("es-MX", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </div>
-              </div>
-              
-              {/* Pagos Siguiente Semana */}
-              <div className="relative text-center p-6 bg-green-100 dark:bg-green-900/20 rounded-lg border-2 border-green-300 dark:border-green-700 shadow-sm hover:shadow-md transition-all">
-                <div className="absolute top-3 left-3 bg-green-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
-                  2
-                </div>
-                <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2 pt-6">
-                  {paymentsNextWeek.length}
-                </div>
-                <div className="text-base font-semibold text-foreground">
-                  Pagos Siguiente Semana
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {format(nextWeekStart, "dd MMM", { locale: es })} - {format(nextWeekEnd, "dd MMM", { locale: es })}
-                </div>
-                <div className="text-lg font-bold text-green-700 dark:text-green-500 mt-2">
-                  ${totalNextWeek.toLocaleString("es-MX", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </div>
-              </div>
-              
-              {/* REPs Pendientes */}
-              <div className="relative text-center p-6 bg-orange-100 dark:bg-orange-900/20 rounded-lg border-2 border-orange-300 dark:border-orange-700 shadow-sm hover:shadow-md transition-all">
-                <div className="absolute top-3 left-3 bg-orange-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
-                  3
-                </div>
-                <div className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2 pt-6">
-                  {pendingREPs.length}
-                </div>
-                <div className="text-base font-semibold text-foreground">
-                  REPs Pendientes
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  Del día de hoy
-                </div>
-              </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+          <CardContent>
+            <ScheduledPaymentsKanban />
+          </CardContent>
+        </Card>
                   </div>
 
       {/* Modal de formulario para actualizar tipo de cambio */}
@@ -416,21 +526,46 @@ export default function TreasuryPage() {
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const files = Array.from(e.dataTransfer.files);
                 if (files.length > 0) {
-                  setSelectedCompanyForUpload(2); // Grupo Orsega
-                  setFilesToUpload(files);
-                  setViewMode("idrall");
-                  setShowUploadModal(false);
+                  const file = files[0];
+                  // Verificar si es un archivo Idrall (ZIP) o factura (PDF, XML, JPG, PNG, JPEG)
+                  const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                  if (isIdrall) {
+                    // Si es ZIP, usar el flujo Idrall
+                    setSelectedCompanyForUpload(2);
+                    setFilesToUpload(files);
+                    setViewMode("idrall");
+                    setShowUploadModal(false);
+                  } else {
+                    // Si es factura u otro documento, subir directamente
+                    await handleDirectFileUpload(file, 2);
+                  }
                 }
               }}
               onClick={() => {
                 setSelectedCompanyForUpload(2); // Grupo Orsega
-                setViewMode("idrall");
                 setShowUploadModal(false);
+                // Abrir selector de archivo
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.pdf,.xml,.jpg,.jpeg,.png,.zip';
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) {
+                    const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                    if (isIdrall) {
+                      setFilesToUpload([file]);
+                      setViewMode("idrall");
+                    } else {
+                      await handleDirectFileUpload(file, 2);
+                    }
+                  }
+                };
+                input.click();
               }}
               className="relative border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all"
             >
@@ -467,21 +602,42 @@ export default function TreasuryPage() {
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const files = Array.from(e.dataTransfer.files);
                 if (files.length > 0) {
-                  setSelectedCompanyForUpload(1); // Dura International
-                  setFilesToUpload(files);
-                  setViewMode("idrall");
-                  setShowUploadModal(false);
+                  const file = files[0];
+                  const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                  if (isIdrall) {
+                    setSelectedCompanyForUpload(1);
+                    setFilesToUpload(files);
+                    setViewMode("idrall");
+                    setShowUploadModal(false);
+                  } else {
+                    await handleDirectFileUpload(file, 1);
+                  }
                 }
               }}
               onClick={() => {
                 setSelectedCompanyForUpload(1); // Dura International
-                setViewMode("idrall");
                 setShowUploadModal(false);
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.pdf,.xml,.jpg,.jpeg,.png,.zip';
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) {
+                    const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                    if (isIdrall) {
+                      setFilesToUpload([file]);
+                      setViewMode("idrall");
+                    } else {
+                      await handleDirectFileUpload(file, 1);
+                    }
+                  }
+                };
+                input.click();
               }}
               className="relative border-2 border-dashed border-green-300 dark:border-green-700 rounded-lg p-8 text-center cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950/20 transition-all"
             >

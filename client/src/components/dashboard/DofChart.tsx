@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Send } from 'lucide-react';
+import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Send, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -16,12 +16,21 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ExchangeRateHistory } from '@/components/treasury/ExchangeRateHistory';
 
 export function DofChart() {
+  console.log('[DofChart] �� COMPONENTE MONTADO - Iniciando DofChart');
+  
   const { user } = useAuth();
   const { toast } = useToast();
   const [fxPeriodDays, setFxPeriodDays] = useState(90);
-  const [viewMode, setViewMode] = useState<'cards' | 'chart'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'history'>('cards');
+  
+  // Forzar log inmediato
+  useEffect(() => {
+    console.log('[DofChart] ✅ useEffect ejecutado - Componente está vivo');
+  }, []);
+  
   const [selectedCard, setSelectedCard] = useState<any | null>(null);
   const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
   const [usdAmount, setUsdAmount] = useState('');
@@ -226,88 +235,83 @@ export function DofChart() {
   };
 
   const getTrendIcon = (change: number) => {
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
-    return <Minus className="h-4 w-4 text-gray-400" />;
+    if (change > 0) return <TrendingUp className="h-3.5 w-3.5 text-green-600" />;
+    if (change < 0) return <TrendingDown className="h-3.5 w-3.5 text-red-600" />;
+    return <Minus className="h-3.5 w-3.5 text-gray-400" />;
   };
 
   return (
     <Card className="border-0 shadow-lg">
-      <CardHeader>
-        <div className="space-y-4">
-          {/* Valor del tipo de cambio - Espacio limpio */}
-          <div className="pb-4 border-b">
-            {/* Números removidos según solicitud del usuario */}
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[#ea580c]" />
+              Comparativa de Tipos de Cambio
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">Compara diferentes fuentes de tipo de cambio</CardDescription>
           </div>
-
-          {/* Título de comparativa y selector */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[#ea580c]" />
-                Comparativa de Tipos de Cambio
-              </CardTitle>
-              <CardDescription>Compara diferentes fuentes de tipo de cambio</CardDescription>
-            </div>
-            <Select value={fxPeriodDays.toString()} onValueChange={(value) => setFxPeriodDays(parseInt(value))}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30">1 Mes</SelectItem>
-                <SelectItem value="60">2 Meses</SelectItem>
-                <SelectItem value="90">3 Meses</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={fxPeriodDays.toString()} onValueChange={(value) => setFxPeriodDays(parseInt(value))}>
+            <SelectTrigger className="w-[120px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30">1 Mes</SelectItem>
+              <SelectItem value="60">2 Meses</SelectItem>
+              <SelectItem value="90">3 Meses</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       {isLoading ? (
-        <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+        <CardContent className="pt-3">
+          <Skeleton className="h-[300px] w-full" />
         </CardContent>
       ) : (
-        <CardContent>
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'chart')}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="cards">Vista de Tarjetas</TabsTrigger>
-            <TabsTrigger value="chart">Vista de Gráfica</TabsTrigger>
+        <CardContent className="pt-3">
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'history')}>
+          <TabsList className="mb-3 h-9">
+            <TabsTrigger value="cards" className="text-sm">Vista de Tarjetas</TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-1.5 text-sm">
+              <Clock className="h-3.5 w-3.5" />
+              Histórico
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="cards" className="space-y-4">
+          <TabsContent value="cards" className="space-y-3">
             {/* Tarjetas con últimos valores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {allSources.map((data: any) => {
                 if (!data) return null;
                 const config = getSourceConfig(data.source);
                 
                 return (
-                  <Card key={data.source} className={`border-2 ${config.borderColor} ${config.bgColor}`}>
-                    <CardHeader className="pb-3">
-                      <div className="space-y-2">
+                  <Card key={data.source} className={`border ${config.borderColor} ${config.bgColor}`}>
+                    <CardHeader className="pb-2 pt-3">
+                      <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg font-bold" style={{ color: config.color }}>
+                          <CardTitle className="text-base font-bold" style={{ color: config.color }}>
                             {data.source}
                           </CardTitle>
-                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: config.color }}></div>
+                          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: config.color }}></div>
                         </div>
-                        <div className="text-base font-semibold text-gray-800 dark:text-gray-200">
-                          Última actualización: {format(new Date(data.date), "dd/MM/yyyy HH:mm:ss", { locale: es })}
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {format(new Date(data.date), "dd/MM/yyyy HH:mm", { locale: es })}
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 pt-2">
                       {/* Compra */}
                       <div className="space-y-1">
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">COMPRA (USD → MXN)</div>
+                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">COMPRA (USD → MXN)</div>
                         <div className="flex items-center justify-between">
-                          <span className="text-2xl font-bold" style={{ color: config.color }}>
+                          <span className="text-xl font-bold" style={{ color: config.color }}>
                             ${data.buy.toFixed(4)}
                           </span>
                           <div className="flex items-center gap-1">
                             {getTrendIcon(data.buyChange)}
-                            <span className={`text-sm font-semibold ${data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                              {data.buyChange !== 0 ? `${data.buyChange > 0 ? '+' : ''}${data.buyChange.toFixed(4)}` : 'Sin cambio'}
+                            <span className={`text-xs font-medium ${data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                              {data.buyChange !== 0 ? `${data.buyChange > 0 ? '+' : ''}${data.buyChange.toFixed(4)}` : '—'}
                             </span>
                           </div>
                         </div>
@@ -315,25 +319,25 @@ export function DofChart() {
 
                       {/* Venta */}
                       <div className="space-y-1">
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">VENTA (MXN → USD)</div>
+                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">VENTA (MXN → USD)</div>
                         <div className="flex items-center justify-between">
-                          <span className="text-2xl font-bold" style={{ color: config.color }}>
+                          <span className="text-xl font-bold" style={{ color: config.color }}>
                             ${data.sell.toFixed(4)}
                           </span>
                           <div className="flex items-center gap-1">
                             {getTrendIcon(data.sellChange)}
-                            <span className={`text-sm font-semibold ${data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                              {data.sellChange !== 0 ? `${data.sellChange > 0 ? '+' : ''}${data.sellChange.toFixed(4)}` : 'Sin cambio'}
+                            <span className={`text-xs font-medium ${data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                              {data.sellChange !== 0 ? `${data.sellChange > 0 ? '+' : ''}${data.sellChange.toFixed(4)}` : '—'}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       {/* Spread */}
-                      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Spread</span>
-                          <span className="text-lg font-bold text-gray-900 dark:text-white">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Spread</span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">
                             ${data.spread.toFixed(4)}
                           </span>
                         </div>
@@ -342,10 +346,11 @@ export function DofChart() {
                       {/* Botón de compra */}
                       <Button
                         onClick={() => handleOpenPurchaseDialog(data)}
-                        className="w-full font-semibold shadow-md hover:shadow-lg transition-all"
+                        size="sm"
+                        className="w-full text-sm font-medium shadow-sm hover:shadow transition-all mt-2"
                         style={{ backgroundColor: config.color, color: 'white' }}
                       >
-                        <DollarSign className="h-4 w-4 mr-2" />
+                        <DollarSign className="h-3.5 w-3.5 mr-1.5" />
                         Comprar a este precio
                       </Button>
                     </CardContent>
@@ -363,134 +368,8 @@ export function DofChart() {
             )}
           </TabsContent>
 
-          <TabsContent value="chart">
-            {combinedData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={combinedData} margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
-                  <defs>
-                    <linearGradient id="monexSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="santanderSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="dofSellGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" opacity={0.3} />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
-                    tickLine={false}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}
-                    tickLine={false}
-                    domain={['dataMin - 0.1', 'dataMax + 0.1']}
-                    tickFormatter={(value) => `$${value.toFixed(2)}`}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      padding: '8px 12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                      color: 'hsl(var(--foreground))'
-                    }}
-                    formatter={(value: any) => `$${value.toFixed(4)}`} 
-                  />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    iconType="line"
-                  />
-                  
-                  {monexData && (
-                    <>
-                      <Line 
-                        type="monotone" 
-                        dataKey="monexBuy" 
-                        stroke="hsl(var(--chart-1))" 
-                        strokeWidth={3} 
-                        name="MONEX Compra" 
-                        dot={false} 
-                        strokeDasharray="5 5"
-                        strokeOpacity={0.7}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="monexSell" 
-                        stroke="hsl(var(--chart-1))" 
-                        strokeWidth={3} 
-                        name="MONEX Venta" 
-                        dot={false}
-                      />
-                    </>
-                  )}
-                  
-                  {santanderData && (
-                    <>
-                      <Line 
-                        type="monotone" 
-                        dataKey="santanderBuy" 
-                        stroke="hsl(var(--chart-2))" 
-                        strokeWidth={3} 
-                        name="Santander Compra" 
-                        dot={false} 
-                        strokeDasharray="5 5"
-                        strokeOpacity={0.7}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="santanderSell" 
-                        stroke="hsl(var(--chart-2))" 
-                        strokeWidth={3} 
-                        name="Santander Venta" 
-                        dot={false}
-                      />
-                    </>
-                  )}
-                  
-                  {dofData && (
-                    <>
-                      <Line 
-                        type="monotone" 
-                        dataKey="dofBuy" 
-                        stroke="hsl(var(--chart-3))" 
-                        strokeWidth={3} 
-                        name="DOF Compra" 
-                        dot={false} 
-                        strokeDasharray="5 5"
-                        strokeOpacity={0.7}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="dofSell" 
-                        stroke="hsl(var(--chart-3))" 
-                        strokeWidth={3} 
-                        name="DOF Venta" 
-                        dot={false}
-                      />
-                    </>
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-center py-12 text-gray-400">
-                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">No hay datos para mostrar en la gráfica</p>
-              </div>
-            )}
+          <TabsContent value="history">
+            <ExchangeRateHistory />
           </TabsContent>
         </Tabs>
       </CardContent>

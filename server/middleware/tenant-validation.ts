@@ -98,10 +98,23 @@ export function validateTenantFromBody(fieldName: string = 'companyId') {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const user = req.user;
-      const resourceCompanyId = (req.body as any)[fieldName];
+      const rawCompanyId = (req.body as any)[fieldName];
+      
+      // Parsear companyId a número si viene como string
+      let resourceCompanyId: number | null | undefined;
+      if (rawCompanyId === null || rawCompanyId === undefined || rawCompanyId === '') {
+        resourceCompanyId = undefined;
+      } else if (typeof rawCompanyId === 'string') {
+        const parsed = parseInt(rawCompanyId, 10);
+        resourceCompanyId = isNaN(parsed) ? undefined : parsed;
+      } else if (typeof rawCompanyId === 'number') {
+        resourceCompanyId = rawCompanyId;
+      } else {
+        resourceCompanyId = undefined;
+      }
       
       // Logging para debug
-      console.log(`[TenantValidation] Validando acceso para usuario ${user?.id} (${user?.name}), role: ${user?.role}, userCompanyId: ${user?.companyId}, resourceCompanyId: ${resourceCompanyId}`);
+      console.log(`[TenantValidation] Validando acceso para usuario ${user?.id} (${user?.name}), role: ${user?.role}, userCompanyId: ${user?.companyId}, resourceCompanyId: ${resourceCompanyId} (raw: ${rawCompanyId}, type: ${typeof rawCompanyId})`);
       
       validateTenantAccess(req, resourceCompanyId);
       next();

@@ -141,42 +141,43 @@ export async function fetchDOFExchangeRate() {
 }
 
 export function initializeDOFScheduler() {
-  // Ejecutar inmediatamente al iniciar
+  // Ejecutar inmediatamente al iniciar para tener datos desde el primer momento
   console.log('🚀 [DOF Scheduler] Ejecutando actualización inicial...');
   fetchDOFExchangeRate().catch(err => {
     console.error('❌ [DOF Scheduler] Error en actualización inicial:', err);
   });
 
-  // Actualizar cada hora (más frecuente)
-  cron.schedule('0 * * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización horaria');
-    await fetchDOFExchangeRate();
-  }, {
-    timezone: 'America/Mexico_City'
-  });
-
-  // También mantener las horas específicas (9 AM, 12 PM, 5 PM)
+  // Programar actualizaciones automáticas a las horas específicas: 9:00 AM, 12:00 PM y 5:00 PM
+  // Horario de México (America/Mexico_City)
+  
+  // 9:00 AM - Mañana
   cron.schedule('0 9 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización de 9:00 AM');
+    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 9:00 AM (Hora de México)');
     await fetchDOFExchangeRate();
   }, {
     timezone: 'America/Mexico_City'
   });
 
+  // 12:00 PM - Mediodía
   cron.schedule('0 12 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización de 12:00 PM');
+    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 12:00 PM (Hora de México)');
     await fetchDOFExchangeRate();
   }, {
     timezone: 'America/Mexico_City'
   });
 
+  // 5:00 PM - Tarde
   cron.schedule('0 17 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización de 5:00 PM');
+    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 5:00 PM (Hora de México)');
     await fetchDOFExchangeRate();
   }, {
     timezone: 'America/Mexico_City'
   });
 
   console.log('📅 [DOF Scheduler] Programador de tipo de cambio DOF inicializado');
-  console.log('⏰ Actualizaciones programadas: Cada hora + 9:00 AM, 12:00 PM y 5:00 PM (Hora de México)');
+  console.log('⏰ Actualizaciones automáticas programadas:');
+  console.log('   - 9:00 AM (Hora de México)');
+  console.log('   - 12:00 PM (Hora de México)');
+  console.log('   - 5:00 PM (Hora de México)');
+  console.log('✅ El scheduler está activo y funcionando. Las actualizaciones se ejecutarán automáticamente.');
 }

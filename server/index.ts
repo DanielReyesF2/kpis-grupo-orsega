@@ -175,6 +175,31 @@ app.head("/healthz", (req, res) => {
 // Compression middleware - reduce tamaño de respuestas
 app.use(compression());
 
+// ⚠️ IMPORTANTE: Excluir multipart/form-data de body parsers
+// Multer necesita acceso directo al stream sin procesamiento previo
+app.use((req, res, next) => {
+  // Logging temprano para uploads (para debugging)
+  if (req.path.includes('/upload') || req.path.includes('/payment-vouchers')) {
+    console.log('🔍 [Early] Petición recibida:', req.method, req.path);
+    console.log('🔍 [Early] Content-Type:', req.headers['content-type']);
+    console.log('🔍 [Early] Content-Length:', req.headers['content-length']);
+    console.log('🔍 [Early] Authorization header presente:', !!req.headers['authorization']);
+    console.log('🔍 [Early] Authorization header:', req.headers['authorization'] ? `${req.headers['authorization'].substring(0, 30)}...` : 'null');
+    console.log('🔍 [Early] Todos los headers:', Object.keys(req.headers));
+  }
+  
+  // Saltar body parsers para multipart/form-data
+  // Multer manejará el parsing de estos requests
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    console.log('⏭️ [Early] Saltando body parsers para multipart/form-data');
+    return next();
+  }
+  
+  next();
+});
+
+// Aplicar body parsers solo para rutas no-multipart
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

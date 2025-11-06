@@ -112,7 +112,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       const response = await apiRequest('POST', '/api/sales/update-month', requestBody);
       return await response.json();
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables) => {
       setSubmissionStatus("success");
       setSubmissionMessage(response.message || "Ventas actualizadas correctamente");
       toast({
@@ -120,17 +120,68 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
         description: response.message || "Las ventas han sido registradas correctamente.",
       });
       
-      // Invalidar y refrescar consultas inmediatamente
-      // El KPI de ventas es el ID 1 para ambas empresas
-      const kpiId = 1;
+      const companyId = variables.companyId;
+      const kpiId = response.data?.kpiId; // Obtener el KPI ID de la respuesta
       
-      // Invalidar todas las consultas relacionadas
-      await queryClient.invalidateQueries({ queryKey: ["/api/kpi-values"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/kpis"] });
-      await queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
+      console.log('[SalesUpdate] Invalidando queries para companyId:', companyId, 'kpiId:', kpiId);
       
-      // Forzar refetch inmediato para actualizar el dashboard
-      await queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
+      // Invalidar TODAS las queries relacionadas con KPIs (más agresivo para asegurar actualización)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0];
+          return typeof queryKey === 'string' && (
+            queryKey.includes('/api/kpi') || 
+            queryKey.includes('/api/kpis')
+          );
+        }
+      });
+      
+      // Invalidar específicamente las queries de kpi-history con el KPI ID correcto
+      if (kpiId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/kpi-history/${kpiId}`],
+          exact: false
+        });
+      }
+      
+      // Invalidar también las queries de KPIs filtradas por companyId
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/kpis'],
+        exact: false,
+        predicate: (query) => {
+          if (Array.isArray(query.queryKey) && query.queryKey.length > 1) {
+            const params = query.queryKey[1];
+            if (params && typeof params === 'object' && 'companyId' in params) {
+              return params.companyId === companyId;
+            }
+          }
+          return false;
+        }
+      });
+      
+      // Pequeño delay para asegurar que el backend procesó la actualización
+      setTimeout(async () => {
+        // Forzar refetch inmediato de todas las queries relacionadas
+        await queryClient.refetchQueries({ 
+          predicate: (query) => {
+            const queryKey = query.queryKey[0];
+            return typeof queryKey === 'string' && (
+              queryKey.includes('/api/kpi-history') || 
+              queryKey.includes('/api/kpis')
+            );
+          }
+        });
+        
+        // Refetch específico del KPI history si tenemos el ID
+        if (kpiId) {
+          await queryClient.refetchQueries({ 
+            queryKey: [`/api/kpi-history/${kpiId}`],
+            exact: false
+          });
+        }
+        
+        console.log('[SalesUpdate] ✅ Queries refetched después de actualización');
+      }, 500);
       
       // Limpiar solo el campo de valor
       form.setValue("value", "");

@@ -1,6 +1,65 @@
+// ================================================
+// 📄 document-analyzer.ts
+// Analizador de documentos bancarios, facturas y REPs con OpenAI Vision
+// ================================================
+
 import OpenAI from "openai";
 
-// Interface for document analysis results
+// -----------------------------
+// Helper para importar pdf-parse
+// -----------------------------
+async function getPdfParse(): Promise<(buffer: Buffer) => Promise<any>> {
+  try {
+    const pdfParseModule: any = await import("pdf-parse");
+    
+    // Intentar diferentes formas de acceso a la función
+    if (typeof pdfParseModule === 'function') {
+      return pdfParseModule;
+    }
+    
+    if (pdfParseModule.default) {
+      if (typeof pdfParseModule.default === 'function') {
+        return pdfParseModule.default;
+      }
+      if (pdfParseModule.default.default && typeof pdfParseModule.default.default === 'function') {
+        return pdfParseModule.default.default;
+      }
+    }
+    
+    if (pdfParseModule.pdfParse && typeof pdfParseModule.pdfParse === 'function') {
+      return pdfParseModule.pdfParse;
+    }
+    
+    // Buscar cualquier propiedad que sea una función
+    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
+      for (const key in pdfParseModule) {
+        if (typeof pdfParseModule[key] === 'function') {
+          return pdfParseModule[key];
+        }
+      }
+    }
+    
+    // Si llegamos aquí, intentar usar el módulo directamente
+    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
+      // Algunas versiones exportan un objeto con métodos
+      const possibleKeys = ['default', 'pdfParse', 'parse', 'extract'];
+      for (const key of possibleKeys) {
+        if (pdfParseModule[key] && typeof pdfParseModule[key] === 'function') {
+          return pdfParseModule[key];
+        }
+      }
+    }
+    
+    throw new Error(`pdf-parse no se pudo importar. Tipo del módulo: ${typeof pdfParseModule}, keys: ${Object.keys(pdfParseModule || {}).join(', ')}`);
+  } catch (error: any) {
+    console.error('❌ [Document Analyzer] Error importando pdf-parse:', error);
+    throw new Error(`Error al importar pdf-parse: ${error.message}`);
+  }
+}
+
+// -----------------------------
+// Interfaces
+// -----------------------------
 export interface DocumentAnalysisResult {
   extractedAmount: number | null;
   extractedDate: Date | null;
@@ -11,193 +70,267 @@ export interface DocumentAnalysisResult {
   extractedDestinationAccount: string | null;
   extractedTrackingKey: string | null;
   extractedBeneficiaryName: string | null;
-  ocrConfidence: number; // 0-1
+  ocrConfidence: number;
   rawResponse?: string;
+  documentType?: "invoice" | "voucher" | "rep" | "unknown";
+  extractedSupplierName?: string | null;
+  extractedDueDate?: Date | null;
+  extractedInvoiceNumber?: string | null;
+  extractedTaxId?: string | null;
+  relatedInvoiceUUID?: string | null;
+  paymentMethod?: string | null;
 }
 
-/**
- * Analiza un documento bancario (comprobante de pago) usando OpenAI Vision
- * @param fileBuffer - Buffer del archivo a analizar
- * @param fileType - Tipo MIME del archivo (application/pdf, image/png, etc.)
- * @returns Datos extraídos del documento
- */
+// -----------------------------
+// Función principal
+// -----------------------------
 export async function analyzePaymentDocument(
   fileBuffer: Buffer,
   fileType: string
 ): Promise<DocumentAnalysisResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY no está configurado");
-  }
-
+  if (!apiKey) throw new Error("❌ OPENAI_API_KEY no está configurado");
   const openai = new OpenAI({ apiKey });
 
-  console.log(`🔍 [Document Analyzer] Analizando documento tipo: ${fileType}`);
+  console.log(`🔍 Analizando documento tipo: ${fileType}`);
 
   try {
-    let textContent = '';
-    let base64Data = '';
-    
-    // Manejar PDFs - extraer texto directamente
-    if (fileType.includes('pdf')) {
-      console.log(`📄 [Document Analyzer] Procesando PDF...`);
-      // Import dinámico para evitar bloquear el startup del servidor
-      const pdf = (await import("pdf-parse")).default;
-      const pdfData = await pdf(fileBuffer);
-      textContent = pdfData.text;
-      console.log(`📄 [Document Analyzer] Texto extraído del PDF (${textContent.length} caracteres)`);
+    let textContent = "";
+    let base64Data = "";
+
+    // --- 1️⃣ Extracción inicial según tipo ---
+    if (fileType.includes("pdf")) {
+      const pdfParse = await getPdfParse();
+      const pdfData = await pdfParse(fileBuffer);
+      textContent = pdfData.text.trim();
+      console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres)`);
     } else {
-      // Para imágenes, convertir a base64
-      base64Data = fileBuffer.toString('base64');
+      base64Data = fileBuffer.toString("base64");
     }
-    
-    // Determinar el tipo de imagen para OpenAI (solo para imágenes)
-    let imageType = 'image/jpeg';
-    if (fileType.includes('png')) imageType = 'image/png';
-    const dataUrl = base64Data ? `data:${imageType};base64,${base64Data}` : '';
 
-    // Prompt optimizado para extraer información de comprobantes bancarios
-    const prompt = `Analiza este comprobante de pago bancario (SPEI, transferencia, etc.) y extrae la siguiente información en formato JSON:
+    const imageType = fileType.includes("png") ? "image/png" : "image/jpeg";
+    const dataUrl = base64Data ? `data:${imageType};base64,${base64Data}` : "";
 
+    // --- 2️⃣ PROMPT DETALLADO ---
+    const documentTypePrompt = `
+You are an expert in Mexican financial and fiscal documents (facturas CFDI, recibos electrónicos de pago (REP), and bank payment vouchers).
+Your task: analyze the document (text or image) and output ONE SINGLE JSON object matching this schema.
+
+### SCHEMA
 {
-  "amount": número del monto total (solo número, sin símbolos de moneda),
-  "date": fecha del comprobante en formato ISO 8601 (YYYY-MM-DD),
-  "bank": nombre del banco emisor o receptor,
-  "reference": número de referencia, folio o número de operación,
-  "currency": código de moneda (MXN, USD, etc.),
-  "originAccount": número de cuenta origen o CLABE origen,
-  "destinationAccount": número de cuenta destino o CLABE destino,
-  "trackingKey": clave de rastreo SPEI (CLABE interbancaria o clave de rastreo),
-  "beneficiaryName": nombre completo del beneficiario o receptor del pago
+  "documentType": "invoice" | "voucher" | "rep" | "unknown",
+  "amount": number | null,
+  "currency": "MXN" | "USD" | null,
+  "date": "YYYY-MM-DD" | null,
+  "bank": string | null,
+  "reference": string | null,
+  "originAccount": string | null,
+  "destinationAccount": string | null,
+  "trackingKey": string | null,
+  "beneficiaryName": string | null,
+  "supplierName": string | null,
+  "dueDate": "YYYY-MM-DD" | null,
+  "invoiceNumber": string | null,
+  "taxId": string | null,
+  "relatedInvoiceUUID": string | null,
+  "paymentMethod": string | null
 }
 
-Si no puedes encontrar algún dato, usa null para ese campo.
-Responde SOLO con el JSON, sin texto adicional.`;
+### CLASSIFICATION RULES
+- Use "invoice" if you detect "Factura", "CFDI", "RFC", "Folio Fiscal", "Proveedor".
+- Use "voucher" if you detect "SPEI", "Transferencia", "CLABE", "Banco", "Comprobante de pago".
+- Use "rep" if you detect "Complemento de Pago", "CFDI de Pago", "UUID Relacionado", "Folio Fiscal Relacionado".
+- Use "unknown" if type cannot be determined confidently.
 
-    // Llamar a OpenAI - usar Vision API para imágenes, texto para PDFs
+### EXTRACTION RULES
+- Return numeric values only for "amount" (no currency symbols or commas).
+- Return ISO 8601 dates (YYYY-MM-DD).
+- If a field is missing, return null.
+- DO NOT include extra fields or comments.
+- Output MUST be pure JSON — no text before or after it.
+
+### EXAMPLES
+Input:
+"Transferencia SPEI 12/05/2025 Banco Santander CLABE 012345678901234567 Monto $15,000.00 MXN Beneficiario Juan Pérez"
+Output:
+{
+  "documentType": "voucher",
+  "amount": 15000,
+  "currency": "MXN",
+  "date": "2025-05-12",
+  "bank": "Banco Santander",
+  "reference": null,
+  "originAccount": null,
+  "destinationAccount": "012345678901234567",
+  "trackingKey": null,
+  "beneficiaryName": "Juan Pérez",
+  "supplierName": null,
+  "dueDate": null,
+  "invoiceNumber": null,
+  "taxId": null,
+  "relatedInvoiceUUID": null,
+  "paymentMethod": null
+}
+
+Input:
+"CFDI Factura 1234 Proveedor XYZ RFC XYZ123456789 Fecha 2025-04-30 Monto MXN 12,500.00 Fecha Vencimiento 2025-05-30"
+Output:
+{
+  "documentType": "invoice",
+  "amount": 12500,
+  "currency": "MXN",
+  "date": "2025-04-30",
+  "bank": null,
+  "reference": null,
+  "originAccount": null,
+  "destinationAccount": null,
+  "trackingKey": null,
+  "beneficiaryName": null,
+  "supplierName": "Proveedor XYZ",
+  "dueDate": "2025-05-30",
+  "invoiceNumber": "1234",
+  "taxId": "XYZ123456789",
+  "relatedInvoiceUUID": null,
+  "paymentMethod": null
+}
+
+Input:
+"CFDI Complemento de Pago UUID Relacionado 3e2c-xxxx-xxxx-abc1 Fecha de Pago 2025-03-10 Monto Pagado $4,500.00 Moneda MXN RFC ABC123456789"
+Output:
+{
+  "documentType": "rep",
+  "amount": 4500,
+  "currency": "MXN",
+  "date": "2025-03-10",
+  "bank": null,
+  "reference": null,
+  "originAccount": null,
+  "destinationAccount": null,
+  "trackingKey": null,
+  "beneficiaryName": null,
+  "supplierName": null,
+  "dueDate": null,
+  "invoiceNumber": null,
+  "taxId": "ABC123456789",
+  "relatedInvoiceUUID": "3e2c-xxxx-xxxx-abc1",
+  "paymentMethod": null
+}
+
+Now analyze the following document and respond ONLY with valid JSON.
+`;
+
+    // --- 3️⃣ LLAMADA A OPENAI ---
     let response;
-    if (fileType.includes('pdf')) {
-      // Para PDFs, usar el texto extraído directamente
+    if (fileType.includes("pdf")) {
       response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "user",
-            content: `${prompt}\n\nContenido del documento:\n${textContent}`,
+            content: `${documentTypePrompt}\n\nDocument content:\n${textContent.slice(0, 15000)}`,
           },
         ],
-        max_tokens: 500,
         temperature: 0.1,
+        max_tokens: 900,
       });
     } else {
-      // Para imágenes, usar Vision API
       response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "user",
             content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: dataUrl,
-                },
-              },
+              { type: "text", text: documentTypePrompt },
+              { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
         ],
-        max_tokens: 500,
         temperature: 0.1,
+        max_tokens: 900,
       });
     }
 
-    const rawResponse = response.choices[0]?.message?.content || "";
-    console.log(`📄 [Document Analyzer] Respuesta de OpenAI:`, rawResponse);
+    const rawResponse = response.choices[0]?.message?.content?.trim() || "";
+    console.log(`🧠 Respuesta OpenAI (fragmento): ${rawResponse.slice(0, 400)}...`);
 
-    // Parsear la respuesta JSON
+    // --- 4️⃣ PARSING ROBUSTO ---
     let parsedData: any;
     try {
-      // Intentar extraer JSON del texto (por si hay texto adicional)
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : rawResponse;
-      parsedData = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error(`❌ [Document Analyzer] Error parseando JSON:`, parseError);
-      // Si no se puede parsear JSON, intentar extraer información básica del texto
-      const amountMatch = rawResponse.match(/\$?[\d,]+\.?\d*/);
-      const bankMatch = rawResponse.match(/(banco|bank|bbva|santander|hsbc|banorte|banamex)/i);
-      const referenceMatch = rawResponse.match(/(referencia|ref|folio|no\.?\s*\d+)/i);
-      
-      return {
-        extractedAmount: amountMatch ? parseFloat(amountMatch[0].replace(/[$,]/g, '')) : null,
-        extractedDate: null,
-        extractedBank: bankMatch ? bankMatch[0] : null,
-        extractedReference: referenceMatch ? referenceMatch[0] : null,
-        extractedCurrency: 'MXN',
-        extractedOriginAccount: null,
-        extractedDestinationAccount: null,
-        extractedTrackingKey: null,
-        extractedBeneficiaryName: null,
-        ocrConfidence: 0.3, // Baja confianza para datos extraídos manualmente
-        rawResponse,
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/)?.[0] ?? rawResponse.replace(/```json|```/g, "");
+      parsedData = JSON.parse(jsonMatch);
+    } catch (error) {
+      console.warn("⚠️ Error parseando JSON, aplicando detección manual...");
+      const txt = textContent.toLowerCase();
+      const isInvoice = /factura|cfdi|rfc|folio fiscal|proveedor/.test(txt);
+      const isVoucher = /spei|clabe|banco|transferencia/.test(txt);
+      const isRep = /complemento de pago|cfdi de pago|uuid relacionado|folio relacionado/.test(txt);
+      parsedData = {
+        documentType: isRep ? "rep" : isInvoice ? "invoice" : isVoucher ? "voucher" : "unknown",
       };
     }
 
-    // Procesar y validar los datos extraídos
+    const docType = parsedData.documentType || "unknown";
+    console.log(`📋 Tipo detectado: ${docType}`);
+
+    // --- 5️⃣ RESULTADO FINAL ---
     const result: DocumentAnalysisResult = {
       extractedAmount: parsedData.amount ? parseFloat(parsedData.amount) : null,
       extractedDate: parsedData.date ? new Date(parsedData.date) : null,
       extractedBank: parsedData.bank || null,
       extractedReference: parsedData.reference || null,
       extractedCurrency: parsedData.currency || null,
-      extractedOriginAccount: parsedData.originAccount || parsedData.origin_account || null,
-      extractedDestinationAccount: parsedData.destinationAccount || parsedData.destination_account || null,
-      extractedTrackingKey: parsedData.trackingKey || parsedData.tracking_key || parsedData.clabe || null,
-      extractedBeneficiaryName: parsedData.beneficiaryName || parsedData.beneficiary_name || parsedData.beneficiario || null,
-      ocrConfidence: calculateConfidence(parsedData),
+      extractedOriginAccount: parsedData.originAccount || null,
+      extractedDestinationAccount: parsedData.destinationAccount || null,
+      extractedTrackingKey: parsedData.trackingKey || null,
+      extractedBeneficiaryName: parsedData.beneficiaryName || null,
+      ocrConfidence:
+        docType === "invoice"
+          ? calculateInvoiceConfidence(parsedData)
+          : calculateConfidence(parsedData),
       rawResponse,
+      documentType: docType,
+      extractedSupplierName: parsedData.supplierName || null,
+      extractedDueDate: parsedData.dueDate ? new Date(parsedData.dueDate) : null,
+      extractedInvoiceNumber: parsedData.invoiceNumber || null,
+      extractedTaxId: parsedData.taxId || null,
+      relatedInvoiceUUID: parsedData.relatedInvoiceUUID || null,
+      paymentMethod: parsedData.paymentMethod || null,
     };
 
-    console.log(`✅ [Document Analyzer] Análisis completado:`, {
-      amount: result.extractedAmount,
-      bank: result.extractedBank,
-      confidence: result.ocrConfidence,
-    });
+    console.log(
+      `✅ Resultado final (${docType}): monto=${result.extractedAmount} confianza=${(
+        result.ocrConfidence * 100
+      ).toFixed(1)}%`
+    );
 
     return result;
   } catch (error) {
-    console.error(`❌ [Document Analyzer] Error en análisis:`, error);
+    console.error("❌ Error durante el análisis:", error);
     throw new Error(`Error al analizar documento: ${error}`);
   }
 }
 
-/**
- * Calcula un score de confianza basado en cuántos campos fueron extraídos exitosamente
- */
+// -----------------------------
+// Funciones auxiliares
+// -----------------------------
+function calculateInvoiceConfidence(data: any): number {
+  const critical = ["supplierName", "amount", "invoiceNumber", "taxId"];
+  const optional = ["currency", "invoiceDate", "dueDate"];
+  const cScore = critical.filter(f => !!data[f]).length / critical.length;
+  const oScore = optional.filter(f => !!data[f]).length / optional.length;
+  return +(0.8 * cScore + 0.2 * oScore).toFixed(2);
+}
+
 function calculateConfidence(data: any): number {
-  let fieldsFound = 0;
-  // Campos críticos (más importantes)
-  const criticalFields = ['amount', 'date', 'bank', 'reference', 'currency'];
-  // Campos adicionales (menos críticos pero valiosos)
-  const additionalFields = ['originAccount', 'origin_account', 'destinationAccount', 'destination_account', 
-                            'trackingKey', 'tracking_key', 'clabe', 'beneficiaryName', 'beneficiary_name', 'beneficiario'];
-  
-  // Contar campos críticos
-  criticalFields.forEach(field => {
-    if (data[field] !== null && data[field] !== undefined) fieldsFound++;
-  });
-  
-  // Contar campos adicionales (con menor peso)
-  let additionalFound = 0;
-  additionalFields.forEach(field => {
-    if (data[field] !== null && data[field] !== undefined) additionalFound++;
-  });
-  
-  // Peso: campos críticos = 80%, adicionales = 20%
-  const criticalWeight = fieldsFound / criticalFields.length * 0.8;
-  const additionalWeight = Math.min(additionalFound / 3, 1) * 0.2; // Máximo 3 campos adicionales
-  
-  return Math.min(criticalWeight + additionalWeight, 1);
+  const critical = ["amount", "date", "bank", "reference", "currency"];
+  const secondary = [
+    "originAccount",
+    "destinationAccount",
+    "trackingKey",
+    "beneficiaryName",
+    "relatedInvoiceUUID",
+  ];
+  const cScore = critical.filter(f => !!data[f]).length / critical.length;
+  const sScore = secondary.filter(f => !!data[f]).length / secondary.length;
+  return +(0.8 * cScore + 0.2 * sScore).toFixed(2);
 }

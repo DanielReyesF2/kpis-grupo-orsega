@@ -117,22 +117,36 @@ export const getQueryFn: <T>(options: {
       if (baseUrl.includes('?')) {
         // La URL ya tiene parámetros, usar directamente
         requestUrl = baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`;
-        // Si hay parámetros adicionales en queryKey[1], agregarlos
-        if (Object.keys(params).length > 0) {
-          const url = new URL(requestUrl, window.location.origin);
-          Object.entries(params).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-              url.searchParams.append(key, String(value));
-            }
-          });
-          requestUrl = url.pathname + url.search;
-        }
+          // Si hay parámetros adicionales en queryKey[1], agregarlos
+          if (Object.keys(params).length > 0) {
+            const url = new URL(requestUrl, window.location.origin);
+            Object.entries(params).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                // Manejar arrays (ej: sources[]=['monex', 'santander'])
+                if (Array.isArray(value)) {
+                  value.forEach(item => {
+                    url.searchParams.append(key, String(item));
+                  });
+                } else {
+                  url.searchParams.append(key, String(value));
+                }
+              }
+            });
+            requestUrl = url.pathname + url.search;
+          }
       } else {
         // Construir URL con query parameters desde cero
         const url = new URL(baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`, window.location.origin);
         Object.entries(params).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
-            url.searchParams.append(key, String(value));
+            // Manejar arrays (ej: sources[]=['monex', 'santander'])
+            if (Array.isArray(value)) {
+              value.forEach(item => {
+                url.searchParams.append(key, String(item));
+              });
+            } else {
+              url.searchParams.append(key, String(value));
+            }
           }
         });
         requestUrl = url.pathname + url.search;

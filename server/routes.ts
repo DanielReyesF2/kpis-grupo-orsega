@@ -1409,23 +1409,28 @@ export function registerRoutes(app: express.Application) {
         });
       }
 
-      // El KPI de ventas es el ID 1 para ambas empresas
-      const kpiId = 1;
-      const periodString = period || `${month} ${numericYear}`;
+      // Buscar el KPI de ventas por nombre en lugar de usar ID hardcodeado
+      const allKpis = await storage.getKpis(numericCompanyId);
+      const salesKpi = allKpis.find((kpi: any) => {
+        const name = (kpi.name || kpi.kpiName || '').toLowerCase();
+        return (name.includes('volumen') && name.includes('ventas')) || 
+               name.includes('ventas') || 
+               name.includes('sales');
+      });
 
-      console.log(`[POST /api/sales/update-month] Verificando KPI ${kpiId} para companyId ${numericCompanyId}`);
-
-      // Verificar que el KPI exista antes de intentar crear el valor
-      const kpi = await storage.getKpi(kpiId, numericCompanyId);
-      if (!kpi) {
-        console.error(`[POST /api/sales/update-month] ❌ KPI ${kpiId} no encontrado para companyId ${numericCompanyId}`);
+      if (!salesKpi) {
+        console.error(`[POST /api/sales/update-month] ❌ KPI de ventas no encontrado para companyId ${numericCompanyId}`);
         return res.status(404).json({
           success: false,
           message: `KPI de ventas no encontrado. Por favor, verifica que el KPI de ventas esté configurado para ${numericCompanyId === 1 ? 'Dura International' : 'Grupo Orsega'}.`
         });
       }
 
-      console.log(`[POST /api/sales/update-month] KPI encontrado: "${kpi.name}". Actualizando para período: ${periodString}`);
+      const kpiId = salesKpi.id;
+      const periodString = period || `${month} ${numericYear}`;
+
+      console.log(`[POST /api/sales/update-month] KPI encontrado: ID ${kpiId}, nombre "${salesKpi.name}" para companyId ${numericCompanyId}`);
+      console.log(`[POST /api/sales/update-month] Actualizando para período: ${periodString}`);
 
       const createdValue = await storage.createKpiValue({
         companyId: numericCompanyId,
@@ -1452,6 +1457,8 @@ export function registerRoutes(app: express.Application) {
           monthlyTarget,
           compliance,
           record: createdValue,
+          kpiId: kpiId, // Incluir el KPI ID en la respuesta para invalidación correcta
+          companyId: numericCompanyId,
         }
       });
 
@@ -3279,6 +3286,118 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // GET /api/scheduled-payments/:id/documents - Obtener repertorio de documentos
+  app.get("/api/scheduled-payments/:id/documents", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const scheduledPaymentId = parseInt(req.params.id);
+
+      // Obtener scheduled payment
+      const { db } = await import('./db');
+      const { scheduledPayments, paymentVouchers } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const [payment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
+      
+      if (!payment) {
+        return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
+      }
+
+      const documents: any[] = [];
+
+      // 1. Factura (hydralFileUrl)
+      if (payment.hydralFileUrl && payment.hydralFileName) {
+        documents.push({
+          type: 'invoice',
+          name: payment.hydralFileName,
+          url: payment.hydralFileUrl,
+          uploadedAt: payment.createdAt,
+        });
+      }
+
+      // 2. Comprobante (voucherId -> payment_voucher)
+      if (payment.voucherId) {
+        const [voucher] = await db.select().from(paymentVouchers).where(eq(paymentVouchers.id, payment.voucherId));
+        if (voucher) {
+          documents.push({
+            type: 'voucher',
+            name: voucher.voucherFileName,
+            url: voucher.voucherFileUrl,
+            uploadedAt: voucher.createdAt,
+            extractedAmount: voucher.extractedAmount,
+            extractedDate: voucher.extractedDate,
+            extractedBank: voucher.extractedBank,
+            extractedReference: voucher.extractedReference,
+          });
+
+          // 3. REP (complementFileUrl del voucher)
+          if (voucher.complementFileUrl && voucher.complementFileName) {
+            documents.push({
+              type: 'rep',
+              name: voucher.complementFileName,
+              url: voucher.complementFileUrl,
+              uploadedAt: voucher.updatedAt,
+            });
+          }
+        }
+      }
+
+      res.json({
+        scheduledPaymentId,
+        documents,
+      });
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      res.status(500).json({ error: 'Error al obtener documentos' });
+    }
+  });
+
+  // PUT /api/scheduled-payments/:id/status - Actualizar estado (para drag & drop)
+  app.put("/api/scheduled-payments/:id/status", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const scheduledPaymentId = parseInt(req.params.id);
+
+      const statusSchema = z.object({
+        status: z.enum([
+          'idrall_imported',
+          'pending_approval',
+          'approved',
+          'payment_scheduled',
+          'payment_pending',
+          'payment_completed',
+          'voucher_uploaded',
+          'closed'
+        ]),
+      });
+
+      const validatedData = statusSchema.parse(req.body);
+
+      // Actualizar usando Drizzle
+      const { db } = await import('./db');
+      const { scheduledPayments } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+
+      const [updated] = await db.update(scheduledPayments)
+        .set({
+          status: validatedData.status,
+          updatedAt: new Date(),
+        })
+        .where(eq(scheduledPayments.id, scheduledPaymentId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating scheduled payment status:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+      }
+      res.status(500).json({ error: 'Error al actualizar estado' });
+    }
+  });
+
   // ============================================
   // IDRALL - Procesamiento de archivos Idrall
   // ============================================
@@ -3441,16 +3560,41 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/treasury/exchange-rates/daily - Historial diario (últimas 24 horas)
+  // GET /api/treasury/exchange-rates/daily - Historial diario (últimas 24 horas por defecto)
+  // Compatible hacia atrás: sin parámetros nuevos = comportamiento actual (últimas 24 horas)
   app.get("/api/treasury/exchange-rates/daily", jwtAuthMiddleware, async (req, res) => {
     try {
       const rateType = (req.query.rateType as string) || 'buy'; // 'buy' o 'sell'
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      const daysParam = req.query.days ? parseInt(req.query.days as string) : undefined;
+      const days = daysParam && daysParam > 0 && daysParam <= 7 ? daysParam : 1; // Default: 1 día (24 horas), máximo: 7 días
+      const sourcesParam = req.query.sources;
 
-      logger.debug(`[Daily Exchange Rates] Request - rateType: ${rateType}`, { rateType, since: twentyFourHoursAgo.toISOString() });
+      // Calcular fecha de inicio según días
+      const startDate = new Date();
+      startDate.setHours(startDate.getHours() - (days * 24));
+      startDate.setMinutes(0, 0, 0);
 
-      const result = await sql(`
+      // Procesar fuentes filtradas (opcional)
+      let sources: string[] | null = null;
+      if (sourcesParam) {
+        sources = Array.isArray(sourcesParam) 
+          ? (sourcesParam as string[]).map(s => s.toLowerCase().trim())
+          : [sourcesParam as string].map(s => s.toLowerCase().trim());
+        
+        // Validar fuentes permitidas
+        const validSources = ['monex', 'santander', 'dof'];
+        const invalidSources = sources.filter(s => !validSources.includes(s));
+        if (invalidSources.length > 0) {
+          return res.status(400).json({ 
+            error: `Fuentes inválidas: ${invalidSources.join(', ')}. Fuentes válidas: ${validSources.join(', ')}` 
+          });
+        }
+      }
+
+      logger.debug(`[Daily Exchange Rates] Request - rateType: ${rateType}, days: ${days}`, { rateType, days, sources, since: startDate.toISOString() });
+
+      // Construir query SQL con filtro de fuentes (opcional)
+      let query = `
         SELECT 
           er.buy_rate,
           er.sell_rate,
@@ -3458,8 +3602,18 @@ export function registerRoutes(app: express.Application) {
           er.date::text as date
         FROM exchange_rates er
         WHERE er.date >= $1
-        ORDER BY er.date ASC
-      `, [twentyFourHoursAgo.toISOString()]);
+      `;
+      
+      const params: any[] = [startDate.toISOString()];
+      
+      if (sources && sources.length > 0) {
+        query += ` AND LOWER(TRIM(er.source)) IN (${sources.map((_, i) => `$${i + 2}`).join(', ')})`;
+        params.push(...sources);
+      }
+      
+      query += ` ORDER BY er.date ASC`;
+
+      const result = await sql(query, params) as any[];
 
       logger.debug(`[Daily Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
 
@@ -3535,20 +3689,42 @@ export function registerRoutes(app: express.Application) {
   });
 
   // GET /api/treasury/exchange-rates/monthly - Promedios mensuales por día
+  // Compatible hacia atrás: sin parámetros nuevos = comportamiento actual (1 mes)
   app.get("/api/treasury/exchange-rates/monthly", jwtAuthMiddleware, async (req, res) => {
     try {
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
       const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
       const rateType = (req.query.rateType as string) || 'buy'; // 'buy' o 'sell'
+      const monthsParam = req.query.months ? parseInt(req.query.months as string) : undefined;
+      const months = monthsParam && monthsParam > 0 && monthsParam <= 12 ? monthsParam : 1; // Default: 1 mes, máximo: 12 meses
+      const sourcesParam = req.query.sources;
 
-      // Calcular inicio y fin del mes
+      // Calcular inicio y fin según meses
       const startDate = new Date(year, month - 1, 1);
       startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
+      const endDate = new Date(year, month - 1 + months, 0, 23, 59, 59);
 
-      logger.debug(`[Monthly Exchange Rates] Request`, { year, month, rateType, startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+      // Procesar fuentes filtradas (opcional)
+      let sources: string[] | null = null;
+      if (sourcesParam) {
+        sources = Array.isArray(sourcesParam) 
+          ? (sourcesParam as string[]).map(s => s.toLowerCase().trim())
+          : [sourcesParam as string].map(s => s.toLowerCase().trim());
+        
+        // Validar fuentes permitidas
+        const validSources = ['monex', 'santander', 'dof'];
+        const invalidSources = sources.filter(s => !validSources.includes(s));
+        if (invalidSources.length > 0) {
+          return res.status(400).json({ 
+            error: `Fuentes inválidas: ${invalidSources.join(', ')}. Fuentes válidas: ${validSources.join(', ')}` 
+          });
+        }
+      }
 
-      const result = await sql(`
+      logger.debug(`[Monthly Exchange Rates] Request`, { year, month, months, rateType, sources, startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+
+      // Construir query SQL con filtro de fuentes (opcional)
+      let query = `
         SELECT 
           er.buy_rate,
           er.sell_rate,
@@ -3556,8 +3732,18 @@ export function registerRoutes(app: express.Application) {
           er.date::text as date
         FROM exchange_rates er
         WHERE er.date >= $1 AND er.date <= $2
-        ORDER BY er.date ASC
-      `, [startDate.toISOString(), endDate.toISOString()]);
+      `;
+      
+      const params: any[] = [startDate.toISOString(), endDate.toISOString()];
+      
+      if (sources && sources.length > 0) {
+        query += ` AND LOWER(TRIM(er.source)) IN (${sources.map((_, i) => `$${i + 3}`).join(', ')})`;
+        params.push(...sources);
+      }
+      
+      query += ` ORDER BY er.date ASC`;
+
+      const result = await sql(query, params) as any[];
 
       logger.debug(`[Monthly Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
 
@@ -3625,6 +3811,425 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       logger.error('❌ [Monthly Exchange Rates] Error', error);
       res.status(500).json({ error: 'Failed to fetch monthly exchange rates' });
+    }
+  });
+
+  // GET /api/treasury/exchange-rates/range - Historial para rango de fechas personalizado
+  app.get("/api/treasury/exchange-rates/range", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const startDateStr = req.query.startDate as string;
+      const endDateStr = req.query.endDate as string;
+      const rateType = (req.query.rateType as string) || 'buy';
+      const sourcesParam = req.query.sources;
+      const interval = (req.query.interval as string) || 'day'; // 'hour' | 'day' | 'month'
+
+      // Validar fechas requeridas
+      if (!startDateStr || !endDateStr) {
+        return res.status(400).json({ 
+          error: 'startDate y endDate son requeridos',
+          example: '/api/treasury/exchange-rates/range?startDate=2025-01-01&endDate=2025-01-07'
+        });
+      }
+
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+
+      // Validar fechas válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ error: 'Fechas inválidas. Use formato ISO 8601 (YYYY-MM-DD)' });
+      }
+
+      // Validar rango máximo (1 año)
+      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 365) {
+        return res.status(400).json({ error: 'El rango máximo es de 365 días (1 año)' });
+      }
+
+      if (endDate < startDate) {
+        return res.status(400).json({ error: 'endDate debe ser posterior a startDate' });
+      }
+
+      // Procesar fuentes filtradas
+      let sources: string[] | null = null;
+      if (sourcesParam) {
+        sources = Array.isArray(sourcesParam) 
+          ? (sourcesParam as string[]).map(s => s.toLowerCase().trim())
+          : [sourcesParam as string].map(s => s.toLowerCase().trim());
+        
+        // Validar fuentes permitidas
+        const validSources = ['monex', 'santander', 'dof'];
+        const invalidSources = sources.filter(s => !validSources.includes(s));
+        if (invalidSources.length > 0) {
+          return res.status(400).json({ 
+            error: `Fuentes inválidas: ${invalidSources.join(', ')}. Fuentes válidas: ${validSources.join(', ')}` 
+          });
+        }
+      }
+
+      logger.debug(`[Range Exchange Rates] Request`, { 
+        startDate: startDateStr, 
+        endDate: endDateStr, 
+        rateType, 
+        sources, 
+        interval,
+        daysDiff 
+      });
+
+      // Ajustar fechas para incluir todo el día
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+
+      // Construir query SQL con filtro de fuentes
+      let query = `
+        SELECT 
+          er.buy_rate,
+          er.sell_rate,
+          er.source,
+          er.date::text as date
+        FROM exchange_rates er
+        WHERE er.date >= $1 AND er.date <= $2
+      `;
+      
+      const params: any[] = [startDate.toISOString(), endDate.toISOString()];
+      
+      if (sources && sources.length > 0) {
+        query += ` AND LOWER(TRIM(er.source)) IN (${sources.map((_, i) => `$${i + 3}`).join(', ')})`;
+        params.push(...sources);
+      }
+      
+      query += ` ORDER BY er.date ASC`;
+
+      const result = await sql(query, params) as any[];
+
+      logger.debug(`[Range Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
+
+      // Agrupar según intervalo
+      let formattedResult: any[] = [];
+
+      if (interval === 'hour') {
+        // Agrupar por hora
+        const hourMap = new Map<string, {
+          date: string;
+          hour: string;
+          timestamp: string;
+          santander?: number;
+          monex?: number;
+          dof?: number;
+        }>();
+
+        result.forEach((row: any) => {
+          const date = new Date(row.date);
+          const hourKey = `${date.toISOString().split('T')[0]}T${String(date.getHours()).padStart(2, '0')}:00:00Z`;
+          
+          if (!hourMap.has(hourKey)) {
+            hourMap.set(hourKey, {
+              date: date.toISOString().split('T')[0],
+              hour: `${String(date.getHours()).padStart(2, '0')}:00`,
+              timestamp: hourKey,
+              santander: undefined,
+              monex: undefined,
+              dof: undefined,
+            });
+          }
+
+          const hourData = hourMap.get(hourKey)!;
+          const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+          const source = (row.source || '').toLowerCase().trim();
+
+          if (source === 'santander') hourData.santander = rateValue;
+          else if (source === 'monex') hourData.monex = rateValue;
+          else if (source === 'dof') hourData.dof = rateValue;
+        });
+
+        formattedResult = Array.from(hourMap.values())
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      } else if (interval === 'day') {
+        // Agrupar por día (promedio)
+        const dayMap = new Map<string, {
+          date: string;
+          santander?: { sum: number; count: number };
+          monex?: { sum: number; count: number };
+          dof?: { sum: number; count: number };
+        }>();
+
+        result.forEach((row: any) => {
+          const date = new Date(row.date);
+          const dateKey = date.toISOString().split('T')[0];
+          
+          if (!dayMap.has(dateKey)) {
+            dayMap.set(dateKey, {
+              date: dateKey,
+              santander: undefined,
+              monex: undefined,
+              dof: undefined,
+            });
+          }
+
+          const dayData = dayMap.get(dateKey)!;
+          const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+          const source = (row.source || '').toLowerCase().trim();
+
+          if (source === 'santander') {
+            if (!dayData.santander) dayData.santander = { sum: 0, count: 0 };
+            dayData.santander.sum += rateValue;
+            dayData.santander.count += 1;
+          } else if (source === 'monex') {
+            if (!dayData.monex) dayData.monex = { sum: 0, count: 0 };
+            dayData.monex.sum += rateValue;
+            dayData.monex.count += 1;
+          } else if (source === 'dof') {
+            if (!dayData.dof) dayData.dof = { sum: 0, count: 0 };
+            dayData.dof.sum += rateValue;
+            dayData.dof.count += 1;
+          }
+        });
+
+        formattedResult = Array.from(dayMap.values())
+          .map(dayData => ({
+            date: dayData.date,
+            santander: dayData.santander ? dayData.santander.sum / dayData.santander.count : undefined,
+            monex: dayData.monex ? dayData.monex.sum / dayData.monex.count : undefined,
+            dof: dayData.dof ? dayData.dof.sum / dayData.dof.count : undefined,
+          }))
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      } else if (interval === 'month') {
+        // Agrupar por mes (promedio)
+        const monthMap = new Map<string, {
+          year: number;
+          month: number;
+          date: string;
+          santander?: { sum: number; count: number };
+          monex?: { sum: number; count: number };
+          dof?: { sum: number; count: number };
+        }>();
+
+        result.forEach((row: any) => {
+          const date = new Date(row.date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!monthMap.has(monthKey)) {
+            monthMap.set(monthKey, {
+              year: date.getFullYear(),
+              month: date.getMonth() + 1,
+              date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`,
+              santander: undefined,
+              monex: undefined,
+              dof: undefined,
+            });
+          }
+
+          const monthData = monthMap.get(monthKey)!;
+          const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+          const source = (row.source || '').toLowerCase().trim();
+
+          if (source === 'santander') {
+            if (!monthData.santander) monthData.santander = { sum: 0, count: 0 };
+            monthData.santander.sum += rateValue;
+            monthData.santander.count += 1;
+          } else if (source === 'monex') {
+            if (!monthData.monex) monthData.monex = { sum: 0, count: 0 };
+            monthData.monex.sum += rateValue;
+            monthData.monex.count += 1;
+          } else if (source === 'dof') {
+            if (!monthData.dof) monthData.dof = { sum: 0, count: 0 };
+            monthData.dof.sum += rateValue;
+            monthData.dof.count += 1;
+          }
+        });
+
+        formattedResult = Array.from(monthMap.values())
+          .map(monthData => ({
+            year: monthData.year,
+            month: monthData.month,
+            date: monthData.date,
+            santander: monthData.santander ? monthData.santander.sum / monthData.santander.count : undefined,
+            monex: monthData.monex ? monthData.monex.sum / monthData.monex.count : undefined,
+            dof: monthData.dof ? monthData.dof.sum / monthData.dof.count : undefined,
+          }))
+          .sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.month - b.month;
+          });
+      }
+
+      logger.debug(`[Range Exchange Rates] Resultado formateado: ${formattedResult.length} puntos`, {
+        count: formattedResult.length,
+        interval,
+        firstPoint: formattedResult[0] || null,
+        lastPoint: formattedResult[formattedResult.length - 1] || null
+      });
+
+      res.json(formattedResult);
+    } catch (error) {
+      logger.error('❌ [Range Exchange Rates] Error', error);
+      res.status(500).json({ error: 'Failed to fetch exchange rates for range' });
+    }
+  });
+
+  // GET /api/treasury/exchange-rates/stats - Estadísticas para un rango de fechas
+  app.get("/api/treasury/exchange-rates/stats", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const startDateStr = req.query.startDate as string;
+      const endDateStr = req.query.endDate as string;
+      const rateType = (req.query.rateType as string) || 'buy';
+      const sourcesParam = req.query.sources;
+
+      // Validar fechas requeridas
+      if (!startDateStr || !endDateStr) {
+        return res.status(400).json({ 
+          error: 'startDate y endDate son requeridos',
+          example: '/api/treasury/exchange-rates/stats?startDate=2025-01-01&endDate=2025-01-31'
+        });
+      }
+
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
+
+      // Validar fechas válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ error: 'Fechas inválidas. Use formato ISO 8601 (YYYY-MM-DD)' });
+      }
+
+      // Validar rango máximo (1 año)
+      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 365) {
+        return res.status(400).json({ error: 'El rango máximo es de 365 días (1 año)' });
+      }
+
+      if (endDate < startDate) {
+        return res.status(400).json({ error: 'endDate debe ser posterior a startDate' });
+      }
+
+      // Procesar fuentes filtradas
+      let sources: string[] | null = null;
+      if (sourcesParam) {
+        sources = Array.isArray(sourcesParam) 
+          ? (sourcesParam as string[]).map(s => s.toLowerCase().trim())
+          : [sourcesParam as string].map(s => s.toLowerCase().trim());
+        
+        // Validar fuentes permitidas
+        const validSources = ['monex', 'santander', 'dof'];
+        const invalidSources = sources.filter(s => !validSources.includes(s));
+        if (invalidSources.length > 0) {
+          return res.status(400).json({ 
+            error: `Fuentes inválidas: ${invalidSources.join(', ')}. Fuentes válidas: ${validSources.join(', ')}` 
+          });
+        }
+      }
+
+      logger.debug(`[Stats Exchange Rates] Request`, { 
+        startDate: startDateStr, 
+        endDate: endDateStr, 
+        rateType, 
+        sources 
+      });
+
+      // Ajustar fechas para incluir todo el día
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+
+      // Construir query SQL con filtro de fuentes
+      let query = `
+        SELECT 
+          er.buy_rate,
+          er.sell_rate,
+          er.source,
+          er.date::text as date
+        FROM exchange_rates er
+        WHERE er.date >= $1 AND er.date <= $2
+      `;
+      
+      const params: any[] = [startDate.toISOString(), endDate.toISOString()];
+      
+      if (sources && sources.length > 0) {
+        query += ` AND LOWER(TRIM(er.source)) IN (${sources.map((_, i) => `$${i + 3}`).join(', ')})`;
+        params.push(...sources);
+      }
+      
+      query += ` ORDER BY er.date ASC`;
+
+      const result = await sql(query, params) as any[];
+
+      logger.debug(`[Stats Exchange Rates] Resultados de BD: ${result.length} registros`, { count: result.length });
+
+      // Agrupar por fuente y calcular estadísticas
+      const sourceMap = new Map<string, number[]>();
+
+      result.forEach((row: any) => {
+        const rateValue = rateType === 'buy' ? parseFloat(row.buy_rate) : parseFloat(row.sell_rate);
+        const source = (row.source || '').toLowerCase().trim();
+        
+        if (!sourceMap.has(source)) {
+          sourceMap.set(source, []);
+        }
+        
+        sourceMap.get(source)!.push(rateValue);
+      });
+
+      // Calcular estadísticas para cada fuente
+      const stats = Array.from(sourceMap.entries()).map(([source, values]) => {
+        if (values.length === 0) {
+          return null;
+        }
+
+        // Ordenar valores para calcular min/max
+        const sortedValues = [...values].sort((a, b) => a - b);
+        const min = sortedValues[0];
+        const max = sortedValues[sortedValues.length - 1];
+        
+        // Calcular promedio
+        const sum = values.reduce((acc, val) => acc + val, 0);
+        const average = sum / values.length;
+        
+        // Calcular volatilidad (desviación estándar)
+        const variance = values.reduce((acc, val) => acc + Math.pow(val - average, 2), 0) / values.length;
+        const volatility = Math.sqrt(variance);
+        
+        // Calcular tendencia (comparar primeros y últimos valores)
+        const firstValue = values[0];
+        const lastValue = values[values.length - 1];
+        const trendThreshold = average * 0.001; // 0.1% del promedio como umbral
+        
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (lastValue > firstValue + trendThreshold) {
+          trend = 'up';
+        } else if (lastValue < firstValue - trendThreshold) {
+          trend = 'down';
+        }
+
+        return {
+          source: source.charAt(0).toUpperCase() + source.slice(1), // Capitalizar primera letra
+          average: Math.round(average * 10000) / 10000, // 4 decimales
+          max: Math.round(max * 10000) / 10000,
+          min: Math.round(min * 10000) / 10000,
+          volatility: Math.round(volatility * 10000) / 10000,
+          trend,
+          count: values.length
+        };
+      }).filter((stat): stat is NonNullable<typeof stat> => stat !== null);
+
+      // Ordenar por nombre de fuente
+      stats.sort((a, b) => {
+        const order = ['Monex', 'Santander', 'Dof'];
+        const aIndex = order.indexOf(a.source);
+        const bIndex = order.indexOf(b.source);
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return a.source.localeCompare(b.source);
+      });
+
+      logger.debug(`[Stats Exchange Rates] Estadísticas calculadas: ${stats.length} fuentes`, {
+        count: stats.length,
+        sources: stats.map(s => s.source)
+      });
+
+      res.json(stats);
+    } catch (error) {
+      logger.error('❌ [Stats Exchange Rates] Error', error);
+      res.status(500).json({ error: 'Failed to calculate exchange rate statistics' });
     }
   });
 
@@ -4018,21 +4623,30 @@ export function registerRoutes(app: express.Application) {
       }
     }),
     fileFilter: (req, file, cb) => {
-      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-      if (allowedTypes.includes(file.mimetype)) {
+      const allowedTypes = [
+        'application/pdf', 
+        'image/png', 
+        'image/jpeg', 
+        'image/jpg',
+        'application/xml',
+        'text/xml',
+        'application/xhtml+xml'
+      ];
+      const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.xml'];
+      const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+      
+      if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
         cb(null, true);
       } else {
-        cb(new Error('Solo se permiten archivos PDF, PNG, JPG, JPEG'));
+        cb(new Error('Solo se permiten archivos PDF, XML, PNG, JPG, JPEG'));
       }
     },
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB
   });
 
-  // POST /api/payment-vouchers/upload - Subir comprobante con análisis automático OpenAI - 🔒 Con rate limiting
-  console.log('✅ [Routes] Registrando endpoint POST /api/payment-vouchers/upload');
-  app.post("/api/payment-vouchers/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
-    console.log('📤 [Upload] Petición recibida en /api/payment-vouchers/upload');
-    voucherUpload.single('voucher')(req, res, (err) => {
+  // POST /api/scheduled-payments/:id/upload-voucher - Subir comprobante a tarjeta existente
+  app.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    voucherUpload.single('file')(req, res, (err) => {
       if (err) {
         console.error('❌ Multer error:', err.message);
         return res.status(400).json({ error: err.message });
@@ -4042,53 +4656,22 @@ export function registerRoutes(app: express.Application) {
   }, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
+      const scheduledPaymentId = parseInt(req.params.id);
       const file = req.file;
 
       if (!file) {
         return res.status(400).json({ error: 'No se subió ningún archivo' });
       }
 
-      // Validar request body
-      const uploadSchema = z.object({
-        payerCompanyId: z.string().transform((val) => {
-          const num = Number(val);
-          if (!num || num <= 0) {
-            throw new Error("PayerCompanyId inválido");
-          }
-          return num;
-        }),
-        clientId: z.string().transform((val) => {
-          const num = Number(val);
-          if (!num || num <= 0) {
-            throw new Error("ClientId inválido");
-          }
-          return num;
-        }),
-        companyId: z.string().optional().transform((val) => {
-          if (!val) return undefined;
-          const num = Number(val);
-          if (!num || num <= 0) {
-            throw new Error("CompanyId inválido");
-          }
-          return num;
-        }),
-        scheduledPaymentId: z.string().optional().transform(v => v ? Number(v) : undefined),
-        notes: z.string().optional(),
-        notify: z.string().optional().transform(v => v === 'true' || v === '1'),
-        emailTo: z.string().optional().transform(v => v ? v.split(',').map(e => e.trim()).filter(e => e) : []),
-        emailCc: z.string().optional().transform(v => v ? v.split(',').map(e => e.trim()).filter(e => e) : []),
-        emailMessage: z.string().optional(),
-      });
-
-      const validatedData = uploadSchema.parse(req.body);
-
-      console.log(`📤 [Upload] Procesando comprobante: ${file.originalname}`);
-
-      // Obtener información del cliente usando storage
-      const client = await storage.getClient(validatedData.clientId);
-
-      if (!client) {
-        return res.status(404).json({ error: 'Cliente no encontrado' });
+      // Obtener el scheduled payment
+      const { db } = await import('./db');
+      const { scheduledPayments } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const [scheduledPayment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
+      
+      if (!scheduledPayment) {
+        return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
       }
 
       // Analizar el documento con OpenAI
@@ -4099,10 +4682,411 @@ export function registerRoutes(app: express.Application) {
       
       const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
 
-      // Determinar estado inicial basado en calidad del OCR
+      // Verificar que sea un comprobante
+      if (analysis.documentType !== 'voucher' && analysis.documentType !== 'rep') {
+        return res.status(400).json({ 
+          error: 'Documento inválido',
+          details: 'Solo se pueden subir comprobantes de pago o REPs. Las facturas deben subirse primero.'
+        });
+      }
+
+      // Obtener cliente/proveedor
+      let client = null;
+      if (scheduledPayment.supplierId) {
+        client = await storage.getClient(scheduledPayment.supplierId);
+      }
+      if (!client && scheduledPayment.supplierName) {
+        client = {
+          id: scheduledPayment.supplierId || 0,
+          name: scheduledPayment.supplierName,
+          companyId: scheduledPayment.companyId,
+          email: null,
+          requiresPaymentComplement: false,
+        } as any;
+      }
+
+      // Guardar archivo en estructura organizada
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const uploadDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
+      
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      const fileName = `${Date.now()}-${file.originalname}`;
+      const newFilePath = path.join(uploadDir, fileName);
+      fs.renameSync(file.path, newFilePath);
+
+      // Determinar estado inicial
+      const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
+      const hasAllCriticalFields = criticalFields.every(field => {
+        const value = analysis[field as keyof typeof analysis];
+        return value !== null && value !== undefined;
+      });
+      
+      let initialStatus: string;
+      if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
+        initialStatus = 'validado';
+      } else {
+        initialStatus = 'pendiente_validacion';
+      }
+
+      // Verificar si el monto coincide (con tolerancia del 1%)
+      const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
+      let finalStatus = initialStatus;
+      if (amountDiff <= 0.01) {
+        finalStatus = 'cerrado';
+      } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
+        finalStatus = 'pendiente_complemento';
+      }
+
+      // Crear comprobante vinculado
+      const newVoucher: InsertPaymentVoucher = {
+        companyId: scheduledPayment.companyId,
+        payerCompanyId: scheduledPayment.companyId,
+        clientId: client?.id || scheduledPayment.supplierId || 0,
+        clientName: client?.name || scheduledPayment.supplierName || 'Cliente',
+        scheduledPaymentId: scheduledPaymentId,
+        status: finalStatus as any,
+        voucherFileUrl: newFilePath,
+        voucherFileName: file.originalname,
+        voucherFileType: file.mimetype,
+        extractedAmount: analysis.extractedAmount,
+        extractedDate: analysis.extractedDate,
+        extractedBank: analysis.extractedBank,
+        extractedReference: analysis.extractedReference,
+        extractedCurrency: analysis.extractedCurrency,
+        extractedOriginAccount: analysis.extractedOriginAccount,
+        extractedDestinationAccount: analysis.extractedDestinationAccount,
+        extractedTrackingKey: analysis.extractedTrackingKey,
+        extractedBeneficiaryName: analysis.extractedBeneficiaryName,
+        ocrConfidence: analysis.ocrConfidence,
+        uploadedBy: user.id,
+      };
+
+      const voucher = await storage.createPaymentVoucher(newVoucher);
+
+      // Actualizar scheduled payment con voucherId y estado
+      const newStatus = finalStatus === 'cerrado' ? 'payment_completed' : scheduledPayment.status;
+      await db.update(scheduledPayments)
+        .set({
+          voucherId: voucher.id,
+          status: newStatus,
+          paidAt: finalStatus === 'cerrado' ? new Date() : scheduledPayment.paidAt,
+          paidBy: finalStatus === 'cerrado' ? user.id : scheduledPayment.paidBy,
+          updatedAt: new Date(),
+        })
+        .where(eq(scheduledPayments.id, scheduledPaymentId));
+
+      console.log(`✅ [Upload Voucher] Comprobante vinculado a cuenta por pagar ${scheduledPaymentId}, voucher ID: ${voucher.id}`);
+
+      // Obtener el scheduled payment actualizado
+      const [updatedPayment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
+
+      res.status(201).json({
+        voucher,
+        scheduledPayment: updatedPayment,
+        analysis,
+        documentType: analysis.documentType,
+        message: 'Comprobante subido y vinculado exitosamente'
+      });
+    } catch (error) {
+      console.error('Error uploading voucher to scheduled payment:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+      }
+      res.status(500).json({ error: 'Error al subir comprobante' });
+    }
+  });
+
+  // POST /api/payment-vouchers/upload - Subir comprobante con análisis automático OpenAI - 🔒 Con rate limiting
+  console.log('✅ [Routes] Registrando endpoint POST /api/payment-vouchers/upload');
+  
+  // Endpoint de prueba para diagnosticar
+  app.post("/api/payment-vouchers/upload-test", jwtAuthMiddleware, (req, res) => {
+    console.log('🧪 [TEST] Endpoint de prueba llamado');
+    console.log('🧪 [TEST] Content-Type:', req.headers['content-type']);
+    console.log('🧪 [TEST] req.body:', req.body);
+    console.log('🧪 [TEST] req.body keys:', Object.keys(req.body || {}));
+    res.json({ 
+      message: 'Test endpoint funcionando',
+      contentType: req.headers['content-type'],
+      bodyKeys: Object.keys(req.body || {}),
+      body: req.body
+    });
+  });
+  
+  app.post("/api/payment-vouchers/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    console.log('📤 [Upload] ========== INICIO DE UPLOAD ==========');
+    console.log('📤 [Upload] Petición recibida en /api/payment-vouchers/upload');
+    console.log('📤 [Upload] Content-Type:', req.headers['content-type']);
+    console.log('📤 [Upload] Content-Length:', req.headers['content-length']);
+    console.log('📤 [Upload] req.body ANTES de multer:', req.body);
+    console.log('📤 [Upload] req.body keys ANTES de multer:', Object.keys(req.body || {}));
+    
+    voucherUpload.single('voucher')(req, res, (err) => {
+      if (err) {
+        console.error('❌ [Multer] Error detectado:', {
+          message: err.message,
+          code: (err as any).code,
+          field: (err as any).field,
+          name: err.name
+        });
+        console.error('❌ [Multer] Stack trace:', err.stack);
+        
+        // Determinar el tipo de error y dar mensaje más específico
+        let errorDetails = err.message;
+        if ((err as any).code === 'LIMIT_FILE_SIZE') {
+          errorDetails = 'El archivo excede el tamaño máximo permitido (10MB)';
+        } else if ((err as any).code === 'LIMIT_UNEXPECTED_FILE') {
+          errorDetails = 'Campo de archivo inesperado. Asegúrate de usar el campo "voucher"';
+        } else if (err.message.includes('Solo se permiten')) {
+          errorDetails = err.message;
+        }
+        
+        return res.status(400).json({ 
+          error: 'Error al procesar archivo', 
+          details: errorDetails,
+          code: (err as any).code || 'MULTER_ERROR'
+        });
+      }
+      console.log('✅ [Multer] Archivo procesado exitosamente');
+      console.log('📤 [Upload] req.body DESPUÉS de multer:', req.body);
+      console.log('📤 [Upload] req.body keys DESPUÉS de multer:', Object.keys(req.body || {}));
+      console.log('📤 [Upload] req.file:', req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : 'null');
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const file = req.file;
+
+      console.log('📁 [Upload] Archivo recibido:', file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path
+      } : 'null');
+
+      if (!file) {
+        console.error('❌ [Upload] No se recibió ningún archivo');
+        return res.status(400).json({ 
+          error: 'No se subió ningún archivo',
+          details: 'Asegúrate de seleccionar un archivo antes de subirlo'
+        });
+      }
+
+      // Analizar el documento primero para determinar el tipo
+      console.log('🔍 [Upload] Iniciando análisis del documento...');
+      const { analyzePaymentDocument } = await import("./document-analyzer");
+      const fs = await import('fs');
+      const path = await import('path');
+      const fileBuffer = fs.readFileSync(file.path);
+      
+      console.log('📄 [Upload] Buffer leído, tamaño:', fileBuffer.length, 'bytes');
+      const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+      console.log('✅ [Upload] Análisis completado:', {
+        documentType: analysis.documentType,
+        ocrConfidence: analysis.ocrConfidence,
+        extractedAmount: analysis.extractedAmount,
+        extractedSupplierName: analysis.extractedSupplierName
+      });
+
+      // Validar request body - hacer más flexible para manejar FormData
+      // Multer parsea FormData y los campos están en req.body como strings
+      console.log('📋 [Upload] req.body recibido:', JSON.stringify(req.body, null, 2));
+      console.log('📋 [Upload] req.body keys:', Object.keys(req.body || {}));
+      
+      // Función helper para parsear números de FormData
+      const parseNumber = (val: any): number | undefined => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const num = typeof val === 'string' ? Number(val) : val;
+        if (isNaN(num) || num <= 0) return undefined;
+        return num;
+      };
+
+      // Parsear datos manualmente para mayor control
+      const validatedData = {
+        payerCompanyId: parseNumber(req.body?.payerCompanyId),
+        clientId: parseNumber(req.body?.clientId),
+        companyId: parseNumber(req.body?.companyId),
+        scheduledPaymentId: parseNumber(req.body?.scheduledPaymentId),
+        notes: req.body?.notes || undefined,
+        notify: req.body?.notify === 'true' || req.body?.notify === '1' || req.body?.notify === true,
+        emailTo: req.body?.emailTo 
+          ? (Array.isArray(req.body.emailTo) ? req.body.emailTo : req.body.emailTo.split(',').map((e: string) => e.trim()).filter((e: string) => e))
+          : [],
+        emailCc: req.body?.emailCc
+          ? (Array.isArray(req.body.emailCc) ? req.body.emailCc : req.body.emailCc.split(',').map((e: string) => e.trim()).filter((e: string) => e))
+          : [],
+        emailMessage: req.body?.emailMessage || undefined,
+      };
+
+      console.log('✅ [Upload] Datos parseados:', validatedData);
+
+      // Para facturas, payerCompanyId es requerido
+      if (analysis.documentType === 'invoice' && !validatedData.payerCompanyId) {
+        return res.status(400).json({ 
+          error: 'PayerCompanyId requerido', 
+          details: 'Se requiere especificar la empresa pagadora para procesar la factura. Asegúrate de seleccionar la empresa antes de subir el archivo.' 
+        });
+      }
+
+      console.log(`📤 [Upload] Procesando documento: ${file.originalname} (tipo: ${analysis.documentType})`);
+
+      // 🧾 Si es una FACTURA, crear cuenta por pagar automáticamente y retornar
+      if (analysis.documentType === 'invoice') {
+        if (!analysis.extractedSupplierName || !analysis.extractedAmount || !analysis.extractedDueDate) {
+          return res.status(400).json({ 
+            error: 'Factura incompleta', 
+            details: 'La factura debe contener al menos: proveedor, monto y fecha de vencimiento' 
+          });
+        }
+
+        try {
+          console.log(`📋 [Invoice Detection] Factura detectada, creando cuenta por pagar automáticamente`);
+          
+          // Buscar proveedor/cliente por nombre o RFC
+          let supplierId = null;
+          const supplierName = analysis.extractedSupplierName || '';
+          const taxId = analysis.extractedTaxId || '';
+          
+          // Buscar cliente/proveedor existente
+          if (!validatedData.payerCompanyId) {
+            return res.status(400).json({ error: 'PayerCompanyId requerido para procesar factura' });
+          }
+          const payerCompanyId = validatedData.payerCompanyId; // Type narrowing
+          const allClients = await storage.getClientsByCompany(payerCompanyId);
+          const matchingClient = allClients.find(client => 
+            client.name.toLowerCase().includes(supplierName.toLowerCase()) ||
+            supplierName.toLowerCase().includes(client.name.toLowerCase())
+          );
+          
+          if (matchingClient) {
+            supplierId = matchingClient.id;
+            console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
+          } else {
+            console.log(`⚠️ [Invoice Detection] Proveedor no encontrado, se creará con nombre: ${supplierName}`);
+          }
+
+          // Crear cuenta por pagar (scheduled payment)
+          const scheduledPaymentData = {
+            companyId: payerCompanyId,
+            supplierId: supplierId,
+            supplierName: supplierName,
+            amount: analysis.extractedAmount,
+            currency: analysis.extractedCurrency || 'MXN',
+            dueDate: analysis.extractedDueDate,
+            reference: analysis.extractedInvoiceNumber || analysis.extractedReference || `Factura ${Date.now()}`,
+            status: 'idrall_imported',
+            sourceType: 'manual',
+            notes: `Factura detectada automáticamente desde ${file.originalname}. ${taxId ? `RFC: ${taxId}` : ''}`,
+            createdBy: user.id,
+          };
+
+          const createdScheduledPayment = await storage.createScheduledPayment(scheduledPaymentData);
+          console.log(`✅ [Invoice Detection] Cuenta por pagar creada: ID ${createdScheduledPayment.id}`);
+          
+          // Guardar el archivo de factura en el scheduled payment
+          const year = new Date().getFullYear();
+          const month = String(new Date().getMonth() + 1).padStart(2, '0');
+          const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', String(year), month);
+          
+          if (!fs.existsSync(invoiceDir)) {
+            fs.mkdirSync(invoiceDir, { recursive: true });
+          }
+          
+          const invoiceFileName = `${Date.now()}-${file.originalname}`;
+          const invoiceFilePath = path.join(invoiceDir, invoiceFileName);
+          fs.copyFileSync(file.path, invoiceFilePath);
+          
+          // Actualizar el scheduled payment con la URL del archivo usando Drizzle directamente
+          const { db } = await import('./db');
+          const { scheduledPayments } = await import('../shared/schema');
+          const { eq } = await import('drizzle-orm');
+          
+          await db.update(scheduledPayments)
+            .set({
+              hydralFileUrl: invoiceFilePath,
+              hydralFileName: file.originalname,
+            })
+            .where(eq(scheduledPayments.id, createdScheduledPayment.id));
+          
+          // Retornar solo el scheduledPayment (NO crear voucher)
+          return res.status(201).json({
+            scheduledPayment: createdScheduledPayment,
+            analysis,
+            documentType: 'invoice',
+            message: 'Factura procesada y cuenta por pagar creada exitosamente'
+          });
+          
+        } catch (invoiceError) {
+          console.error(`❌ [Invoice Detection] Error creando cuenta por pagar:`, invoiceError);
+          return res.status(500).json({ 
+            error: 'Error al crear cuenta por pagar', 
+            details: invoiceError instanceof Error ? invoiceError.message : 'Error desconocido' 
+          });
+        }
+      }
+
+      // 🚫 Si es COMPROBANTE sin scheduledPaymentId, retornar error
+      if (analysis.documentType === 'voucher' && !validatedData.scheduledPaymentId) {
+        return res.status(400).json({ 
+          error: 'Los comprobantes deben asociarse a una factura existente',
+          details: 'Por favor, sube primero la factura o selecciona una cuenta por pagar existente'
+        });
+      }
+
+      // Para comprobantes, obtener el cliente desde scheduledPayment o clientId
+      let client = null;
+      let scheduledPaymentForClient = null;
+      if (validatedData.scheduledPaymentId) {
+        // Usar Drizzle directamente para obtener scheduled payment
+        const { db } = await import('./db');
+        const { scheduledPayments } = await import('../shared/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const [payment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, validatedData.scheduledPaymentId));
+        scheduledPaymentForClient = payment;
+        
+        if (!scheduledPaymentForClient) {
+          return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
+        }
+        // Buscar cliente por supplierId si existe
+        if (scheduledPaymentForClient.supplierId) {
+          client = await storage.getClient(scheduledPaymentForClient.supplierId);
+        }
+        // Si no hay cliente pero hay supplierName, crear un objeto cliente temporal
+        if (!client && scheduledPaymentForClient.supplierName) {
+          client = {
+            id: scheduledPaymentForClient.supplierId || 0,
+            name: scheduledPaymentForClient.supplierName,
+            companyId: scheduledPaymentForClient.companyId,
+            email: null,
+            requiresPaymentComplement: false,
+          } as any;
+        }
+      } else if (validatedData.clientId) {
+        client = await storage.getClient(validatedData.clientId);
+        if (!client) {
+          return res.status(404).json({ error: 'Cliente no encontrado' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Se requiere clientId o scheduledPaymentId para comprobantes' });
+      }
+
+      // Determinar estado inicial basado en calidad del OCR (solo para comprobantes)
       // Si todos los campos críticos están presentes -> VALIDADO
       // Si faltan campos críticos -> PENDIENTE_VALIDACIÓN
-      const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
+      const criticalFields = (analysis.documentType === 'voucher' || analysis.documentType === 'rep')
+        ? ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency']
+        : ['extractedAmount', 'extractedSupplierName', 'extractedDueDate'];
       const hasAllCriticalFields = criticalFields.every(field => {
         const value = analysis[field as keyof typeof analysis];
         return value !== null && value !== undefined;
@@ -4132,14 +5116,26 @@ export function registerRoutes(app: express.Application) {
       fs.renameSync(file.path, newFilePath);
 
       // Usar companyId del cliente si no se especifica
-      const voucherCompanyId = validatedData.companyId || client.companyId || validatedData.payerCompanyId;
+      const voucherCompanyId = validatedData.companyId || client?.companyId || validatedData.payerCompanyId;
 
       // Crear comprobante usando storage
+      // Asegurar que clientId sea un número válido (no null)
+      const voucherClientId = validatedData.clientId || (scheduledPaymentForClient?.supplierId ?? 0);
+      if (!voucherClientId || voucherClientId === 0) {
+        return res.status(400).json({ error: 'Se requiere un cliente válido para crear el comprobante' });
+      }
+
+      // Validar que payerCompanyId esté presente para comprobantes
+      if (!validatedData.payerCompanyId) {
+        return res.status(400).json({ error: 'PayerCompanyId requerido para crear comprobante' });
+      }
+      const payerCompanyIdForVoucher = validatedData.payerCompanyId; // Type narrowing
+
       const newVoucher: InsertPaymentVoucher = {
         companyId: voucherCompanyId,
-        payerCompanyId: validatedData.payerCompanyId,
-        clientId: validatedData.clientId,
-        clientName: client.name,
+        payerCompanyId: payerCompanyIdForVoucher,
+        clientId: voucherClientId,
+        clientName: client?.name || scheduledPaymentForClient?.supplierName || 'Cliente',
         scheduledPaymentId: validatedData.scheduledPaymentId || null,
         status: initialStatus as any,
         voucherFileUrl: newFilePath,
@@ -4172,8 +5168,8 @@ export function registerRoutes(app: express.Application) {
 
       try {
         // 1. Intentar vincular con factura/pago programado
-        if (validatedData.scheduledPaymentId) {
-          const scheduledPayment = await storage.getScheduledPayment?.(validatedData.scheduledPaymentId);
+        if (validatedData.scheduledPaymentId && scheduledPaymentForClient) {
+          const scheduledPayment = scheduledPaymentForClient;
           if (scheduledPayment) {
             // Verificar si el monto coincide (con tolerancia del 1%)
             const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
@@ -4200,7 +5196,7 @@ export function registerRoutes(app: express.Application) {
         }
 
         // 2. Si el cliente requiere complemento y no está cerrado
-        if (client.requiresPaymentComplement && finalStatus !== 'cerrado') {
+        if (client?.requiresPaymentComplement && finalStatus !== 'cerrado') {
           if (finalStatus === 'validado') {
             finalStatus = 'pendiente_complemento';
           }
@@ -4217,20 +5213,25 @@ export function registerRoutes(app: express.Application) {
         }
 
         // 3. Enviar correo automáticamente si notify=true
-        if (validatedData.notify && (validatedData.emailTo?.length || client.email)) {
+        if (validatedData.notify && (validatedData.emailTo?.length || client?.email)) {
           const { emailService } = await import('./email-service');
           const fs = await import('fs');
           
           const emailAddresses = validatedData.emailTo?.length 
             ? validatedData.emailTo 
-            : client.email 
+            : client?.email 
               ? [client.email] 
               : [];
           
           if (emailAddresses.length > 0) {
             try {
               // Obtener nombre de la empresa pagadora
-              const payerCompany = await storage.getCompany(validatedData.payerCompanyId);
+              if (!validatedData.payerCompanyId) {
+                console.warn('⚠️ [Email] PayerCompanyId no disponible, usando nombre genérico');
+                return;
+              }
+              const payerCompanyIdForEmail = validatedData.payerCompanyId; // Type narrowing
+              const payerCompany = await storage.getCompany(payerCompanyIdForEmail);
               const companyName = payerCompany?.name || 'Empresa';
 
               // Crear contenido del email
@@ -4243,7 +5244,7 @@ export function registerRoutes(app: express.Application) {
                   </h2>
                   
                   <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <p style="margin: 0; font-size: 16px;"><strong>Estimado/a ${client.name},</strong></p>
+                    <p style="margin: 0; font-size: 16px;"><strong>Estimado/a ${client?.name || 'Cliente'},</strong></p>
                     <p style="margin: 10px 0; font-size: 14px;">
                       Se ha registrado el siguiente comprobante de pago:
                     </p>
@@ -4329,14 +5330,43 @@ export function registerRoutes(app: express.Application) {
         voucher,
         analysis,
         autoStatus: initialStatus,
-        requiresComplement: client.requiresPaymentComplement
+        requiresComplement: client?.requiresPaymentComplement || false,
+        scheduledPayment: scheduledPaymentForClient || null, // Incluir cuenta por pagar si está vinculada
+        documentType: analysis.documentType,
       });
     } catch (error) {
-      console.error('Error uploading payment voucher:', error);
+      console.error('❌ [Upload] Error completo:', error);
+      console.error('❌ [Upload] Stack trace:', error instanceof Error ? error.stack : 'No stack available');
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+        console.error('❌ [Upload] Error de validación Zod:', error.errors);
+        return res.status(400).json({ 
+          error: 'Validación fallida', 
+          details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+        });
       }
-      res.status(500).json({ error: 'Error al subir comprobante' });
+      
+      if (error instanceof Error) {
+        console.error('❌ [Upload] Error message:', error.message);
+        // Si el error menciona algo específico, devolverlo
+        if (error.message.includes('No se subió') || error.message.includes('archivo')) {
+          return res.status(400).json({ 
+            error: 'Error al procesar archivo', 
+            details: error.message 
+          });
+        }
+        if (error.message.includes('PayerCompanyId') || error.message.includes('empresa')) {
+          return res.status(400).json({ 
+            error: 'Datos incompletos', 
+            details: error.message 
+          });
+        }
+      }
+      
+      res.status(500).json({ 
+        error: 'Error al subir comprobante',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      });
     }
   });
 

@@ -1629,15 +1629,13 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
   // Mutación para crear producto nuevo
   const createProductMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiRequest('POST', '/api/products', {
-        name,
-        companyId: shipment.companyId || null
+      return await apiRequest('/api/products', {
+        method: 'POST',
+        body: {
+          name,
+          companyId: shipment.companyId || null
+        }
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Error al crear producto');
-      }
-      return res.json();
     },
     onSuccess: (newProduct) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", { companyId: selectedCompanyId }] });
@@ -1654,12 +1652,10 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const addItemMutation = useMutation({
     mutationFn: async (item: { product: string; quantity: string; unit: string; description?: string }) => {
-      const res = await apiRequest('POST', `/api/shipments/${shipment.id}/items`, item);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Error al agregar producto');
-      }
-      return res.json();
+      return await apiRequest(`/api/shipments/${shipment.id}/items`, {
+        method: 'POST',
+        body: item
+      });
     },
     onSuccess: () => { 
       refetchItems();
@@ -1676,12 +1672,10 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, item }: { id: number; item: { product?: string; quantity?: string; unit?: string; description?: string } }) => {
-      const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}/items/${id}`, item);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Error al actualizar producto');
-      }
-      return res.json();
+      return await apiRequest(`/api/shipments/${shipment.id}/items/${id}`, {
+        method: 'PATCH',
+        body: item
+      });
     },
     onSuccess: () => { 
       refetchItems();
@@ -1698,12 +1692,9 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest('DELETE', `/api/shipments/${shipment.id}/items/${id}`);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Error al eliminar producto');
-      }
-      return res.json();
+      return await apiRequest(`/api/shipments/${shipment.id}/items/${id}`, {
+        method: 'DELETE'
+      });
     },
     onSuccess: () => { 
       refetchItems();
@@ -1722,19 +1713,17 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}`, {
-        purchaseOrder: form.purchaseOrder,
-        customerName: form.customerName,
-        customerEmail: form.customerEmail || null,
-        origin: form.origin,
-        destination: form.destination,
-        estimatedDeliveryDate: form.estimatedDeliveryDate || null,
+      return await apiRequest(`/api/shipments/${shipment.id}`, {
+        method: 'PATCH',
+        body: {
+          purchaseOrder: form.purchaseOrder,
+          customerName: form.customerName,
+          customerEmail: form.customerEmail || null,
+          origin: form.origin,
+          destination: form.destination,
+          estimatedDeliveryDate: form.estimatedDeliveryDate || null,
+        }
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Error al actualizar el envío');
-      }
-      return res.json();
     },
     onSuccess: () => {
       toast({ title: 'Envío actualizado', description: 'Los cambios fueron guardados.' });

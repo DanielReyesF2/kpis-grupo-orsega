@@ -23,6 +23,17 @@ export async function getSourceSeries(
 ): Promise<SourceSeries> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
+  // Ajustar a medianoche para evitar problemas de timezone
+  cutoffDate.setHours(0, 0, 0, 0);
+
+  // 🔍 DIAGNÓSTICO: Log de fecha de corte
+  console.log(`[getSourceSeries] 🔍 DIAGNÓSTICO - ${source}:`, {
+    days,
+    cutoffDateISO: cutoffDate.toISOString(),
+    cutoffDateLocal: cutoffDate.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+    fechaActual: new Date().toISOString(),
+    fechaActualLocal: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }),
+  });
 
   const rates = await db
     .select({

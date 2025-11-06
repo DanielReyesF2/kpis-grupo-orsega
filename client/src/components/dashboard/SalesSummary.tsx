@@ -2,9 +2,50 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart, Legend, ReferenceLine, Label } from "recharts";
 import { TrendingUp, BarChart2, BarChart as BarChartIcon, Award, ArrowUp, ArrowDown, Package, CalendarClock } from "lucide-react";
 import { SalesVolumeCards } from "@/components/kpis/SalesVolumeCards";
+import { apiRequest } from "@/lib/queryClient";
+
+// Componente personalizado para el label del objetivo
+const TargetLabel = (props: any) => {
+  const { viewBox, value } = props;
+  if (!viewBox || !value) return null;
+  
+  // viewBox puede venir como objeto { x, y, width, height } o como string
+  const x = typeof viewBox === 'object' ? viewBox.x : 0;
+  const y = typeof viewBox === 'object' ? viewBox.y : 0;
+  
+  // Calcular el ancho del texto aproximado (7px por caracter)
+  const textWidth = value.length * 7;
+  const labelWidth = Math.max(textWidth + 16, 120);
+  
+  return (
+    <g>
+      <rect
+        x={x + 10}
+        y={y - 12}
+        width={labelWidth}
+        height={24}
+        fill="rgba(255, 255, 255, 0.98)"
+        stroke="hsl(var(--chart-2))"
+        strokeWidth={1.5}
+        rx={4}
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
+      />
+      <text
+        x={x + 18}
+        y={y + 5}
+        fill="hsl(var(--chart-2))"
+        fontSize={12}
+        fontWeight={700}
+        style={{ textAnchor: 'start', fontFamily: 'system-ui, sans-serif' }}
+      >
+        {value}
+      </text>
+    </g>
+  );
+};
 
 // Interface para las props del componente
 interface SalesSummaryProps {
@@ -56,9 +97,16 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   const monthlyTarget = currentCompanyId === 1 ? 55620 : 858373;
 
   // Cargar datos históricos desde la API (solo si tenemos un kpiId válido)
+  // IMPORTANTE: incluir companyId en la query para obtener los datos correctos
   const { data: kpiHistory } = useQuery<any[]>({
-    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
+    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId: currentCompanyId }],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${currentCompanyId}`);
+      return await response.json();
+    },
     refetchInterval: 30000,
+    refetchOnWindowFocus: true, // Refrescar cuando la ventana vuelve a estar en foco
+    staleTime: 0, // No cachear para asegurar datos frescos después de actualizaciones
     enabled: !!kpiId && kpiId > 0, // Solo ejecutar si tenemos un ID válido
   });
 
@@ -186,6 +234,18 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
     }
   };
 
+  // Determinar el logo de la empresa según companyId
+  const getCompanyLogo = () => {
+    if (currentCompanyId === 1) {
+      return '/logodura.jpg';
+    } else if (currentCompanyId === 2) {
+      return '/logo orsega.jpg';
+    }
+    return null;
+  };
+
+  const companyLogo = getCompanyLogo();
+
   return (
     <div className="space-y-6">
       {/* Cards de indicadores clave */}
@@ -309,7 +369,22 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
       </div>
       
       {/* Gráfica histórica */}
-      <Card className="mt-8">
+      <Card className="mt-8 relative">
+        {/* Logo de la empresa en la esquina superior derecha */}
+        {companyLogo && (
+          <div className="absolute top-4 right-4 z-10 opacity-60 hover:opacity-80 transition-opacity">
+            <img 
+              src={companyLogo} 
+              alt={currentCompanyId === 1 ? 'Dura International Logo' : 'Grupo Orsega Logo'}
+              className="h-16 w-auto object-contain"
+              style={{ maxWidth: '150px' }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
@@ -344,7 +419,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
         <CardContent>
           <div className="h-[250px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+              <ComposedChart data={salesData} margin={{ top: 20, right: 120, left: 20, bottom: 10 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9}/>
@@ -408,15 +483,20 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
                     );
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="target" 
-                  name="Objetivo"
-                  stroke="hsl(var(--chart-2))" 
-                  strokeWidth={3}
-                  dot={{ r: 6, fill: "hsl(var(--chart-2))", stroke: "hsl(var(--card))", strokeWidth: 2 }}
+                <ReferenceLine
+                  y={monthlyTarget}
+                  stroke="hsl(var(--chart-2))"
+                  strokeWidth={2}
                   strokeDasharray="6 4"
                   opacity={0.9}
+                  label={{
+                    value: `${new Intl.NumberFormat('es-MX').format(monthlyTarget)} ${unit}`,
+                    position: 'right',
+                    fill: 'hsl(var(--chart-2))',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    offset: 5,
+                  }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
