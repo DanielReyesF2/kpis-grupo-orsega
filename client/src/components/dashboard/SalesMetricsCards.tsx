@@ -270,27 +270,62 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   });
   
   // Resumen de TODOS los meses del año (para cálculo de "En meta")
+  // Crear estructura con los 12 meses del año, llenando con datos reales donde existan
   const allYearlyData = useMemo(() => {
-    return salesData.map(item => {
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+                            'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    const currentYear = new Date().getFullYear();
+    const currentMonthIndex = new Date().getMonth(); // 0-11
+    
+    // Crear mapa de datos por mes para acceso rápido
+    const dataByMonth = new Map<string, { sales: number; period: string }>();
+    salesData.forEach(item => {
       const monthName = (item.period || '').split(' ')[0] || '';
-      const monthShort = monthName.substring(0, 3);
-      const compliance = monthlyTarget > 0 ? Math.round((item.sales / monthlyTarget) * 100) : 0;
+      if (monthName) {
+        dataByMonth.set(monthName.toLowerCase(), {
+          sales: item.sales,
+          period: item.period
+        });
+      }
+    });
+    
+    // Crear array con los 12 meses del año
+    return monthNames.map((monthName, index) => {
+      const monthData = dataByMonth.get(monthName.toLowerCase());
+      const sales = monthData?.sales || 0;
+      const hasData = !!monthData;
+      const isFutureMonth = index > currentMonthIndex;
+      
+      // Calcular compliance solo si hay datos y el mes no es futuro
+      let compliance = 0;
+      if (hasData && monthlyTarget > 0) {
+        compliance = Math.round((sales / monthlyTarget) * 100);
+      } else if (isFutureMonth) {
+        // Meses futuros no tienen compliance (aún no han ocurrido)
+        compliance = -1;
+      }
+      // Meses pasados sin datos tienen compliance 0 (no cumplieron)
       
       // Log para debugging de valores sospechosos
       if (compliance > 500) {
-        console.warn(`[SalesMetricsCards] ⚠️ Compliance sospechosamente alto para ${monthShort}:`, {
-          sales: item.sales,
+        console.warn(`[SalesMetricsCards] ⚠️ Compliance sospechosamente alto para ${monthShortNames[index]}:`, {
+          sales,
           monthlyTarget,
           compliance,
-          period: item.period
+          period: monthData?.period || 'Sin datos'
         });
       }
       
       return {
-        month: monthShort,
+        month: monthShortNames[index],
         fullMonth: monthName,
-        sales: item.sales,
+        sales,
         compliance,
+        hasData,
+        isFutureMonth,
       };
     });
   }, [salesData, monthlyTarget]);
@@ -300,12 +335,20 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     return allYearlyData;
   }, [allYearlyData]);
 
-  // Calcular promedio y meses en meta usando TODOS los meses del año
-  const avgCompliance = allYearlyData.length > 0
-    ? Math.round(allYearlyData.reduce((sum, m) => sum + m.compliance, 0) / allYearlyData.length)
+  // Calcular promedio y meses en meta usando solo meses con datos (excluyendo meses futuros)
+  const monthsWithData = allYearlyData.filter(m => m.hasData && !m.isFutureMonth);
+  const avgCompliance = monthsWithData.length > 0
+    ? Math.round(monthsWithData.reduce((sum, m) => sum + (m.compliance >= 0 ? m.compliance : 0), 0) / monthsWithData.length)
     : 0;
   
-  const monthsOnTarget = allYearlyData.filter(m => m.compliance >= 100).length;
+  // Solo contar meses que realmente cumplieron la meta (>= 100% y tienen datos)
+  const monthsOnTarget = allYearlyData.filter(m => m.hasData && m.compliance >= 100 && !m.isFutureMonth).length;
+  
+  // Total de meses con datos (para el denominador correcto)
+  const totalMonthsWithData = monthsWithData.length;
+  
+  // Total de meses pasados (excluyendo futuros) para el cálculo
+  const totalPastMonths = allYearlyData.filter(m => !m.isFutureMonth).length;
 
   // Calcular proyección anual para insight
   const currentMonth = new Date().getMonth() + 1;
@@ -407,26 +450,59 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
             <div className="pt-4 border-t border-border/50">
               <p className="text-xs font-semibold text-foreground mb-3">Resumen del año</p>
             
-            {/* Gráfico de barras simplificado */}
-            <div className="flex items-end justify-between gap-2 mb-4" style={{ height: '60px' }}>
-              {monthlySummary.map((month, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
-                  <div 
-                    className="w-full rounded-t transition-all duration-300"
-                    style={{
-                      height: `${Math.min((month.compliance / 120) * 100, 100)}%`,
-                      backgroundColor: month.compliance >= 100 
-                        ? '#22c55e'
-                        : month.compliance >= 75 
-                        ? '#eab308'
-                        : '#ef4444',
-                      opacity: month.compliance >= 100 ? 0.9 : 0.8,
-                      minHeight: '4px'
-                    }}
-                  />
-                  <div className="text-xs font-medium text-foreground">{month.month}</div>
-                </div>
-              ))}
+            {/* Gráfico de barras simplificado - Mostrar TODOS los 12 meses */}
+            <div className="flex items-end justify-between gap-1.5 mb-4" style={{ height: '60px' }}>
+              {monthlySummary.map((month, idx) => {
+                // Determinar color y altura según el estado del mes
+                let backgroundColor = '#e5e7eb'; // Gris para meses sin datos o futuros
+                let opacity = 0.5;
+                let heightPercent = 0;
+                
+                if (month.isFutureMonth) {
+                  // Meses futuros: gris claro
+                  backgroundColor = '#f3f4f6';
+                  opacity = 0.3;
+                  heightPercent = 10; // Altura mínima para indicar que es futuro
+                } else if (!month.hasData) {
+                  // Meses pasados sin datos: gris (no cumplieron)
+                  backgroundColor = '#ef4444';
+                  opacity = 0.4;
+                  heightPercent = 15; // Altura mínima para indicar que no hay datos
+                } else if (month.compliance >= 100) {
+                  // En meta: verde
+                  backgroundColor = '#22c55e';
+                  opacity = 0.9;
+                  heightPercent = Math.min((month.compliance / 150) * 100, 100);
+                } else if (month.compliance >= 75) {
+                  // En riesgo: amarillo
+                  backgroundColor = '#eab308';
+                  opacity = 0.8;
+                  heightPercent = Math.min((month.compliance / 150) * 100, 100);
+                } else {
+                  // No cumplió: rojo
+                  backgroundColor = '#ef4444';
+                  opacity = 0.8;
+                  heightPercent = Math.min((month.compliance / 150) * 100, 100);
+                }
+                
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                    <div 
+                      className="w-full rounded-t transition-all duration-300"
+                      style={{
+                        height: `${Math.max(heightPercent, 4)}%`,
+                        backgroundColor,
+                        opacity,
+                        minHeight: '4px'
+                      }}
+                      title={`${month.fullMonth}: ${month.hasData ? `${month.sales.toLocaleString()} unidades (${month.compliance}%)` : 'Sin datos'}`}
+                    />
+                    <div className={`text-xs font-medium ${month.isFutureMonth ? 'text-muted-foreground' : 'text-foreground'}`}>
+                      {month.month}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Métricas clave - Simplificadas */}
@@ -446,7 +522,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Meses en meta</div>
-                  <div className="text-base font-bold text-green-600">{monthsOnTarget}/{allYearlyData.length}</div>
+                  <div className="text-base font-bold text-green-600">{monthsOnTarget}/{totalMonthsWithData > 0 ? totalMonthsWithData : totalPastMonths}</div>
                 </div>
               </div>
             </div>
