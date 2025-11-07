@@ -4,7 +4,7 @@
 // ================================================
 
 import OpenAI from "openai";
-import pdfParse from "pdf-parse";
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 // -----------------------------
 // Interfaces
@@ -49,9 +49,19 @@ export async function analyzePaymentDocument(
 
     // --- 1️⃣ Extracción inicial según tipo ---
     if (fileType.includes("pdf")) {
-      const pdfData = await pdfParse(fileBuffer);
-      textContent = pdfData.text.trim();
-      console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres)`);
+      // Extraer texto del PDF usando pdfjs-dist
+      const loadingTask = pdfjsLib.getDocument({data: new Uint8Array(fileBuffer)});
+      const pdf = await loadingTask.promise;
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        const pageText = content.items.map((item: any) => item.str).join(' ');
+        textContent += pageText + '\n';
+      }
+
+      textContent = textContent.trim();
+      console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres, ${pdf.numPages} páginas)`);
     } else {
       base64Data = fileBuffer.toString("base64");
     }
