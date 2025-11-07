@@ -15,6 +15,12 @@ RUN apk add --no-cache libc6-compat python3 make g++
 # Update npm to stable version to avoid compatibility issues
 RUN npm install -g npm@10
 
+# CRITICAL: Force cache invalidation BEFORE npm install by using BUILD_DATE
+# This ensures Railway ALWAYS reinstalls packages (no cached node_modules with wrong packages)
+# The timestamp changes on every build, invalidating ALL subsequent layers
+RUN echo "🔄 CACHE BUSTER - Build date: ${BUILD_DATE}, Version: ${BUILD_VERSION}" > /tmp/build-info.txt && \
+    cat /tmp/build-info.txt
+
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
@@ -27,10 +33,6 @@ RUN npm cache clean --force && \
     else \
       npm install --prefer-offline --no-audit --progress=false; \
     fi
-
-# Force cache invalidation by using BUILD_DATE before copying source files
-# This ensures Railway always gets fresh code even if Docker cache is used
-RUN echo "Build date: ${BUILD_DATE}, Version: ${BUILD_VERSION}"
 
 # Copy only necessary source files (exclude large assets)
 COPY client/ ./client/
