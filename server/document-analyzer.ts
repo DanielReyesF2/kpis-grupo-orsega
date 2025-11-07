@@ -4,58 +4,7 @@
 // ================================================
 
 import OpenAI from "openai";
-
-// -----------------------------
-// Helper para importar pdf-parse
-// -----------------------------
-async function getPdfParse(): Promise<(buffer: Buffer) => Promise<any>> {
-  try {
-    const pdfParseModule: any = await import("pdf-parse");
-    
-    // Intentar diferentes formas de acceso a la función
-    if (typeof pdfParseModule === 'function') {
-      return pdfParseModule;
-    }
-    
-    if (pdfParseModule.default) {
-      if (typeof pdfParseModule.default === 'function') {
-        return pdfParseModule.default;
-      }
-      if (pdfParseModule.default.default && typeof pdfParseModule.default.default === 'function') {
-        return pdfParseModule.default.default;
-      }
-    }
-    
-    if (pdfParseModule.pdfParse && typeof pdfParseModule.pdfParse === 'function') {
-      return pdfParseModule.pdfParse;
-    }
-    
-    // Buscar cualquier propiedad que sea una función
-    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
-      for (const key in pdfParseModule) {
-        if (typeof pdfParseModule[key] === 'function') {
-          return pdfParseModule[key];
-        }
-      }
-    }
-    
-    // Si llegamos aquí, intentar usar el módulo directamente
-    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
-      // Algunas versiones exportan un objeto con métodos
-      const possibleKeys = ['default', 'pdfParse', 'parse', 'extract'];
-      for (const key of possibleKeys) {
-        if (pdfParseModule[key] && typeof pdfParseModule[key] === 'function') {
-          return pdfParseModule[key];
-        }
-      }
-    }
-    
-    throw new Error(`pdf-parse no se pudo importar. Tipo del módulo: ${typeof pdfParseModule}, keys: ${Object.keys(pdfParseModule || {}).join(', ')}`);
-  } catch (error: any) {
-    console.error('❌ [Document Analyzer] Error importando pdf-parse:', error);
-    throw new Error(`Error al importar pdf-parse: ${error.message}`);
-  }
-}
+import pdfParse from "pdf-parse";
 
 // -----------------------------
 // Interfaces
@@ -100,7 +49,6 @@ export async function analyzePaymentDocument(
 
     // --- 1️⃣ Extracción inicial según tipo ---
     if (fileType.includes("pdf")) {
-      const pdfParse = await getPdfParse();
       const pdfData = await pdfParse(fileBuffer);
       textContent = pdfData.text.trim();
       console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres)`);
