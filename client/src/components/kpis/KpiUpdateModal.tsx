@@ -114,10 +114,10 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
   // Log para debugging
   useEffect(() => {
-    if (kpi && isOpen) {
+    if (kpi && isOpen && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) {
       console.log('[KpiUpdateModal] KPI detectado:', {
-        id: kpi.id,
-        name: kpi.name,
+        id: (kpi as any).id,
+        name: (kpi as any).name,
         isSalesKpi: isSalesKpi,
         willShowSalesForm: isSalesKpi
       });
@@ -153,7 +153,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     mutationFn: async (data: FormValues) => {
       console.log('[KPI Update] Enviando datos:', {
         kpiId: kpiId,
-        kpiName: kpi?.name,
+        kpiName: (kpi && typeof kpi === 'object' && kpi !== null && 'name' in kpi) ? (kpi as any).name : 'N/A',
         value: data.value,
         period: data.period || getCurrentPeriod(),
         comments: data.comments || '',
@@ -297,7 +297,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           </DialogDescription>
         </DialogHeader>
 
-        {kpi && (
+        {(kpi && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) ? (
           <div className="space-y-6">
             {isSalesKpi ? (
               // Formulario especializado para actualización de ventas
@@ -311,7 +311,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4 sm:pt-6">
-                  <SalesWeeklyUpdateForm showHeader={false} defaultCompanyId={kpi.companyId} />
+                  <SalesWeeklyUpdateForm showHeader={false} defaultCompanyId={(kpi as any).companyId} />
                 </CardContent>
               </Card>
             ) : (
@@ -327,13 +327,13 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                   <div className="space-y-2">
                     <div>
                       <span className="text-sm font-medium text-gray-600">Nombre:</span>
-                      <div className="font-semibold text-gray-900">{kpi.name}</div>
+                      <div className="font-semibold text-gray-900">{(kpi as any).name}</div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm font-medium text-gray-600">Meta:</span>
-                        <div className="text-lg font-bold text-blue-600">{kpi.target || 'Sin meta definida'}</div>
+                        <div className="text-lg font-bold text-blue-600">{(kpi as any).target || 'Sin meta definida'}</div>
                       </div>
                       
                       {latestValue && (
@@ -492,18 +492,18 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
               </>
             )}
           </div>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
 
     {/* Modal de edición de historial completo */}
-    {kpi && (
+    {kpi && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi && 'companyId' in kpi && (
       <KpiHistoryBulkEditModal
         kpiId={kpiId}
-        companyId={kpi.companyId}
+        companyId={(kpi as any).companyId}
         isOpen={isBulkEditOpen}
         onClose={() => setIsBulkEditOpen(false)}
-        kpiName={kpi.name}
+        kpiName={(kpi as any).name}
       />
     )}
   </>

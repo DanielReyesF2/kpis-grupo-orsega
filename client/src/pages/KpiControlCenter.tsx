@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useLocation } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
 import { 
   TrendingUp, 
   Building, 
@@ -1005,7 +1006,7 @@ export default function KpiControlCenter() {
 
       // Last activity
       const lastActivity = userKpiValues.length > 0 ? 
-        Math.max(...userKpiValues.map(v => new Date(v.date).getTime())) : 
+        Math.max(...userKpiValues.map(v => v.date ? new Date(v.date).getTime() : 0)) : 
         (user.lastLogin ? new Date(user.lastLogin).getTime() : 0);
 
       const daysSinceActivity = lastActivity > 0 ? 
@@ -2002,7 +2003,7 @@ export default function KpiControlCenter() {
                     <Input
                       id="unit"
                       name="unit"
-                      defaultValue={editingUserKpi.unit}
+                      defaultValue={editingUserKpi.unit || ''}
                       placeholder="%, días, unidades, kg, etc."
                       required
                     />
@@ -2026,14 +2027,14 @@ export default function KpiControlCenter() {
                     <Input
                       id="target"
                       name="target"
-                      defaultValue={editingUserKpi.target}
+                      defaultValue={editingUserKpi.target || ''}
                       placeholder="100%, 50, 2.5, etc."
                       required
                     />
                   </div>
                   <div>
                     <Label htmlFor="frequency">Frecuencia</Label>
-                    <Select name="frequency" defaultValue={editingUserKpi.frequency}>
+                    <Select name="frequency" defaultValue={editingUserKpi.frequency || undefined}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>

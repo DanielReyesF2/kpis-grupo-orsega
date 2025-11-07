@@ -24,6 +24,7 @@ import {
   type KpiValueDura,
   type KpiValueOrsega
 } from "@shared/schema";
+import { calculateKpiStatus, calculateCompliance, normalizeStatus, isLowerBetterKPI } from "@shared/kpi-utils";
 import type {
   User, InsertUser,
   Company, InsertCompany,
@@ -195,6 +196,35 @@ export class DatabaseStorage implements IStorage {
     return records.map((record) => this.mapKpiValueRecord(record, resolved));
   }
 
+  /**
+   * Obtiene el último valor de un KPI de manera centralizada
+   * Esta función asegura consistencia en cómo se obtiene el "último valor"
+   * en todas las partes del sistema (overview, detalle, etc.)
+   * 
+   * @param companyId ID de la compañía
+   * @param kpiId ID del KPI
+   * @returns El último valor del KPI o null si no existe
+   */
+  async getLatestKpiValue(companyId: number, kpiId: number): Promise<KpiValue | null> {
+    const resolved = this.resolveCompany(companyId);
+    const table = this.getKpiValuesTable(resolved);
+    
+    // Ordenar por created_at DESC para obtener el más reciente
+    // Usar year como criterio secundario para casos donde created_at sea igual
+    const records = await db
+      .select()
+      .from(table)
+      .where(eq(table.kpi_id, kpiId))
+      .orderBy(desc(table.created_at), desc(table.year))
+      .limit(1);
+    
+    if (records.length === 0) {
+      return null;
+    }
+    
+    return this.mapKpiValueRecord(records[0], resolved);
+  }
+
   async getCompanyKpiValuesByKpiNormalized(companyId: number, kpiId: number) {
     const resolved = this.resolveCompany(companyId);
     const table = this.getKpiValuesTable(resolved);
@@ -222,54 +252,123 @@ export class DatabaseStorage implements IStorage {
     comments?: string | null;
     updatedBy?: number | null;
   }) {
-    const resolved = this.resolveCompany(companyId);
-    const table = this.getKpiValuesTable(resolved);
-    const monthUpper = data.month.toUpperCase();
+    try {
+      const resolved = this.resolveCompany(companyId);
+      const table = this.getKpiValuesTable(resolved);
+      const monthUpper = data.month.toUpperCase();
 
-    const existing = await db
-      .select()
-      .from(table)
-      .where(
-        and(
-          eq(table.kpi_id, data.kpiId),
-          eq(table.month, monthUpper),
-          eq(table.year, data.year)
-        )
-      )
-      .limit(1);
-
-    if (existing.length > 0) {
-      const [updated] = await db
-        .update(table)
-        .set({
-          value: data.value,
-          compliance_percentage: data.compliancePercentage ?? null,
-          status: data.status ?? null,
-          comments: data.comments ?? null,
-          updated_by: data.updatedBy ?? null,
-          created_at: new Date(),
-        })
-        .where(eq(table.id, existing[0].id))
-        .returning();
-      return this.mapKpiValueRecord(updated, resolved);
-    }
-
-    const [inserted] = await db
-      .insert(table)
-      .values({
-        kpi_id: data.kpiId,
-        month: monthUpper,
-        year: data.year,
+      console.log(`[upsertCompanyKpiValueNormalized] Iniciando upsert para KPI ${data.kpiId}, mes: ${monthUpper}, año: ${data.year}, companyId: ${resolved}`);
+      console.log(`[upsertCompanyKpiValueNormalized] Datos a guardar:`, {
         value: data.value,
-        compliance_percentage: data.compliancePercentage ?? null,
-        status: data.status ?? null,
-        comments: data.comments ?? null,
-        updated_by: data.updatedBy ?? null,
-        created_at: new Date(),
-      })
-      .returning();
+        status: data.status,
+        compliancePercentage: data.compliancePercentage,
+        comments: data.comments,
+        updatedBy: data.updatedBy
+      });
 
-    return this.mapKpiValueRecord(inserted, resolved);
+      const existing = await db
+        .select()
+        .from(table)
+        .where(
+          and(
+            eq(table.kpi_id, data.kpiId),
+            eq(table.month, monthUpper),
+            eq(table.year, data.year)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        console.log(`[upsertCompanyKpiValueNormalized] Registro existente encontrado (ID: ${existing[0].id}), actualizando...`);
+        
+        try {
+          const [updated] = await db
+            .update(table)
+            .set({
+              value: data.value,
+              compliance_percentage: data.compliancePercentage ?? null,
+              status: data.status ?? null,
+              comments: data.comments ?? null,
+              updated_by: data.updatedBy ?? null,
+              created_at: new Date(),
+            })
+            .where(eq(table.id, existing[0].id))
+            .returning();
+          
+          console.log(`[upsertCompanyKpiValueNormalized] ✅ Actualización exitosa. Registro actualizado:`, {
+            id: updated.id,
+            status: updated.status,
+            compliance_percentage: updated.compliance_percentage,
+            value: updated.value
+          });
+          
+          const mapped = this.mapKpiValueRecord(updated, resolved);
+          console.log(`[upsertCompanyKpiValueNormalized] Registro mapeado:`, {
+            id: mapped.id,
+            status: mapped.status,
+            compliancePercentage: mapped.compliancePercentage
+          });
+          
+          return mapped;
+        } catch (updateError: any) {
+          console.error(`[upsertCompanyKpiValueNormalized] ❌ Error al actualizar registro:`, updateError);
+          console.error(`[upsertCompanyKpiValueNormalized] Detalles del error:`, {
+            message: updateError.message,
+            code: updateError.code,
+            detail: updateError.detail,
+            hint: updateError.hint
+          });
+          throw new Error(`Error al actualizar valor de KPI: ${updateError.message}`);
+        }
+      }
+
+      console.log(`[upsertCompanyKpiValueNormalized] No se encontró registro existente, creando nuevo...`);
+      
+      try {
+        const [inserted] = await db
+          .insert(table)
+          .values({
+            kpi_id: data.kpiId,
+            month: monthUpper,
+            year: data.year,
+            value: data.value,
+            compliance_percentage: data.compliancePercentage ?? null,
+            status: data.status ?? null,
+            comments: data.comments ?? null,
+            updated_by: data.updatedBy ?? null,
+            created_at: new Date(),
+          })
+          .returning();
+
+        console.log(`[upsertCompanyKpiValueNormalized] ✅ Inserción exitosa. Registro creado:`, {
+          id: inserted.id,
+          status: inserted.status,
+          compliance_percentage: inserted.compliance_percentage,
+          value: inserted.value
+        });
+
+        const mapped = this.mapKpiValueRecord(inserted, resolved);
+        console.log(`[upsertCompanyKpiValueNormalized] Registro mapeado:`, {
+          id: mapped.id,
+          status: mapped.status,
+          compliancePercentage: mapped.compliancePercentage
+        });
+
+        return mapped;
+      } catch (insertError: any) {
+        console.error(`[upsertCompanyKpiValueNormalized] ❌ Error al insertar registro:`, insertError);
+        console.error(`[upsertCompanyKpiValueNormalized] Detalles del error:`, {
+          message: insertError.message,
+          code: insertError.code,
+          detail: insertError.detail,
+          hint: insertError.hint
+        });
+        throw new Error(`Error al insertar valor de KPI: ${insertError.message}`);
+      }
+    } catch (error: any) {
+      console.error(`[upsertCompanyKpiValueNormalized] ❌ Error general en upsert:`, error);
+      throw error;
+    }
   }
 
   // User operations
@@ -1293,24 +1392,18 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
+      // Usar función centralizada para obtener últimos valores
+      // Esto asegura consistencia con otras partes del sistema
       const latestValueMap = new Map<string, KpiValue>();
-      for (const [companyId, values] of valuesByCompany.entries()) {
-        for (const value of values) {
-          const key = `${companyId}-${value.kpiId}`;
-          const existing = latestValueMap.get(key);
-          const valueDate = value.date ? new Date(value.date) : null;
-          const existingDate = existing?.date ? new Date(existing.date) : null;
-          if (!existing || (valueDate && existingDate && valueDate > existingDate)) {
-            latestValueMap.set(key, value);
+      for (const [companyId, kpis] of kpisByCompany.entries()) {
+        for (const kpi of kpis) {
+          const key = `${companyId}-${kpi.id}`;
+          const latestValue = await this.getLatestKpiValue(companyId, kpi.id);
+          if (latestValue) {
+            latestValueMap.set(key, latestValue);
           }
         }
       }
-
-      const parseNumericValue = (raw?: string | null) => {
-        if (!raw) return NaN;
-        const cleaned = raw.replace(/[^\d.-]/g, "");
-        return parseFloat(cleaned);
-      };
 
       const overview: any[] = [];
 
@@ -1327,36 +1420,24 @@ export class DatabaseStorage implements IStorage {
           const key = `${user.companyId}-${kpi.id}`;
           const latestValue = latestValueMap.get(key);
 
-          const target = kpi.target ?? kpi.goal ?? null;
+          // Usar goal como fuente única (target se mapea desde goal)
+          const target = kpi.goal ?? null;
           const currentValue = latestValue?.value ?? null;
           const lastUpdate = latestValue?.date ?? null;
 
-          let status = "non-compliant";
-          const targetNumber = parseNumericValue(target);
-          const currentNumber = parseNumericValue(currentValue);
+          // Usar función centralizada para calcular status
+          const status = calculateKpiStatus(currentValue, target, kpi.name);
+          
+          // Calcular compliance usando función centralizada
+          const compliancePercentage = currentValue && target
+            ? calculateCompliance(currentValue, target, kpi.name)
+            : null;
 
-          if (!isNaN(targetNumber) && !isNaN(currentNumber)) {
-            const lowerBetter = this.isLowerBetterKPI(kpi.name);
-            if (lowerBetter) {
-              if (currentNumber <= targetNumber) {
-                status = "compliant";
-              } else if (currentNumber <= targetNumber * 1.1) {
-                status = "alert";
-              } else {
-                status = "non-compliant";
-              }
-            } else {
-              if (currentNumber >= targetNumber) {
-                status = "compliant";
-              } else if (currentNumber >= targetNumber * 0.9) {
-                status = "alert";
-              } else {
-                status = "non-compliant";
-              }
-            }
-          } else if (currentValue) {
-            status = "alert";
-          }
+          // Normalizar status para compatibilidad con código existente
+          // (convertir a formato usado anteriormente)
+          const normalizedStatus = status === 'complies' ? 'compliant' :
+                                  status === 'not_compliant' ? 'non-compliant' :
+                                  status;
 
           overview.push({
             userId: user.id,
@@ -1370,7 +1451,8 @@ export class DatabaseStorage implements IStorage {
             kpiFrequency: kpi.frequency,
             kpiValue: currentValue,
             lastUpdate,
-            status,
+            status: normalizedStatus,
+            compliancePercentage,
             trend: "stable",
           });
         }
@@ -1383,27 +1465,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Función auxiliar para determinar si un KPI es de "menor es mejor"
-  private isLowerBetterKPI(kpiName: string): boolean {
-    const lowerBetterKPIs = [
-      'días de cobro',
-      'días de pago',
-      'tiempo de entrega',
-      'huella de carbono',
-      'costos',
-      'gastos',
-      'tiempo de respuesta',
-      'defectos',
-      'errores',
-      'quejas',
-      'devoluciones',
-      'rotación',
-      'tiempo de inactividad'
-    ];
-    
-    const kpiNameLower = kpiName.toLowerCase();
-    return lowerBetterKPIs.some(pattern => kpiNameLower.includes(pattern));
-  }
+  // Nota: isLowerBetterKPI ahora se importa desde @shared/kpi-utils
+  // La función privada fue eliminada para usar la función centralizada
 
 
 

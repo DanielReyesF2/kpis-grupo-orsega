@@ -1658,25 +1658,69 @@ export function registerRoutes(app: express.Application) {
       const user = getAuthUser(req as AuthRequest);
       const { kpiId, companyId, values } = req.body;
 
-      if (!kpiId || !companyId || !Array.isArray(values)) {
+      console.log(`[PUT /api/kpi-values/bulk] Iniciando bulk update para KPI ${kpiId}, companyId: ${companyId}`);
+      console.log(`[PUT /api/kpi-values/bulk] Usuario: ${user.id}, Valores recibidos: ${values?.length || 0}`);
+
+      // Validación de entrada
+      if (!kpiId || !companyId) {
+        console.error(`[PUT /api/kpi-values/bulk] ❌ Faltan parámetros requeridos: kpiId=${kpiId}, companyId=${companyId}`);
         return res.status(400).json({ 
-          message: "Se requiere kpiId, companyId y un array de values" 
+          message: "Se requiere kpiId y companyId" 
         });
       }
 
+      if (!Array.isArray(values)) {
+        console.error(`[PUT /api/kpi-values/bulk] ❌ 'values' no es un array:`, typeof values);
+        return res.status(400).json({ 
+          message: "Se requiere un array de values" 
+        });
+      }
+
+      if (values.length === 0) {
+        console.warn(`[PUT /api/kpi-values/bulk] ⚠️ Array de values está vacío`);
+        return res.status(400).json({ 
+          message: "El array de values no puede estar vacío" 
+        });
+      }
+
+      // Obtener KPI
       const kpi = await storage.getKpi(kpiId, companyId);
       if (!kpi) {
+        console.error(`[PUT /api/kpi-values/bulk] ❌ KPI ${kpiId} no encontrado para companyId ${companyId}`);
         return res.status(404).json({ message: "KPI not found" });
       }
 
+      console.log(`[PUT /api/kpi-values/bulk] KPI encontrado: "${kpi.name}", target: ${kpi.target || kpi.goal}`);
+
       const targetReference = kpi.target ?? kpi.goal;
       const results = [];
+      let successCount = 0;
+      let errorCount = 0;
 
+      // Procesar cada valor
       for (const item of values) {
         const { month, year, value, comments } = item;
         
+        // Validar item
         if (!month || !year || value === undefined || value === null) {
-          continue; // Saltar valores inválidos
+          console.warn(`[PUT /api/kpi-values/bulk] ⚠️ Item inválido, saltando:`, { month, year, value });
+          errorCount++;
+          results.push({ 
+            month: month || 'N/A', 
+            year: year || 'N/A', 
+            success: false, 
+            error: "Datos incompletos: falta month, year o value" 
+          });
+          continue;
+        }
+
+        // Validar que year sea un número
+        const yearNum = typeof year === 'number' ? year : parseInt(String(year), 10);
+        if (isNaN(yearNum)) {
+          console.warn(`[PUT /api/kpi-values/bulk] ⚠️ Año inválido: ${year}`);
+          errorCount++;
+          results.push({ month, year, success: false, error: `Año inválido: ${year}` });
+          continue;
         }
 
         let status: string | null = null;
@@ -1684,72 +1728,106 @@ export function registerRoutes(app: express.Application) {
 
         // Calcular status y compliancePercentage
         if (targetReference) {
-          const numericCurrentValue = extractNumericValue(value);
-          const numericTarget = extractNumericValue(targetReference);
+          try {
+            const numericCurrentValue = extractNumericValue(value);
+            const numericTarget = extractNumericValue(targetReference);
 
-          if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
-            const lowerBetter = isLowerBetterKPI(kpi.name || "");
-            let percentage: number;
+            if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
+              const lowerBetter = isLowerBetterKPI(kpi.name || "");
+              let percentage: number;
 
-            if (lowerBetter) {
-              percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
-              if (numericCurrentValue <= numericTarget) {
-                status = "complies";
-              } else if (numericCurrentValue <= numericTarget * 1.1) {
-                status = "alert";
+              if (lowerBetter) {
+                percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
+                if (numericCurrentValue <= numericTarget) {
+                  status = "complies";
+                } else if (numericCurrentValue <= numericTarget * 1.1) {
+                  status = "alert";
+                } else {
+                  status = "not_compliant";
+                }
               } else {
-                status = "not_compliant";
+                percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
+                if (numericCurrentValue >= numericTarget) {
+                  status = "complies";
+                } else if (numericCurrentValue >= numericTarget * 0.9) {
+                  status = "alert";
+                } else {
+                  status = "not_compliant";
+                }
               }
+
+              compliancePercentage = `${percentage.toFixed(1)}%`;
             } else {
-              percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
-              if (numericCurrentValue >= numericTarget) {
-                status = "complies";
-              } else if (numericCurrentValue >= numericTarget * 0.9) {
-                status = "alert";
-              } else {
-                status = "not_compliant";
-              }
+              console.warn(`[PUT /api/kpi-values/bulk] ⚠️ No se pudieron convertir valores a números para ${month} ${year}: value=${numericCurrentValue}, target=${numericTarget}`);
+              status = "alert";
+              compliancePercentage = "0.0%";
             }
-
-            compliancePercentage = `${percentage.toFixed(1)}%`;
-          } else {
+          } catch (calcError: any) {
+            console.error(`[PUT /api/kpi-values/bulk] ❌ Error calculando status para ${month} ${year}:`, calcError);
             status = "alert";
             compliancePercentage = "0.0%";
           }
         } else {
+          console.warn(`[PUT /api/kpi-values/bulk] ⚠️ KPI ${kpiId} no tiene target/goal definido`);
           status = "alert";
           compliancePercentage = "0.0%";
         }
 
+        // Guardar valor
         try {
+          console.log(`[PUT /api/kpi-values/bulk] Guardando ${month} ${year}: value=${value}, status=${status}, compliance=${compliancePercentage}`);
+          
           const kpiValue = await storage.createKpiValue({
             kpiId,
             companyId,
             value: value.toString(),
             month,
-            year: parseInt(year),
-            period: `${month} ${year}`,
+            year: yearNum,
+            period: `${month} ${yearNum}`,
             status,
             compliancePercentage,
             comments: comments || null,
             updatedBy: user.id,
           });
 
-          results.push({ month, year, success: true, kpiValue });
+          successCount++;
+          results.push({ month, year: yearNum, success: true, kpiValue });
+          console.log(`[PUT /api/kpi-values/bulk] ✅ Guardado exitoso: ${month} ${yearNum}`);
         } catch (error: any) {
-          console.error(`Error actualizando ${month} ${year}:`, error);
-          results.push({ month, year, success: false, error: error.message });
+          errorCount++;
+          console.error(`[PUT /api/kpi-values/bulk] ❌ Error guardando ${month} ${yearNum}:`, error);
+          console.error(`[PUT /api/kpi-values/bulk] Detalles del error:`, {
+            message: error.message,
+            stack: error.stack
+          });
+          results.push({ 
+            month, 
+            year: yearNum, 
+            success: false, 
+            error: error.message || "Error desconocido al guardar" 
+          });
         }
       }
 
-      res.json({ 
-        success: true, 
-        message: `Se actualizaron ${results.filter(r => r.success).length} de ${results.length} valores`,
-        results 
+      const summary = {
+        success: true,
+        total: values.length,
+        successful: successCount,
+        failed: errorCount,
+        message: `Se actualizaron ${successCount} de ${values.length} valores${errorCount > 0 ? ` (${errorCount} fallaron)` : ''}`,
+        results
+      };
+
+      console.log(`[PUT /api/kpi-values/bulk] ✅ Bulk update completado:`, summary);
+      
+      res.json(summary);
+    } catch (error: any) {
+      console.error('[PUT /api/kpi-values/bulk] ❌ Error general en bulk update:', error);
+      console.error('[PUT /api/kpi-values/bulk] Stack trace:', error.stack);
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: error.message 
       });
-    } catch (error) {
-      console.error('Error en bulk update:', error);
-      res.status(500).json({ message: "Internal server error" });
     }
   });
 

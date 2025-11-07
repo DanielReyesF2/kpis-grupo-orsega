@@ -57,6 +57,8 @@ export function KpiHistoryBulkEditModal({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveResults, setSaveResults] = useState<{ successful: number; failed: number } | null>(null);
 
   // Obtener historial del KPI
   const { data: history, isLoading } = useQuery({
@@ -126,30 +128,77 @@ export function KpiHistoryBulkEditModal({
   // Mutación para guardar cambios
   const saveMutation = useMutation({
     mutationFn: async (values: Array<{ month: string; year: number; value: string }>) => {
-      const response = await apiRequest('PUT', '/api/kpi-values/bulk', {
+      console.log('[KpiHistoryBulkEditModal] Enviando bulk update:', {
         kpiId,
         companyId,
-        values,
+        valuesCount: values.length
       });
-      return await response.json();
+
+      try {
+        const response = await apiRequest('PUT', '/api/kpi-values/bulk', {
+          kpiId,
+          companyId,
+          values,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }));
+          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('[KpiHistoryBulkEditModal] Respuesta exitosa:', data);
+        return data;
+      } catch (error: any) {
+        console.error('[KpiHistoryBulkEditModal] Error en la petición:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
-      toast({
-        title: "✅ Historial actualizado",
-        description: data.message || "Los valores se han guardado correctamente.",
+      setSaveError(null);
+      setSaveResults({
+        successful: data.successful || data.results?.filter((r: any) => r.success).length || 0,
+        failed: data.failed || data.results?.filter((r: any) => !r.success).length || 0
       });
+
+      const successCount = data.successful || data.results?.filter((r: any) => r.success).length || 0;
+      const totalCount = data.total || data.results?.length || 0;
+      const failedCount = data.failed || data.results?.filter((r: any) => !r.success).length || 0;
+
+      if (failedCount > 0) {
+        toast({
+          title: "⚠️ Actualización parcial",
+          description: data.message || `Se guardaron ${successCount} de ${totalCount} valores. ${failedCount} fallaron.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "✅ Historial actualizado",
+          description: data.message || "Todos los valores se han guardado correctamente.",
+        });
+      }
       
       // Invalidar cachés
       queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
       queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
       
-      onClose();
+      // Cerrar después de un breve delay para mostrar el resultado
+      setTimeout(() => {
+        onClose();
+        setSaveResults(null);
+      }, 2000);
     },
     onError: (error: any) => {
+      console.error('[KpiHistoryBulkEditModal] Error al guardar:', error);
+      const errorMessage = error.message || error.error || "No se pudieron guardar los cambios.";
+      setSaveError(errorMessage);
+      setSaveResults(null);
+      
       toast({
         title: "❌ Error al guardar",
-        description: error.message || "No se pudieron guardar los cambios.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -163,19 +212,28 @@ export function KpiHistoryBulkEditModal({
   };
 
   const handleSave = () => {
+    setSaveError(null);
+    setSaveResults(null);
     setIsSaving(true);
+    
     const valuesToSave = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const value = editedValues[key] || '0';
+      // Limpiar el valor: remover caracteres no numéricos excepto punto decimal
+      const cleanedValue = value.toString().replace(/[^0-9.]/g, '') || '0';
       return {
         month,
         year: selectedYear,
-        value: value.toString().replace(/[^0-9.]/g, '') || '0',
+        value: cleanedValue,
       };
     });
 
-    saveMutation.mutate(valuesToSave);
-    setTimeout(() => setIsSaving(false), 1000);
+    console.log('[KpiHistoryBulkEditModal] Guardando valores:', valuesToSave);
+    saveMutation.mutate(valuesToSave, {
+      onSettled: () => {
+        setIsSaving(false);
+      }
+    });
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -295,28 +353,76 @@ export function KpiHistoryBulkEditModal({
               </CardContent>
             </Card>
 
+            {/* Mensajes de error o éxito */}
+            {saveError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2 text-red-800">
+                  <XCircle className="h-4 w-4" />
+                  <span className="font-medium">Error al guardar:</span>
+                </div>
+                <p className="text-sm text-red-700 mt-1">{saveError}</p>
+              </div>
+            )}
+
+            {saveResults && (
+              <div className={`p-3 border rounded-lg ${
+                saveResults.failed > 0 
+                  ? 'bg-yellow-50 border-yellow-200' 
+                  : 'bg-green-50 border-green-200'
+              }`}>
+                <div className={`flex items-center gap-2 ${
+                  saveResults.failed > 0 ? 'text-yellow-800' : 'text-green-800'
+                }`}>
+                  {saveResults.failed > 0 ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">
+                    {saveResults.failed > 0 ? 'Actualización parcial' : 'Actualización exitosa'}
+                  </span>
+                </div>
+                <p className={`text-sm mt-1 ${
+                  saveResults.failed > 0 ? 'text-yellow-700' : 'text-green-700'
+                }`}>
+                  {saveResults.successful} valores guardados correctamente
+                  {saveResults.failed > 0 && `, ${saveResults.failed} fallaron`}
+                </p>
+              </div>
+            )}
+
             {/* Botones de acción */}
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button variant="outline" onClick={onClose} disabled={isSaving}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSave}
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSaveError(null);
+                  setSaveResults(null);
+                  onClose();
+                }} 
                 disabled={isSaving || saveMutation.isPending}
-                className="gap-2"
               >
-                {isSaving || saveMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Guardar Cambios
-                  </>
-                )}
+                {saveResults ? 'Cerrar' : 'Cancelar'}
               </Button>
+              {!saveResults && (
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || saveMutation.isPending}
+                  className="gap-2"
+                >
+                  {isSaving || saveMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Guardar Cambios
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}
