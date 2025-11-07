@@ -36,9 +36,10 @@ RUN echo "Build date: ${BUILD_DATE}, Version: ${BUILD_VERSION}"
 COPY client/ ./client/
 COPY server/ ./server/
 COPY shared/ ./shared/
-# Copy required script for server routes (create directory first)
+# Copy required scripts (create directory first)
 RUN mkdir -p ./scripts
 COPY scripts/weekly_sales_update.ts ./scripts/weekly_sales_update.ts
+COPY scripts/verify-build-files.js ./scripts/verify-build-files.js
 COPY vite.config.ts ./
 COPY tailwind.config.ts ./
 COPY postcss.config.js ./
