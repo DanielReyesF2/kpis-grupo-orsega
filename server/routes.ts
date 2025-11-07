@@ -1158,6 +1158,137 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // GET /api/collaborators-performance - Obtener rendimiento agrupado por colaborador
+  app.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+      if (companyIdParam !== undefined && companyIdParam !== 1 && companyIdParam !== 2) {
+        return res.status(400).json({ error: "companyId query param inválido (1=Dura, 2=Orsega)" });
+      }
+
+      console.log(`🔵 [GET /api/collaborators-performance] Endpoint llamado para companyId=${companyIdParam ?? 'ALL'}`);
+
+      // Obtener KPIs y valores
+      const [kpis, kpiValues] = await Promise.all([
+        storage.getKpis(companyIdParam),
+        storage.getKpiValues(companyIdParam)
+      ]);
+
+      // Agrupar KPIs por responsable
+      const collaboratorsMap = new Map<string, {
+        name: string;
+        kpis: any[];
+        kpiValues: any[];
+      }>();
+
+      // Agrupar KPIs por responsable (solo si está definido y no vacío)
+      kpis.forEach((kpi: any) => {
+        const responsible = kpi.responsible?.trim();
+        if (!responsible || responsible === '') return; // Validación estricta: debe estar definido y no vacío
+
+        if (!collaboratorsMap.has(responsible)) {
+          collaboratorsMap.set(responsible, {
+            name: responsible,
+            kpis: [],
+            kpiValues: []
+          });
+        }
+
+        collaboratorsMap.get(responsible)!.kpis.push(kpi);
+      });
+
+      // Agrupar valores por KPI para acceso rápido
+      const valuesByKpiId = new Map<number, any[]>();
+      kpiValues.forEach((value: any) => {
+        if (!valuesByKpiId.has(value.kpiId)) {
+          valuesByKpiId.set(value.kpiId, []);
+        }
+        valuesByKpiId.get(value.kpiId)!.push(value);
+      });
+
+      // Ordenar valores por fecha (más reciente primero) para cada KPI
+      valuesByKpiId.forEach((values) => {
+        values.sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateB - dateA;
+        });
+      });
+
+      // Calcular métricas para cada colaborador
+      const collaborators = Array.from(collaboratorsMap.values()).map((collab) => {
+        const kpisWithData = collab.kpis.map((kpi: any) => {
+          const values = valuesByKpiId.get(kpi.id) || [];
+          const latestValue = values[0] || null;
+
+          const compliance = latestValue
+            ? parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0')
+            : 0;
+
+          return {
+            ...kpi,
+            latestValue,
+            compliance,
+            status: latestValue?.status || 'not_compliant',
+            lastUpdate: latestValue?.date || null
+          };
+        });
+
+        const totalKpis = kpisWithData.length;
+        const kpisWithValues = kpisWithData.filter(k => k.latestValue);
+        const compliantKpis = kpisWithData.filter(k => k.status === 'complies').length;
+        const alertKpis = kpisWithData.filter(k => k.status === 'alert').length;
+        const notCompliantKpis = kpisWithData.filter(k => k.status === 'not_compliant').length;
+
+        // Promedio de compliance (solo KPIs con valores)
+        const averageCompliance = kpisWithValues.length > 0
+          ? kpisWithValues.reduce((sum, k) => sum + k.compliance, 0) / kpisWithValues.length
+          : 0;
+
+        // Porcentaje de KPIs cumplidos
+        const compliantPercentage = totalKpis > 0 ? (compliantKpis / totalKpis) * 100 : 0;
+
+        // Score: 50% promedio compliance + 30% % cumplidos + 20% actualizaciones
+        const updateScore = totalKpis > 0 ? (kpisWithValues.length / totalKpis) * 100 : 0;
+        const score = (averageCompliance * 0.5) + (compliantPercentage * 0.3) + (updateScore * 0.2);
+
+        // Clasificación del estado
+        let status: 'excellent' | 'good' | 'regular' | 'critical';
+        if (score >= 85) status = 'excellent';
+        else if (score >= 70) status = 'good';
+        else if (score >= 50) status = 'regular';
+        else status = 'critical';
+
+        // Última actualización (más reciente de todos los KPIs)
+        const lastUpdate = kpisWithData
+          .map(k => k.lastUpdate)
+          .filter(d => d !== null)
+          .sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0] || null;
+
+        return {
+          name: collab.name,
+          score: Math.round(score),
+          status,
+          averageCompliance: Math.round(averageCompliance * 10) / 10,
+          compliantKpis,
+          alertKpis,
+          notCompliantKpis,
+          totalKpis,
+          lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null,
+          kpis: kpisWithData
+        };
+      }).sort((a, b) => b.score - a.score); // Ordenar por score descendente
+
+      console.log(`✅ [GET /api/collaborators-performance] Retornando ${collaborators.length} colaboradores`);
+      
+      // Siempre retornar un array, incluso si está vacío
+      res.json(collaborators || []);
+    } catch (error: any) {
+      console.error("❌ [GET /api/collaborators-performance] Error:", error);
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+  });
+
   app.post("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
@@ -3438,17 +3569,54 @@ export function registerRoutes(app: express.Application) {
 
       console.log(`📦 [Idrall Upload] Procesando ${files.length} archivo(s) para empresa ${companyId}`);
 
-      // Procesar archivos con el procesador de Idrall
-      const { processIdrallFiles } = await import("./idrall-processor");
-      const filePaths = files.map(f => f.path);
+      // Procesar archivos con el analizador de documentos unificado
+      const { analyzePaymentDocument } = await import("./document-analyzer");
+      const fs = await import("fs");
       
-      const processingResult = await processIdrallFiles(filePaths, parseInt(companyId));
+      const allRecords: any[] = [];
+      const processingErrors: string[] = [];
+      let processedFiles = 0;
+
+      // Procesar cada archivo
+      for (const file of files) {
+        try {
+          const fileBuffer = await fs.promises.readFile(file.path);
+          const fileType = file.mimetype || path.extname(file.originalname).toLowerCase();
+          
+          const analysisResult = await analyzePaymentDocument(fileBuffer, fileType);
+          
+          // Si es CxP y tiene registros, agregarlos
+          if (analysisResult.documentType === "cxp" && analysisResult.cxpRecords) {
+            allRecords.push(...analysisResult.cxpRecords);
+            processedFiles++;
+          } else if (analysisResult.documentType === "cxp") {
+            // Si es CxP pero no tiene registros individuales, crear uno del resultado agregado
+            if (analysisResult.extractedSupplierName && analysisResult.extractedAmount) {
+              allRecords.push({
+                supplierName: analysisResult.extractedSupplierName,
+                amount: analysisResult.extractedAmount,
+                currency: analysisResult.extractedCurrency || "MXN",
+                dueDate: analysisResult.extractedDueDate || analysisResult.extractedDate || new Date(),
+                reference: analysisResult.extractedReference,
+                status: null,
+                notes: analysisResult.notes,
+              });
+              processedFiles++;
+            }
+          } else {
+            processingErrors.push(`Archivo ${file.originalname} no es un documento CxP válido`);
+          }
+        } catch (error: any) {
+          console.error(`❌ [Idrall Upload] Error procesando ${file.originalname}:`, error);
+          processingErrors.push(`Error procesando ${file.originalname}: ${error.message}`);
+        }
+      }
 
       // Crear registros de CxP en la base de datos
       const createdPayments = [];
       const errors = [];
 
-      for (const record of processingResult.records) {
+      for (const record of allRecords) {
         try {
           // Buscar proveedor por nombre (fuzzy match)
           const supplierResult = await sql(`
@@ -3498,9 +3666,9 @@ export function registerRoutes(app: express.Application) {
         created: createdPayments.length,
         payments: createdPayments,
         processing: {
-          totalRecords: processingResult.totalRecords,
-          processedFiles: processingResult.processedFiles,
-          errors: [...processingResult.errors, ...errors]
+          totalRecords: allRecords.length,
+          processedFiles: processedFiles,
+          errors: [...processingErrors, ...errors]
         }
       });
     } catch (error: any) {

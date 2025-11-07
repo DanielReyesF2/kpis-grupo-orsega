@@ -416,3 +416,5 @@ export function useKpiHistory(kpiId: number, companyId: number, months: number) 
 
 **Fin del Análisis**
 
+
+

@@ -18,6 +18,8 @@ import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
+import { CollaboratorCard, type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
+import { CollaboratorKPIsModal } from '@/components/kpis/CollaboratorKPIsModal';
 import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -490,6 +492,7 @@ export default function KpiControlCenter() {
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
   const [viewMode, setViewMode] = useState<'overview' | 'team'>('overview');
+  const [viewType, setViewType] = useState<'collaborators' | 'kpis'>('collaborators'); // Toggle entre vista por colaborador o por KPI
   
   // Detectar si viene de la ruta de team-management
   useEffect(() => {
@@ -515,6 +518,10 @@ export default function KpiControlCenter() {
   // Estados para edición de KPIs desde modal de usuario
   const [showEditKpiDialog, setShowEditKpiDialog] = useState(false);
   const [editingUserKpi, setEditingUserKpi] = useState<Kpi | null>(null);
+  
+  // Estados para modal de colaborador
+  const [selectedCollaborator, setSelectedCollaborator] = useState<CollaboratorScore | null>(null);
+  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
   
   // Estados para Gestión del Equipo
   const [showUserDialog, setShowUserDialog] = useState(false);
@@ -557,6 +564,20 @@ export default function KpiControlCenter() {
     staleTime: 1 * 60 * 1000, // Los datos son válidos por 1 minuto
     refetchInterval: 15000, // Actualizar cada 15 segundos (más crítico)
     enabled: !!user,
+  });
+
+  // Obtener rendimiento de colaboradores
+  const { data: collaborators, isLoading: collaboratorsLoading, error: collaboratorsError } = useQuery<CollaboratorScore[]>({
+    queryKey: ['/api/collaborators-performance', { companyId: selectedCompanyId || null }],
+    staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
+    refetchInterval: (data) => {
+      // Solo refetch si estamos en vista de colaboradores y hay datos
+      return viewType === 'collaborators' ? 30000 : false;
+    },
+    enabled: !!user && viewType === 'collaborators' && !!selectedCompanyId,
+    retry: 1, // Solo 1 reintento
+    retryDelay: 1000,
+    refetchOnWindowFocus: false, // No refetch al cambiar de ventana
   });
 
 
@@ -1098,9 +1119,33 @@ export default function KpiControlCenter() {
                       <Award className="h-5 w-5" />
                       📊 KPIs Actualizados Recientemente
                       <Badge variant="outline" className="ml-2">
-                        {displayedKpis.length} de {sortedKpis.length} {filteredKpis.length < processedKpis.length ? `(${filteredKpis.length} filtrados)` : ''}
+                        {viewType === 'collaborators' 
+                          ? `${collaborators?.length || 0} colaboradores`
+                          : `${displayedKpis.length} de ${sortedKpis.length} ${filteredKpis.length < processedKpis.length ? `(${filteredKpis.length} filtrados)` : ''}`
+                        }
                       </Badge>
                     </CardTitle>
+                    {/* Toggle entre vista por colaborador y por KPI */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewType === 'collaborators' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewType('collaborators')}
+                        className="flex items-center gap-2"
+                      >
+                        <Users className="h-4 w-4" />
+                        Por Colaborador
+                      </Button>
+                      <Button
+                        variant={viewType === 'kpis' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewType('kpis')}
+                        className="flex items-center gap-2"
+                      >
+                        <Target className="h-4 w-4" />
+                        Por KPI
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* Selector de Empresa movido aquí */}
@@ -1125,119 +1170,181 @@ export default function KpiControlCenter() {
                     )}
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-3">
-                    {sortedKpis.length > 6 && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setShowAllKpis(!showAllKpis)}
-                        className="flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                      >
-                        {showAllKpis ? 'Ver menos' : 'Ver más'}
-                        <Activity className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {/* Filtros */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Todos los responsables" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">👤 Todos los responsables</SelectItem>
-                          {uniqueResponsibles.map((responsible) => (
-                            <SelectItem key={responsible} value={responsible}>
-                              {responsible}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Todas las empresas" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">🏢 Todas las empresas</SelectItem>
-                          {uniqueCompanies.map((company) => (
-                            <SelectItem key={company} value={company}>
-                              {company}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[160px]">
-                          <SelectValue placeholder="Todos los estados" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los Estados</SelectItem>
-                          <SelectItem value="complies">✅ Solo Cumpliendo</SelectItem>
-                          <SelectItem value="alert">⚠️ Solo en Alerta</SelectItem>
-                          <SelectItem value="not_compliant">❌ Solo No Cumpliendo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {/* Botón para limpiar filtros */}
-                      {(responsibleFilter !== 'all' || companyFilter !== 'all' || statusFilter !== 'all') && (
-                        <Button
-                          variant="ghost"
+                  {/* Filtros solo para vista "Por KPI" */}
+                  {viewType === 'kpis' && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      {sortedKpis.length > 6 && (
+                        <Button 
+                          variant="outline" 
                           size="sm"
-                          onClick={() => {
-                            setResponsibleFilter('all');
-                            setCompanyFilter('all');
-                            setStatusFilter('all');
-                          }}
-                          className="text-gray-500 hover:text-gray-700"
+                          onClick={() => setShowAllKpis(!showAllKpis)}
+                          className="flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         >
-                          <Filter className="h-4 w-4 mr-1" />
-                          Limpiar
+                          {showAllKpis ? 'Ver menos' : 'Ver más'}
+                          <Activity className="h-4 w-4" />
                         </Button>
                       )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Todos los responsables" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">👤 Todos los responsables</SelectItem>
+                            {uniqueResponsibles.map((responsible) => (
+                              <SelectItem key={responsible} value={responsible}>
+                                {responsible}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Todas las empresas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">🏢 Todas las empresas</SelectItem>
+                            {uniqueCompanies.map((company) => (
+                              <SelectItem key={company} value={company}>
+                                {company}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder="Todos los estados" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos los Estados</SelectItem>
+                            <SelectItem value="complies">✅ Solo Cumpliendo</SelectItem>
+                            <SelectItem value="alert">⚠️ Solo en Alerta</SelectItem>
+                            <SelectItem value="not_compliant">❌ Solo No Cumpliendo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {(responsibleFilter !== 'all' || companyFilter !== 'all' || statusFilter !== 'all') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setResponsibleFilter('all');
+                              setCompanyFilter('all');
+                              setStatusFilter('all');
+                            }}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            <Filter className="h-4 w-4 mr-1" />
+                            Limpiar
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
-                {kpisLoading && (
-                  <div className="text-center py-8">
-                    <Activity className="h-8 w-8 mx-auto mb-4 text-gray-300 animate-spin" />
-                    <p className="text-gray-500">Cargando KPIs...</p>
-                  </div>
+                {/* Vista por Colaboradores */}
+                {viewType === 'collaborators' && (
+                  <>
+                    {collaboratorsLoading && (
+                      <div className="text-center py-8">
+                        <Activity className="h-8 w-8 mx-auto mb-4 text-gray-300 animate-spin" />
+                        <p className="text-gray-500">Cargando colaboradores...</p>
+                      </div>
+                    )}
+                    {collaboratorsError && (
+                      <div className="text-center py-8">
+                        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-300" />
+                        <p className="text-red-500 font-semibold">Error al cargar colaboradores</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          {collaboratorsError instanceof Error ? collaboratorsError.message : 'Error desconocido'}
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-4"
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] })}
+                        >
+                          Reintentar
+                        </Button>
+                      </div>
+                    )}
+                    {!collaboratorsLoading && !collaboratorsError && (!collaborators || collaborators.length === 0) && (
+                      <div className="text-center py-8">
+                        <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p className="text-gray-500">No hay colaboradores con KPIs asignados</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          Los KPIs deben tener un campo "responsible" asignado para aparecer aquí
+                        </p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          Empresa seleccionada: {selectedCompany?.name || 'Todas'}
+                        </p>
+                      </div>
+                    )}
+                    {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {collaborators.map((collaborator, index) => (
+                          <CollaboratorCard
+                            key={collaborator.name}
+                            collaborator={collaborator}
+                            delay={index * 0.05}
+                            onViewDetails={(collab) => {
+                              setSelectedCollaborator(collab);
+                              setShowCollaboratorModal(true);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
-                {!kpisLoading && displayedKpis.length === 0 && (
-                  <div className="text-center py-8">
-                    <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500">No hay KPIs para mostrar</p>
-                    <p className="text-sm text-gray-400 mt-2">
-                      {processedKpis.length === 0 
-                        ? 'No se encontraron KPIs para esta empresa'
-                        : 'No hay KPIs que coincidan con los filtros seleccionados'}
-                    </p>
-                  </div>
-                )}
-                {!kpisLoading && displayedKpis.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {displayedKpis.map((kpi: any, index: number) => (
-                      <EnhancedKpiCard
-                        key={kpi.id}
-                        kpi={{
-                          id: kpi.id,
-                          name: kpi.name,
-                          value: kpi.value,
-                          target: kpi.target,
-                          unit: kpi.unit,
-                          compliancePercentage: kpi.compliancePercentage,
-                          status: kpi.visualStatus || 'warning',
-                          areaName: kpi.areaName,
-                          responsible: kpi.responsible,
-                          historicalData: kpi.historicalData,
-                          company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
-                        }}
-                        onClick={() => handleUpdateKpi(kpi.id)}
-                        onViewDetails={() => handleViewExtendedDetails(kpi.id)}
-                        delay={index * 0.05}
-                      />
-                    ))}
-                  </div>
+
+                {/* Vista por KPIs (original) */}
+                {viewType === 'kpis' && (
+                  <>
+                    {kpisLoading && (
+                      <div className="text-center py-8">
+                        <Activity className="h-8 w-8 mx-auto mb-4 text-gray-300 animate-spin" />
+                        <p className="text-gray-500">Cargando KPIs...</p>
+                      </div>
+                    )}
+                    {!kpisLoading && displayedKpis.length === 0 && (
+                      <div className="text-center py-8">
+                        <Target className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p className="text-gray-500">No hay KPIs para mostrar</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          {processedKpis.length === 0 
+                            ? 'No se encontraron KPIs para esta empresa'
+                            : 'No hay KPIs que coincidan con los filtros seleccionados'}
+                        </p>
+                      </div>
+                    )}
+                    {!kpisLoading && displayedKpis.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {displayedKpis.map((kpi: any, index: number) => (
+                          <EnhancedKpiCard
+                            key={kpi.id}
+                            kpi={{
+                              id: kpi.id,
+                              name: kpi.name,
+                              value: kpi.value,
+                              target: kpi.target,
+                              unit: kpi.unit,
+                              compliancePercentage: kpi.compliancePercentage,
+                              status: kpi.visualStatus || 'warning',
+                              areaName: kpi.areaName,
+                              responsible: kpi.responsible,
+                              historicalData: kpi.historicalData,
+                              company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
+                            }}
+                            onClick={() => handleUpdateKpi(kpi.id)}
+                            onViewDetails={() => handleViewExtendedDetails(kpi.id)}
+                            delay={index * 0.05}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
                 
                 {!showAllKpis && sortedKpis.length > 6 && (
@@ -1722,6 +1829,18 @@ export default function KpiControlCenter() {
             }}
           />
         )}
+
+        {/* Modal de KPIs del Colaborador */}
+        <CollaboratorKPIsModal
+          collaborator={selectedCollaborator}
+          isOpen={showCollaboratorModal}
+          onClose={() => {
+            setShowCollaboratorModal(false);
+            setSelectedCollaborator(null);
+          }}
+          onUpdateKpi={handleUpdateKpi}
+          onViewDetails={handleViewExtendedDetails}
+        />
 
         {/* Modal de Usuario (Team Management) */}
         <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>

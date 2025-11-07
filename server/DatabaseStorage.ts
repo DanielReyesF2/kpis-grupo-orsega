@@ -35,6 +35,7 @@ import type {
   CompanyId,
   ActionPlan, InsertActionPlan,
   Shipment, InsertShipment,
+  ShipmentWithCycleTimes,
   ShipmentItem, InsertShipmentItem,
   ShipmentUpdate, InsertShipmentUpdate,
   Notification, InsertNotification,
@@ -849,38 +850,40 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getShipments(): Promise<Shipment[]> {
+  async getShipments(): Promise<ShipmentWithCycleTimes[]> {
     try {
       const allShipments = await db.select().from(shipments);
       
-      // Cargar items para cada shipment
-      const shipmentsWithItems = await Promise.all(
+      // Cargar items y cycle times para cada shipment
+      const shipmentsWithData = await Promise.all(
         allShipments.map(async (shipment) => {
           const items = await this.getShipmentItems(shipment.id);
-          return { ...shipment, items };
+          const enrichedShipment = await this.enrichShipmentWithCycleTimes(shipment);
+          return { ...enrichedShipment, items };
         })
       );
       
-      return shipmentsWithItems as any;
+      return shipmentsWithData;
     } catch (error) {
       console.error("Error getting shipments:", error);
       return [];
     }
   }
 
-  async getShipmentsByCompany(companyId: number): Promise<Shipment[]> {
+  async getShipmentsByCompany(companyId: number): Promise<ShipmentWithCycleTimes[]> {
     try {
       const companyShipments = await db.select().from(shipments).where(eq(shipments.companyId, companyId));
       
-      // Cargar items para cada shipment
-      const shipmentsWithItems = await Promise.all(
+      // Cargar items y cycle times para cada shipment
+      const shipmentsWithData = await Promise.all(
         companyShipments.map(async (shipment) => {
           const items = await this.getShipmentItems(shipment.id);
-          return { ...shipment, items };
+          const enrichedShipment = await this.enrichShipmentWithCycleTimes(shipment);
+          return { ...enrichedShipment, items };
         })
       );
       
-      return shipmentsWithItems as any;
+      return shipmentsWithData;
     } catch (error) {
       console.error("Error getting shipments by company:", error);
       return [];
@@ -1452,6 +1455,39 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error getting shipment cycle time:", error);
       return undefined;
+    }
+  }
+
+  // Helper method to enrich shipments with cycle times data
+  private async enrichShipmentWithCycleTimes(shipment: Shipment): Promise<ShipmentWithCycleTimes> {
+    try {
+      const cycleTime = await this.getShipmentCycleTime(shipment.id);
+      
+      if (!cycleTime) {
+        return {
+          ...shipment,
+          cycleTimes: null
+        };
+      }
+      
+      return {
+        ...shipment,
+        cycleTimes: {
+          hoursTotalCycle: cycleTime.hoursTotalCycle,
+          hoursPendingToTransit: cycleTime.hoursPendingToTransit,
+          hoursTransitToDelivered: cycleTime.hoursTransitToDelivered,
+          hoursDeliveredToClosed: cycleTime.hoursDeliveredToClosed,
+          hoursToDelivery: cycleTime.hoursToDelivery,
+          computedAt: cycleTime.computedAt || undefined,
+          updatedAt: cycleTime.updatedAt || undefined
+        }
+      };
+    } catch (error) {
+      console.error("Error enriching shipment with cycle times:", error);
+      return {
+        ...shipment,
+        cycleTimes: null
+      };
     }
   }
 
