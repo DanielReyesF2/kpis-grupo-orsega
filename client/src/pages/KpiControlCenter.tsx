@@ -2314,4 +2314,4 @@ function MessageForm({ user, onSubmit, onCancel, isLoading }: MessageFormProps) 
       </div>
     </form>
   );
-}
+}// Build verification: Fri Nov  7 12:13:49 CST 2025
