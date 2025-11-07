@@ -239,25 +239,6 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   
   const compliancePercentage = totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0;
 
-  const getGrowthRate = () => {
-    if (salesData.length < 2) return '0.0';
-    const lastMonth = salesData[salesData.length - 1].sales;
-    const previousMonth = salesData[salesData.length - 2].sales;
-    if (previousMonth === 0) return '0.0';
-    const growthRate = ((lastMonth - previousMonth) / previousMonth) * 100;
-    return growthRate.toFixed(1);
-  };
-
-  const growthRate = getGrowthRate();
-
-  // Calcular valores del mes anterior para comparación
-  const previousMonthSales = salesData.length >= 2 
-    ? salesData[salesData.length - 2].sales 
-    : 0;
-  const previousMonthPercentage = totalTarget > 0 
-    ? Math.round((previousMonthSales / totalTarget) * 100) 
-    : 0;
-
   // Calcular objetivo mensual desde el objetivo anual (para consistencia)
   // Dividir el objetivo anual por 12 para obtener el objetivo mensual
   const monthlyTarget = totalTarget > 0 ? Math.round(totalTarget / 12) : 0;
@@ -350,6 +331,69 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   // Total de meses pasados (excluyendo futuros) para el cálculo
   const totalPastMonths = allYearlyData.filter(m => !m.isFutureMonth).length;
 
+  // Calcular crecimiento vs mes anterior usando meses consecutivos reales
+  // Buscar el último mes con datos y compararlo con el mes inmediatamente anterior
+  const growthRateData = useMemo(() => {
+    const currentMonthIndex = new Date().getMonth(); // 0-11 (mes actual)
+    
+    // Encontrar el último mes con datos (excluyendo meses futuros)
+    let lastMonthWithData = null;
+    let lastMonthIndex = -1;
+    
+    // Buscar desde el mes actual hacia atrás
+    for (let i = currentMonthIndex; i >= 0; i--) {
+      if (allYearlyData[i]?.hasData) {
+        lastMonthWithData = allYearlyData[i];
+        lastMonthIndex = i;
+        break;
+      }
+    }
+    
+    if (!lastMonthWithData || lastMonthIndex === -1) {
+      return { growthRate: '0.0', lastMonthSales: 0, previousMonthSales: 0 };
+    }
+    
+    // Buscar el mes inmediatamente anterior (index - 1)
+    if (lastMonthIndex === 0) {
+      // Si el último mes con datos es Enero, no hay mes anterior en el año
+      return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
+    }
+    
+    const previousMonthData = allYearlyData[lastMonthIndex - 1];
+    
+    // Si el mes anterior no tiene datos, no podemos calcular el crecimiento
+    if (!previousMonthData.hasData) {
+      console.log(`[SalesMetricsCards] Mes anterior (${previousMonthData.month}) no tiene datos, no se puede calcular crecimiento`);
+      return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
+    }
+    
+    if (previousMonthData.sales === 0) {
+      return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
+    }
+    
+    const growthRate = ((lastMonthWithData.sales - previousMonthData.sales) / previousMonthData.sales) * 100;
+    
+    console.log(`[SalesMetricsCards] Cálculo de crecimiento - Company ${companyId}:`, {
+      lastMonth: lastMonthWithData.month,
+      lastMonthSales: lastMonthWithData.sales,
+      previousMonth: previousMonthData.month,
+      previousMonthSales: previousMonthData.sales,
+      growthRate: growthRate.toFixed(1) + '%'
+    });
+    
+    return {
+      growthRate: growthRate.toFixed(1),
+      lastMonthSales: lastMonthWithData.sales,
+      previousMonthSales: previousMonthData.sales
+    };
+  }, [allYearlyData, companyId]);
+
+  const growthRate = growthRateData.growthRate;
+  const previousMonthSales = growthRateData.previousMonthSales;
+  const previousMonthPercentage = totalTarget > 0 && previousMonthSales > 0
+    ? Math.round((previousMonthSales / totalTarget) * 100) 
+    : 0;
+
   // Calcular proyección anual para insight
   const currentMonth = new Date().getMonth() + 1;
   const monthsElapsed = salesData.length;
@@ -378,9 +422,15 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
             <p className="text-2xl font-bold mb-2 text-foreground">
               {formatNumber(totalSales)}
             </p>
-            <div className="flex items-center text-success">
-              <ArrowUp className="h-4 w-4 mr-1" />
-              <span className="text-sm font-medium">{growthRate}% vs mes anterior</span>
+            <div className={`flex items-center ${parseFloat(growthRate) >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {parseFloat(growthRate) >= 0 ? (
+                <ArrowUp className="h-4 w-4 mr-1" />
+              ) : (
+                <ArrowDown className="h-4 w-4 mr-1" />
+              )}
+              <span className="text-sm font-medium">
+                {parseFloat(growthRate) >= 0 ? '↑' : '↓'} {Math.abs(parseFloat(growthRate))}% vs mes anterior
+              </span>
             </div>
           </div>
         </div>
