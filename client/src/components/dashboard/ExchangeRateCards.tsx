@@ -203,7 +203,7 @@ export function ExchangeRateCards() {
   const monexData = useMemo(() => processSourceData('MONEX'), [exchangeRates]);
   const dofData = useMemo(() => processSourceData('DOF'), [exchangeRates]);
 
-  // Configuración de colores con 15% más contraste
+  // Configuración de colores con tonos más sutiles y elegantes
   const getSourceConfig = (source: string) => {
     const configs: Record<string, { 
       bg: string; 
@@ -214,7 +214,7 @@ export function ExchangeRateCards() {
       gradient: string;
     }> = {
       'Santander': {
-        bg: 'bg-green-50 dark:bg-green-950/20',
+        bg: 'bg-green-50/40 dark:bg-green-950/10',
         border: 'border-green-500 dark:border-green-600',
         text: 'text-green-700 dark:text-green-300',
         icon: Building2,
@@ -222,7 +222,7 @@ export function ExchangeRateCards() {
         gradient: 'from-green-500 to-green-600',
       },
       'MONEX': {
-        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        bg: 'bg-blue-50/40 dark:bg-blue-950/10',
         border: 'border-blue-600 dark:border-blue-500',
         text: 'text-blue-700 dark:text-blue-300',
         icon: DollarSign,
@@ -230,7 +230,7 @@ export function ExchangeRateCards() {
         gradient: 'from-blue-600 to-blue-700',
       },
       'DOF': {
-        bg: 'bg-orange-50 dark:bg-orange-950/20',
+        bg: 'bg-orange-50/40 dark:bg-orange-950/10',
         border: 'border-orange-500 dark:border-orange-600',
         text: 'text-orange-700 dark:text-orange-300',
         icon: FileText,

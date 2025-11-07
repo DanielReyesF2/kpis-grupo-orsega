@@ -1158,6 +1158,62 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Helper function: Calcular fecha de inicio del período anterior según frecuencia
+  const getPreviousPeriodStart = (frequency: string | null, referenceDate: Date = new Date()): Date => {
+    const date = new Date(referenceDate);
+    switch (frequency?.toLowerCase()) {
+      case 'daily':
+        date.setDate(date.getDate() - 1);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      case 'weekly':
+        date.setDate(date.getDate() - 7);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      case 'monthly':
+        date.setMonth(date.getMonth() - 1);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      default:
+        // Default a monthly si no se especifica
+        date.setMonth(date.getMonth() - 1);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
+  };
+
+  // Helper function: Obtener texto del período de comparación
+  const getPeriodText = (frequency: string | null): string => {
+    switch (frequency?.toLowerCase()) {
+      case 'daily':
+        return 'vs día anterior';
+      case 'weekly':
+        return 'vs semana pasada';
+      case 'monthly':
+        return 'vs mes anterior';
+      default:
+        return 'vs período anterior';
+    }
+  };
+
+  // Helper function: Calcular score para un conjunto de KPIs
+  const calculateScore = (kpisWithData: any[]): number => {
+    const totalKpis = kpisWithData.length;
+    const kpisWithValues = kpisWithData.filter(k => k.latestValue);
+    const compliantKpis = kpisWithData.filter(k => k.status === 'complies').length;
+    
+    const averageCompliance = kpisWithValues.length > 0
+      ? kpisWithData.reduce((sum, k) => sum + k.compliance, 0) / kpisWithValues.length
+      : 0;
+    
+    const compliantPercentage = totalKpis > 0 ? (compliantKpis / totalKpis) * 100 : 0;
+    const updateScore = totalKpis > 0 ? (kpisWithValues.length / totalKpis) * 100 : 0;
+    
+    return (averageCompliance * 0.5) + (compliantPercentage * 0.3) + (updateScore * 0.2);
+  };
+
   // GET /api/collaborators-performance - Obtener rendimiento agrupado por colaborador
   app.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res) => {
     try {
@@ -1220,16 +1276,113 @@ export function registerRoutes(app: express.Application) {
         const kpisWithData = collab.kpis.map((kpi: any) => {
           const values = valuesByKpiId.get(kpi.id) || [];
           const latestValue = values[0] || null;
+          
+          // Obtener valor del período anterior
+          const frequency = kpi.frequency || 'monthly';
+          const previousPeriodStart = getPreviousPeriodStart(frequency, latestValue?.date ? new Date(latestValue.date) : new Date());
+          
+          // Buscar el último valor del período anterior
+          let previousValue = null;
+          if (latestValue?.date) {
+            const latestDate = new Date(latestValue.date);
+            previousValue = values.find((v: any) => {
+              if (!v.date) return false;
+              const vDate = new Date(v.date);
+              return vDate < latestDate && vDate >= previousPeriodStart;
+            });
+          }
 
-          const compliance = latestValue
+          // Calcular compliance si no existe o recalcular si es necesario
+          let compliance = latestValue
             ? parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0')
             : 0;
+
+          // Si no hay compliancePercentage o es 0, calcularlo desde el valor y la meta
+          if (compliance === 0 && latestValue && (kpi.target || kpi.goal)) {
+            const targetReference = kpi.target || kpi.goal;
+            const numericValue = extractNumericValue(latestValue.value);
+            const numericTarget = extractNumericValue(targetReference);
+            
+            if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
+              const lowerBetter = isLowerBetterKPI(kpi.name || "");
+              if (lowerBetter) {
+                compliance = Math.min((numericTarget / numericValue) * 100, 100);
+              } else {
+                compliance = Math.min((numericValue / numericTarget) * 100, 100);
+              }
+            }
+          }
+
+          // Determinar status si no existe o recalcular si es necesario
+          let status = latestValue?.status || 'not_compliant';
+          if (!latestValue?.status || latestValue.status === 'null' || latestValue.status === null) {
+            if (latestValue && (kpi.target || kpi.goal)) {
+              const targetReference = kpi.target || kpi.goal;
+              const numericValue = extractNumericValue(latestValue.value);
+              const numericTarget = extractNumericValue(targetReference);
+              
+              if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
+                const lowerBetter = isLowerBetterKPI(kpi.name || "");
+                if (lowerBetter) {
+                  if (numericValue <= numericTarget) {
+                    status = "complies";
+                  } else if (numericValue <= numericTarget * 1.1) {
+                    status = "alert";
+                  } else {
+                    status = "not_compliant";
+                  }
+                } else {
+                  if (numericValue >= numericTarget) {
+                    status = "complies";
+                  } else if (numericValue >= numericTarget * 0.9) {
+                    status = "alert";
+                  } else {
+                    status = "not_compliant";
+                  }
+                }
+              }
+            }
+          }
+
+          let previousCompliance = previousValue
+            ? parseFloat(previousValue.compliancePercentage?.toString().replace('%', '') || '0')
+            : null;
+
+          // Si previousCompliance es 0, intentar calcularlo
+          if (previousCompliance === 0 && previousValue && (kpi.target || kpi.goal)) {
+            const targetReference = kpi.target || kpi.goal;
+            const numericValue = extractNumericValue(previousValue.value);
+            const numericTarget = extractNumericValue(targetReference);
+            
+            if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
+              const lowerBetter = isLowerBetterKPI(kpi.name || "");
+              if (lowerBetter) {
+                previousCompliance = Math.min((numericTarget / numericValue) * 100, 100);
+              } else {
+                previousCompliance = Math.min((numericValue / numericTarget) * 100, 100);
+              }
+            }
+          }
+
+          // Calcular tendencia de compliance
+          let complianceChange: number | null = null;
+          let trendDirection: 'up' | 'down' | 'stable' | null = null;
+          
+          if (previousCompliance !== null && previousCompliance !== 0) {
+            complianceChange = Math.round((compliance - previousCompliance) * 10) / 10;
+            if (complianceChange > 0.5) trendDirection = 'up';
+            else if (complianceChange < -0.5) trendDirection = 'down';
+            else trendDirection = 'stable';
+          }
 
           return {
             ...kpi,
             latestValue,
+            previousValue,
             compliance,
-            status: latestValue?.status || 'not_compliant',
+            complianceChange,
+            trendDirection,
+            status,
             lastUpdate: latestValue?.date || null
           };
         });
@@ -1251,6 +1404,59 @@ export function registerRoutes(app: express.Application) {
         // Score: 50% promedio compliance + 30% % cumplidos + 20% actualizaciones
         const updateScore = totalKpis > 0 ? (kpisWithValues.length / totalKpis) * 100 : 0;
         const score = (averageCompliance * 0.5) + (compliantPercentage * 0.3) + (updateScore * 0.2);
+
+        // Calcular score del período anterior para comparación
+        // Usar la frecuencia más común de los KPIs del colaborador, o default a monthly
+        const frequencies = kpisWithData.map(k => k.frequency || 'monthly');
+        const mostCommonFrequency = frequencies.length > 0 
+          ? frequencies.sort((a, b) => 
+              frequencies.filter(v => v === a).length - frequencies.filter(v => v === b).length
+            ).pop() || 'monthly'
+          : 'monthly';
+        
+        const previousPeriodStart = getPreviousPeriodStart(mostCommonFrequency);
+        const previousPeriodText = getPeriodText(mostCommonFrequency);
+
+        // Calcular score del período anterior
+        const previousKpisWithData = kpisWithData.map((kpi: any) => {
+          const values = valuesByKpiId.get(kpi.id) || [];
+          const latestDate = kpi.latestValue?.date ? new Date(kpi.latestValue.date) : new Date();
+          
+          // Buscar el último valor del período anterior para este KPI
+          const previousValue = values.find((v: any) => {
+            if (!v.date) return false;
+            const vDate = new Date(v.date);
+            return vDate < latestDate && vDate >= previousPeriodStart;
+          });
+
+          if (!previousValue) return null;
+
+          const compliance = parseFloat(previousValue.compliancePercentage?.toString().replace('%', '') || '0');
+          const status = previousValue.status || 'not_compliant';
+
+          return {
+            ...kpi,
+            latestValue: previousValue,
+            compliance,
+            status,
+            lastUpdate: previousValue.date || null
+          };
+        }).filter(k => k !== null);
+
+        const previousScore = previousKpisWithData.length > 0 
+          ? calculateScore(previousKpisWithData)
+          : null;
+
+        // Calcular cambio de score
+        let scoreChange: number | null = null;
+        let scoreTrendDirection: 'up' | 'down' | 'stable' | null = null;
+        
+        if (previousScore !== null) {
+          scoreChange = Math.round(score) - Math.round(previousScore);
+          if (scoreChange > 0) scoreTrendDirection = 'up';
+          else if (scoreChange < 0) scoreTrendDirection = 'down';
+          else scoreTrendDirection = 'stable';
+        }
 
         // Clasificación del estado
         let status: 'excellent' | 'good' | 'regular' | 'critical';
@@ -1275,14 +1481,52 @@ export function registerRoutes(app: express.Application) {
           notCompliantKpis,
           totalKpis,
           lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null,
+          scoreChange,
+          scoreChangePeriod: previousPeriodText,
+          trendDirection: scoreTrendDirection,
           kpis: kpisWithData
         };
       }).sort((a, b) => b.score - a.score); // Ordenar por score descendente
 
+      // Calcular promedio del equipo y tendencia
+      const teamScores = collaborators.map(c => c.score);
+      const teamAverage = teamScores.length > 0
+        ? Math.round(teamScores.reduce((sum, s) => sum + s, 0) / teamScores.length)
+        : 0;
+
+      // Calcular tendencia promedio del equipo
+      const teamScoreChanges = collaborators
+        .map(c => c.scoreChange)
+        .filter((change): change is number => change !== null);
+      
+      const teamTrend = teamScoreChanges.length > 0
+        ? Math.round((teamScoreChanges.reduce((sum, c) => sum + c, 0) / teamScoreChanges.length) * 10) / 10
+        : null;
+
+      const teamTrendDirection: 'up' | 'down' | 'stable' | null = teamTrend !== null
+        ? (teamTrend > 0 ? 'up' : teamTrend < 0 ? 'down' : 'stable')
+        : null;
+
+      // Determinar período de comparación del equipo (usar el más común)
+      const periods = collaborators
+        .map(c => c.scoreChangePeriod)
+        .filter((p): p is string => p !== null);
+      const mostCommonPeriod = periods.length > 0
+        ? periods.sort((a, b) => 
+            periods.filter(p => p === a).length - periods.filter(p => p === b).length
+          ).pop() || null
+        : null;
+
       console.log(`✅ [GET /api/collaborators-performance] Retornando ${collaborators.length} colaboradores`);
       
-      // Siempre retornar un array, incluso si está vacío
-      res.json(collaborators || []);
+      // Retornar con metadata del equipo
+      res.json({
+        collaborators: collaborators || [],
+        teamAverage,
+        teamTrend,
+        teamTrendDirection,
+        teamTrendPeriod: mostCommonPeriod
+      });
     } catch (error: any) {
       console.error("❌ [GET /api/collaborators-performance] Error:", error);
       res.status(500).json({ message: "Internal server error", error: error.message });
@@ -1316,13 +1560,20 @@ export function registerRoutes(app: express.Application) {
       let compliancePercentage = validatedData.compliancePercentage ?? null;
 
       const targetReference = kpi.target ?? kpi.goal;
+      console.log(`[KPI Update] Calculando estado para KPI ${kpi.id} (${kpi.name})`);
+      console.log(`[KPI Update] Valor: "${validatedData.value}", Target/Goal: "${targetReference}"`);
+      
       if (targetReference) {
         const numericCurrentValue = extractNumericValue(validatedData.value);
         const numericTarget = extractNumericValue(targetReference);
 
-        if (!isNaN(numericCurrentValue) && !isNaN(numericTarget)) {
+        console.log(`[KPI Update] Valores numéricos - Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
+
+        if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
           const lowerBetter = isLowerBetterKPI(kpi.name || "");
           let percentage: number;
+
+          console.log(`[KPI Update] ¿Métrica invertida (lower is better)? ${lowerBetter}`);
 
           if (lowerBetter) {
             percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
@@ -1335,6 +1586,7 @@ export function registerRoutes(app: express.Application) {
             }
           } else {
             percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
+            // Asegurar que cuando valor == target, sea "complies"
             if (numericCurrentValue >= numericTarget) {
               status = "complies";
             } else if (numericCurrentValue >= numericTarget * 0.9) {
@@ -1346,7 +1598,33 @@ export function registerRoutes(app: express.Application) {
 
           const formattedPercentage = percentage.toFixed(1);
           compliancePercentage = `${formattedPercentage}%`;
+          
+          console.log(`[KPI Update] Estado calculado: ${status}, Compliance: ${compliancePercentage}`);
+        } else {
+          console.warn(`[KPI Update] No se pudieron convertir valores a números o target es 0. Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
+          // Si no se puede calcular, asignar estado por defecto
+          if (!status) {
+            status = "alert";
+            compliancePercentage = "0.0%";
+          }
         }
+      } else {
+        console.warn(`[KPI Update] No hay target ni goal definido para KPI ${kpi.id}`);
+        // Si no hay target/goal, asignar estado por defecto
+        if (!status) {
+          status = "alert";
+          compliancePercentage = "0.0%";
+        }
+      }
+      
+      // Asegurar que siempre haya un estado asignado
+      if (!status) {
+        status = "alert";
+        console.warn(`[KPI Update] No se pudo determinar estado, usando "alert" por defecto`);
+      }
+      
+      if (!compliancePercentage) {
+        compliancePercentage = "0.0%";
       }
 
       const payload = {
@@ -1370,6 +1648,107 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ message: error.errors });
       }
       console.error('Error creating KPI value:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Bulk update KPI values endpoint - Para editar historial completo del año
+  app.put("/api/kpi-values/bulk", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const { kpiId, companyId, values } = req.body;
+
+      if (!kpiId || !companyId || !Array.isArray(values)) {
+        return res.status(400).json({ 
+          message: "Se requiere kpiId, companyId y un array de values" 
+        });
+      }
+
+      const kpi = await storage.getKpi(kpiId, companyId);
+      if (!kpi) {
+        return res.status(404).json({ message: "KPI not found" });
+      }
+
+      const targetReference = kpi.target ?? kpi.goal;
+      const results = [];
+
+      for (const item of values) {
+        const { month, year, value, comments } = item;
+        
+        if (!month || !year || value === undefined || value === null) {
+          continue; // Saltar valores inválidos
+        }
+
+        let status: string | null = null;
+        let compliancePercentage: string | null = null;
+
+        // Calcular status y compliancePercentage
+        if (targetReference) {
+          const numericCurrentValue = extractNumericValue(value);
+          const numericTarget = extractNumericValue(targetReference);
+
+          if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
+            const lowerBetter = isLowerBetterKPI(kpi.name || "");
+            let percentage: number;
+
+            if (lowerBetter) {
+              percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
+              if (numericCurrentValue <= numericTarget) {
+                status = "complies";
+              } else if (numericCurrentValue <= numericTarget * 1.1) {
+                status = "alert";
+              } else {
+                status = "not_compliant";
+              }
+            } else {
+              percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
+              if (numericCurrentValue >= numericTarget) {
+                status = "complies";
+              } else if (numericCurrentValue >= numericTarget * 0.9) {
+                status = "alert";
+              } else {
+                status = "not_compliant";
+              }
+            }
+
+            compliancePercentage = `${percentage.toFixed(1)}%`;
+          } else {
+            status = "alert";
+            compliancePercentage = "0.0%";
+          }
+        } else {
+          status = "alert";
+          compliancePercentage = "0.0%";
+        }
+
+        try {
+          const kpiValue = await storage.createKpiValue({
+            kpiId,
+            companyId,
+            value: value.toString(),
+            month,
+            year: parseInt(year),
+            period: `${month} ${year}`,
+            status,
+            compliancePercentage,
+            comments: comments || null,
+            updatedBy: user.id,
+          });
+
+          results.push({ month, year, success: true, kpiValue });
+        } catch (error: any) {
+          console.error(`Error actualizando ${month} ${year}:`, error);
+          results.push({ month, year, success: false, error: error.message });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Se actualizaron ${results.filter(r => r.success).length} de ${results.length} valores`,
+        results 
+      });
+    } catch (error) {
+      console.error('Error en bulk update:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

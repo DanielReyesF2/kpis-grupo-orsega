@@ -155,10 +155,10 @@ export class DatabaseStorage implements IStorage {
       value: record.value?.toString() ?? "0",
       period,
       date: record.created_at ?? new Date(),
-      compliancePercentage: null,
-      status: null,
-      comments: null,
-      updatedBy: null,
+      compliancePercentage: record.compliance_percentage ?? null,
+      status: record.status ?? null,
+      comments: record.comments ?? null,
+      updatedBy: record.updated_by ?? null,
       month: record.month ?? null,
       year: record.year ?? null,
       companyId,
@@ -243,6 +243,10 @@ export class DatabaseStorage implements IStorage {
         .update(table)
         .set({
           value: data.value,
+          compliance_percentage: data.compliancePercentage ?? null,
+          status: data.status ?? null,
+          comments: data.comments ?? null,
+          updated_by: data.updatedBy ?? null,
           created_at: new Date(),
         })
         .where(eq(table.id, existing[0].id))
@@ -257,6 +261,10 @@ export class DatabaseStorage implements IStorage {
         month: monthUpper,
         year: data.year,
         value: data.value,
+        compliance_percentage: data.compliancePercentage ?? null,
+        status: data.status ?? null,
+        comments: data.comments ?? null,
+        updated_by: data.updatedBy ?? null,
         created_at: new Date(),
       })
       .returning();

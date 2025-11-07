@@ -32,10 +32,12 @@ import {
   AlertTriangle, 
   XCircle,
   Save,
-  Info
+  Info,
+  Edit
 } from 'lucide-react';
 import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { KpiHistoryBulkEditModal } from '@/components/kpis/KpiHistoryBulkEditModal';
 
 const updateKpiSchema = z.object({
   value: z.string().min(1, "El valor es requerido"),
@@ -55,6 +57,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
 
   // Obtener datos del KPI
   const { data: kpi, isLoading: kpiLoading } = useQuery({
@@ -198,6 +201,9 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
       
+      // Invalidar la query de colaboradores para actualizar las tarjetas
+      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+      
       // Forzar refetch del historial para ver la actualización inmediatamente
       queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       
@@ -233,7 +239,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   }, [isOpen, form]);
 
   // Función para obtener color del estado
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
+    if (!status) return 'bg-gray-100 text-gray-800 border-gray-200';
     switch (status) {
       case 'complies': return 'bg-green-100 text-green-800 border-green-200';
       case 'alert': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -243,7 +250,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   };
 
   // Función para obtener texto del estado
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string | null | undefined) => {
+    if (!status) return 'Sin Estado';
     switch (status) {
       case 'complies': return 'Cumple';
       case 'alert': return 'Alerta';
@@ -276,6 +284,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
@@ -369,6 +378,19 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Botón para editar historial completo */}
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsBulkEditOpen(true)}
+                    className="gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar Historial Completo del Año
+                  </Button>
                 </div>
 
                 {/* Formulario de actualización */}
@@ -473,5 +495,17 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Modal de edición de historial completo */}
+    {kpi && (
+      <KpiHistoryBulkEditModal
+        kpiId={kpiId}
+        companyId={kpi.companyId}
+        isOpen={isBulkEditOpen}
+        onClose={() => setIsBulkEditOpen(false)}
+        kpiName={kpi.name}
+      />
+    )}
+  </>
   );
 }

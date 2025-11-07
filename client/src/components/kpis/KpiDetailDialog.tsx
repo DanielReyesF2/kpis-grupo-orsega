@@ -203,6 +203,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
         console.log("Actualizando todas las consultas de KPIs para refrescar datos en tiempo real");
         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
         queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
         queryClient.invalidateQueries(); // Invalidar todas las consultas por seguridad
       }
     });

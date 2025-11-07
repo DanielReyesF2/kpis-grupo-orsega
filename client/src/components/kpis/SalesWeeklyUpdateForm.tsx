@@ -131,10 +131,14 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
           const queryKey = query.queryKey[0];
           return typeof queryKey === 'string' && (
             queryKey.includes('/api/kpi') || 
-            queryKey.includes('/api/kpis')
+            queryKey.includes('/api/kpis') ||
+            queryKey.includes('/api/collaborators-performance')
           );
         }
       });
+      
+      // Invalidar específicamente la query de colaboradores
+      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
       
       // Invalidar específicamente las queries de kpi-history con el KPI ID correcto
       if (kpiId) {

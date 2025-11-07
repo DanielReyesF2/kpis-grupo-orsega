@@ -20,7 +20,6 @@ import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { CollaboratorCard, type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
 import { CollaboratorKPIsModal } from '@/components/kpis/CollaboratorKPIsModal';
-import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -567,7 +566,15 @@ export default function KpiControlCenter() {
   });
 
   // Obtener rendimiento de colaboradores
-  const { data: collaborators, isLoading: collaboratorsLoading, error: collaboratorsError } = useQuery<CollaboratorScore[]>({
+  interface CollaboratorsResponse {
+    collaborators: CollaboratorScore[];
+    teamAverage: number;
+    teamTrend: number | null;
+    teamTrendDirection: 'up' | 'down' | 'stable' | null;
+    teamTrendPeriod: string | null;
+  }
+
+  const { data: collaboratorsData, isLoading: collaboratorsLoading, error: collaboratorsError } = useQuery<CollaboratorsResponse>({
     queryKey: ['/api/collaborators-performance', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
     refetchInterval: (data) => {
@@ -579,6 +586,14 @@ export default function KpiControlCenter() {
     retryDelay: 1000,
     refetchOnWindowFocus: false, // No refetch al cambiar de ventana
   });
+
+  const collaborators = collaboratorsData?.collaborators || [];
+  const teamMetrics = collaboratorsData ? {
+    average: collaboratorsData.teamAverage,
+    trend: collaboratorsData.teamTrend,
+    trendDirection: collaboratorsData.teamTrendDirection,
+    trendPeriod: collaboratorsData.teamTrendPeriod
+  } : null;
 
 
   // Queries adicionales para Gestión del Equipo y Vista Histórica
@@ -1014,8 +1029,8 @@ export default function KpiControlCenter() {
     });
   };
 
-  // Métricas del equipo
-  const teamMetrics = useMemo(() => {
+  // Métricas del equipo (para gestión del equipo)
+  const teamManagementMetrics = useMemo(() => {
     const enhancedUsers = getUserEnhancedPerformance();
     const totalUsers = enhancedUsers.length;
     const activeUsers = enhancedUsers.filter(u => u.daysSinceActivity <= 7).length;
@@ -1102,14 +1117,6 @@ export default function KpiControlCenter() {
         {/* Contenido Dinámico según Vista Seleccionada */}
         {viewMode === 'overview' && (
           <div className="space-y-6">
-            {/* Actualización de Ventas Mensuales - Formulario compacto */}
-            <Card className="border">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground mb-3">Actualización de ventas</p>
-                <SalesWeeklyUpdateForm showHeader={false} compact={true} />
-              </CardContent>
-            </Card>
-
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
@@ -1147,6 +1154,49 @@ export default function KpiControlCenter() {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Barra "Pulso del equipo" - Solo en vista Por Colaborador */}
+                  {viewType === 'collaborators' && teamMetrics && (
+                    <Card className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-blue-200/40">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100/50 rounded-lg">
+                              <Activity className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900">Pulso del equipo</h3>
+                              <p className="text-sm text-gray-600">
+                                Promedio general: <span className="font-bold text-blue-600">{teamMetrics.average}</span> pts
+                              </p>
+                            </div>
+                          </div>
+                          {teamMetrics.trend !== null && (
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                              teamMetrics.trendDirection === 'up'
+                                ? 'bg-green-100/50 border border-green-200/50'
+                                : teamMetrics.trendDirection === 'down'
+                                ? 'bg-red-100/50 border border-red-200/50'
+                                : 'bg-gray-100/50 border border-gray-200/50'
+                            }`}>
+                              {teamMetrics.trendDirection === 'up' && <ArrowUp className="h-4 w-4 text-green-600" />}
+                              {teamMetrics.trendDirection === 'down' && <ArrowDown className="h-4 w-4 text-red-600" />}
+                              {teamMetrics.trendDirection === 'stable' && <Minus className="h-4 w-4 text-gray-600" />}
+                              <span className={`text-sm font-semibold ${
+                                teamMetrics.trendDirection === 'up'
+                                  ? 'text-green-700'
+                                  : teamMetrics.trendDirection === 'down'
+                                  ? 'text-red-700'
+                                  : 'text-gray-700'
+                              }`}>
+                                {teamMetrics.trend > 0 ? '+' : ''}{teamMetrics.trend} pts {teamMetrics.trendPeriod || ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                   
                   {/* Selector de Empresa movido aquí */}
                   <div className="flex items-center gap-4 pb-2 border-b">
@@ -1347,21 +1397,6 @@ export default function KpiControlCenter() {
                   </>
                 )}
                 
-                {!showAllKpis && sortedKpis.length > 6 && (
-                  <div className="text-center py-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-                    <p className="text-sm text-gray-500 mb-2">
-                      Se muestran los {displayedKpis.length} KPIs más recientes de {sortedKpis.length} total
-                    </p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setShowAllKpis(true)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    >
-                      Ver todos los {sortedKpis.length} KPIs →
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
@@ -1402,51 +1437,6 @@ export default function KpiControlCenter() {
                       );
             })()}
 
-            {/* Resumen por Área - Versión Compacta */}
-                          {(() => {
-              if (!areas || areas.length === 0) return null;
-              
-              const areaStats = areas.map((area: Area) => {
-                const areaKpis = processedKpis.filter((kpi: any) => kpi.areaId === area.id);
-                const compliant = areaKpis.filter((k: any) => k.status === 'complies').length;
-                const total = areaKpis.length;
-                const complianceRate = total > 0 ? Math.round((compliant / total) * 100) : 0;
-                
-                return {
-                  areaId: area.id,
-                  areaName: area.name,
-                  total,
-                  compliant,
-                  complianceRate,
-                  kpis: areaKpis
-                };
-              }).filter(stat => stat.total > 0).sort((a, b) => b.complianceRate - a.complianceRate).slice(0, 4);
-              
-              if (areaStats.length === 0) return null;
-                            
-                            return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {areaStats.map((stat) => (
-                    <div key={stat.areaId} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                      <div className="text-xs text-gray-500 mb-1 truncate">{stat.areaName}</div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stat.complianceRate}%</span>
-                        <span className="text-xs text-gray-500">{stat.compliant}/{stat.total}</span>
-                                  </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
-                        <div 
-                          className={`h-1.5 rounded-full ${
-                            stat.complianceRate >= 90 ? 'bg-green-500' :
-                            stat.complianceRate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${stat.complianceRate}%` }}
-                        />
-                                  </div>
-                                </div>
-                  ))}
-                </div>
-                            );
-                          })()}
           </div>
         )}
 
@@ -1470,7 +1460,7 @@ export default function KpiControlCenter() {
                     <Users className="h-5 w-5 text-emerald-500" />
                     <span className="text-sm text-foreground">Total Colaboradores</span>
               </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.totalUsers}</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.totalUsers}</p>
                   <p className="text-xs text-muted-foreground">Activos en plataforma</p>
                 </div>
 
@@ -1479,7 +1469,7 @@ export default function KpiControlCenter() {
                     <Activity className="h-5 w-5 text-blue-500" />
                     <span className="text-sm text-foreground">Usuarios Activos</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.activeUsers}</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.activeUsers}</p>
                   <p className="text-xs text-muted-foreground">Últimos 7 días</p>
                 </div>
 
@@ -1488,7 +1478,7 @@ export default function KpiControlCenter() {
                     <BarChart3 className="h-5 w-5 text-blue-500" />
                     <span className="text-sm text-foreground">Rendimiento Promedio</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.avgPerformance}%</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.avgPerformance}%</p>
                   <p className="text-xs text-muted-foreground">Basado en KPIs</p>
                 </div>
 
@@ -1497,7 +1487,7 @@ export default function KpiControlCenter() {
                     <AlertTriangle className="h-5 w-5 text-yellow-500" />
                     <span className="text-sm text-foreground">Requieren Atención</span>
                   </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamMetrics.needsAttention}</p>
+                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.needsAttention}</p>
                   <p className="text-xs text-muted-foreground">Bajo rendimiento</p>
                 </div>
               </div>
@@ -1787,15 +1777,15 @@ export default function KpiControlCenter() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span>Usuarios activos (7 días)</span>
-                          <span className="font-semibold">{teamMetrics.activeUsers}</span>
+                          <span className="font-semibold">{teamManagementMetrics.activeUsers}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Rendimiento promedio</span>
-                          <span className="font-semibold">{teamMetrics.avgPerformance}%</span>
+                          <span className="font-semibold">{teamManagementMetrics.avgPerformance}%</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Total colaboradores</span>
-                          <span className="font-semibold">{teamMetrics.totalUsers}</span>
+                          <span className="font-semibold">{teamManagementMetrics.totalUsers}</span>
                         </div>
                       </div>
                     </CardContent>
