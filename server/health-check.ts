@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from './db';
+import { pool } from './db';
 
 // Safe logger that won't fail in production
 const safeLog = {
@@ -65,7 +65,8 @@ export async function healthCheck(req: Request, res: Response) {
     // Verificar base de datos con timeout
     try {
       // Usar Promise.race para timeout de 2 segundos
-      const dbCheck = db.execute('SELECT 1');
+      // Usar pool.query directamente para verificar la conexión
+      const dbCheck = pool.query('SELECT 1');
       const timeout = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Database check timeout')), 2000)
       );
@@ -125,7 +126,8 @@ export async function healthCheck(req: Request, res: Response) {
 export async function readinessCheck(req: Request, res: Response) {
   try {
     // Verificar que la base de datos esté disponible con timeout
-    const dbCheck = db.execute('SELECT 1');
+    // Usar pool.query directamente para verificar la conexión
+    const dbCheck = pool.query('SELECT 1');
     const timeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Database readiness check timeout')), 2000)
     );
