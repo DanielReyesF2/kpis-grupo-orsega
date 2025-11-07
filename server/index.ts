@@ -439,6 +439,28 @@ process.on('uncaughtException', (error: Error) => {
     app.get("/api/health", healthCheck);
     app.get("/api/health/ready", readinessCheck);
     app.get("/api/health/live", livenessCheck);
+
+    // VERSION ENDPOINT - Diagnóstico de deployment
+    app.get("/api/version", (req, res) => {
+      const gitCommit = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VITE_BUILD_VERSION || "unknown";
+      const gitBranch = process.env.RAILWAY_GIT_BRANCH || "unknown";
+      const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
+
+      res.json({
+        version: packageJson.version || "1.0.0",
+        commit: gitCommit,
+        branch: gitBranch,
+        nodeEnv: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+        dependencies: {
+          hasPdfParse: !!packageJson.dependencies["pdf-parse"],
+          hasPdfjsDist: !!packageJson.dependencies["pdfjs-dist"],
+          pdfParseVersion: packageJson.dependencies["pdf-parse"],
+          pdfjsDistVersion: packageJson.dependencies["pdfjs-dist"],
+        }
+      });
+    });
+
     console.log("✅ Health check endpoints registered");
 
     // Register routes (this might take time but won't block /health)
