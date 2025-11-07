@@ -215,17 +215,24 @@ Now analyze the following document and respond ONLY with valid JSON.
     // --- 3️⃣ LLAMADA A OPENAI ---
     let response;
     if (fileType.includes("pdf")) {
-      response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: `${documentTypePrompt}\n\nDocument content:\n${textContent.slice(0, 15000)}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 900,
-      });
+      // Si tenemos texto extraído, usarlo; si no, intentar con base64 como imagen
+      if (textContent && textContent.length > 0) {
+        response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "user",
+              content: `${documentTypePrompt}\n\nDocument content:\n${textContent.slice(0, 15000)}`,
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 900,
+        });
+      } else {
+        // Si no hay texto extraído, no podemos analizar el PDF directamente
+        // OpenAI Vision no soporta PDFs como imágenes
+        throw new Error("No se pudo extraer texto del PDF y OpenAI Vision no soporta PDFs directamente. Por favor, instala pdfjs-dist o pdf-parse.");
+      }
     } else {
       response = await openai.chat.completions.create({
         model: "gpt-4o",
