@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from './db';
+import { sql } from 'drizzle-orm';
 
 // Safe logger that won't fail in production
 const safeLog = {
@@ -65,8 +66,9 @@ export async function healthCheck(req: Request, res: Response) {
     // Verificar base de datos con timeout
     try {
       // Usar Promise.race para timeout de 2 segundos
-      const dbCheck = db.execute('SELECT 1');
-      const timeout = new Promise((_, reject) => 
+      // Usar db.execute con sql template tag (forma correcta de Drizzle ORM)
+      const dbCheck = db.execute(sql`SELECT 1 as test`);
+      const timeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('Database check timeout')), 2000)
       );
       
@@ -77,10 +79,14 @@ export async function healthCheck(req: Request, res: Response) {
       health.services.database = 'down';
       // NO marcar como unhealthy si la DB falla - solo degraded
       // Railway necesita respuesta 200 para el healthcheck básico
+      // El endpoint /health simple no depende de esto
       if (health.status === 'healthy') {
         health.status = 'degraded';
       }
-      safeLog.error('Database health check failed', { error: error instanceof Error ? error.message : String(error) });
+      // Solo loggear errores no-timeout para evitar spam en logs
+      if (error instanceof Error && !error.message.includes('timeout')) {
+        safeLog.error('Database health check failed', { error: error.message });
+      }
     }
 
     // Verificar OpenAI
@@ -125,8 +131,9 @@ export async function healthCheck(req: Request, res: Response) {
 export async function readinessCheck(req: Request, res: Response) {
   try {
     // Verificar que la base de datos esté disponible con timeout
-    const dbCheck = db.execute('SELECT 1');
-    const timeout = new Promise((_, reject) => 
+    // Usar db.execute con sql template tag (forma correcta de Drizzle ORM)
+    const dbCheck = db.execute(sql`SELECT 1 as test`);
+    const timeout = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Database readiness check timeout')), 2000)
     );
     
