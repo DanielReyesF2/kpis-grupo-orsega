@@ -234,3 +234,5 @@ La sección de bienvenida del Dashboard ahora incluye:
 **Revisión requerida:** Sí  
 **Próximos pasos:** Testing y validación con usuarios
 
+
+

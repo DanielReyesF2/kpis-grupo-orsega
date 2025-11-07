@@ -156,21 +156,18 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
 
   // Calcular porcentaje de cumplimiento y estado según el valor ingresado y la meta
   const calculateComplianceAndStatus = (value: string, target: string): { compliancePercentage: string, status: string } => {
-    // Determinar si este KPI se trata de un indicador donde un valor menor es mejor
-    // como el caso de "Rotación de cuentas por cobrar" que se mide en días
-    const isLowerBetter = kpi?.name.includes("Rotación de cuentas por cobrar") || 
-                         kpi?.name.includes("Velocidad de rotación") || 
-                         (kpi?.name.includes("Tiempo") && !kpi?.name.includes("entrega"));
+    // Usar función centralizada que determina automáticamente si es "lower is better"
+    // basándose en el nombre del KPI
+    const kpiName = kpi?.name || '';
     
     // Para debugging
-    console.log(`KPI ${kpi?.name} - ¿Métrica invertida?: ${isLowerBetter}`);
-    console.log(`Valor actual: ${value}, Objetivo: ${target}`);
+    console.log(`KPI ${kpiName} - Valor actual: ${value}, Objetivo: ${target}`);
     
     // Calcular el porcentaje usando nuestra función centralizada
-    const compliancePercentage = calculateCompliance(value, target, isLowerBetter);
+    const compliancePercentage = calculateCompliance(value, target, kpiName);
     
     // Obtener el estado usando nuestra función centralizada
-    const status = calculateKpiStatus(value, target, isLowerBetter);
+    const status = calculateKpiStatus(value, target, kpiName);
     
     console.log(`Porcentaje calculado: ${compliancePercentage}, Estado: ${status}`);
     
@@ -184,10 +181,12 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!kpiId || !kpi?.target) return;
+    // Usar goal como fuente única (target se mapea desde goal en el backend)
+    const target = kpi?.goal ?? kpi?.target ?? null;
+    if (!kpiId || !target) return;
     
     // Calcular automáticamente el porcentaje de cumplimiento y el estado
-    const { compliancePercentage, status } = calculateComplianceAndStatus(newUpdate.value, kpi.target);
+    const { compliancePercentage, status } = calculateComplianceAndStatus(newUpdate.value, target);
     
     console.log(`Enviando actualización de KPI ${kpiId}: valor=${newUpdate.value}, porcentaje=${compliancePercentage}, estado=${status}`);
     
@@ -203,6 +202,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
         console.log("Actualizando todas las consultas de KPIs para refrescar datos en tiempo real");
         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
         queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
         queryClient.invalidateQueries(); // Invalidar todas las consultas por seguridad
       }
     });
@@ -330,7 +330,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
               </div>
               <DialogDescription>
                 <div className="mt-1 sm:mt-2 space-y-0.5 sm:space-y-1 text-xs sm:text-sm">
-                  <p><span className="font-medium">Objetivo:</span> {kpi.target}</p>
+                  <p><span className="font-medium">Objetivo:</span> {kpi.goal ?? kpi.target ?? 'Sin meta definida'}</p>
                   <p><span className="font-medium">Área:</span> {area?.name || 'Cargando...'}</p>
                   <p><span className="font-medium">Responsable:</span> {kpi.responsible || 'No asignado'}</p>
                   <p><span className="font-medium">Frecuencia:</span> {kpi.frequency === 'weekly' ? 'Semanal' : 

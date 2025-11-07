@@ -31,6 +31,11 @@ interface Shipment {
   createdAt: string;
   updatedAt?: string;
   actualDeliveryDate?: string | null;
+  cycleTimes?: {
+    hoursPendingToTransit?: string | null;
+    hoursTransitToDelivered?: string | null;
+    hoursToDelivery?: string | null;
+  } | null;
   [key: string]: any; // Permitir campos adicionales
 }
 
@@ -71,6 +76,34 @@ const formatMonth = (monthKey: string): string => {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
   return `${monthNames[parseInt(month) - 1]} ${year}`;
+};
+
+// Función para formatear horas en días y horas
+const formatDuration = (hours: string | null | undefined): string | null => {
+  if (!hours || hours === 'null' || hours === '') return null;
+  
+  const hoursNum = parseFloat(hours);
+  if (isNaN(hoursNum) || hoursNum < 0) return null;
+  
+  const days = Math.floor(hoursNum / 24);
+  const remainingHours = Math.floor(hoursNum % 24);
+  const minutes = Math.floor((hoursNum % 1) * 60);
+  
+  if (days > 0) {
+    if (remainingHours > 0) {
+      return `${days}d ${remainingHours}h`;
+    }
+    return `${days}d`;
+  } else if (remainingHours > 0) {
+    if (minutes > 0) {
+      return `${remainingHours}h ${minutes}m`;
+    }
+    return `${remainingHours}h`;
+  } else if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  
+  return `${Math.round(hoursNum * 60)}m`;
 };
 
 export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistoryProps) {
@@ -263,7 +296,7 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                               {shipment.actualDeliveryDate && (
                                 <div className="flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-success" />
-                                  <span className="font-medium">Entregado:</span>
+                                  <span className="font-medium">Entrega real:</span>
                                   <span>
                                     {new Date(shipment.actualDeliveryDate).toLocaleDateString('es-MX', {
                                       year: 'numeric',
@@ -285,6 +318,27 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                                   })}
                                 </span>
                               </div>
+                              
+                              {/* Tiempos de ciclo */}
+                              {shipment.cycleTimes?.hoursPendingToTransit && (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  <span className="font-medium">Creación → En Tránsito:</span>
+                                  <span className="text-blue-600 font-semibold">
+                                    {formatDuration(shipment.cycleTimes.hoursPendingToTransit)}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {shipment.cycleTimes?.hoursTransitToDelivered && (
+                                <div className="flex items-center gap-2">
+                                  <Truck className="w-4 h-4 text-orange-600" />
+                                  <span className="font-medium">En Tránsito → Entregado:</span>
+                                  <span className="text-orange-600 font-semibold">
+                                    {formatDuration(shipment.cycleTimes.hoursTransitToDelivered)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

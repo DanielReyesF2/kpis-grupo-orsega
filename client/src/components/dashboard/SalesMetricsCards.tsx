@@ -135,16 +135,108 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   // Log del total calculado para debugging
   console.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros procesados = ${salesData.length}`);
 
-  // Objetivo anual derivado desde DB (goal mensual * 12) con fallback
+  // Objetivo anual: Prioridad 1) localStorage (salesTargets), 2) localStorage (duraAnnualTarget/orsegaAnnualTarget), 3) cálculo desde KPI, 4) fallback
+  const salesTargetsStored = localStorage.getItem('salesTargets');
+  let storedTargetNumeric: number | null = null;
+  
+  if (salesTargetsStored) {
+    try {
+      const targets = JSON.parse(salesTargetsStored);
+      if (targets[companyId]?.annualTarget) {
+        storedTargetNumeric = parseInt(String(targets[companyId].annualTarget), 10);
+      }
+    } catch (e) {
+      console.warn('[SalesMetricsCards] Error parsing salesTargets from localStorage:', e);
+    }
+  }
+  
+  // Si no está en salesTargets, intentar con duraAnnualTarget/orsegaAnnualTarget
+  if (!storedTargetNumeric || isNaN(storedTargetNumeric) || storedTargetNumeric <= 0) {
+    const legacyTarget = companyId === 1 
+      ? localStorage.getItem('duraAnnualTarget')
+      : localStorage.getItem('orsegaAnnualTarget');
+    
+    if (legacyTarget) {
+      storedTargetNumeric = parseInt(legacyTarget, 10);
+    }
+  }
+  
+  // Si no hay valor en localStorage, calcular desde el KPI (goal mensual * 12)
   const monthlyGoalFromDb = salesKpi?.goal != null
     ? parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''))
     : undefined;
 
-  const derivedAnnualTarget = !isNaN(monthlyGoalFromDb as number) && monthlyGoalFromDb! > 0
+  const calculatedFromKpi = !isNaN(monthlyGoalFromDb as number) && monthlyGoalFromDb! > 0
     ? Math.round((monthlyGoalFromDb as number) * 12)
-    : (companyId === 1 ? annualTargets.dura : annualTargets.orsega);
+    : null;
 
-  const totalTarget = derivedAnnualTarget;
+  // Validar que el valor calculado desde el KPI no sea sospechosamente bajo antes de usarlo
+  const minReasonableTargetForKpi = companyId === 1 ? 500000 : 8000000;
+  const isValidKpiTarget = calculatedFromKpi && calculatedFromKpi >= minReasonableTargetForKpi;
+  
+  // Si el valor calculado desde el KPI es sospechosamente bajo, ignorarlo y usar el valor por defecto
+  const kpiTargetToUse = isValidKpiTarget ? calculatedFromKpi : null;
+
+  // Validar que el objetivo no sea claramente incorrecto
+  // Prioridad: 1) localStorage, 2) KPI (si es válido), 3) valor por defecto
+  const rawTarget = storedTargetNumeric && !isNaN(storedTargetNumeric) && storedTargetNumeric > 0
+    ? storedTargetNumeric
+    : kpiTargetToUse && kpiTargetToUse > 0
+    ? kpiTargetToUse
+    : (companyId === 1 ? annualTargets.dura : annualTargets.orsega);
+  
+  // Validación: si el objetivo es sospechosamente bajo, usar el valor por defecto
+  const minReasonableTarget = companyId === 1 ? 500000 : 8000000; // Valores mínimos razonables
+  const defaultTarget = companyId === 1 ? annualTargets.dura : annualTargets.orsega;
+  
+  // Verificar si el objetivo es sospechosamente bajo
+  // Condición 1: El objetivo es menor que el mínimo razonable
+  // Condición 2: Las ventas son más del doble del objetivo (indicando que el objetivo está mal)
+  const isTargetSuspiciouslyLow = rawTarget < minReasonableTarget || (totalSales > 0 && totalSales > rawTarget * 2);
+  
+  // Usar el valor por defecto si el objetivo es sospechosamente bajo
+  let totalTarget = isTargetSuspiciouslyLow ? defaultTarget : rawTarget;
+  
+  // Log para debugging
+  console.log(`[SalesMetricsCards] Objetivo anual - Company ${companyId}:`, {
+    storedTargetNumeric,
+    calculatedFromKpi,
+    isValidKpiTarget,
+    kpiTargetToUse,
+    monthlyGoalFromDb,
+    rawTarget,
+    isTargetSuspiciouslyLow,
+    defaultTarget,
+    finalTarget: totalTarget,
+    totalSales,
+    percentage: totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0,
+    minReasonableTarget
+  });
+  
+  // Si detectamos un objetivo incorrecto, limpiar localStorage para evitar el problema en el futuro
+  if (isTargetSuspiciouslyLow) {
+    console.warn(`[SalesMetricsCards] ⚠️ Objetivo sospechosamente bajo detectado (${rawTarget}), usando valor por defecto (${totalTarget})`);
+    
+    // Limpiar localStorage
+    if (companyId === 1) {
+      localStorage.removeItem('duraAnnualTarget');
+    } else {
+      localStorage.removeItem('orsegaAnnualTarget');
+    }
+    
+    // También limpiar salesTargets si existe
+    try {
+      const salesTargetsStored = localStorage.getItem('salesTargets');
+      if (salesTargetsStored) {
+        const targets = JSON.parse(salesTargetsStored);
+        delete targets[companyId];
+        localStorage.setItem('salesTargets', JSON.stringify(targets));
+      }
+    } catch (e) {
+      console.warn('[SalesMetricsCards] Error al limpiar salesTargets:', e);
+    }
+  }
+  
   const compliancePercentage = totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0;
 
   const getGrowthRate = () => {
@@ -166,10 +258,16 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     ? Math.round((previousMonthSales / totalTarget) * 100) 
     : 0;
 
-  // Calcular datos mensuales para el resumen
-  const monthlyTarget = salesKpi?.goal 
-    ? parseFloat(String(salesKpi.goal).replace(/[^0-9.-]+/g, '')) 
-    : (companyId === 1 ? 55620 : 858373);
+  // Calcular objetivo mensual desde el objetivo anual (para consistencia)
+  // Dividir el objetivo anual por 12 para obtener el objetivo mensual
+  const monthlyTarget = totalTarget > 0 ? Math.round(totalTarget / 12) : 0;
+  
+  // Log para debugging del objetivo mensual
+  console.log(`[SalesMetricsCards] Objetivo mensual - Company ${companyId}:`, {
+    annualTarget: totalTarget,
+    monthlyTarget,
+    monthsWithData: salesData.length
+  });
   
   // Resumen de TODOS los meses del año (para cálculo de "En meta")
   const allYearlyData = useMemo(() => {
@@ -177,6 +275,17 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       const monthName = (item.period || '').split(' ')[0] || '';
       const monthShort = monthName.substring(0, 3);
       const compliance = monthlyTarget > 0 ? Math.round((item.sales / monthlyTarget) * 100) : 0;
+      
+      // Log para debugging de valores sospechosos
+      if (compliance > 500) {
+        console.warn(`[SalesMetricsCards] ⚠️ Compliance sospechosamente alto para ${monthShort}:`, {
+          sales: item.sales,
+          monthlyTarget,
+          compliance,
+          period: item.period
+        });
+      }
+      
       return {
         month: monthShort,
         fullMonth: monthName,

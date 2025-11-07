@@ -234,3 +234,5 @@ Después de implementar las soluciones, verificar:
 - Multer necesita acceso directo al stream sin procesamiento previo
 - La solución es excluir las rutas multipart de los body parsers globales
 
+
+

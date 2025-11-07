@@ -89,6 +89,7 @@ export default function KpiUpdateForm({ companyId }: KpiUpdateFormProps) {
       });
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/kpi-values"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators-performance"] });
     },
     onError: (error: Error) => {
       setSubmissionStatus("error");

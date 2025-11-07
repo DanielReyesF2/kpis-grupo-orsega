@@ -114,6 +114,10 @@ export const kpiValuesDura = pgTable("kpi_values_dura", {
   month: text("month").notNull(),
   year: integer("year").notNull(),
   value: real("value").notNull(),
+  compliance_percentage: text("compliance_percentage"),
+  status: text("status"),
+  comments: text("comments"),
+  updated_by: integer("updated_by"),
   created_at: timestamp("created_at").defaultNow(),
 });
 
@@ -123,6 +127,10 @@ export const kpiValuesOrsega = pgTable("kpi_values_orsega", {
   month: text("month").notNull(),
   year: integer("year").notNull(),
   value: real("value").notNull(),
+  compliance_percentage: text("compliance_percentage"),
+  status: text("status"),
+  comments: text("comments"),
+  updated_by: integer("updated_by"),
   created_at: timestamp("created_at").defaultNow(),
 });
 

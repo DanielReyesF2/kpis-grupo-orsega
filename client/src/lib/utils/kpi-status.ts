@@ -1,104 +1,51 @@
-export type KpiStatus = 'complies' | 'alert' | 'not_compliant';
+// Re-exportar desde el módulo compartido para mantener compatibilidad
+// Las funciones centralizadas están en shared/kpi-utils.ts
+import type { KpiStatus } from '@shared/kpi-utils';
+import { 
+  calculateKpiStatus as calculateKpiStatusShared,
+  calculateCompliance as calculateComplianceShared,
+  isLowerBetterKPI
+} from '@shared/kpi-utils';
+
+export type { KpiStatus };
 
 /**
  * Determina el estado del KPI basado en el valor actual y objetivo
  * 
  * @param currentValue Valor actual del KPI
  * @param target Valor objetivo del KPI
- * @param isLowerBetter Indica si un valor menor es mejor (por defecto es falso)
+ * @param kpiName Nombre del KPI (para determinar si es "lower is better")
  * @returns Estado del KPI
+ * 
+ * @deprecated Use calculateKpiStatusShared directamente. Esta función se mantiene para compatibilidad.
  */
 export function calculateKpiStatus(
-  currentValue: string | number,
-  target: string | number,
-  isLowerBetter = false
+  currentValue: string | number | null,
+  target: string | number | null,
+  kpiName: string
 ): KpiStatus {
-  // Convertir valores a números si es posible
-  const numericCurrentValue = typeof currentValue === 'string' 
-    ? parseFloat(currentValue.replace(/[^0-9.-]+/g, '')) 
-    : currentValue;
-  
-  const numericTarget = typeof target === 'string'
-    ? parseFloat(target.replace(/[^0-9.-]+/g, ''))
-    : target;
-  
-  // Si no se pueden convertir, usar valores por defecto
-  if (isNaN(numericCurrentValue) || isNaN(numericTarget)) {
-    return 'alert';
-  }
-  
-  // Calcular el porcentaje de cumplimiento
-  const threshold = 0.9; // 90% del objetivo para estar en alerta
-  
-  if (isLowerBetter) {
-    if (numericCurrentValue <= numericTarget) {
-      return 'complies';
-    } else if (numericCurrentValue <= numericTarget * (1 + (1 - threshold))) {
-      return 'alert';
-    } else {
-      return 'not_compliant';
-    }
-  } else {
-    if (numericCurrentValue >= numericTarget) {
-      return 'complies';
-    } else if (numericCurrentValue >= numericTarget * threshold) {
-      return 'alert';
-    } else {
-      return 'not_compliant';
-    }
-  }
+  return calculateKpiStatusShared(currentValue, target, kpiName);
 }
 
 /**
  * Calcula el porcentaje de cumplimiento de un KPI
  * @param currentValue Valor actual
  * @param target Valor objetivo
- * @param isLowerBetter Indica si un valor menor es mejor
+ * @param kpiName Nombre del KPI (para determinar si es "lower is better")
  * @returns Porcentaje de cumplimiento formateado (Ej: "95.5%")
+ * 
+ * @deprecated Use calculateComplianceShared directamente. Esta función se mantiene para compatibilidad.
  */
 export function calculateCompliance(
-  currentValue: string | number, 
-  target: string | number, 
-  isLowerBetter = false
+  currentValue: string | number | null, 
+  target: string | number | null, 
+  kpiName: string
 ): string {
-  // Convertir valores a números si es posible
-  const numericCurrentValue = typeof currentValue === 'string' 
-    ? parseFloat(currentValue.replace(/[^0-9.-]+/g, '')) 
-    : currentValue;
-  
-  const numericTarget = typeof target === 'string'
-    ? parseFloat(target.replace(/[^0-9.-]+/g, ''))
-    : target;
-  
-  // Si no se pueden convertir, retornar valor por defecto
-  if (isNaN(numericCurrentValue) || isNaN(numericTarget)) {
-    return "0.0%";
-  }
-  
-  let percentage: number;
-  
-  if (isLowerBetter) {
-    // Para métricas donde un valor menor es mejor (como días de cobro)
-    // Si el valor actual es 0, evitar división por cero
-    if (numericCurrentValue === 0) {
-      percentage = numericTarget > 0 ? 200 : 0; // Valor excepcional por ser 0
-    } else {
-      // Fórmula inversa: cuanto menor el valor, mayor el cumplimiento
-      // No limitamos al 100% para mostrar cuando es mejor que el objetivo
-      percentage = (numericTarget / numericCurrentValue) * 100;
-    }
-  } else {
-    // Para métricas normales donde un valor mayor es mejor
-    // Si el objetivo es 0, evitar división por cero
-    if (numericTarget === 0) {
-      percentage = numericCurrentValue > 0 ? 100 : 0;
-    } else {
-      percentage = (numericCurrentValue / numericTarget) * 100;
-    }
-  }
-  
-  return `${percentage.toFixed(1)}%`;
+  return calculateComplianceShared(currentValue, target, kpiName);
 }
+
+// Re-exportar funciones compartidas
+export { isLowerBetterKPI };
 
 /**
  * Devuelve un texto descriptivo para el estado del KPI

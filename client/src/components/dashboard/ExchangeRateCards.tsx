@@ -32,6 +32,21 @@ interface RateCardData {
   history24h: ExchangeRate[];
 }
 
+function getEmptyRateCardData(): RateCardData {
+  return {
+    rate: null,
+    buyChange: 0,
+    sellChange: 0,
+    buyTrend: 'stable',
+    sellTrend: 'stable',
+    buyInterpretation: 'Sin datos disponibles',
+    sellInterpretation: 'Sin datos disponibles',
+    updateCount: 0,
+    lastUpdate: null,
+    history24h: []
+  };
+}
+
 export function ExchangeRateCards() {
   const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
@@ -45,51 +60,53 @@ export function ExchangeRateCards() {
     staleTime: 0, // No cachear para que siempre obtenga los datos más recientes
     refetchInterval: 30000, // Refrescar cada 30 segundos
     refetchOnWindowFocus: true, // Refrescar cuando la ventana recupera el foco
-    cacheTime: 0, // No cachear para asegurar datos frescos
-    onSuccess: (data) => {
-      console.log('[ExchangeRateCards] Datos recibidos:', data.length, 'registros');
-      if (data.length > 0) {
-        const santander = data.filter(r => r.source === 'Santander').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-        if (santander) {
-          console.log('[ExchangeRateCards] Último Santander:', {
-            id: santander.id,
-            date: santander.date,
-            parsed: new Date(santander.date).toISOString(),
-            formatted: format(new Date(santander.date), "dd/MM/yyyy HH:mm:ss", { locale: es })
-          });
-        }
+    gcTime: 0, // No cachear para asegurar datos frescos (gcTime reemplaza a cacheTime en v5)
+  });
+
+  // Efecto para logging cuando los datos cambian
+  useEffect(() => {
+    if (exchangeRates && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
+      console.log('[ExchangeRateCards] Datos recibidos:', exchangeRates.length, 'registros');
+      const santander = exchangeRates.filter((r: ExchangeRate) => r.source === 'Santander').sort((a: ExchangeRate, b: ExchangeRate) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      if (santander) {
+        console.log('[ExchangeRateCards] Último Santander:', {
+          id: santander.id,
+          date: santander.date,
+          parsed: new Date(santander.date).toISOString(),
+          formatted: format(new Date(santander.date), "dd/MM/yyyy HH:mm:ss", { locale: es })
+        });
       }
     }
-  });
+  }, [exchangeRates]);
 
   // Detectar cambios y activar animaciones
   useEffect(() => {
-    if (exchangeRates.length > 0) {
+    if (Array.isArray(exchangeRates) && exchangeRates.length > 0) {
       const newAnimations: Record<string, boolean> = {};
       
       ['Santander', 'MONEX', 'DOF'].forEach(source => {
-        const latest = exchangeRates.find(r => r.source === source);
+        const latest = exchangeRates.find((r: ExchangeRate) => r.source === source);
         if (!latest) return;
         
         const key = `${source}-buy`;
-        const prevBuy = previousValuesRef.current[key];
+        const prevBuy = previousValuesRef.current[key]?.buy;
         
         if (prevBuy !== undefined && prevBuy !== latest.buy_rate) {
           newAnimations[key] = true;
           setTimeout(() => setValueAnimations(prev => ({ ...prev, [key]: false })), 500);
         }
         
-        previousValuesRef.current[key] = latest.buy_rate;
+        previousValuesRef.current[key] = { buy: latest.buy_rate, sell: latest.sell_rate };
         
         const sellKey = `${source}-sell`;
-        const prevSell = previousValuesRef.current[sellKey];
+        const prevSell = previousValuesRef.current[sellKey]?.sell;
         
         if (prevSell !== undefined && prevSell !== latest.sell_rate) {
           newAnimations[sellKey] = true;
           setTimeout(() => setValueAnimations(prev => ({ ...prev, [sellKey]: false })), 500);
         }
         
-        previousValuesRef.current[sellKey] = latest.sell_rate;
+        previousValuesRef.current[sellKey] = { buy: latest.buy_rate, sell: latest.sell_rate };
       });
       
       if (Object.keys(newAnimations).length > 0) {
@@ -100,9 +117,12 @@ export function ExchangeRateCards() {
 
   // Procesar datos para cada fuente
   const processSourceData = (source: string): RateCardData => {
+    if (!Array.isArray(exchangeRates)) {
+      return getEmptyRateCardData();
+    }
     const rates = exchangeRates
-      .filter(r => r.source === source)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .filter((r: ExchangeRate) => r.source === source)
+      .sort((a: ExchangeRate, b: ExchangeRate) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     const latest = rates[0] || null;
     const previous = rates[1] || null;
@@ -154,7 +174,7 @@ export function ExchangeRateCards() {
     // Contar actualizaciones del día
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const updateCount = rates.filter(r => {
+    const updateCount = rates.filter((r: ExchangeRate) => {
       const rateDate = new Date(r.date);
       rateDate.setHours(0, 0, 0, 0);
       return rateDate.getTime() === today.getTime();
@@ -163,7 +183,7 @@ export function ExchangeRateCards() {
     // Historial 24h para sparkline
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
-    const history24h = rates.filter(r => new Date(r.date) >= yesterday);
+    const history24h = rates.filter((r: ExchangeRate) => new Date(r.date) >= yesterday);
     
     // Calcular lastUpdate con logging detallado
     let lastUpdate: Date | null = null;
@@ -203,7 +223,7 @@ export function ExchangeRateCards() {
   const monexData = useMemo(() => processSourceData('MONEX'), [exchangeRates]);
   const dofData = useMemo(() => processSourceData('DOF'), [exchangeRates]);
 
-  // Configuración de colores con 15% más contraste
+  // Configuración de colores con tonos más sutiles y elegantes
   const getSourceConfig = (source: string) => {
     const configs: Record<string, { 
       bg: string; 
@@ -214,7 +234,7 @@ export function ExchangeRateCards() {
       gradient: string;
     }> = {
       'Santander': {
-        bg: 'bg-green-50 dark:bg-green-950/20',
+        bg: 'bg-green-50/40 dark:bg-green-950/10',
         border: 'border-green-500 dark:border-green-600',
         text: 'text-green-700 dark:text-green-300',
         icon: Building2,
@@ -222,7 +242,7 @@ export function ExchangeRateCards() {
         gradient: 'from-green-500 to-green-600',
       },
       'MONEX': {
-        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        bg: 'bg-blue-50/40 dark:bg-blue-950/10',
         border: 'border-blue-600 dark:border-blue-500',
         text: 'text-blue-700 dark:text-blue-300',
         icon: DollarSign,
@@ -230,7 +250,7 @@ export function ExchangeRateCards() {
         gradient: 'from-blue-600 to-blue-700',
       },
       'DOF': {
-        bg: 'bg-orange-50 dark:bg-orange-950/20',
+        bg: 'bg-orange-50/40 dark:bg-orange-950/10',
         border: 'border-orange-500 dark:border-orange-600',
         text: 'text-orange-700 dark:text-orange-300',
         icon: FileText,

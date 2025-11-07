@@ -32,10 +32,12 @@ import {
   AlertTriangle, 
   XCircle,
   Save,
-  Info
+  Info,
+  Edit
 } from 'lucide-react';
 import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { KpiHistoryBulkEditModal } from '@/components/kpis/KpiHistoryBulkEditModal';
 
 const updateKpiSchema = z.object({
   value: z.string().min(1, "El valor es requerido"),
@@ -55,6 +57,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
 
   // Obtener datos del KPI
   const { data: kpi, isLoading: kpiLoading } = useQuery({
@@ -111,10 +114,10 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
   // Log para debugging
   useEffect(() => {
-    if (kpi && isOpen) {
+    if (kpi && isOpen && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) {
       console.log('[KpiUpdateModal] KPI detectado:', {
-        id: kpi.id,
-        name: kpi.name,
+        id: (kpi as any).id,
+        name: (kpi as any).name,
         isSalesKpi: isSalesKpi,
         willShowSalesForm: isSalesKpi
       });
@@ -150,7 +153,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     mutationFn: async (data: FormValues) => {
       console.log('[KPI Update] Enviando datos:', {
         kpiId: kpiId,
-        kpiName: kpi?.name,
+        kpiName: (kpi && typeof kpi === 'object' && kpi !== null && 'name' in kpi) ? (kpi as any).name : 'N/A',
         value: data.value,
         period: data.period || getCurrentPeriod(),
         comments: data.comments || '',
@@ -198,6 +201,9 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
       
+      // Invalidar la query de colaboradores para actualizar las tarjetas
+      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+      
       // Forzar refetch del historial para ver la actualización inmediatamente
       queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
       
@@ -233,7 +239,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   }, [isOpen, form]);
 
   // Función para obtener color del estado
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
+    if (!status) return 'bg-gray-100 text-gray-800 border-gray-200';
     switch (status) {
       case 'complies': return 'bg-green-100 text-green-800 border-green-200';
       case 'alert': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -243,7 +250,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   };
 
   // Función para obtener texto del estado
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string | null | undefined) => {
+    if (!status) return 'Sin Estado';
     switch (status) {
       case 'complies': return 'Cumple';
       case 'alert': return 'Alerta';
@@ -276,6 +284,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
@@ -288,7 +297,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           </DialogDescription>
         </DialogHeader>
 
-        {kpi && (
+        {(kpi && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) ? (
           <div className="space-y-6">
             {isSalesKpi ? (
               // Formulario especializado para actualización de ventas
@@ -302,7 +311,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4 sm:pt-6">
-                  <SalesWeeklyUpdateForm showHeader={false} defaultCompanyId={kpi.companyId} />
+                  <SalesWeeklyUpdateForm showHeader={false} defaultCompanyId={(kpi as any).companyId} />
                 </CardContent>
               </Card>
             ) : (
@@ -318,13 +327,13 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                   <div className="space-y-2">
                     <div>
                       <span className="text-sm font-medium text-gray-600">Nombre:</span>
-                      <div className="font-semibold text-gray-900">{kpi.name}</div>
+                      <div className="font-semibold text-gray-900">{(kpi as any).name}</div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <span className="text-sm font-medium text-gray-600">Meta:</span>
-                        <div className="text-lg font-bold text-blue-600">{kpi.target || 'Sin meta definida'}</div>
+                        <div className="text-lg font-bold text-blue-600">{(kpi as any).target || 'Sin meta definida'}</div>
                       </div>
                       
                       {latestValue && (
@@ -369,6 +378,19 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Botón para editar historial completo */}
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsBulkEditOpen(true)}
+                    className="gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar Historial Completo del Año
+                  </Button>
                 </div>
 
                 {/* Formulario de actualización */}
@@ -470,8 +492,20 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
               </>
             )}
           </div>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
+
+    {/* Modal de edición de historial completo */}
+    {kpi && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi && 'companyId' in kpi && (
+      <KpiHistoryBulkEditModal
+        kpiId={kpiId}
+        companyId={(kpi as any).companyId}
+        isOpen={isBulkEditOpen}
+        onClose={() => setIsBulkEditOpen(false)}
+        kpiName={(kpi as any).name}
+      />
+    )}
+  </>
   );
 }

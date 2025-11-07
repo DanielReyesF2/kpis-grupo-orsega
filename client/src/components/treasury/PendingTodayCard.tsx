@@ -74,31 +74,27 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
   };
 
   return (
-    <Card className="relative border-2 border-orange-500/20 shadow-sm hover:shadow-md transition-all overflow-hidden bg-orange-50/50 dark:bg-orange-950/20">
-      {/* Badge de número */}
-      <div className="absolute top-3 left-3 bg-orange-600 text-white rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold shadow-sm z-10">
-        3
-      </div>
-      <CardHeader className="pb-3 pt-12">
+    <Card className="border border-border/50 shadow-sm hover:shadow-md transition-all">
+      <CardHeader className="pb-2 pt-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-bold text-foreground">
+          <CardTitle className="text-lg font-semibold text-foreground">
             REPs Pendientes
           </CardTitle>
-          <Badge variant="outline" className="text-sm px-3 py-1 font-semibold">
+          <Badge variant="outline" className="text-xs px-2 py-0.5">
             {pendingToday.length}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 px-4 pb-4">
+      <CardContent className="space-y-3 px-4 pb-4 pt-0">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
         ) : pendingToday.length === 0 ? (
-          <div className="text-center py-6">
-            <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500" />
-            <p className="text-base font-semibold text-foreground mb-1">
+          <div className="text-center py-4">
+            <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+            <p className="text-sm font-semibold text-foreground mb-1">
               ¡Todo al día!
             </p>
             <p className="text-xs text-muted-foreground">
@@ -107,37 +103,37 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
           </div>
         ) : (
           <>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {pendingToday.slice(0, 5).map((voucher) => {
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {pendingToday.slice(0, 4).map((voucher) => {
                 const statusInfo = getStatusInfo(voucher.status);
                 const StatusIcon = statusInfo.icon;
                 return (
                   <div
                     key={voucher.id}
-                    className="p-4 border-2 border-border rounded-lg bg-card hover:border-primary/40 transition-all cursor-pointer"
+                    className="p-3 border rounded-lg bg-card hover:border-primary/40 transition-all cursor-pointer"
                     onClick={onViewAll}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <StatusIcon className="h-5 w-5 text-orange-600 flex-shrink-0" />
-                          <p className="text-base font-semibold text-foreground truncate">
+                        <div className="flex items-center gap-2 mb-1">
+                          <StatusIcon className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                          <p className="text-sm font-semibold text-foreground truncate">
                             {voucher.clientName}
                           </p>
                         </div>
                         {voucher.extractedAmount && (
-                          <p className="text-lg font-bold text-orange-700 dark:text-orange-400">
+                          <p className="text-base font-bold text-orange-700 dark:text-orange-400">
                             {voucher.extractedCurrency || "MXN"} ${voucher.extractedAmount.toLocaleString("es-MX", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </p>
                         )}
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {format(new Date(voucher.createdAt), "HH:mm", { locale: es })}
                         </p>
                       </div>
-                      <Badge className={statusInfo.color}>
+                      <Badge className={`${statusInfo.color} text-xs`}>
                         {statusInfo.label}
                       </Badge>
                     </div>
@@ -145,16 +141,16 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
                 );
               })}
             </div>
-            {pendingToday.length > 5 && (
+            {pendingToday.length > 4 && (
               <div className="pt-2 border-t">
-                <p className="text-sm text-center text-muted-foreground">
-                  Y {pendingToday.length - 5} más...
+                <p className="text-xs text-center text-muted-foreground">
+                  Y {pendingToday.length - 4} más...
                 </p>
               </div>
             )}
             <button
               onClick={onViewAll}
-              className="w-full py-3 px-4 bg-orange-600 text-white rounded-lg font-semibold text-base hover:bg-orange-700 transition-all shadow-md hover:shadow-lg"
+              className="w-full py-2 px-3 bg-orange-600 text-white rounded-lg font-medium text-sm hover:bg-orange-700 transition-all"
             >
               Ver Todos los Comprobantes
             </button>

@@ -324,6 +324,7 @@ const KanbanColumn = ({
   title, 
   status, 
   shipments, 
+  allShipmentsCount,
   onDrop,
   onCardClick,
   onRequestTransport,
@@ -334,6 +335,7 @@ const KanbanColumn = ({
   title: string; 
   status: string; 
   shipments: Shipment[]; 
+  allShipmentsCount?: number;
   onDrop: (shipment: Shipment, newStatus: string) => void;
   onCardClick: (shipment: Shipment) => void;
   onRequestTransport?: (shipment: Shipment) => void;
@@ -438,42 +440,42 @@ const KanbanColumn = ({
       case 'pending': 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-muted/50',
+          headerColor: 'bg-slate-700/80 text-white',
           icon: '📋',
           description: 'Listos para enviar'
         };
       case 'in_transit': 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-orange-600/20 text-orange-300',
+          headerColor: 'bg-orange-600/90 text-white',
           icon: '🚚',
           description: 'En camino'
         };
       case 'delivered': 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-emerald-600/20 text-emerald-300',
+          headerColor: 'bg-emerald-600/90 text-white',
           icon: '✅',
           description: 'Completados'
         };
       case 'delayed': 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-red-600/20 text-red-300',
+          headerColor: 'bg-red-600/90 text-white',
           icon: '⚠️',
           description: 'Requieren atención'
         };
       case 'cancelled': 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-muted/50',
+          headerColor: 'bg-slate-700/80 text-white',
           icon: '🔒',
           description: 'Cerrados'
         };
       default: 
         return { 
           color: 'border-border bg-card', 
-          headerColor: 'bg-muted/50',
+          headerColor: 'bg-slate-700/80 text-white',
           icon: '📦',
           description: 'Envíos'
         };
@@ -500,12 +502,12 @@ const KanbanColumn = ({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+              <Badge variant="secondary" className="bg-white text-slate-900 border-2 border-white shadow-md font-bold text-base min-w-[2.25rem] h-7 justify-center px-2">
                 {filteredShipments.length}
               </Badge>
-              {filteredShipments.length > 0 && (
-                <div className="text-xs opacity-80">
-                  {Math.round((filteredShipments.length / shipments.length) * 100)}%
+              {filteredShipments.length > 0 && (allShipmentsCount || shipments.length) > 0 && (
+                <div className="text-sm font-bold text-white">
+                  {Math.round((filteredShipments.length / (allShipmentsCount || shipments.length)) * 100)}%
                 </div>
               )}
             </div>
@@ -1028,14 +1030,15 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
       {/* Estadísticas rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { status: 'pending', label: 'Por embarcar', icon: '📋', color: 'bg-slate-100 text-slate-700' },
-          { status: 'in_transit', label: 'En Tránsito', icon: '🚚', color: 'bg-amber-100 text-amber-700' },
-          { status: 'delayed', label: 'Retrasados', icon: '⚠️', color: 'bg-rose-100 text-rose-700' },
+          { status: 'pending', label: 'Por embarcar', icon: '📋', color: 'bg-slate-100 text-slate-700', numberColor: 'text-slate-900' },
+          { status: 'in_transit', label: 'En Tránsito', icon: '🚚', color: 'bg-amber-100 text-amber-700', numberColor: 'text-amber-900' },
+          { status: 'delayed', label: 'Retrasados', icon: '⚠️', color: 'bg-rose-100 text-rose-700', numberColor: 'text-rose-900' },
           { 
             status: 'delivered', 
             label: 'Entregados', 
             icon: '✅', 
             color: 'bg-[#b5e951]/20 text-[#6b7a00]',
+            numberColor: 'text-[#4a5d00]',
             includeCancelled: true 
           }
         ].map((item) => {
@@ -1045,7 +1048,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           return (
             <div key={item.status} className={`${item.color} rounded-lg p-3 text-center`}>
               <div className="text-lg">{item.icon}</div>
-              <div className="text-xl font-bold">{count}</div>
+              <div className={`text-3xl font-bold ${item.numberColor}`}>{count}</div>
               <div className="text-xs font-medium">{item.label}</div>
             </div>
           );
@@ -1058,6 +1061,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           title="Por embarcar" 
           status="pending" 
           shipments={shipments} 
+          allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
           onRequestTransport={handleRequestTransport}
@@ -1066,6 +1070,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           title="En Tránsito" 
           status="in_transit" 
           shipments={shipments} 
+          allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
         />
@@ -1073,6 +1078,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           title="Retrasados" 
           status="delayed" 
           shipments={shipments} 
+          allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
         />
@@ -1080,6 +1086,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           title="Entregados" 
           status="delivered" 
           shipments={shipments.filter(s => s.status === 'delivered' || s.status === 'cancelled')} 
+          allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
         />
