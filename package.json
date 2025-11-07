@@ -98,6 +98,7 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pdf-parse": "^1.1.0",
+    "pdfjs-dist": "^3.11.174",
     "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-calendar-timeline": "^0.30.0-beta.3",

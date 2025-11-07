@@ -4,11 +4,21 @@
 // ================================================
 
 import OpenAI from "openai";
-import pdfjsModule from 'pdfjs-dist/legacy/build/pdf.js';
 
-// CRITICAL FIX: getDocument está en pdfjsModule.default, NO en pdfjsModule directamente
-// Verificado con test directo que pdfjsModule.default.getDocument es la ruta correcta
-const pdfjsLib = pdfjsModule.default || pdfjsModule;
+// Importación dinámica de pdfjs-dist para evitar errores si no está instalado
+let pdfjsLib: any = null;
+async function loadPdfjs() {
+  if (pdfjsLib) return pdfjsLib;
+  try {
+    const pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.js');
+    // CRITICAL FIX: getDocument está en pdfjsModule.default, NO en pdfjsModule directamente
+    pdfjsLib = pdfjsModule.default || pdfjsModule;
+    return pdfjsLib;
+  } catch (error) {
+    console.warn('⚠️ pdfjs-dist no está disponible. La extracción de texto de PDFs estará limitada.');
+    return null;
+  }
+}
 
 // -----------------------------
 // Interfaces
@@ -53,19 +63,40 @@ export async function analyzePaymentDocument(
 
     // --- 1️⃣ Extracción inicial según tipo ---
     if (fileType.includes("pdf")) {
-      // Extraer texto del PDF usando pdfjs-dist
-      const loadingTask = pdfjsLib.getDocument({data: new Uint8Array(fileBuffer)});
-      const pdf = await loadingTask.promise;
+      // Extraer texto del PDF usando pdfjs-dist (si está disponible)
+      const pdfjs = await loadPdfjs();
+      if (pdfjs && pdfjs.getDocument) {
+        try {
+          const loadingTask = pdfjs.getDocument({data: new Uint8Array(fileBuffer)});
+          const pdf = await loadingTask.promise;
 
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const content = await page.getTextContent();
-        const pageText = content.items.map((item: any) => item.str).join(' ');
-        textContent += pageText + '\n';
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const content = await page.getTextContent();
+            const pageText = content.items.map((item: any) => item.str).join(' ');
+            textContent += pageText + '\n';
+          }
+
+          textContent = textContent.trim();
+          console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres, ${pdf.numPages} páginas)`);
+        } catch (error) {
+          console.warn('⚠️ Error extrayendo texto del PDF, continuando sin texto extraído:', error);
+          // Continuar sin texto extraído, OpenAI puede analizar la imagen directamente
+          base64Data = fileBuffer.toString("base64");
+        }
+      } else {
+        // Si pdfjs-dist no está disponible, intentar usar pdf-parse como alternativa
+        try {
+          const pdfParse = await import('pdf-parse');
+          const pdfData = await pdfParse.default(fileBuffer);
+          textContent = pdfData.text.trim();
+          console.log(`📄 Texto extraído del PDF usando pdf-parse (${textContent.length} caracteres, ${pdfData.numpages} páginas)`);
+        } catch (error) {
+          console.warn('⚠️ Ni pdfjs-dist ni pdf-parse están disponibles. El análisis de PDFs será limitado.');
+          // Como último recurso, intentar analizar el PDF como si fuera una imagen (limitado)
+          textContent = '';
+        }
       }
-
-      textContent = textContent.trim();
-      console.log(`📄 Texto extraído del PDF (${textContent.length} caracteres, ${pdf.numPages} páginas)`);
     } else {
       base64Data = fileBuffer.toString("base64");
     }
