@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { pool } from './db';
+import { db } from './db';
+import { sql } from 'drizzle-orm';
 
 // Safe logger that won't fail in production
 const safeLog = {
@@ -64,11 +65,15 @@ export async function healthCheck(req: Request, res: Response) {
   try {
     // Verificar base de datos con timeout
     try {
-      // Usar Promise.race para timeout de 2 segundos
-      // Usar pool.query directamente para verificar la conexión
-      const dbCheck = pool.query('SELECT 1');
-      const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database check timeout')), 2000)
+      // Usar Promise.race para timeout de 1 segundo (más rápido para healthcheck)
+      // Usar db.execute con sql template tag de drizzle-orm
+      const dbCheck = db.execute(sql`SELECT 1 as test`).catch(err => {
+        // Si hay error, relanzarlo para que sea capturado por el catch externo
+        throw err;
+      });
+      
+      const timeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Database check timeout')), 1000)
       );
       
       await Promise.race([dbCheck, timeout]);
@@ -78,10 +83,15 @@ export async function healthCheck(req: Request, res: Response) {
       health.services.database = 'down';
       // NO marcar como unhealthy si la DB falla - solo degraded
       // Railway necesita respuesta 200 para el healthcheck básico
+      // El endpoint /health simple no depende de esto, así que está bien
       if (health.status === 'healthy') {
         health.status = 'degraded';
       }
-      safeLog.error('Database health check failed', { error: error instanceof Error ? error.message : String(error) });
+      // No loggear errores de DB en healthcheck para evitar spam
+      // Solo loggear si es un error crítico
+      if (error instanceof Error && !error.message.includes('timeout')) {
+        safeLog.error('Database health check failed', { error: error.message });
+      }
     }
 
     // Verificar OpenAI
@@ -126,8 +136,8 @@ export async function healthCheck(req: Request, res: Response) {
 export async function readinessCheck(req: Request, res: Response) {
   try {
     // Verificar que la base de datos esté disponible con timeout
-    // Usar pool.query directamente para verificar la conexión
-    const dbCheck = pool.query('SELECT 1');
+    // Usar db.execute con sql template tag de drizzle-orm
+    const dbCheck = db.execute(sql`SELECT 1 as test`);
     const timeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Database readiness check timeout')), 2000)
     );
