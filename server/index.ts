@@ -172,6 +172,32 @@ app.head("/healthz", (req, res) => {
   res.status(200).end();
 });
 
+// VERSION ENDPOINT - PÚBLICO - Para diagnóstico de deployment
+// DEBE estar ANTES de cualquier middleware de autenticación
+app.get("/api/version", (req, res) => {
+  try {
+    const gitCommit = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VITE_BUILD_VERSION || "unknown";
+    const gitBranch = process.env.RAILWAY_GIT_BRANCH || "unknown";
+    const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
+
+    res.json({
+      version: packageJson.version || "1.0.0",
+      commit: gitCommit,
+      branch: gitBranch,
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+      dependencies: {
+        hasPdfParse: !!packageJson.dependencies["pdf-parse"],
+        hasPdfjsDist: !!packageJson.dependencies["pdfjs-dist"],
+        pdfParseVersion: packageJson.dependencies["pdf-parse"],
+        pdfjsDistVersion: packageJson.dependencies["pdfjs-dist"],
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get version info" });
+  }
+});
+
 // Compression middleware - reduce tamaño de respuestas
 app.use(compression());
 
@@ -440,26 +466,7 @@ process.on('uncaughtException', (error: Error) => {
     app.get("/api/health/ready", readinessCheck);
     app.get("/api/health/live", livenessCheck);
 
-    // VERSION ENDPOINT - Diagnóstico de deployment
-    app.get("/api/version", (req, res) => {
-      const gitCommit = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VITE_BUILD_VERSION || "unknown";
-      const gitBranch = process.env.RAILWAY_GIT_BRANCH || "unknown";
-      const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8"));
-
-      res.json({
-        version: packageJson.version || "1.0.0",
-        commit: gitCommit,
-        branch: gitBranch,
-        nodeEnv: process.env.NODE_ENV,
-        timestamp: new Date().toISOString(),
-        dependencies: {
-          hasPdfParse: !!packageJson.dependencies["pdf-parse"],
-          hasPdfjsDist: !!packageJson.dependencies["pdfjs-dist"],
-          pdfParseVersion: packageJson.dependencies["pdf-parse"],
-          pdfjsDistVersion: packageJson.dependencies["pdfjs-dist"],
-        }
-      });
-    });
+    // /api/version ya está definido más arriba (línea 177) ANTES de middlewares
 
     console.log("✅ Health check endpoints registered");
 
