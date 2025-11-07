@@ -1,56 +1,35 @@
 import OpenAI from "openai";
 import * as fs from "fs";
 import * as path from "path";
+import pdfjsModule from 'pdfjs-dist/legacy/build/pdf.js';
+
+// CRITICAL FIX: Mismo fix que en document-analyzer.ts
+// getDocument está en pdfjsModule.default, NO en pdfjsModule directamente
+const pdfjsLib = pdfjsModule.default || pdfjsModule;
 
 // -----------------------------
-// Helper para importar pdf-parse
+// Helper para extraer texto de PDF usando pdfjs-dist
 // -----------------------------
-async function getPdfParse(): Promise<(buffer: Buffer) => Promise<any>> {
+async function extractPdfText(fileBuffer: Buffer): Promise<string> {
   try {
-    const pdfParseModule: any = await import("pdf-parse");
-    
-    // Intentar diferentes formas de acceso a la función
-    if (typeof pdfParseModule === 'function') {
-      return pdfParseModule;
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(fileBuffer) });
+    const pdfDocument = await loadingTask.promise;
+
+    let fullText = '';
+
+    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+      const page = await pdfDocument.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n';
     }
-    
-    if (pdfParseModule.default) {
-      if (typeof pdfParseModule.default === 'function') {
-        return pdfParseModule.default;
-      }
-      if (pdfParseModule.default.default && typeof pdfParseModule.default.default === 'function') {
-        return pdfParseModule.default.default;
-      }
-    }
-    
-    if (pdfParseModule.pdfParse && typeof pdfParseModule.pdfParse === 'function') {
-      return pdfParseModule.pdfParse;
-    }
-    
-    // Buscar cualquier propiedad que sea una función
-    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
-      for (const key in pdfParseModule) {
-        if (typeof pdfParseModule[key] === 'function') {
-          return pdfParseModule[key];
-        }
-      }
-    }
-    
-    // Si llegamos aquí, intentar usar el módulo directamente
-    if (typeof pdfParseModule === 'object' && pdfParseModule !== null) {
-      // Algunas versiones exportan un objeto con métodos
-      const possibleKeys = ['default', 'pdfParse', 'parse', 'extract'];
-      for (const key of possibleKeys) {
-        if (pdfParseModule[key] && typeof pdfParseModule[key] === 'function') {
-          return pdfParseModule[key];
-        }
-      }
-    }
-    
-    throw new Error(`pdf-parse no se pudo importar. Tipo del módulo: ${typeof pdfParseModule}, keys: ${Object.keys(pdfParseModule || {}).join(', ')}`);
+
+    return fullText;
   } catch (error: any) {
-    console.error('❌ [Idrall Processor] Error importando pdf-parse:', error);
-    throw new Error(`Error al importar pdf-parse: ${error.message}`);
+    console.error('❌ [Idrall Processor] Error extrayendo texto del PDF:', error);
+    throw new Error(`Error al extraer texto del PDF: ${error.message}`);
   }
 }
 
@@ -138,10 +117,8 @@ async function processPDFFile(
   console.log(`🔍 [Idrall Processor] Analizando PDF: ${fileName}`);
 
   try {
-    // Extraer texto del PDF usando helper
-    const pdfParse = await getPdfParse();
-    const pdfData = await pdfParse(fileBuffer);
-    const textContent = pdfData.text;
+    // Extraer texto del PDF usando pdfjs-dist
+    const textContent = await extractPdfText(fileBuffer);
 
     console.log(`📄 [Idrall Processor] Texto extraído (${textContent.length} caracteres)`);
 
