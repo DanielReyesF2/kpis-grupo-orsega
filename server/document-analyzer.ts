@@ -4,7 +4,9 @@
 // ================================================
 
 import OpenAI from "openai";
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfjsModule from 'pdfjs-dist/legacy/build/pdf.js';
+
+const pdfjsLib = pdfjsModule;
 
 // -----------------------------
 // Interfaces
