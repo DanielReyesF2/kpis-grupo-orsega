@@ -6,7 +6,9 @@
 import OpenAI from "openai";
 import pdfjsModule from 'pdfjs-dist/legacy/build/pdf.js';
 
-const pdfjsLib = pdfjsModule;
+// CRITICAL FIX: getDocument está en pdfjsModule.default, NO en pdfjsModule directamente
+// Verificado con test directo que pdfjsModule.default.getDocument es la ruta correcta
+const pdfjsLib = pdfjsModule.default || pdfjsModule;
 
 // -----------------------------
 // Interfaces
