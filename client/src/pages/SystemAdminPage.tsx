@@ -179,13 +179,18 @@ export default function SystemAdminPage() {
   const handleKpiSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
+
+    // Fix: Mapear "objective" a "goal" y "target" para que se guarde correctamente
+    const objectiveValue = formData.get('objective') as string;
+
     const kpiData = {
       name: formData.get('name'),
       description: formData.get('description'),
       unit: formData.get('unit'),
       companyId: parseInt(formData.get('companyId') as string),
       areaId: parseInt(formData.get('areaId') as string),
-      objective: formData.get('objective'),
+      goal: objectiveValue,      // Mapear objective → goal
+      target: objectiveValue,    // Mapear objective → target
       frequency: formData.get('frequency'),
     };
 
