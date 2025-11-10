@@ -24,7 +24,16 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, lastLogin: true });
+// ✅ SECURITY IMPROVEMENT: Extender schema con validación de longitud máxima
+export const insertUserSchema = createInsertSchema(users)
+  .omit({ id: true, lastLogin: true })
+  .extend({
+    name: z.string().min(1, "El nombre es requerido").max(200, "El nombre no puede exceder 200 caracteres"),
+    email: z.string().email("Email inválido").max(320, "El email no puede exceder 320 caracteres"),
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(100, "La contraseña no puede exceder 100 caracteres"),
+    role: z.string().max(50, "El rol no puede exceder 50 caracteres")
+  });
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -144,21 +153,22 @@ const stringOrNumberToString = z.union([z.string(), z.number()]).transform((val)
   typeof val === "number" ? val.toString() : val
 );
 
+// ✅ SECURITY IMPROVEMENT: Agregar validación de longitud máxima para prevenir DoS
 export const insertKpiSchema = z
   .object({
     companyId: companyIdSchema.optional(),
     areaId: z.number().int().positive().optional(),
-    area: z.string().min(1, "El área es requerida").optional(),
-    name: z.string().min(1, "El nombre es requerido"),
-    description: z.string().optional().nullable(),
+    area: z.string().min(1, "El área es requerida").max(100, "El área no puede exceder 100 caracteres").optional(),
+    name: z.string().min(1, "El nombre es requerido").max(200, "El nombre no puede exceder 200 caracteres"),
+    description: z.string().max(2000, "La descripción no puede exceder 2000 caracteres").optional().nullable(),
     target: stringOrNumberToString.optional(),
     goal: stringOrNumberToString.optional(),
-    unit: z.string().optional().nullable(),
-    frequency: z.string().optional().nullable(),
-    calculationMethod: z.string().optional().nullable(),
-    responsible: z.string().optional().nullable(),
-    source: z.string().optional().nullable(),
-    period: z.string().optional().nullable(),
+    unit: z.string().max(50, "La unidad no puede exceder 50 caracteres").optional().nullable(),
+    frequency: z.string().max(50, "La frecuencia no puede exceder 50 caracteres").optional().nullable(),
+    calculationMethod: z.string().max(500, "El método de cálculo no puede exceder 500 caracteres").optional().nullable(),
+    responsible: z.string().max(200, "El responsable no puede exceder 200 caracteres").optional().nullable(),
+    source: z.string().max(200, "La fuente no puede exceder 200 caracteres").optional().nullable(),
+    period: z.string().max(50, "El período no puede exceder 50 caracteres").optional().nullable(),
   })
   .refine((data) => data.areaId !== undefined || !!data.area, {
     message: "Debe seleccionarse un área válida",

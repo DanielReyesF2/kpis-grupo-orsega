@@ -1787,11 +1787,15 @@ export class DatabaseStorage implements IStorage {
   // User Activation Token operations
   async createActivationToken(email: string): Promise<UserActivationToken> {
     try {
-      // Generate secure random token
-      const token = Math.random().toString(36).substring(2, 15) + 
-                   Math.random().toString(36).substring(2, 15) +
-                   Date.now().toString(36);
-      
+      // ✅ FIX VULN #1: Usar crypto.randomBytes en lugar de Math.random()
+      // Math.random() NO es criptográficamente seguro y puede ser predecible
+      // crypto.randomBytes() usa el generador de números aleatorios del SO (CSPRNG)
+      const crypto = await import('crypto');
+
+      // Generar 32 bytes aleatorios = 64 caracteres hexadecimales
+      // Esto proporciona 256 bits de entropía (mucho más seguro que Math.random())
+      const token = crypto.randomBytes(32).toString('hex');
+
       // Token expires in 24 hours
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
@@ -1806,7 +1810,7 @@ export class DatabaseStorage implements IStorage {
       const [activationToken] = await db.insert(userActivationTokens)
         .values(tokenData)
         .returning();
-      
+
       return activationToken;
     } catch (error) {
       console.error("Error creating activation token:", error);

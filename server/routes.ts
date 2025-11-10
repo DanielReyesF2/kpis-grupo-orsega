@@ -5479,17 +5479,62 @@ export function registerRoutes(app: express.Application) {
 
       if (!file) {
         console.error('❌ [Upload] No se recibió ningún archivo');
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'No se subió ningún archivo',
           details: 'Asegúrate de seleccionar un archivo antes de subirlo'
         });
       }
 
+      // ✅ FIX VULN #2: Validar el tipo de archivo real usando "magic bytes"
+      // El mimetype del cliente puede ser falsificado, así que leemos los primeros bytes
+      // del archivo para determinar su tipo real
+      const fs = await import('fs');
+      const path = await import('path');
+      const { fileTypeFromFile } = await import('file-type');
+
+      console.log('🔒 [Upload] Validando tipo de archivo real (magic bytes)...');
+      const fileTypeResult = await fileTypeFromFile(file.path);
+
+      // Lista de tipos de archivo permitidos (basado en magic bytes reales)
+      const allowedMimeTypes = [
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
+        'application/xml',
+        'text/xml'
+      ];
+
+      if (fileTypeResult) {
+        // Si file-type puede detectar el tipo, validarlo
+        if (!allowedMimeTypes.includes(fileTypeResult.mime)) {
+          fs.unlinkSync(file.path); // Eliminar archivo malicioso
+          console.error(`❌ [Upload] Tipo de archivo no permitido: ${fileTypeResult.mime}`);
+          return res.status(400).json({
+            error: 'Tipo de archivo no permitido',
+            details: `El archivo es realmente un ${fileTypeResult.mime}. Solo se permiten PDF, XML, PNG, JPG.`
+          });
+        }
+        console.log(`✅ [Upload] Tipo de archivo validado: ${fileTypeResult.mime}`);
+      } else {
+        // Si file-type no puede detectar (puede ser XML que es texto plano)
+        // Verificar si es XML leyendo el contenido
+        const fileContent = fs.readFileSync(file.path, 'utf-8').trim();
+        const isXml = fileContent.startsWith('<?xml') || fileContent.startsWith('<');
+
+        if (!isXml) {
+          fs.unlinkSync(file.path);
+          console.error('❌ [Upload] No se pudo determinar el tipo de archivo');
+          return res.status(400).json({
+            error: 'Tipo de archivo no válido',
+            details: 'No se pudo verificar que el archivo sea PDF, XML, PNG o JPG'
+          });
+        }
+        console.log('✅ [Upload] Archivo XML validado');
+      }
+
       // Analizar el documento primero para determinar el tipo
       console.log('🔍 [Upload] Iniciando análisis del documento...');
       const { analyzePaymentDocument } = await import("./document-analyzer");
-      const fs = await import('fs');
-      const path = await import('path');
       const fileBuffer = fs.readFileSync(file.path);
       
       console.log('📄 [Upload] Buffer leído, tamaño:', fileBuffer.length, 'bytes');

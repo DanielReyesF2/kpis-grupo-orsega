@@ -253,7 +253,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// 🔒 SECURITY - Helmet para headers de seguridad modernos
+// ✅ SECURITY IMPROVEMENT: Headers de seguridad HTTP robustos (nivel Google)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -266,15 +266,30 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "blob:"], // Permitir blob URLs para videos/audio
       frameSrc: ["'self'", "blob:"], // Permitir blob URLs para iframes de PDFs
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"], // Prevenir clickjacking
+      upgradeInsecureRequests: [], // Forzar HTTPS
     },
   },
   crossOriginEmbedderPolicy: false, // Compatible con Vite
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
   hsts: {
-    maxAge: 31536000, // 1 año
+    maxAge: 31536000, // 1 año (requerido para preload)
     includeSubDomains: true,
     preload: true
-  }
+  },
+  // Prevenir MIME type sniffing
+  noSniff: true,
+  // Prevenir que el navegador haga XSS filtering (mejor usar CSP)
+  xssFilter: true,
+  // Ocultar powered-by header
+  hidePoweredBy: true,
+  // Prevenir iframe embedding (excepto same-origin)
+  frameguard: { action: 'deny' },
+  // Habilitar Referrer-Policy estricta
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
 // 🔒 RATE LIMITING - VUL-002: Protección global contra DDOS

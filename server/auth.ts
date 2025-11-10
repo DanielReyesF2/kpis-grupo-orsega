@@ -123,6 +123,14 @@ export async function loginUser(username: string, password: string): Promise<{ t
       return null;
     }
 
+    // ✅ FIX VULN #3: Verificar que la cuenta esté activa
+    // Esto fuerza el flujo de activación por email y previene acceso no autorizado
+    if (!user.isActive) {
+      console.log(`[Auth] Intento de login en cuenta inactiva: ${user.email}`);
+      // No revelar que la cuenta existe pero no está activada (security best practice)
+      return null;
+    }
+
     const passwordMatches = await comparePasswords(password, user.password);
 
     if (!passwordMatches) {
