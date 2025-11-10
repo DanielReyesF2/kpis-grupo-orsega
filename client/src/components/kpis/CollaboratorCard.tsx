@@ -2,9 +2,10 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, CheckCircle, TrendingUp, AlertTriangle, XCircle, Eye, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { User, CheckCircle, TrendingUp, AlertTriangle, XCircle, Eye, ArrowUp, ArrowDown, Minus, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 
 export interface CollaboratorScore {
   name: string;
@@ -19,6 +20,13 @@ export interface CollaboratorScore {
   scoreChange?: number | null;
   scoreChangePeriod?: string | null;
   trendDirection?: 'up' | 'down' | 'stable' | null;
+  historicalCompliance?: Array<{ month: string; compliance: number | null }>;
+  advancedTrend?: {
+    direction: 'up' | 'down' | 'stable' | null;
+    strength: number;
+    slope: number;
+    r2: number;
+  };
   kpis: Array<{
     id: number;
     name: string;
@@ -148,130 +156,169 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
+  // Preparar datos para el sparkline
+  const sparklineData = collaborator.historicalCompliance?.map(item => ({
+    month: item.month,
+    value: item.compliance ?? 0
+  })) || [];
+
+  // Color de la línea basado en la tendencia
+  const getTrendColor = () => {
+    if (!collaborator.advancedTrend) return '#6B7280';
+    switch (collaborator.advancedTrend.direction) {
+      case 'up': return '#10B981';
+      case 'down': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, delay }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="h-full"
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
+      className="w-full"
     >
-      <Card 
-        className={`h-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
+      <Card
+        className={`w-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
       >
         <CardContent className="p-5">
-          <div className="space-y-4">
-            {/* Header con nombre y badge */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white text-sm font-bold shadow-md flex-shrink-0">
-                  {getInitials(collaborator.name)}
-                </div>
-                <div className="min-w-0">
-                  <CardTitle className="text-base font-semibold text-gray-900 leading-tight truncate">
-                    {collaborator.name}
-                  </CardTitle>
-                </div>
+          {/* HORIZONTAL LAYOUT: Flex row */}
+          <div className="flex items-center gap-6">
+
+            {/* LEFT SECTION: Avatar + Name + Status */}
+            <div className="flex items-center gap-3 min-w-[200px]">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white text-sm font-bold shadow-md flex-shrink-0">
+                {getInitials(collaborator.name)}
               </div>
-              <Badge className={`${statusColors.badge} border flex items-center gap-1 px-2 py-1 flex-shrink-0`}>
-                {getStatusIcon(collaborator.status)}
-                <span className="text-xs">{getStatusText(collaborator.status)}</span>
-              </Badge>
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-base font-semibold text-gray-900 leading-tight truncate">
+                  {collaborator.name}
+                </CardTitle>
+                <Badge className={`${statusColors.badge} border flex items-center gap-1 px-2 py-0.5 mt-1 w-fit`}>
+                  {getStatusIcon(collaborator.status)}
+                  <span className="text-xs">{getStatusText(collaborator.status)}</span>
+                </Badge>
+              </div>
             </div>
 
-            {/* Score destacado - Mostrar averageCompliance como porcentaje grande */}
-            <div className="text-center py-3 border-t border-gray-200/50 pt-4">
-              <div className="text-4xl font-bold text-gray-900 mb-1">
-                {collaborator.averageCompliance}%
-              </div>
-              <div className="text-xs text-gray-600/70">{getStatusMessage(collaborator.status)}</div>
-              <div className="text-xs text-gray-500/60 mt-1">Score: {collaborator.score}</div>
-            </div>
+            {/* CENTER SECTION: Score + Trend + KPIs Summary */}
+            <div className="flex items-center gap-6 flex-1">
 
-            {/* Bloque de tendencia */}
-            {collaborator.scoreChange !== null && collaborator.scoreChange !== undefined ? (
-              <div className={`flex items-center justify-center gap-2 py-2 rounded-lg ${
-                collaborator.trendDirection === 'up' 
-                  ? 'bg-green-50/30 border border-green-200/40' 
-                  : collaborator.trendDirection === 'down'
-                  ? 'bg-red-50/30 border border-red-200/40'
-                  : 'bg-gray-50/30 border border-gray-200/40'
-              }`}>
-                {collaborator.trendDirection === 'up' && (
-                  <ArrowUp className="h-4 w-4 text-green-600/70" />
+              {/* Score */}
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">
+                  {collaborator.averageCompliance}%
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">Score: {collaborator.score}</div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-16 w-px bg-gray-200/50" />
+
+              {/* Trend Indicator */}
+              <div className="min-w-[140px]">
+                {collaborator.advancedTrend && collaborator.advancedTrend.direction ? (
+                  <div className="space-y-1">
+                    <div className={`flex items-center gap-2 ${
+                      collaborator.advancedTrend.direction === 'up'
+                        ? 'text-green-600'
+                        : collaborator.advancedTrend.direction === 'down'
+                        ? 'text-red-600'
+                        : 'text-gray-500'
+                    }`}>
+                      {collaborator.advancedTrend.direction === 'up' && <TrendingUp className="h-4 w-4" />}
+                      {collaborator.advancedTrend.direction === 'down' && <TrendingDown className="h-4 w-4" />}
+                      {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-4 w-4" />}
+                      <span className="text-sm font-semibold">
+                        {collaborator.advancedTrend.direction === 'up' ? 'Mejorando' :
+                         collaborator.advancedTrend.direction === 'down' ? 'Declinando' : 'Estable'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Fuerza: {collaborator.advancedTrend.strength}% | R²: {collaborator.advancedTrend.r2}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400">Sin datos históricos</div>
                 )}
-                {collaborator.trendDirection === 'down' && (
-                  <ArrowDown className="h-4 w-4 text-red-600/70" />
-                )}
-                {collaborator.trendDirection === 'stable' && (
-                  <Minus className="h-4 w-4 text-gray-500/70" />
-                )}
-                <span className={`text-sm font-semibold ${
-                  collaborator.trendDirection === 'up' 
-                    ? 'text-green-600/70' 
-                    : collaborator.trendDirection === 'down'
-                    ? 'text-red-600/70'
-                    : 'text-gray-600/70'
-                }`}>
-                  {collaborator.scoreChange > 0 ? '+' : ''}{collaborator.scoreChange} pts {collaborator.scoreChangePeriod || ''}
-                </span>
               </div>
-            ) : (
-              <div className="flex items-center justify-center py-2 rounded-lg bg-gray-50/20 border border-gray-200/30">
-                <span className="text-xs text-gray-500/70">Sin comparación aún</span>
-              </div>
-            )}
 
-            {/* Resumen de KPIs */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className={`text-center p-3 rounded-lg border ${statusColors.border} ${collaborator.compliantKpis > 0 ? 'bg-green-50/30' : 'bg-gray-50/20'}`}>
-                <div className={`text-2xl font-bold ${collaborator.compliantKpis > 0 ? 'text-green-600/70' : 'text-gray-400/50'}`}>
-                  {collaborator.compliantKpis}
+              {/* Divider */}
+              <div className="h-16 w-px bg-gray-200/50" />
+
+              {/* KPIs Summary */}
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-green-600">
+                    {collaborator.compliantKpis}
+                  </div>
+                  <div className="text-xs text-gray-600">Cumplidos</div>
                 </div>
-                <div className="text-xs text-gray-600/70 mt-1">Cumplidos</div>
-              </div>
-              <div className={`text-center p-3 rounded-lg border ${statusColors.border} ${collaborator.alertKpis > 0 ? 'bg-amber-50/30' : 'bg-gray-50/20'}`}>
-                <div className={`text-2xl font-bold ${collaborator.alertKpis > 0 ? 'text-amber-600/70' : 'text-gray-400/50'}`}>
-                  {collaborator.alertKpis}
+                <div className="text-center">
+                  <div className="text-xl font-bold text-amber-600">
+                    {collaborator.alertKpis}
+                  </div>
+                  <div className="text-xs text-gray-600">En Riesgo</div>
                 </div>
-                <div className="text-xs text-gray-600/70 mt-1">En Riesgo</div>
-              </div>
-              <div className={`text-center p-3 rounded-lg border ${statusColors.border} ${collaborator.notCompliantKpis > 0 ? 'bg-red-50/30' : 'bg-gray-50/20'}`}>
-                <div className={`text-2xl font-bold ${collaborator.notCompliantKpis > 0 ? 'text-red-600/70' : 'text-gray-400/50'}`}>
-                  {collaborator.notCompliantKpis}
+                <div className="text-center">
+                  <div className="text-xl font-bold text-red-600">
+                    {collaborator.notCompliantKpis}
+                  </div>
+                  <div className="text-xs text-gray-600">Críticos</div>
                 </div>
-                <div className="text-xs text-gray-600/70 mt-1">No Cumplidos</div>
               </div>
             </div>
 
-            {/* Métricas adicionales */}
-            <div className="space-y-2 pt-2 border-t border-gray-200/50">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600/70">Cumplimiento promedio</span>
-                <span className={`font-semibold ${statusColors.text}`}>
-                  {collaborator.averageCompliance.toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600/70">Total KPIs</span>
-                <span className="font-semibold text-gray-900">{collaborator.totalKpis}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600/70">Último avance</span>
-                <span className="text-xs font-medium text-gray-700/70">{formatLastUpdate()}</span>
-              </div>
-            </div>
+            {/* RIGHT SECTION: Sparkline Chart */}
+            <div className="flex items-center gap-4">
+              {sparklineData.length > 0 ? (
+                <div className="w-[180px] h-16">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sparklineData}>
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={getTrendColor()}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 rounded shadow-lg border text-xs">
+                                <p className="font-semibold">{payload[0].payload.month}</p>
+                                <p className="text-gray-600">{payload[0].value?.toFixed(1)}%</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="text-xs text-center text-gray-500 mt-1">Últimos 12 meses</div>
+                </div>
+              ) : (
+                <div className="w-[180px] h-16 flex items-center justify-center bg-gray-50 rounded">
+                  <span className="text-xs text-gray-400">Sin historial</span>
+                </div>
+              )}
 
-            {/* Botón de acción */}
-            <Button 
-              variant="outline"
-              size="sm"
-              className="w-full text-xs border-gray-200/50 hover:bg-gray-50/50"
-              onClick={() => onViewDetails(collaborator)}
-            >
-              <Eye className="h-3 w-3 mr-1" />
-              Ver Detalles de KPIs
-            </Button>
+              {/* Action Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs border-gray-200/50 hover:bg-gray-50/50 flex-shrink-0"
+                onClick={() => onViewDetails(collaborator)}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Ver KPIs
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

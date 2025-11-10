@@ -40,12 +40,16 @@ import path from "path";
 import fs from "fs";
 import { neon } from '@neondatabase/serverless';
 import multer from "multer";
+import NodeCache from "node-cache";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
 
 // Database connection for client preferences queries
 const sql = neon(process.env.DATABASE_URL!);
+
+// Cache for collaborator performance data (5 minute TTL)
+const collaboratorPerformanceCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 // Security helpers: Remove sensitive data from user objects
 interface UserWithPassword {
@@ -1194,15 +1198,91 @@ export function registerRoutes(app: express.Application) {
     const totalKpis = kpisWithData.length;
     const kpisWithValues = kpisWithData.filter(k => k.latestValue);
     const compliantKpis = kpisWithData.filter(k => k.status === 'complies').length;
-    
+
     const averageCompliance = kpisWithValues.length > 0
       ? kpisWithData.reduce((sum, k) => sum + k.compliance, 0) / kpisWithValues.length
       : 0;
-    
+
     const compliantPercentage = totalKpis > 0 ? (compliantKpis / totalKpis) * 100 : 0;
     const updateScore = totalKpis > 0 ? (kpisWithValues.length / totalKpis) * 100 : 0;
-    
+
     return (averageCompliance * 0.5) + (compliantPercentage * 0.3) + (updateScore * 0.2);
+  };
+
+  // Helper function: Rellenar meses faltantes con valores null
+  const fillMissingMonths = (data: Array<{ month: string; compliance: number | null }>, monthsCount: number = 12): Array<{ month: string; compliance: number | null }> => {
+    const today = new Date();
+    const allMonths: Array<{ month: string; compliance: number | null }> = [];
+
+    // Generar array de los últimos N meses
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthStr = date.toISOString().substring(0, 7); // YYYY-MM
+
+      // Buscar si existe data para este mes
+      const existing = data.find(d => d.month === monthStr);
+      allMonths.push({
+        month: monthStr,
+        compliance: existing?.compliance ?? null
+      });
+    }
+
+    return allMonths;
+  };
+
+  // Helper function: Calcular tendencia avanzada con regresión lineal
+  const calculateAdvancedTrend = (data: Array<{ month: string; compliance: number | null }>): {
+    direction: 'up' | 'down' | 'stable' | null;
+    strength: number; // 0-100, qué tan fuerte es la tendencia
+    slope: number; // pendiente de la regresión
+    r2: number; // coeficiente de determinación (0-1)
+  } => {
+    // Filtrar solo valores no nulos
+    const validData = data
+      .map((d, idx) => ({ x: idx, y: d.compliance }))
+      .filter(d => d.y !== null) as Array<{ x: number; y: number }>;
+
+    if (validData.length < 3) {
+      return { direction: null, strength: 0, slope: 0, r2: 0 };
+    }
+
+    // Calcular regresión lineal (y = mx + b)
+    const n = validData.length;
+    const sumX = validData.reduce((sum, d) => sum + d.x, 0);
+    const sumY = validData.reduce((sum, d) => sum + d.y, 0);
+    const sumXY = validData.reduce((sum, d) => sum + d.x * d.y, 0);
+    const sumX2 = validData.reduce((sum, d) => sum + d.x * d.x, 0);
+    const sumY2 = validData.reduce((sum, d) => sum + d.y * d.y, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Calcular R² (coeficiente de determinación)
+    const yMean = sumY / n;
+    const ssTotal = validData.reduce((sum, d) => sum + Math.pow(d.y - yMean, 2), 0);
+    const ssResidual = validData.reduce((sum, d) => {
+      const predicted = slope * d.x + intercept;
+      return sum + Math.pow(d.y - predicted, 2);
+    }, 0);
+    const r2 = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : 0;
+
+    // Determinar dirección y fuerza
+    let direction: 'up' | 'down' | 'stable' = 'stable';
+    if (Math.abs(slope) > 0.5) { // Umbral: cambio > 0.5% por mes
+      direction = slope > 0 ? 'up' : 'down';
+    }
+
+    // Strength: combinación de pendiente absoluta y R²
+    // Normalizar slope a un rango 0-100 (asumiendo max cambio razonable de ±10% por mes)
+    const normalizedSlope = Math.min(Math.abs(slope) / 10 * 100, 100);
+    const strength = Math.round(normalizedSlope * r2); // Ajustar por qué tan bien se ajusta a la línea
+
+    return {
+      direction,
+      strength,
+      slope: Math.round(slope * 100) / 100,
+      r2: Math.round(r2 * 100) / 100
+    };
   };
 
   // GET /api/collaborators-performance - Obtener rendimiento agrupado por colaborador
@@ -1214,6 +1294,14 @@ export function registerRoutes(app: express.Application) {
       }
 
       console.log(`🔵 [GET /api/collaborators-performance] Endpoint llamado para companyId=${companyIdParam ?? 'ALL'}`);
+
+      // 🚀 OPTIMIZATION: Check cache first
+      const cacheKey = `collaborators-performance-${companyIdParam ?? 'ALL'}`;
+      const cachedData = collaboratorPerformanceCache.get(cacheKey);
+      if (cachedData) {
+        console.log(`⚡ [GET /api/collaborators-performance] Retornando datos desde cache`);
+        return res.json(cachedData);
+      }
 
       // Obtener KPIs y valores
       const [kpis, kpiValues] = await Promise.all([
@@ -1509,15 +1597,91 @@ export function registerRoutes(app: express.Application) {
         : null;
 
       console.log(`✅ [GET /api/collaborators-performance] Retornando ${collaborators.length} colaboradores`);
-      
-      // Retornar con metadata del equipo
-      res.json({
-        collaborators: collaborators || [],
+
+      // 📊 FEATURE: Agregar datos históricos (12 meses) para cada colaborador
+      const collaboratorsWithHistory = await Promise.all(collaborators.map(async (collaborator) => {
+        try {
+          // Obtener KPI IDs de este colaborador
+          const kpiIds = collaborator.kpis.map(k => k.id);
+
+          if (kpiIds.length === 0) {
+            return {
+              ...collaborator,
+              historicalCompliance: fillMissingMonths([]),
+              advancedTrend: { direction: null, strength: 0, slope: 0, r2: 0 }
+            };
+          }
+
+          // Query SQL optimizada para obtener 12 meses de datos históricos
+          const twelveMonthsAgo = new Date();
+          twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+          // Construir query con placeholders seguros
+          const startIdx = companyIdParam ? 3 : 2;
+          const placeholders = kpiIds.map((_, idx) => `$${idx + startIdx}`).join(', ');
+          const query = `
+            SELECT
+              TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') as month,
+              AVG(
+                CASE
+                  WHEN "compliancePercentage" IS NOT NULL
+                  THEN CAST(REPLACE("compliancePercentage", '%', '') AS DECIMAL)
+                  ELSE NULL
+                END
+              ) as avg_compliance
+            FROM "KpiValue"
+            WHERE "kpiId" IN (${placeholders})
+              AND date >= $1
+              ${companyIdParam ? 'AND "companyId" = $2' : ''}
+            GROUP BY DATE_TRUNC('month', date)
+            ORDER BY month ASC
+          `;
+
+          const params = companyIdParam
+            ? [twelveMonthsAgo.toISOString(), companyIdParam, ...kpiIds]
+            : [twelveMonthsAgo.toISOString(), ...kpiIds];
+
+          const historicalData = await sql(query, params);
+
+          // Transformar y rellenar meses faltantes
+          const transformedData = historicalData.map((row: any) => ({
+            month: row.month,
+            compliance: row.avg_compliance ? parseFloat(row.avg_compliance) : null
+          }));
+
+          const completeHistory = fillMissingMonths(transformedData, 12);
+          const advancedTrend = calculateAdvancedTrend(completeHistory);
+
+          return {
+            ...collaborator,
+            historicalCompliance: completeHistory,
+            advancedTrend
+          };
+        } catch (error) {
+          console.error(`❌ Error fetching historical data for ${collaborator.name}:`, error);
+          return {
+            ...collaborator,
+            historicalCompliance: fillMissingMonths([]),
+            advancedTrend: { direction: null, strength: 0, slope: 0, r2: 0 }
+          };
+        }
+      }));
+
+      // Preparar respuesta
+      const responseData = {
+        collaborators: collaboratorsWithHistory || [],
         teamAverage,
         teamTrend,
         teamTrendDirection,
         teamTrendPeriod: mostCommonPeriod
-      });
+      };
+
+      // 🚀 OPTIMIZATION: Cache the result
+      collaboratorPerformanceCache.set(cacheKey, responseData);
+      console.log(`💾 [GET /api/collaborators-performance] Datos almacenados en cache`);
+
+      // Retornar con metadata del equipo
+      res.json(responseData);
     } catch (error: any) {
       console.error("❌ [GET /api/collaborators-performance] Error:", error);
       res.status(500).json({ message: "Internal server error", error: error.message });
