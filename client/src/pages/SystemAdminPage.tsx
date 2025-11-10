@@ -619,7 +619,9 @@ export default function SystemAdminPage() {
                           <div className="text-xs text-gray-500 space-y-1">
                             <span className="block">{getCompanyName(kpi.companyId)}</span>
                             <span className="block">{getAreaName(kpi.areaId)}</span>
-                            <span className="block">Objetivo: {kpi.objective}</span>
+                            <span className="block">
+                              Objetivo mensual: {kpi.goal || kpi.objective || 'No definido'}
+                            </span>
                             <span className="block">Frecuencia: {kpi.frequency}</span>
                           </div>
                         </div>
@@ -753,14 +755,22 @@ export default function SystemAdminPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="objective">Objetivo</Label>
+                  <Label htmlFor="objective">
+                    Objetivo Mensual
+                    <span className="text-xs text-gray-500 ml-1">(goal)</span>
+                  </Label>
                   <Input
                     id="objective"
                     name="objective"
-                    defaultValue={editingKpi?.objective || ''}
-                    placeholder="ej: 95%, 1000 unidades"
+                    type="number"
+                    step="0.01"
+                    defaultValue={editingKpi?.goal || editingKpi?.objective || ''}
+                    placeholder="ej: 858373 (solo número)"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ingresa solo el número sin formato. Ejemplo: para Orsega Volumen de Ventas, ingresa 858373
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="frequency">Frecuencia</Label>
