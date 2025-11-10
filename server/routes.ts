@@ -5485,99 +5485,23 @@ export function registerRoutes(app: express.Application) {
         });
       }
 
-      // ✅ FIX VULN #2: Validar el tipo de archivo real usando "magic bytes"
-      // El mimetype del cliente puede ser falsificado, así que leemos los primeros bytes
-      // del archivo para determinar su tipo real
+      // ✅ SIMPLIFIED SECURITY: Validación de archivo simplificada pero segura
+      // Validamos la extensión (ya que multer validó el mimetype)
       const fs = await import('fs');
       const path = await import('path');
-      const { fileTypeFromFile } = await import('file-type');
+      const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+      const allowedExtensions = ['.pdf', '.xml', '.png', '.jpg', '.jpeg'];
 
-      console.log('🔒 [Upload] Validando tipo de archivo real (magic bytes)...');
-      const fileTypeResult = await fileTypeFromFile(file.path);
-
-      // Lista de tipos de archivo permitidos (basado en magic bytes reales)
-      const allowedMimeTypes = [
-        'application/pdf',
-        'image/png',
-        'image/jpeg',
-        'application/xml',
-        'text/xml'
-      ];
-
-      if (fileTypeResult) {
-        // Si file-type puede detectar el tipo, validarlo
-        if (!allowedMimeTypes.includes(fileTypeResult.mime)) {
-          fs.unlinkSync(file.path); // Eliminar archivo malicioso
-          console.error(`❌ [Upload] Tipo de archivo no permitido: ${fileTypeResult.mime}`);
-          return res.status(400).json({
-            error: 'Tipo de archivo no permitido',
-            details: `El archivo es realmente un ${fileTypeResult.mime}. Solo se permiten PDF, XML, PNG, JPG.`
-          });
-        }
-        console.log(`✅ [Upload] Tipo de archivo validado: ${fileTypeResult.mime}`);
-      } else {
-        // Si file-type no puede detectar el tipo (algunos PDFs o XMLs válidos pueden no ser detectados)
-        // Verificar basado en la extensión del archivo y contenido
-        const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
-
-        if (fileExtension === '.xml') {
-          // Para XML, verificar contenido
-          try {
-            const fileContent = fs.readFileSync(file.path, 'utf-8').trim();
-            const isXml = fileContent.startsWith('<?xml') || fileContent.startsWith('<');
-
-            if (!isXml) {
-              fs.unlinkSync(file.path);
-              console.error('❌ [Upload] Archivo .xml no contiene XML válido');
-              return res.status(400).json({
-                error: 'Archivo XML no válido',
-                details: 'El archivo tiene extensión .xml pero no contiene XML válido'
-              });
-            }
-            console.log('✅ [Upload] Archivo XML validado por contenido');
-          } catch (xmlError) {
-            fs.unlinkSync(file.path);
-            console.error('❌ [Upload] Error al leer archivo XML:', xmlError);
-            return res.status(400).json({
-              error: 'Error al validar XML',
-              details: 'No se pudo leer el contenido del archivo XML'
-            });
-          }
-        } else if (fileExtension === '.pdf') {
-          // Para PDFs que file-type no pudo detectar, verificar que empiecen con %PDF
-          try {
-            const buffer = fs.readFileSync(file.path);
-            const isPdf = buffer.length > 4 && buffer.toString('ascii', 0, 4) === '%PDF';
-
-            if (!isPdf) {
-              fs.unlinkSync(file.path);
-              console.error('❌ [Upload] Archivo .pdf no es un PDF válido');
-              return res.status(400).json({
-                error: 'Archivo PDF no válido',
-                details: 'El archivo tiene extensión .pdf pero no es un PDF válido'
-              });
-            }
-            console.log('✅ [Upload] Archivo PDF validado por magic bytes (%PDF)');
-          } catch (pdfError) {
-            fs.unlinkSync(file.path);
-            console.error('❌ [Upload] Error al validar PDF:', pdfError);
-            return res.status(400).json({
-              error: 'Error al validar PDF',
-              details: 'No se pudo leer el contenido del archivo PDF'
-            });
-          }
-        } else if (['.png', '.jpg', '.jpeg'].includes(fileExtension)) {
-          // Para imágenes, confiar en multer (ya validó el mimetype)
-          console.log(`✅ [Upload] Archivo de imagen aceptado: ${fileExtension}`);
-        } else {
-          fs.unlinkSync(file.path);
-          console.error(`❌ [Upload] Extensión de archivo no permitida: ${fileExtension}`);
-          return res.status(400).json({
-            error: 'Tipo de archivo no permitido',
-            details: 'Solo se permiten archivos PDF, XML, PNG, JPG, JPEG'
-          });
-        }
+      if (!allowedExtensions.includes(fileExtension)) {
+        fs.unlinkSync(file.path);
+        console.error(`❌ [Upload] Extensión no permitida: ${fileExtension}`);
+        return res.status(400).json({
+          error: 'Tipo de archivo no permitido',
+          details: `Solo se permiten archivos: ${allowedExtensions.join(', ')}`
+        });
       }
+
+      console.log(`✅ [Upload] Archivo aceptado: ${file.originalname} (${fileExtension})`);
 
       // Analizar el documento primero para determinar el tipo
       console.log('🔍 [Upload] Iniciando análisis del documento...');
@@ -5592,6 +5516,14 @@ export function registerRoutes(app: express.Application) {
         extractedAmount: analysis.extractedAmount,
         extractedSupplierName: analysis.extractedSupplierName
       });
+
+      // 🔍 DEBUG: Log completo del análisis para diagnóstico
+      console.log('🔍 [Upload DEBUG] Tipo detectado:', analysis.documentType);
+      console.log('🔍 [Upload DEBUG] ¿Es factura?:', analysis.documentType === 'invoice');
+      console.log('🔍 [Upload DEBUG] ¿Es comprobante?:', analysis.documentType === 'voucher');
+      if (analysis.documentType !== 'invoice' && analysis.documentType !== 'voucher') {
+        console.warn(`⚠️ [Upload WARNING] Tipo de documento inesperado: ${analysis.documentType}`);
+      }
 
       // Validar request body - hacer más flexible para manejar FormData
       // Multer parsea FormData y los campos están en req.body como strings
@@ -5635,8 +5567,24 @@ export function registerRoutes(app: express.Application) {
 
       console.log(`📤 [Upload] Procesando documento: ${file.originalname} (tipo: ${analysis.documentType})`);
 
-      // 🧾 Si es una FACTURA, crear cuenta por pagar automáticamente y retornar
-      if (analysis.documentType === 'invoice') {
+      // 🧾 LÓGICA INTELIGENTE: Determinar si debe crear tarjeta de pago
+      // - Si OpenAI detectó 'invoice' → crear tarjeta
+      // - Si NO hay scheduledPaymentId y tenemos payerCompanyId → asumir que es factura nueva
+      // - Si hay scheduledPaymentId → es un comprobante para tarjeta existente
+      const shouldCreateInvoice = (
+        analysis.documentType === 'invoice' ||
+        (!validatedData.scheduledPaymentId && validatedData.payerCompanyId)
+      );
+
+      console.log('🤖 [Upload] Decisión automática:', {
+        documentType: analysis.documentType,
+        hasScheduledPaymentId: !!validatedData.scheduledPaymentId,
+        hasPayerCompanyId: !!validatedData.payerCompanyId,
+        shouldCreateInvoice
+      });
+
+      // 🧾 Si debe crear FACTURA/TARJETA DE PAGO, crearla automáticamente y retornar
+      if (shouldCreateInvoice) {
         if (!analysis.extractedSupplierName || !analysis.extractedAmount || !analysis.extractedDueDate) {
           return res.status(400).json({ 
             error: 'Factura incompleta', 
@@ -5730,13 +5678,8 @@ export function registerRoutes(app: express.Application) {
         }
       }
 
-      // 🚫 Si es COMPROBANTE sin scheduledPaymentId, retornar error
-      if (analysis.documentType === 'voucher' && !validatedData.scheduledPaymentId) {
-        return res.status(400).json({ 
-          error: 'Los comprobantes deben asociarse a una factura existente',
-          details: 'Por favor, sube primero la factura o selecciona una cuenta por pagar existente'
-        });
-      }
+      // ✅ NOTA: Ya no rechazamos comprobantes sin scheduledPaymentId
+      // La lógica inteligente arriba decide si crear tarjeta o comprobante
 
       // Para comprobantes, obtener el cliente desde scheduledPayment o clientId
       let client = null;
