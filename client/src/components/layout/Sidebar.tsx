@@ -175,6 +175,18 @@ function Sidebar() {
             Tesorería
           </NavItem>
 
+          {/* Sistema Admin - Solo para administradores */}
+          {isAdmin && (
+            <NavItem
+              href="/system-admin"
+              icon={<Settings className="mr-3 h-5 w-5 transition-transform duration-200" />}
+              active={location === "/system-admin"}
+              onClick={closeMenu}
+            >
+              Administración
+            </NavItem>
+          )}
+
 
 
 
