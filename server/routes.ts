@@ -483,20 +483,11 @@ export function registerRoutes(app: express.Application) {
       
       const validatedData = validationResult.data;
       console.log("[POST /api/register] Datos validados:", JSON.stringify(redactSensitiveData(validatedData), null, 2));
-      
-      // Verificar que el email no esté ya en uso
-      try {
-        const existingUser = await storage.getUserByUsername(validatedData.email);
-        if (existingUser) {
-          return res.status(409).json({ 
-            message: "El email ya está registrado" 
-          });
-        }
-      } catch (error) {
-        // Si no encuentra el usuario, está bien, podemos continuar
-        console.log("[POST /api/register] Email disponible");
-      }
-      
+
+      // ✅ FIX BUG #2: Removida la verificación previa de email
+      // Confiar en el constraint UNIQUE de la base de datos previene race conditions
+      // Si el email ya existe, el error será capturado en el catch de más abajo
+
       // Hash password (obligatorio para registro público)
       if (!validatedData.password) {
         return res.status(400).json({ 
@@ -1569,6 +1560,7 @@ export function registerRoutes(app: express.Application) {
 
         console.log(`[KPI Update] Valores numéricos - Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
 
+        // ✅ FIX BUG #4: Validar que target > 0 para evitar división por cero
         if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
           const lowerBetter = isLowerBetterKPI(kpi.name || "");
           let percentage: number;
@@ -1576,7 +1568,14 @@ export function registerRoutes(app: express.Application) {
           console.log(`[KPI Update] ¿Métrica invertida (lower is better)? ${lowerBetter}`);
 
           if (lowerBetter) {
-            percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
+            // Para lowerBetter también necesitamos validar currentValue > 0
+            if (numericCurrentValue > 0) {
+              percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
+            } else {
+              // Si currentValue es 0, el compliance es 100% (óptimo para lower is better)
+              percentage = 100;
+            }
+
             if (numericCurrentValue <= numericTarget) {
               status = "complies";
             } else if (numericCurrentValue <= numericTarget * 1.1) {
@@ -3631,41 +3630,39 @@ export function registerRoutes(app: express.Application) {
     try {
       const { token } = req.params;
       const { password } = req.body;
-      
+
       if (!password || password.length < 8) {
-        return res.status(400).json({ 
-          message: "La contraseña debe tener al menos 8 caracteres" 
+        return res.status(400).json({
+          message: "La contraseña debe tener al menos 8 caracteres"
         });
       }
 
-      // Get token from database
+      // Get token from database para obtener el email
       const activationToken = await storage.getActivationToken(token);
-      
+
       if (!activationToken) {
-        return res.status(404).json({ 
-          message: "Token no válido o expirado" 
+        return res.status(404).json({
+          message: "Token no válido o expirado"
         });
       }
 
-      // Check if token is expired
-      if (new Date() > activationToken.expiresAt) {
-        return res.status(400).json({ 
-          message: "El enlace de activación ha expirado" 
-        });
-      }
+      // ✅ FIX BUG #1: Marcar token como usado ATÓMICAMENTE primero
+      // Esto previene race conditions - si dos requests llegan simultáneamente,
+      // solo una podrá marcar el token como usado
+      const tokenMarked = await storage.markTokenAsUsed(token);
 
-      // Check if token is already used
-      if (activationToken.used) {
-        return res.status(400).json({ 
-          message: "Este enlace de activación ya fue utilizado" 
+      if (!tokenMarked) {
+        // El token ya fue usado, está expirado, o es inválido
+        return res.status(400).json({
+          message: "Token no válido, expirado o ya utilizado"
         });
       }
 
       // Get user
       const user = await storage.getUserByEmail(activationToken.email);
       if (!user) {
-        return res.status(404).json({ 
-          message: "Usuario no encontrado" 
+        return res.status(404).json({
+          message: "Usuario no encontrado"
         });
       }
 
@@ -3674,9 +3671,6 @@ export function registerRoutes(app: express.Application) {
 
       // Update user password
       await storage.updateUser(user.id, { password: hashedPassword });
-
-      // Mark token as used
-      await storage.markTokenAsUsed(token);
 
       // Clean up expired tokens
       await storage.deleteExpiredTokens();
@@ -5972,10 +5966,27 @@ export function registerRoutes(app: express.Application) {
         }
       }
       
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Error al subir comprobante',
         details: error instanceof Error ? error.message : 'Error desconocido'
       });
+    } finally {
+      // ✅ FIX BUG #5: Siempre limpiar el archivo temporal
+      // Esto previene acumulación de archivos basura cuando hay errores
+      if (req.file?.path) {
+        try {
+          const fs = await import('fs');
+          // Solo eliminar si el archivo aún existe en la ubicación temporal
+          // (si fue movido con renameSync, ya no existirá en file.path)
+          if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+            console.log(`🗑️ [Upload Cleanup] Archivo temporal eliminado: ${req.file.path}`);
+          }
+        } catch (cleanupError) {
+          console.error('⚠️ [Upload Cleanup] Error al eliminar archivo temporal:', cleanupError);
+          // No fallar la request por error de limpieza
+        }
+      }
     }
   });
 

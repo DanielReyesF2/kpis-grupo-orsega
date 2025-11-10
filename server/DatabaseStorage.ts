@@ -266,64 +266,9 @@ export class DatabaseStorage implements IStorage {
         updatedBy: data.updatedBy
       });
 
-      const existing = await db
-        .select()
-        .from(table)
-        .where(
-          and(
-            eq(table.kpi_id, data.kpiId),
-            eq(table.month, monthUpper),
-            eq(table.year, data.year)
-          )
-        )
-        .limit(1);
-
-      if (existing.length > 0) {
-        console.log(`[upsertCompanyKpiValueNormalized] Registro existente encontrado (ID: ${existing[0].id}), actualizando...`);
-        
-        try {
-          const [updated] = await db
-            .update(table)
-            .set({
-              value: data.value,
-              compliance_percentage: data.compliancePercentage ?? null,
-              status: data.status ?? null,
-              comments: data.comments ?? null,
-              updated_by: data.updatedBy ?? null,
-              created_at: new Date(),
-            })
-            .where(eq(table.id, existing[0].id))
-            .returning();
-          
-          console.log(`[upsertCompanyKpiValueNormalized] ✅ Actualización exitosa. Registro actualizado:`, {
-            id: updated.id,
-            status: updated.status,
-            compliance_percentage: updated.compliance_percentage,
-            value: updated.value
-          });
-          
-          const mapped = this.mapKpiValueRecord(updated, resolved);
-          console.log(`[upsertCompanyKpiValueNormalized] Registro mapeado:`, {
-            id: mapped.id,
-            status: mapped.status,
-            compliancePercentage: mapped.compliancePercentage
-          });
-          
-          return mapped;
-        } catch (updateError: any) {
-          console.error(`[upsertCompanyKpiValueNormalized] ❌ Error al actualizar registro:`, updateError);
-          console.error(`[upsertCompanyKpiValueNormalized] Detalles del error:`, {
-            message: updateError.message,
-            code: updateError.code,
-            detail: updateError.detail,
-            hint: updateError.hint
-          });
-          throw new Error(`Error al actualizar valor de KPI: ${updateError.message}`);
-        }
-      }
-
-      console.log(`[upsertCompanyKpiValueNormalized] No se encontró registro existente, creando nuevo...`);
-      
+      // ✅ FIX BUG #3: Intentar INSERT primero (optimistic approach)
+      // Si falla por duplicate key, hacer UPDATE
+      // Esto previene race conditions mejor que SELECT + INSERT/UPDATE
       try {
         const [inserted] = await db
           .insert(table)
@@ -348,14 +293,47 @@ export class DatabaseStorage implements IStorage {
         });
 
         const mapped = this.mapKpiValueRecord(inserted, resolved);
-        console.log(`[upsertCompanyKpiValueNormalized] Registro mapeado:`, {
-          id: mapped.id,
-          status: mapped.status,
-          compliancePercentage: mapped.compliancePercentage
-        });
-
         return mapped;
       } catch (insertError: any) {
+        // Si el error es por duplicate key, hacer UPDATE
+        const isDuplicateError = insertError.code === '23505' ||
+                                 insertError.message?.includes('duplicate') ||
+                                 insertError.message?.includes('unique constraint');
+
+        if (isDuplicateError) {
+          console.log(`[upsertCompanyKpiValueNormalized] Registro ya existe, actualizando...`);
+
+          const [updated] = await db
+            .update(table)
+            .set({
+              value: data.value,
+              compliance_percentage: data.compliancePercentage ?? null,
+              status: data.status ?? null,
+              comments: data.comments ?? null,
+              updated_by: data.updatedBy ?? null,
+              created_at: new Date(),
+            })
+            .where(
+              and(
+                eq(table.kpi_id, data.kpiId),
+                eq(table.month, monthUpper),
+                eq(table.year, data.year)
+              )
+            )
+            .returning();
+
+          console.log(`[upsertCompanyKpiValueNormalized] ✅ Actualización exitosa. Registro actualizado:`, {
+            id: updated.id,
+            status: updated.status,
+            compliance_percentage: updated.compliance_percentage,
+            value: updated.value
+          });
+
+          const mapped = this.mapKpiValueRecord(updated, resolved);
+          return mapped;
+        }
+
+        // Si es otro tipo de error, propagarlo
         console.error(`[upsertCompanyKpiValueNormalized] ❌ Error al insertar registro:`, insertError);
         console.error(`[upsertCompanyKpiValueNormalized] Detalles del error:`, {
           message: insertError.message,
@@ -1849,9 +1827,17 @@ export class DatabaseStorage implements IStorage {
 
   async markTokenAsUsed(token: string): Promise<boolean> {
     try {
+      // Operación atómica: solo marca como usado si el token es válido y no ha sido usado
+      // Esto previene race conditions en activaciones duplicadas
       const result = await db.update(userActivationTokens)
         .set({ used: true })
-        .where(eq(userActivationTokens.token, token));
+        .where(
+          and(
+            eq(userActivationTokens.token, token),
+            eq(userActivationTokens.used, false), // Solo si no ha sido usado
+            sql`${userActivationTokens.expiresAt} > NOW()` // Solo si no ha expirado
+          )
+        );
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error marking token as used:", error);
