@@ -480,7 +480,7 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
 export default function KpiControlCenter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user, isMarioOrAdmin } = useAuth();
+  const { user, isAdmin, isMarioOrAdmin } = useAuth();
   const [location] = useLocation();
   
   // Estados para KPIs - 🔧 FORZAR Grupo Orsega por defecto
