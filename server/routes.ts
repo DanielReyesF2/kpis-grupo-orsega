@@ -5516,20 +5516,67 @@ export function registerRoutes(app: express.Application) {
         }
         console.log(`✅ [Upload] Tipo de archivo validado: ${fileTypeResult.mime}`);
       } else {
-        // Si file-type no puede detectar (puede ser XML que es texto plano)
-        // Verificar si es XML leyendo el contenido
-        const fileContent = fs.readFileSync(file.path, 'utf-8').trim();
-        const isXml = fileContent.startsWith('<?xml') || fileContent.startsWith('<');
+        // Si file-type no puede detectar el tipo (algunos PDFs o XMLs válidos pueden no ser detectados)
+        // Verificar basado en la extensión del archivo y contenido
+        const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
 
-        if (!isXml) {
+        if (fileExtension === '.xml') {
+          // Para XML, verificar contenido
+          try {
+            const fileContent = fs.readFileSync(file.path, 'utf-8').trim();
+            const isXml = fileContent.startsWith('<?xml') || fileContent.startsWith('<');
+
+            if (!isXml) {
+              fs.unlinkSync(file.path);
+              console.error('❌ [Upload] Archivo .xml no contiene XML válido');
+              return res.status(400).json({
+                error: 'Archivo XML no válido',
+                details: 'El archivo tiene extensión .xml pero no contiene XML válido'
+              });
+            }
+            console.log('✅ [Upload] Archivo XML validado por contenido');
+          } catch (xmlError) {
+            fs.unlinkSync(file.path);
+            console.error('❌ [Upload] Error al leer archivo XML:', xmlError);
+            return res.status(400).json({
+              error: 'Error al validar XML',
+              details: 'No se pudo leer el contenido del archivo XML'
+            });
+          }
+        } else if (fileExtension === '.pdf') {
+          // Para PDFs que file-type no pudo detectar, verificar que empiecen con %PDF
+          try {
+            const buffer = fs.readFileSync(file.path);
+            const isPdf = buffer.length > 4 && buffer.toString('ascii', 0, 4) === '%PDF';
+
+            if (!isPdf) {
+              fs.unlinkSync(file.path);
+              console.error('❌ [Upload] Archivo .pdf no es un PDF válido');
+              return res.status(400).json({
+                error: 'Archivo PDF no válido',
+                details: 'El archivo tiene extensión .pdf pero no es un PDF válido'
+              });
+            }
+            console.log('✅ [Upload] Archivo PDF validado por magic bytes (%PDF)');
+          } catch (pdfError) {
+            fs.unlinkSync(file.path);
+            console.error('❌ [Upload] Error al validar PDF:', pdfError);
+            return res.status(400).json({
+              error: 'Error al validar PDF',
+              details: 'No se pudo leer el contenido del archivo PDF'
+            });
+          }
+        } else if (['.png', '.jpg', '.jpeg'].includes(fileExtension)) {
+          // Para imágenes, confiar en multer (ya validó el mimetype)
+          console.log(`✅ [Upload] Archivo de imagen aceptado: ${fileExtension}`);
+        } else {
           fs.unlinkSync(file.path);
-          console.error('❌ [Upload] No se pudo determinar el tipo de archivo');
+          console.error(`❌ [Upload] Extensión de archivo no permitida: ${fileExtension}`);
           return res.status(400).json({
-            error: 'Tipo de archivo no válido',
-            details: 'No se pudo verificar que el archivo sea PDF, XML, PNG o JPG'
+            error: 'Tipo de archivo no permitido',
+            details: 'Solo se permiten archivos PDF, XML, PNG, JPG, JPEG'
           });
         }
-        console.log('✅ [Upload] Archivo XML validado');
       }
 
       // Analizar el documento primero para determinar el tipo
