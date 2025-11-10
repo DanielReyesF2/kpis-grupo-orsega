@@ -1590,6 +1590,29 @@ export default function KpiControlCenter() {
               </TabsContent>
 
               <TabsContent value="equipo" className="space-y-6">
+                {/* Botones de Gestión - Solo para admins */}
+                {isAdmin && (
+                  <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          onClick={() => {
+                            setEditingUser(null);
+                            setShowUserDialog(true);
+                          }}
+                          className="gap-2"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          Nuevo Usuario
+                        </Button>
+                        <p className="text-sm text-gray-600">
+                          Gestiona usuarios, roles y permisos del sistema
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Filtros */}
                 <Card>
                   <CardContent className="p-6">
