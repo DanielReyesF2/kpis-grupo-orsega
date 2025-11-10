@@ -411,13 +411,11 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
       )}
 
       {/* Modal de Detalles y Documentos */}
-      {selectedPayment && (
-        <PaymentDocumentsView
-          isOpen={!!selectedPayment}
-          onClose={() => setSelectedPayment(null)}
-          scheduledPaymentId={selectedPayment.id}
-        />
-      )}
+      <PaymentDocumentsView
+        isOpen={!!selectedPayment}
+        onClose={() => setSelectedPayment(null)}
+        scheduledPaymentId={selectedPayment?.id || 0}
+      />
     </>
   );
 }

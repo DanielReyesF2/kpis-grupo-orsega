@@ -551,7 +551,7 @@ export default function KpiControlCenter() {
   });
 
   // Obtener todos los KPIs (con actualización optimizada)
-  const { data: kpis, isLoading: kpisLoading } = useQuery<any[]>({
+  const { data: kpis = [], isLoading: kpisLoading } = useQuery<any[]>({
     queryKey: ['/api/kpis', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
     refetchInterval: 30000, // Actualizar cada 30 segundos
@@ -559,7 +559,7 @@ export default function KpiControlCenter() {
   });
 
   // Obtener valores de KPIs (con actualización balanceada)
-  const { data: kpiValues, isSuccess: kpiValuesSuccess } = useQuery<KpiValue[]>({
+  const { data: kpiValues = [], isSuccess: kpiValuesSuccess } = useQuery<KpiValue[]>({
     queryKey: ['/api/kpi-values'],
     staleTime: 1 * 60 * 1000, // Los datos son válidos por 1 minuto
     refetchInterval: 15000, // Actualizar cada 15 segundos (más crítico)
@@ -987,14 +987,16 @@ export default function KpiControlCenter() {
 
   // Función para calcular rendimiento del equipo
   const getUserEnhancedPerformance = () => {
-    if (!users || !Array.isArray(users)) return [];
+    if (!users || !Array.isArray(users) || users.length === 0) return [];
+    if (!kpis || !Array.isArray(kpis)) return [];
+    if (!kpiValues || !Array.isArray(kpiValues)) return [];
 
     return users.map((user: any) => {
       // ✅ ACCESO UNIVERSAL DE LECTURA: Todos ven todos los KPIs
-      const userKpis = kpis || [];
-      const userKpiValues = kpiValues?.filter((value: any) => 
+      const userKpis = kpis;
+      const userKpiValues = kpiValues.filter((value: any) =>
         userKpis.some((kpi: any) => kpi.id === value.kpiId) && value.updatedBy === user.id
-      ) || [];
+      );
 
       const totalKpis = userKpis.length;
       const completedKpis = userKpiValues.length;
@@ -1005,11 +1007,11 @@ export default function KpiControlCenter() {
       const performanceScore = completedKpis > 0 ? (compliantKpis / completedKpis) * 100 : 0;
 
       // Last activity
-      const lastActivity = userKpiValues.length > 0 ? 
-        Math.max(...userKpiValues.map(v => v.date ? new Date(v.date).getTime() : 0)) : 
+      const lastActivity = userKpiValues.length > 0 ?
+        Math.max(...userKpiValues.map(v => v.date ? new Date(v.date).getTime() : 0)) :
         (user.lastLogin ? new Date(user.lastLogin).getTime() : 0);
 
-      const daysSinceActivity = lastActivity > 0 ? 
+      const daysSinceActivity = lastActivity > 0 ?
         Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24)) : 999;
 
       // Status determination
@@ -1022,7 +1024,7 @@ export default function KpiControlCenter() {
         totalKpis,
         completedKpis,
         completionRate,
-        performanceScore,
+        performanceScore: Math.round(performanceScore),
         daysSinceActivity,
         status,
         compliantKpis
@@ -1821,28 +1823,24 @@ export default function KpiControlCenter() {
         )}
 
         {/* Modal de Actualización KPI */}
-        {selectedKpiId && (
-          <KpiUpdateModal
-            kpiId={selectedKpiId}
-            isOpen={isUpdateModalOpen}
-            onClose={() => {
-              setIsUpdateModalOpen(false);
-              setSelectedKpiId(null);
-            }}
-          />
-        )}
+        <KpiUpdateModal
+          kpiId={selectedKpiId || 0}
+          isOpen={isUpdateModalOpen}
+          onClose={() => {
+            setIsUpdateModalOpen(false);
+            setSelectedKpiId(null);
+          }}
+        />
 
         {/* Modal de Detalles Extendidos (12 atributos) */}
-        {selectedKpiId && (
-          <KpiExtendedDetailsModal
-            kpiId={selectedKpiId}
-            isOpen={isExtendedDetailsModalOpen}
-            onClose={() => {
-              setIsExtendedDetailsModalOpen(false);
-              setSelectedKpiId(null);
-            }}
-          />
-        )}
+        <KpiExtendedDetailsModal
+          kpiId={selectedKpiId || 0}
+          isOpen={isExtendedDetailsModalOpen}
+          onClose={() => {
+            setIsExtendedDetailsModalOpen(false);
+            setSelectedKpiId(null);
+          }}
+        />
 
         {/* Modal de KPIs del Colaborador */}
         <CollaboratorKPIsModal
