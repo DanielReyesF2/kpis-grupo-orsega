@@ -212,6 +212,27 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     percentage: totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0,
     minReasonableTarget
   });
+
+  // 🚨 DEBUGGING: Alerta visual si el porcentaje es sospechosamente alto
+  if (companyId === 2 && totalTarget > 0) {
+    const debugPercentage = Math.round((totalSales / totalTarget) * 100);
+    if (debugPercentage > 300) {
+      console.error(`🚨 [SalesMetricsCards] PROBLEMA DETECTADO - Orsega (Company 2):`, {
+        '⚠️ Porcentaje anormal': `${debugPercentage}%`,
+        'Total de ventas YTD': totalSales.toLocaleString(),
+        'Objetivo anual usado': totalTarget.toLocaleString(),
+        'Objetivo por defecto': defaultTarget.toLocaleString(),
+        'Objetivo de localStorage': storedTargetNumeric || 'No hay',
+        'Objetivo calculado desde KPI': calculatedFromKpi || 'No hay',
+        'Goal mensual del KPI': monthlyGoalFromDb || 'No hay',
+        'Número de meses con datos': salesData.length,
+        'Registros históricos': salesData.map(d => ({
+          periodo: d.period,
+          ventas: d.sales.toLocaleString()
+        }))
+      });
+    }
+  }
   
   // Si detectamos un objetivo incorrecto, limpiar localStorage para evitar el problema en el futuro
   if (isTargetSuspiciouslyLow) {
