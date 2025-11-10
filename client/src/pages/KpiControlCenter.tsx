@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,8 +54,6 @@ import {
   ArrowDown,
   Clock,
   ChevronDown,
-  Crown,
-  Star,
   Eye,
   ChevronUp,
   FolderTree,
@@ -513,7 +511,6 @@ export default function KpiControlCenter() {
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [teamCompanyFilter, setTeamCompanyFilter] = useState('all');
   const [teamPerformanceFilter, setTeamPerformanceFilter] = useState('all');
-  const [selectedTeamUser, setSelectedTeamUser] = useState<any>(null);
   
   // Estados para edición de KPIs desde modal de usuario
   const [showEditKpiDialog, setShowEditKpiDialog] = useState(false);
@@ -533,7 +530,6 @@ export default function KpiControlCenter() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('all');
   const [selectedAreaFilter, setSelectedAreaFilter] = useState('all');
-  const [executiveTab, setExecutiveTab] = useState<string>('dashboard'); // Estado para pestañas ejecutivas
 
 
   // Obtener empresas
@@ -977,34 +973,42 @@ export default function KpiControlCenter() {
 
   // Función para obtener KPIs de un usuario específico
   const getUserKpis = (userId: number) => {
-    const foundUser = users.find((u: UserType) => u.id === userId);
-    const user = foundUser;
-    if (!user || !kpis) return [];
+    const foundUser = users?.find((u: UserType) => u.id === userId);
+    if (!foundUser || !kpis) return [];
     
-    // ✅ ACCESO UNIVERSAL DE LECTURA: Todos los usuarios ven todos los KPIs
-    return kpis || [];
+    // Filtrar KPIs por companyId y areaId del usuario
+    const userKpis = kpis.filter((kpi: any) => {
+      // El KPI debe pertenecer a la misma empresa y área del usuario
+      const matchesCompany = kpi.companyId === foundUser.companyId;
+      const matchesArea = kpi.areaId === foundUser.areaId;
+      return matchesCompany && matchesArea;
+    });
+    
+    return userKpis;
   };
 
-  // Función para calcular rendimiento del equipo
+  // Función para calcular información del equipo (sin métricas de rendimiento)
   const getUserEnhancedPerformance = () => {
     if (!users || !Array.isArray(users) || users.length === 0) return [];
     if (!kpis || !Array.isArray(kpis)) return [];
     if (!kpiValues || !Array.isArray(kpiValues)) return [];
 
     return users.map((user: any) => {
-      // ✅ ACCESO UNIVERSAL DE LECTURA: Todos ven todos los KPIs
-      const userKpis = kpis;
+      // Obtener solo los KPIs del usuario (por companyId y areaId)
+      const userKpis = kpis.filter((kpi: any) => {
+        const matchesCompany = kpi.companyId === user.companyId;
+        const matchesArea = kpi.areaId === user.areaId;
+        return matchesCompany && matchesArea;
+      });
+      
       const userKpiValues = kpiValues.filter((value: any) =>
         userKpis.some((kpi: any) => kpi.id === value.kpiId) && value.updatedBy === user.id
       );
 
       const totalKpis = userKpis.length;
-      const completedKpis = userKpiValues.length;
-      const completionRate = totalKpis > 0 ? (completedKpis / totalKpis) * 100 : 0;
-
-      // Calculate performance score
-      const compliantKpis = userKpiValues.filter(v => v.status === 'compliant' || v.status === 'complies').length;
-      const performanceScore = completedKpis > 0 ? (compliantKpis / completedKpis) * 100 : 0;
+      // Contar KPIs únicos que tienen al menos un valor
+      const kpisWithValues = new Set(userKpiValues.map((v: any) => v.kpiId));
+      const completedKpis = kpisWithValues.size;
 
       // Last activity
       const lastActivity = userKpiValues.length > 0 ?
@@ -1014,41 +1018,20 @@ export default function KpiControlCenter() {
       const daysSinceActivity = lastActivity > 0 ?
         Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24)) : 999;
 
-      // Status determination
+      // Status determination basado solo en actividad
       let status = 'needs_attention';
-      if (performanceScore >= 85 && daysSinceActivity <= 7) status = 'excellent';
-      else if (performanceScore >= 70 && daysSinceActivity <= 14) status = 'good';
+      if (daysSinceActivity <= 7) status = 'excellent';
+      else if (daysSinceActivity <= 14) status = 'good';
 
       return {
         ...user,
         totalKpis,
         completedKpis,
-        completionRate,
-        performanceScore: Math.round(performanceScore),
         daysSinceActivity,
-        status,
-        compliantKpis
+        status
       };
     });
   };
-
-  // Métricas del equipo (para gestión del equipo)
-  const teamManagementMetrics = useMemo(() => {
-    const enhancedUsers = getUserEnhancedPerformance();
-    const totalUsers = enhancedUsers.length;
-    const activeUsers = enhancedUsers.filter(u => u.daysSinceActivity <= 7).length;
-    const avgPerformance = enhancedUsers.length > 0 
-      ? enhancedUsers.reduce((sum, u) => sum + u.performanceScore, 0) / enhancedUsers.length 
-      : 0;
-    const needsAttention = enhancedUsers.filter(u => u.status === 'needs_attention').length;
-
-    return {
-      totalUsers,
-      activeUsers,
-      avgPerformance: Math.round(avgPerformance),
-      needsAttention
-    };
-  }, [users, kpis, kpiValues]);
 
   // Filtrar usuarios para gestión de equipo
   const filteredTeamUsers = useMemo(() => {
@@ -1335,7 +1318,7 @@ export default function KpiControlCenter() {
                       </div>
                     )}
                     {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
-                      <div className="space-y-5 max-w-full px-2 md:px-4">
+                      <div className="space-y-3 max-w-full px-2 md:px-4">
                         {collaborators.map((collaborator, index) => (
                           <CollaboratorCard
                             key={collaborator.name}
@@ -1446,379 +1429,271 @@ export default function KpiControlCenter() {
 
         {viewMode === 'team' && isMarioOrAdmin && (
           <div className="space-y-6">
-            {/* Executive Header */}
-            <div className="bg-card border border-border p-6 rounded-xl shadow-md">
-              <div className="flex items-center gap-3 mb-4">
-                <Crown className="h-8 w-8 text-yellow-500" />
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Panel de Control Ejecutivo</h1>
-                  <p className="text-muted-foreground">Administra usuarios, roles y permisos del sistema</p>
-                </div>
+            {/* Header simplificado */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Gestión del Equipo</h1>
+                <p className="text-sm text-muted-foreground mt-1">Administra usuarios y sus KPIs</p>
               </div>
-
-              {/* Key Executive Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                <div className="bg-muted/50 border border-border p-4 rounded-lg">
-              <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-emerald-500" />
-                    <span className="text-sm text-foreground">Total Colaboradores</span>
-              </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.totalUsers}</p>
-                  <p className="text-xs text-muted-foreground">Activos en plataforma</p>
-                </div>
-
-                <div className="bg-muted/50 border border-border p-4 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-blue-500" />
-                    <span className="text-sm text-foreground">Usuarios Activos</span>
-                  </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.activeUsers}</p>
-                  <p className="text-xs text-muted-foreground">Últimos 7 días</p>
-                </div>
-
-                <div className="bg-muted/50 border border-border p-4 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-500" />
-                    <span className="text-sm text-foreground">Rendimiento Promedio</span>
-                  </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.avgPerformance}%</p>
-                  <p className="text-xs text-muted-foreground">Basado en KPIs</p>
-                </div>
-
-                <div className="bg-muted/50 border border-border p-4 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                    <span className="text-sm text-foreground">Requieren Atención</span>
-                  </div>
-                  <p className="text-3xl font-bold mt-2 text-foreground">{teamManagementMetrics.needsAttention}</p>
-                  <p className="text-xs text-muted-foreground">Bajo rendimiento</p>
-                </div>
-              </div>
+              {isMarioOrAdmin && (
+                <Button
+                  onClick={() => {
+                    setEditingUser(null);
+                    setShowUserDialog(true);
+                  }}
+                  className="gap-2 shrink-0"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Nuevo Usuario
+                </Button>
+              )}
             </div>
 
-            {/* Executive Tabs */}
-            <Tabs value={executiveTab} onValueChange={setExecutiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="equipo">Equipo</TabsTrigger>
-                <TabsTrigger value="rendimiento">Rendimiento</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="dashboard" className="space-y-6">
-                {/* Top Performers y Requieren Atención */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Top Performers */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Star className="h-5 w-5 text-yellow-500" />
-                        Top Performers
-                      </CardTitle>
-                      <CardDescription>Usuarios con mejor rendimiento</CardDescription>
-            </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {filteredTeamUsers
-                          .filter((user: any) => user.status === 'excellent')
-                          .slice(0, 5)
-                          .map((user: any) => (
-                            <div key={user.id} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold">
-                                  {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <p className="font-semibold">{user.name}</p>
-                                <p className="text-sm text-gray-600">{user.email}</p>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-bold text-green-600">{user.performanceScore}%</div>
-                                <div className="text-xs text-gray-500">{user.daysSinceActivity} días</div>
-                              </div>
-                            </div>
-                          ))}
-                        {filteredTeamUsers.filter((user: any) => user.status === 'excellent').length === 0 && (
-                          <div className="text-center py-8 text-gray-500">
-                            <Star className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p>No hay top performers en este momento</p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Requieren Atención */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-orange-500" />
-                        Requieren Atención
-                      </CardTitle>
-                      <CardDescription>Usuarios que necesitan supervisión</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {filteredTeamUsers
-                          .filter((user: any) => user.status === 'needs_attention')
-                          .slice(0, 5)
-                          .map((user: any) => (
-                            <div key={user.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-primary text-white font-bold">
-                                  {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                <div className="flex-1">
-                                <p className="font-semibold">{user.name}</p>
-                                <p className="text-sm text-gray-600">{user.email}</p>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-bold text-[#0080ff]">{user.performanceScore}%</div>
-                                <div className="text-xs text-gray-500">{user.daysSinceActivity} días</div>
-                              </div>
-                            </div>
-                          ))}
-                        {filteredTeamUsers.filter((user: any) => user.status === 'needs_attention').length === 0 && (
-                          <div className="text-center py-8 text-gray-500">
-                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                            <p>¡Excelente! Todos los usuarios están funcionando bien</p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+            {/* Filtros */}
+            <Card>
+              <CardContent className="p-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="search" className="text-sm font-medium">Buscar</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="search"
+                        placeholder="Buscar por nombre o email..."
+                        value={teamSearchTerm}
+                        onChange={(e) => setTeamSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="company-filter" className="text-sm font-medium">Empresa</Label>
+                    <Select value={teamCompanyFilter} onValueChange={setTeamCompanyFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas las empresas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas las empresas</SelectItem>
+                        {companies?.map((company: any) => (
+                          <SelectItem key={company.id} value={company.id.toString()}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="performance-filter" className="text-sm font-medium">Rendimiento</Label>
+                    <Select value={teamPerformanceFilter} onValueChange={setTeamPerformanceFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos los niveles" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los niveles</SelectItem>
+                        <SelectItem value="excellent">Excelente</SelectItem>
+                        <SelectItem value="good">Bueno</SelectItem>
+                        <SelectItem value="needs_attention">Requiere atención</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </TabsContent>
+              </CardContent>
+            </Card>
 
-              <TabsContent value="equipo" className="space-y-6">
-                {/* Botones de Gestión - Solo para admins */}
-                {isMarioOrAdmin && (
-                  <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <Button
-                          onClick={() => {
-                            setEditingUser(null);
-                            setShowUserDialog(true);
-                          }}
-                          className="gap-2"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          Nuevo Usuario
-                        </Button>
-                        <p className="text-sm text-gray-600">
-                          Gestiona usuarios, roles y permisos del sistema
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Filtros */}
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="search">Buscar</Label>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            id="search"
-                            placeholder="Buscar por nombre o email..."
-                            value={teamSearchTerm}
-                            onChange={(e) => setTeamSearchTerm(e.target.value)}
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="company-filter">Empresa</Label>
-                        <Select value={teamCompanyFilter} onValueChange={setTeamCompanyFilter}>
-                          <SelectTrigger>
-                      <SelectValue placeholder="Todas las empresas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las empresas</SelectItem>
-                      {companies?.map((company: any) => (
-                        <SelectItem key={company.id} value={company.id.toString()}>
-                          {company.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Lista de usuarios - Tarjetas horizontales mejoradas */}
+            <div className="space-y-3">
+              {filteredTeamUsers.map((user: any) => {
+                const userCompany = companies?.find((c: any) => c.id === user.companyId);
+                const userArea = areas?.find((a: any) => a.id === user.areaId);
+                const userKpis = getUserKpis(user.id);
+                const userKpiValues = kpiValues?.filter((value: any) => 
+                  userKpis.some((kpi: any) => kpi.id === value.kpiId) && value.updatedBy === user.id
+                ) || [];
                 
-                      <div>
-                        <Label htmlFor="performance-filter">Rendimiento</Label>
-                        <Select value={teamPerformanceFilter} onValueChange={setTeamPerformanceFilter}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todos los niveles" />
-                    </SelectTrigger>
-                    <SelectContent>
-                            <SelectItem value="all">Todos los niveles</SelectItem>
-                            <SelectItem value="excellent">Excelente</SelectItem>
-                            <SelectItem value="good">Bueno</SelectItem>
-                            <SelectItem value="needs_attention">Requiere atención</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-                  </CardContent>
-                </Card>
+                // Obtener los últimos valores de cada KPI del usuario
+                const kpisWithLatestValues = userKpis.map((kpi: any) => {
+                  const kpiValuesForUser = userKpiValues
+                    .filter((v: any) => v.kpiId === kpi.id)
+                    .sort((a: any, b: any) => 
+                      new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+                    );
+                  const latestValue = kpiValuesForUser[0];
+                  
+                  return {
+                    ...kpi,
+                    latestValue,
+                    compliance: latestValue 
+                      ? parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0')
+                      : 0,
+                    status: latestValue?.status || 'not_compliant'
+                  };
+                });
+                
+                return (
+                  <Card key={user.id} className="border border-gray-200 hover:border-blue-300 transition-all shadow-sm hover:shadow">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                        {/* Sección izquierda: Info del usuario - Compacta */}
+                        <div className="flex items-center gap-3 min-w-0 flex-shrink-0 md:min-w-[200px]">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white text-xs font-bold shadow-sm flex-shrink-0">
+                            {user.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">{user.name}</h3>
+                            <p className="text-xs text-gray-600 truncate">{user.email}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <Badge variant={
+                                user.status === 'excellent' ? 'default' : 
+                                user.status === 'good' ? 'secondary' : 
+                                'destructive'
+                              } className="text-xs px-1.5 py-0 h-5">
+                                {user.status === 'excellent' ? 'Excelente' : 
+                                 user.status === 'good' ? 'Bueno' : 'Requiere atención'}
+                              </Badge>
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <Building className="h-2.5 w-2.5" />
+                                <span className="truncate max-w-[100px]">{userCompany?.name || 'Sin empresa'}</span>
+                              </span>
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <MapPin className="h-2.5 w-2.5" />
+                                <span className="truncate max-w-[80px]">{userArea?.name || 'Sin área'}</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-              {/* Lista de usuarios */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTeamUsers.map((user: any) => {
-                    const userCompany = companies?.find((c: any) => c.id === user.companyId);
-                    const userArea = areas?.find((a: any) => a.id === user.areaId);
-                    
-                    return (
-                      <Card key={user.id} className="border border-gray-200 hover:border-blue-300 transition-colors">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <User className="h-4 w-4 text-blue-600" />
-                              {user.name}
-                            </CardTitle>
-                            <Badge variant={
-                              user.status === 'excellent' ? 'default' : 
-                              user.status === 'good' ? 'secondary' : 
-                              'destructive'
-                            }>
-                              {user.status === 'excellent' ? 'Excelente' : 
-                               user.status === 'good' ? 'Bueno' : 'Requiere atención'}
-                            </Badge>
+                        {/* Separador */}
+                        <div className="hidden md:block w-px h-12 bg-gray-200" />
+                        <div className="md:hidden w-full h-px bg-gray-200" />
+
+                        {/* Sección central: KPIs - Compacta en una línea */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-semibold text-gray-700">KPIs</span>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                              {user.completedKpis}/{user.totalKpis}
+                            </span>
                           </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Building className="h-3 w-3" />
-                              {userCompany?.name || 'Sin empresa'}
+                          {kpisWithLatestValues.length > 0 ? (
+                            <div className="space-y-1">
+                              {kpisWithLatestValues.slice(0, 3).map((kpi: any) => (
+                                <div key={kpi.id} className="flex items-center gap-1.5 p-1.5 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition-colors group">
+                                  <p className="font-medium text-gray-900 truncate text-xs flex-1 min-w-0">{kpi.name || kpi.kpiName}</p>
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${
+                                    kpi.status === 'complies' || kpi.status === 'compliant' ? 'bg-green-100 text-green-700' :
+                                    kpi.status === 'alert' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-red-100 text-red-700'
+                                  }`}>
+                                    {kpi.status === 'complies' || kpi.status === 'compliant' ? 'Cumpliendo' :
+                                     kpi.status === 'alert' ? 'Alerta' : 'No Cumpliendo'}
+                                  </span>
+                                  {isMarioOrAdmin && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 w-5 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200"
+                                      onClick={() => handleEditKpi(kpi)}
+                                      title="Editar KPI"
+                                    >
+                                      <Edit className="h-2.5 w-2.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                              {kpisWithLatestValues.length > 3 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="w-full text-xs h-6 mt-1"
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setShowUserKpisDialog(true);
+                                  }}
+                                >
+                                  Ver todos ({kpisWithLatestValues.length})
+                                </Button>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" />
-                              {userArea?.name || 'Sin área'}
-                            </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Target className="h-3 w-3" />
-                              {user.completedKpis} de {user.totalKpis} KPIs completados
-                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 py-1">Sin KPIs</p>
+                          )}
+                        </div>
+
+                        {/* Separador */}
+                        <div className="hidden md:block w-px h-12 bg-gray-200" />
+                        <div className="md:hidden w-full h-px bg-gray-200" />
+
+                        {/* Sección derecha: Acciones - Sin métricas de rendimiento */}
+                        <div className="flex flex-row md:flex-col items-center md:items-start justify-between md:justify-start gap-3 w-full md:w-auto md:min-w-[120px]">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Clock className="h-3 w-3 flex-shrink-0" />
+                            <span>Hace {user.daysSinceActivity} días</span>
                           </div>
                           
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span>Rendimiento</span>
-                              <span className="font-semibold">{user.performanceScore}%</span>
-                            </div>
-                            <Progress value={user.performanceScore} className="h-2" />
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>Última actividad</span>
-                            <span>{user.daysSinceActivity} días</span>
-                          </div>
-                          
-                          {/* Acciones */}
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap md:flex-col gap-1.5 flex-shrink-0">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedTeamUser(user)}
-                              data-testid="button-view-user-details"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowUserKpisDialog(true);
+                              }}
+                              className="h-7 px-2 text-xs whitespace-nowrap flex-1 md:flex-none min-w-0"
                             >
                               <Eye className="h-3 w-3 mr-1" />
-                              Ver
+                              Ver KPIs
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleEditUser(user)}
-                              data-testid="button-edit-user"
+                              className="h-7 px-2 text-xs whitespace-nowrap flex-1 md:flex-none min-w-0"
                             >
                               <Edit className="h-3 w-3 mr-1" />
                               Editar
                             </Button>
+                            {isMarioOrAdmin && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs whitespace-nowrap hover:bg-red-50 hover:text-red-600 hover:border-red-300 flex-1 md:flex-none min-w-0"
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Eliminar
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar Usuario?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción no se puede deshacer. Se eliminará permanentemente
+                                      el usuario <strong>"{user.name}"</strong> y todos sus datos asociados.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteUser(user.id)}
+                                      className="bg-red-500 hover:bg-red-600"
+                                    >
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="rendimiento" className="space-y-6">
-                {/* Gráficos de rendimiento */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Distribución de Rendimiento
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span>Excelente</span>
-                          </div>
-                          <span className="font-semibold">
-                            {filteredTeamUsers.filter((u: any) => u.status === 'excellent').length}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            <span>Bueno</span>
-                          </div>
-                          <span className="font-semibold">
-                            {filteredTeamUsers.filter((u: any) => u.status === 'good').length}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                            <span>Requiere Atención</span>
-                          </div>
-                          <span className="font-semibold">
-                            {filteredTeamUsers.filter((u: any) => u.status === 'needs_attention').length}
-                          </span>
-                        </div>
-                      </div>
-            </CardContent>
-          </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
-                        Actividad Reciente
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span>Usuarios activos (7 días)</span>
-                          <span className="font-semibold">{teamManagementMetrics.activeUsers}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Rendimiento promedio</span>
-                          <span className="font-semibold">{teamManagementMetrics.avgPerformance}%</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Total colaboradores</span>
-                          <span className="font-semibold">{teamManagementMetrics.totalUsers}</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              </TabsContent>
-            </Tabs>
+                );
+              })}
+            </div>
           </div>
         )}
 
