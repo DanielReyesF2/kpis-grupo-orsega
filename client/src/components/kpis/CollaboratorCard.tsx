@@ -181,22 +181,22 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
       className="w-full"
     >
       <Card
-        className={`w-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
+        className={`w-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} shadow-lg hover:shadow-xl hover:border-opacity-70`}
       >
-        <CardContent className="p-5">
+        <CardContent className="px-4 py-5 md:px-8 md:py-6 min-h-[160px]">
           {/* HORIZONTAL LAYOUT: Flex row */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-10">
 
             {/* LEFT SECTION: Avatar + Name + Status */}
-            <div className="flex items-center gap-3 min-w-[200px]">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white text-sm font-bold shadow-md flex-shrink-0">
+            <div className="flex items-center gap-4 min-w-[240px] w-full md:w-auto justify-center md:justify-start">
+              <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-white text-sm md:text-base font-bold shadow-md flex-shrink-0">
                 {getInitials(collaborator.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <CardTitle className="text-base font-semibold text-gray-900 leading-tight truncate">
+                <CardTitle className="text-base font-semibold text-gray-900 leading-tight truncate text-center md:text-left">
                   {collaborator.name}
                 </CardTitle>
-                <Badge className={`${statusColors.badge} border flex items-center gap-1 px-2 py-0.5 mt-1 w-fit`}>
+                <Badge className={`${statusColors.badge} border flex items-center gap-1 px-3 py-1.5 mt-2 w-fit mx-auto md:mx-0`}>
                   {getStatusIcon(collaborator.status)}
                   <span className="text-xs">{getStatusText(collaborator.status)}</span>
                 </Badge>
@@ -204,33 +204,33 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
             </div>
 
             {/* CENTER SECTION: Score + Trend + KPIs Summary */}
-            <div className="flex items-center gap-6 flex-1">
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-8 flex-1 w-full md:w-auto border-t-2 border-t-gray-200 md:border-t-0 md:border-l-2 md:border-l-gray-300 pt-4 md:pt-0 md:pl-8">
 
               {/* Score */}
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-5xl font-bold text-gray-900">
                   {collaborator.averageCompliance}%
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Score: {collaborator.score}</div>
+                <div className="text-sm text-gray-500 mt-1">Score: {collaborator.score}</div>
               </div>
 
               {/* Divider */}
-              <div className="h-16 w-px bg-gray-200/50" />
+              <div className="hidden md:block h-20 w-px bg-gray-300" />
 
               {/* Trend Indicator */}
-              <div className="min-w-[140px]">
+              <div className="min-w-[160px] text-center md:text-left">
                 {collaborator.advancedTrend && collaborator.advancedTrend.direction ? (
-                  <div className="space-y-1">
-                    <div className={`flex items-center gap-2 ${
+                  <div className="space-y-2">
+                    <div className={`flex items-center justify-center md:justify-start gap-2 ${
                       collaborator.advancedTrend.direction === 'up'
                         ? 'text-green-600'
                         : collaborator.advancedTrend.direction === 'down'
                         ? 'text-red-600'
                         : 'text-gray-500'
                     }`}>
-                      {collaborator.advancedTrend.direction === 'up' && <TrendingUp className="h-4 w-4" />}
-                      {collaborator.advancedTrend.direction === 'down' && <TrendingDown className="h-4 w-4" />}
-                      {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-4 w-4" />}
+                      {collaborator.advancedTrend.direction === 'up' && <TrendingUp className="h-5 w-5" />}
+                      {collaborator.advancedTrend.direction === 'down' && <TrendingDown className="h-5 w-5" />}
+                      {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-5 w-5" />}
                       <span className="text-sm font-semibold">
                         {collaborator.advancedTrend.direction === 'up' ? 'Mejorando' :
                          collaborator.advancedTrend.direction === 'down' ? 'Declinando' : 'Estable'}
@@ -241,57 +241,60 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
                     </div>
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400">Sin datos históricos</div>
+                  <div className="text-sm text-gray-400">Sin datos históricos</div>
                 )}
               </div>
 
               {/* Divider */}
-              <div className="h-16 w-px bg-gray-200/50" />
+              <div className="hidden md:block h-20 w-px bg-gray-300" />
 
               {/* KPIs Summary */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                 <div className="text-center">
-                  <div className="text-xl font-bold text-green-600">
+                  <div className="text-2xl font-bold text-green-600">
                     {collaborator.compliantKpis}
                   </div>
-                  <div className="text-xs text-gray-600">Cumplidos</div>
+                  <div className="text-xs text-gray-600 mt-1">Cumplidos</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-amber-600">
+                  <div className="text-2xl font-bold text-amber-600">
                     {collaborator.alertKpis}
                   </div>
-                  <div className="text-xs text-gray-600">En Riesgo</div>
+                  <div className="text-xs text-gray-600 mt-1">En Riesgo</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-red-600">
+                  <div className="text-2xl font-bold text-red-600">
                     {collaborator.notCompliantKpis}
                   </div>
-                  <div className="text-xs text-gray-600">Críticos</div>
+                  <div className="text-xs text-gray-600 mt-1">Críticos</div>
                 </div>
               </div>
             </div>
 
             {/* RIGHT SECTION: Sparkline Chart */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto border-t-2 border-t-gray-200 md:border-t-0 md:border-l-2 md:border-l-gray-300 pt-4 md:pt-0 md:pl-8">
               {sparklineData.length > 0 ? (
-                <div className="w-[180px] h-16">
+                <div className="w-full md:w-[280px] h-20 md:h-24">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={sparklineData}>
                       <Line
                         type="monotone"
                         dataKey="value"
                         stroke={getTrendColor()}
-                        strokeWidth={2}
+                        strokeWidth={2.5}
                         dot={false}
                         isAnimationActive={false}
                       />
                       <Tooltip
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
+                            const value = typeof payload[0].value === 'number' 
+                              ? payload[0].value.toFixed(1) 
+                              : payload[0].value?.toString() || '0';
                             return (
                               <div className="bg-white p-2 rounded shadow-lg border text-xs">
                                 <p className="font-semibold">{payload[0].payload.month}</p>
-                                <p className="text-gray-600">{payload[0].value?.toFixed(1)}%</p>
+                                <p className="text-gray-600">{value}%</p>
                               </div>
                             );
                           }
@@ -303,19 +306,19 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
                   <div className="text-xs text-center text-gray-500 mt-1">Últimos 12 meses</div>
                 </div>
               ) : (
-                <div className="w-[180px] h-16 flex items-center justify-center bg-gray-50 rounded">
-                  <span className="text-xs text-gray-400">Sin historial</span>
+                <div className="w-full md:w-[280px] h-20 md:h-24 flex items-center justify-center bg-gray-50 rounded">
+                  <span className="text-sm text-gray-400">Sin historial</span>
                 </div>
               )}
 
               {/* Action Button */}
               <Button
                 variant="outline"
-                size="sm"
-                className="text-xs border-gray-200/50 hover:bg-gray-50/50 flex-shrink-0"
+                size="default"
+                className="text-sm border-gray-300 hover:bg-gray-100 flex-shrink-0 px-4 py-2 w-full md:w-auto"
                 onClick={() => onViewDetails(collaborator)}
               >
-                <Eye className="h-3 w-3 mr-1" />
+                <Eye className="h-4 w-4 mr-2" />
                 Ver KPIs
               </Button>
             </div>

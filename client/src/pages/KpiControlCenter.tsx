@@ -1335,7 +1335,7 @@ export default function KpiControlCenter() {
                       </div>
                     )}
                     {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
-                      <div className="space-y-3">
+                      <div className="space-y-5 max-w-full px-2 md:px-4">
                         {collaborators.map((collaborator, index) => (
                           <CollaboratorCard
                             key={collaborator.name}
@@ -1593,7 +1593,7 @@ export default function KpiControlCenter() {
 
               <TabsContent value="equipo" className="space-y-6">
                 {/* Botones de Gestión - Solo para admins */}
-                {isAdmin && (
+                {isMarioOrAdmin && (
                   <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
