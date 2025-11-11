@@ -2021,10 +2021,20 @@ export function registerRoutes(app: express.Application) {
         updatedBy: user.id,
       };
 
+      console.log('[POST /api/kpi-values] Creando KPI value con payload:', JSON.stringify(payload, null, 2));
       const kpiValue = await storage.createKpiValue(payload);
+      console.log('[POST /api/kpi-values] ✅ KPI value creado exitosamente:', kpiValue.id);
 
+      // Intentar crear notificación de cambio de estado (si aplica)
       if (previous?.status && kpiValue.status && previous.status !== kpiValue.status) {
-        await createKPIStatusChangeNotification(kpi, user, previous.status, kpiValue.status, storage);
+        try {
+          console.log(`[POST /api/kpi-values] Creando notificación de cambio de estado: ${previous.status} → ${kpiValue.status}`);
+          await createKPIStatusChangeNotification(kpi, user, previous.status, kpiValue.status, storage);
+          console.log('[POST /api/kpi-values] ✅ Notificación creada exitosamente');
+        } catch (notifError) {
+          // No fallar si la notificación falla, solo loguear
+          console.error('[POST /api/kpi-values] ⚠️  Error al crear notificación (no crítico):', notifError);
+        }
       }
 
       res.status(201).json(kpiValue);
@@ -2033,8 +2043,17 @@ export function registerRoutes(app: express.Application) {
         console.error('[POST /api/kpi-values] Validation error:', error.errors);
         return res.status(400).json({ message: error.errors });
       }
-      console.error('Error creating KPI value:', error);
-      res.status(500).json({ message: "Internal server error" });
+      // Log detallado del error para debugging
+      console.error('[POST /api/kpi-values] ❌ ERROR CRÍTICO:');
+      console.error('[POST /api/kpi-values] Error object:', error);
+      console.error('[POST /api/kpi-values] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[POST /api/kpi-values] Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('[POST /api/kpi-values] Request body:', JSON.stringify(req.body, null, 2));
+
+      res.status(500).json({
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

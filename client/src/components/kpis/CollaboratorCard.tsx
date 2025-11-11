@@ -167,35 +167,8 @@ export function CollaboratorCard({ collaborator, onViewDetails, onUpdateKpi, del
               </div>
             </div>
 
-            {/* CENTER: Score + KPIs Summary */}
+            {/* CENTER: KPIs Summary */}
             <div className="flex-1 flex flex-col sm:flex-row items-center gap-4 lg:gap-6 w-full lg:w-auto">
-              
-              {/* Score Principal */}
-              <div className="text-center sm:text-left">
-                <div className={`text-5xl font-extrabold ${statusColors.text} leading-none mb-1`}>
-                  {collaborator.averageCompliance}%
-                </div>
-                <div className="text-xs font-medium text-gray-600">
-                  Score: <span className="font-bold">{collaborator.score}</span> pts
-                </div>
-                {collaborator.advancedTrend && collaborator.advancedTrend.direction && (
-                  <div className={`flex items-center gap-1 mt-1.5 text-xs font-medium ${
-                    collaborator.advancedTrend.direction === 'up' ? 'text-green-600' :
-                    collaborator.advancedTrend.direction === 'down' ? 'text-red-600' : 'text-gray-500'
-                  }`}>
-                    {collaborator.advancedTrend.direction === 'up' && <ArrowUp className="h-3 w-3" />}
-                    {collaborator.advancedTrend.direction === 'down' && <ArrowDown className="h-3 w-3" />}
-                    {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-3 w-3" />}
-                    <span>
-                      {collaborator.advancedTrend.direction === 'up' ? 'Mejorando' :
-                       collaborator.advancedTrend.direction === 'down' ? 'Declinando' : 'Estable'}
-                    </span>
-                  </div>
-                )}
-                {!collaborator.advancedTrend?.direction && (
-                  <div className="text-xs text-gray-400 mt-1.5">Sin datos históricos</div>
-                )}
-              </div>
 
               {/* KPIs Summary - Compacto */}
               <div className="flex items-center gap-4">
