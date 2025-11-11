@@ -181,7 +181,19 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
 
   // Si está en expandedLayout y hay datos históricos, mostrar solo la gráfica
   if (expandedLayout && fullHistoryData.length > 0) {
-    const values = fullHistoryData.map(d => d.value);
+    // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
+    const values = fullHistoryData.map(d => d.value).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+
+    // Validar que hay valores después del filtro
+    if (values.length === 0) {
+      return (
+        <div className="w-full py-12 text-center">
+          <Info className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+          <span className="text-sm text-gray-500">No hay datos numéricos válidos disponibles</span>
+        </div>
+      );
+    }
+
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -480,8 +492,19 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
                   </div>
                 ) : fullHistoryData.length > 0 ? (
                   (() => {
-                    // Calcular estadísticas para el gráfico
-                    const values = fullHistoryData.map(d => d.value);
+                    // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
+                    const values = fullHistoryData.map(d => d.value).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+
+                    // Si no hay valores válidos después del filtro, mostrar mensaje
+                    if (values.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                          <Info className="h-6 w-6 text-gray-400 mb-2" />
+                          <span className="text-sm text-gray-500">No hay datos numéricos válidos</span>
+                        </div>
+                      );
+                    }
+
                     const minValue = Math.min(...values);
                     const maxValue = Math.max(...values);
                     const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;

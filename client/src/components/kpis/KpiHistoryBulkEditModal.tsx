@@ -61,7 +61,7 @@ export function KpiHistoryBulkEditModal({
   const [saveResults, setSaveResults] = useState<{ successful: number; failed: number } | null>(null);
 
   // Obtener historial del KPI
-  // IMPORTANTE: Incluir companyId en query key y usar staleTime: 0 para evitar cache
+  // ✅ FIX CRÍTICO: Optimizar cache para reducir queries innecesarias
   const { data: history, isLoading, refetch: refetchHistory } = useQuery({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     queryFn: async () => {
@@ -75,10 +75,10 @@ export function KpiHistoryBulkEditModal({
       return data;
     },
     enabled: isOpen && !!kpiId && !!companyId,
-    staleTime: 0, // No cachear para ver datos actualizados
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    gcTime: 0, // No mantener en cache
+    staleTime: 60 * 1000, // ✅ Cachear 60 segundos - balance entre freshness y performance
+    refetchOnWindowFocus: false, // ✅ No refetch al cambiar ventana
+    refetchOnMount: false, // ✅ Usar cache si está disponible
+    gcTime: 5 * 60 * 1000, // ✅ Mantener en memoria 5 minutos
   });
 
   // Preparar datos del año seleccionado
