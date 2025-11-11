@@ -848,10 +848,11 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                           </div>
                         ) : (
                           <div className="text-lg font-bold text-blue-600">
-                            {(kpi as any)?.target || (kpi as any)?.goal || 'Sin meta definida'}
-                            {isSalesKpiForAnnualGoal && (kpi as any)?.annualGoal && (
+                            {/* USAR ESTADO LOCAL en lugar de kpi directamente */}
+                            {newGoal || (kpi as any)?.target || (kpi as any)?.goal || 'Sin meta definida'}
+                            {isSalesKpiForAnnualGoal && (newAnnualGoal || (kpi as any)?.annualGoal) && (
                               <span className="text-xs text-gray-500 ml-2 font-normal italic">
-                                (del anual: {Number((kpi as any).annualGoal).toLocaleString('es-MX', { maximumFractionDigits: 0 })} / 12)
+                                (del anual: {Number(newAnnualGoal || (kpi as any).annualGoal).toLocaleString('es-MX', { maximumFractionDigits: 0 })} / 12)
                               </span>
                             )}
                           </div>
@@ -906,7 +907,8 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                           ) : (
                             <div className="text-lg font-bold text-purple-600">
                               {(() => {
-                                const annualGoalValue = (kpi as any)?.annualGoal;
+                                // USAR ESTADO LOCAL en lugar de kpi.annualGoal directamente
+                                const annualGoalValue = newAnnualGoal || (kpi as any)?.annualGoal;
                                 if (annualGoalValue) {
                                   const annualGoalNum = Number(annualGoalValue);
                                   if (!isNaN(annualGoalNum) && annualGoalNum > 0) {
