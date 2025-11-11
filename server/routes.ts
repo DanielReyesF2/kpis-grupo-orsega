@@ -159,6 +159,153 @@ async function createKPIStatusChangeNotification(
   }
 }
 
+/**
+ * KPIs de Logística: Actualizar automáticamente los KPIs de logística basados en shipments
+ * Esta función se ejecuta cuando un envío se marca como "delivered"
+ */
+async function updateLogisticsKPIs(companyId: number) {
+  try {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    console.log(`[KPI Logística] Actualizando KPIs para company ${companyId}, período: ${firstDayOfMonth.toISOString()} - ${lastDayOfMonth.toISOString()}`);
+
+    // 1. Obtener todos los envíos entregados del mes actual para esta empresa
+    const monthlyShipments = await sql<Shipment[]>`
+      SELECT * FROM shipments
+      WHERE company_id = ${companyId}
+      AND status = 'delivered'
+      AND delivered_at >= ${firstDayOfMonth}
+      AND delivered_at <= ${lastDayOfMonth}
+    `;
+
+    console.log(`[KPI Logística] Envíos entregados este mes: ${monthlyShipments.length}`);
+
+    if (monthlyShipments.length === 0) {
+      console.log(`[KPI Logística] No hay envíos entregados este mes, usando valores en 0`);
+    }
+
+    // 2. CALCULAR COSTO TOTAL DE TRANSPORTE
+    const totalCost = monthlyShipments.reduce((sum, s) => {
+      const cost = s.transportCost ? parseFloat(s.transportCost.toString()) : 0;
+      return sum + cost;
+    }, 0);
+
+    console.log(`[KPI Logística] Costo total de transporte: $${totalCost.toFixed(2)} MXN`);
+
+    // 3. CALCULAR TIEMPO PROMEDIO DE PREPARACIÓN (createdAt → inRouteAt)
+    const preparationTimes = monthlyShipments
+      .filter(s => s.createdAt && s.inRouteAt)
+      .map(s => {
+        const created = new Date(s.createdAt!);
+        const inRoute = new Date(s.inRouteAt!);
+        return (inRoute.getTime() - created.getTime()) / (1000 * 60 * 60); // horas
+      });
+
+    const avgPreparationTime = preparationTimes.length > 0
+      ? preparationTimes.reduce((a, b) => a + b, 0) / preparationTimes.length
+      : 0;
+
+    console.log(`[KPI Logística] Tiempo promedio de preparación: ${avgPreparationTime.toFixed(2)} horas (${preparationTimes.length} muestras)`);
+
+    // 4. CALCULAR TIEMPO PROMEDIO DE ENTREGA (inRouteAt → deliveredAt)
+    const deliveryTimes = monthlyShipments
+      .filter(s => s.inRouteAt && s.deliveredAt)
+      .map(s => {
+        const inRoute = new Date(s.inRouteAt!);
+        const delivered = new Date(s.deliveredAt!);
+        return (delivered.getTime() - inRoute.getTime()) / (1000 * 60 * 60); // horas
+      });
+
+    const avgDeliveryTime = deliveryTimes.length > 0
+      ? deliveryTimes.reduce((a, b) => a + b, 0) / deliveryTimes.length
+      : 0;
+
+    console.log(`[KPI Logística] Tiempo promedio de entrega: ${avgDeliveryTime.toFixed(2)} horas (${deliveryTimes.length} muestras)`);
+
+    // 5. ACTUALIZAR KPIs EN LA BASE DE DATOS
+    const kpiUpdates = [
+      {
+        name: 'Costo de Transporte',
+        value: totalCost.toFixed(2),
+        goal: 50000 // Meta por defecto, se puede ajustar
+      },
+      {
+        name: 'Tiempo de Preparación',
+        value: avgPreparationTime.toFixed(2),
+        goal: 24 // Meta: 24 horas
+      },
+      {
+        name: 'Tiempo de Entrega',
+        value: avgDeliveryTime.toFixed(2),
+        goal: 48 // Meta: 48 horas
+      }
+    ];
+
+    for (const kpiUpdate of kpiUpdates) {
+      // Buscar el KPI por nombre y companyId
+      const kpiResult = await sql`
+        SELECT id, goal FROM "Kpi"
+        WHERE name = ${kpiUpdate.name}
+        AND "companyId" = ${companyId}
+        LIMIT 1
+      `;
+
+      if (kpiResult.length === 0) {
+        console.log(`[KPI Logística] ⚠️  KPI "${kpiUpdate.name}" no encontrado para company ${companyId}, omitiendo...`);
+        continue;
+      }
+
+      const kpi = kpiResult[0];
+      const kpiGoal = parseFloat(kpi.goal?.toString() || kpiUpdate.goal.toString());
+      const actualValue = parseFloat(kpiUpdate.value);
+
+      // Calcular compliance (para costos y tiempos, menor es mejor)
+      let compliancePercentage: number;
+      if (actualValue === 0) {
+        compliancePercentage = 100; // Si no hay datos, asumimos 100%
+      } else {
+        compliancePercentage = Math.min((kpiGoal / actualValue) * 100, 100);
+      }
+
+      // Insertar o actualizar valor del KPI en la tabla KpiValue
+      await sql`
+        INSERT INTO "KpiValue" (
+          "kpiId",
+          "companyId",
+          value,
+          "compliancePercentage",
+          date,
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${kpi.id},
+          ${companyId},
+          ${kpiUpdate.value},
+          ${compliancePercentage.toFixed(2) + '%'},
+          ${now},
+          ${now},
+          ${now}
+        )
+        ON CONFLICT ("kpiId", date)
+        DO UPDATE SET
+          value = EXCLUDED.value,
+          "compliancePercentage" = EXCLUDED."compliancePercentage",
+          "updatedAt" = EXCLUDED."updatedAt"
+      `;
+
+      console.log(`[KPI Logística] ✅ KPI "${kpiUpdate.name}" actualizado: ${kpiUpdate.value} (compliance: ${compliancePercentage.toFixed(2)}%)`);
+    }
+
+    console.log(`[KPI Logística] ✅ Actualización completa para company ${companyId}`);
+  } catch (error) {
+    console.error('[KPI Logística] ❌ Error actualizando KPIs:', error);
+    throw error;
+  }
+}
+
 export function registerRoutes(app: express.Application) {
   const server = app.listen;
 
@@ -3022,12 +3169,23 @@ export function registerRoutes(app: express.Application) {
         status: validatedData.status,
         updatedAt: new Date()
       };
-      
+
       // Agregar invoiceNumber si se proporciona
       if (validatedData.invoiceNumber) {
         updateData.invoiceNumber = validatedData.invoiceNumber;
       }
-      
+
+      // KPIs de Logística: Capturar timestamps automáticamente según el estado
+      if (validatedData.status === 'in_transit' && !shipment.inRouteAt) {
+        updateData.inRouteAt = new Date();
+        console.log(`[KPI Logística] Capturando timestamp inRouteAt para shipment ${shipmentId}`);
+      }
+
+      if (validatedData.status === 'delivered' && !shipment.deliveredAt) {
+        updateData.deliveredAt = new Date();
+        console.log(`[KPI Logística] Capturando timestamp deliveredAt para shipment ${shipmentId}`);
+      }
+
       const updatedShipment = await storage.updateShipment(shipmentId, updateData);
       
       if (!updatedShipment) {
@@ -3051,7 +3209,18 @@ export function registerRoutes(app: express.Application) {
         console.error(`[Cycle Times] Error recalculating for shipment ${shipmentId}:`, cycleTimeError);
         // Don't fail the status update for a cycle time calculation error
       }
-      
+
+      // KPIs de Logística: Actualizar automáticamente cuando se marca como entregado
+      if (validatedData.status === 'delivered' && statusChanged) {
+        try {
+          await updateLogisticsKPIs(updatedShipment.companyId);
+          console.log(`[KPI Logística] KPIs actualizados automáticamente para company ${updatedShipment.companyId}`);
+        } catch (kpiError) {
+          console.error(`[KPI Logística] Error actualizando KPIs:`, kpiError);
+          // Don't fail the status update for a KPI calculation error
+        }
+      }
+
       // Sistema de notificaciones automáticas por email
       let emailNotificationSent = false;
       let emailWarning: string | null = null;

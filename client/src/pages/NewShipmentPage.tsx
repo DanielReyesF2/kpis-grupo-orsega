@@ -69,7 +69,8 @@ const shipmentFormSchema = insertShipmentSchema
     estimatedDeliveryDate: z.string().min(1, { message: "La fecha estimada de entrega es requerida" }),
     vehicleType: z.string().min(1, { message: "El tipo de vehículo es requerido" }),
     fuelType: z.string().min(1, { message: "El tipo de combustible es requerido" }),
-    distance: z.string().min(1, { message: "La distancia es requerida" })
+    distance: z.string().min(1, { message: "La distancia es requerida" }),
+    transportCost: z.number().min(0, { message: "El costo debe ser mayor o igual a 0" }).optional()
   })
   .refine((data) => {
     const departureDate = new Date(data.departureDate);
@@ -883,6 +884,34 @@ export default function NewShipmentPage() {
                             <FormControl>
                               <Input {...field} value={field.value || ""} placeholder="Ej: Cisterna C-3540" />
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="transportCost"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Costo de Transporte (MXN)
+                              <span className="text-red-500 ml-1">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Ej: 1500.00"
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : "")}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Ingrese el costo total de transporte en pesos mexicanos
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
