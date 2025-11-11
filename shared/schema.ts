@@ -312,6 +312,10 @@ export const shipments = pgTable("shipments", {
   driverName: text("driver_name"), // Nombre del conductor
   driverPhone: text("driver_phone"), // Teléfono del conductor
   comments: text("comments"), // Comentarios adicionales
+  // KPIs de Logística
+  transportCost: real("transport_cost"), // Costo de transporte (MXN)
+  inRouteAt: timestamp("in_route_at"), // Timestamp automático cuando pasa a in_transit
+  deliveredAt: timestamp("delivered_at"), // Timestamp automático cuando pasa a delivered
   createdAt: timestamp("created_at").defaultNow(), // Fecha de creación del registro
   updatedAt: timestamp("updated_at").defaultNow(), // Fecha de última actualización
   // Columnas legacy de versiones anteriores (mantener para compatibilidad)
