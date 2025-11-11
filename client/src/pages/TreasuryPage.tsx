@@ -20,6 +20,7 @@ import { IdrallUploadFlow } from "@/components/treasury/flows/IdrallUploadFlow";
 import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
 import { ExchangeRateForm } from "@/components/treasury/common/ExchangeRateForm";
 import { DofChart } from "@/components/dashboard/DofChart";
+import { ExchangeRateCards } from "@/components/dashboard/ExchangeRateCards";
 import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPaymentsKanban";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers";
@@ -321,7 +322,10 @@ export default function TreasuryPage() {
             </CardContent>
           </Card>
 
-          {/* Comparativa de Tipos de Cambio */}
+          {/* Tarjetas Comparativas de Tipos de Cambio */}
+          <ExchangeRateCards />
+
+          {/* Gráfica Histórica de Tipos de Cambio */}
           <DofChart />
                 </div>
 

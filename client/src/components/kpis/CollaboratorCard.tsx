@@ -177,104 +177,111 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, delay }}
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
       className="w-full"
     >
       <Card
-        className={`w-full transition-all duration-200 border ${statusColors.border} ${statusColors.bg} shadow-sm hover:shadow-md hover:border-opacity-70`}
+        className={`w-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} shadow-lg hover:shadow-xl hover:border-opacity-70`}
       >
-        <CardContent className="px-4 py-4 md:px-6 md:py-4">
-          {/* HORIZONTAL LAYOUT: Compacto y optimizado */}
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+        <CardContent className="px-4 py-5 md:px-8 md:py-6 min-h-[160px]">
+          {/* HORIZONTAL LAYOUT: Flex row */}
+          <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-10">
 
             {/* LEFT SECTION: Avatar + Name + Status */}
-            <div className="flex items-center gap-3 min-w-0 flex-shrink-0 md:min-w-[180px]">
-              <div className="flex items-center justify-center w-10 h-10 md:w-11 md:h-11 rounded-full bg-primary text-white text-xs md:text-sm font-bold shadow-sm flex-shrink-0">
+            <div className="flex items-center gap-4 min-w-[240px] w-full md:w-auto justify-center md:justify-start">
+              <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-white text-sm md:text-base font-bold shadow-md flex-shrink-0">
                 {getInitials(collaborator.name)}
               </div>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-sm md:text-base font-semibold text-gray-900 leading-tight truncate">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-base font-semibold text-gray-900 leading-tight truncate text-center md:text-left">
                   {collaborator.name}
                 </CardTitle>
-                <Badge className={`${statusColors.badge} border flex items-center gap-1 px-2 py-0.5 mt-1 w-fit text-xs`}>
+                <Badge className={`${statusColors.badge} border flex items-center gap-1 px-3 py-1.5 mt-2 w-fit mx-auto md:mx-0`}>
                   {getStatusIcon(collaborator.status)}
                   <span className="text-xs">{getStatusText(collaborator.status)}</span>
                 </Badge>
               </div>
             </div>
 
-            {/* CENTER SECTION: Score + KPIs Summary */}
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 flex-1 min-w-0 border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-4">
+            {/* CENTER SECTION: Score + Trend + KPIs Summary */}
+            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-8 flex-1 w-full md:w-auto border-t-2 border-t-gray-200 md:border-t-0 md:border-l-2 md:border-l-gray-300 pt-4 md:pt-0 md:pl-8">
+
               {/* Score */}
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="text-center md:text-left">
-                  <div className="text-2xl md:text-3xl font-bold text-gray-900 leading-none">
-                    {collaborator.averageCompliance}%
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">Score: {collaborator.score}</div>
+              <div className="text-center">
+                <div className="text-5xl font-bold text-gray-900">
+                  {collaborator.averageCompliance}%
                 </div>
-
-                {/* Divider */}
-                <div className="hidden md:block h-12 w-px bg-gray-200" />
-
-                {/* KPIs Summary - Compacto */}
-                <div className="flex items-center gap-3 md:gap-4">
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-green-600 leading-none">
-                      {collaborator.compliantKpis}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">Cumplidos</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-amber-600 leading-none">
-                      {collaborator.alertKpis}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">En Riesgo</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl font-bold text-red-600 leading-none">
-                      {collaborator.notCompliantKpis}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">Críticos</div>
-                  </div>
-                </div>
+                <div className="text-sm text-gray-500 mt-1">Score: {collaborator.score}</div>
               </div>
 
-              {/* Trend Indicator - Compacto */}
-              {collaborator.advancedTrend && collaborator.advancedTrend.direction && (
-                <>
-                  <div className="hidden md:block w-px h-12 bg-gray-200" />
-                  <div className="flex items-center gap-1.5">
-                    <div className={`flex items-center gap-1 ${
+              {/* Divider */}
+              <div className="hidden md:block h-20 w-px bg-gray-300" />
+
+              {/* Trend Indicator */}
+              <div className="min-w-[160px] text-center md:text-left">
+                {collaborator.advancedTrend && collaborator.advancedTrend.direction ? (
+                  <div className="space-y-2">
+                    <div className={`flex items-center justify-center md:justify-start gap-2 ${
                       collaborator.advancedTrend.direction === 'up'
                         ? 'text-green-600'
                         : collaborator.advancedTrend.direction === 'down'
                         ? 'text-red-600'
                         : 'text-gray-500'
                     }`}>
-                      {collaborator.advancedTrend.direction === 'up' && <TrendingUp className="h-3.5 w-3.5" />}
-                      {collaborator.advancedTrend.direction === 'down' && <TrendingDown className="h-3.5 w-3.5" />}
-                      {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-3.5 w-3.5" />}
-                      <span className="text-xs font-medium">
+                      {collaborator.advancedTrend.direction === 'up' && <TrendingUp className="h-5 w-5" />}
+                      {collaborator.advancedTrend.direction === 'down' && <TrendingDown className="h-5 w-5" />}
+                      {collaborator.advancedTrend.direction === 'stable' && <Minus className="h-5 w-5" />}
+                      <span className="text-sm font-semibold">
                         {collaborator.advancedTrend.direction === 'up' ? 'Mejorando' :
                          collaborator.advancedTrend.direction === 'down' ? 'Declinando' : 'Estable'}
                       </span>
                     </div>
+                    <div className="text-xs text-gray-500">
+                      Fuerza: {collaborator.advancedTrend.strength}% | R²: {collaborator.advancedTrend.r2}
+                    </div>
                   </div>
-                </>
-              )}
+                ) : (
+                  <div className="text-sm text-gray-400">Sin datos históricos</div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="hidden md:block h-20 w-px bg-gray-300" />
+
+              {/* KPIs Summary */}
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {collaborator.compliantKpis}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">Cumplidos</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-amber-600">
+                    {collaborator.alertKpis}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">En Riesgo</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {collaborator.notCompliantKpis}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">Críticos</div>
+                </div>
+              </div>
             </div>
 
-            {/* RIGHT SECTION: Sparkline + Button */}
-            <div className="flex flex-col md:flex-row items-center gap-3 md:gap-3 w-full md:w-auto border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-4 flex-shrink-0">
+            {/* RIGHT SECTION: Sparkline Chart */}
+            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto border-t-2 border-t-gray-200 md:border-t-0 md:border-l-2 md:border-l-gray-300 pt-4 md:pt-0 md:pl-8">
               {sparklineData.length > 0 ? (
-                <div className="w-full md:w-[200px] h-16 flex-shrink-0">
+                <div className="w-full md:w-[280px] h-20 md:h-24">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={sparklineData}>
                       <Line
                         type="monotone"
                         dataKey="value"
                         stroke={getTrendColor()}
-                        strokeWidth={2}
+                        strokeWidth={2.5}
                         dot={false}
                         isAnimationActive={false}
                       />
@@ -296,22 +303,22 @@ export function CollaboratorCard({ collaborator, onViewDetails, delay = 0 }: Col
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                  <div className="text-xs text-center text-gray-400 mt-0.5">12 meses</div>
+                  <div className="text-xs text-center text-gray-500 mt-1">Últimos 12 meses</div>
                 </div>
               ) : (
-                <div className="w-full md:w-[200px] h-16 flex items-center justify-center bg-gray-50 rounded flex-shrink-0">
-                  <span className="text-xs text-gray-400">Sin historial</span>
+                <div className="w-full md:w-[280px] h-20 md:h-24 flex items-center justify-center bg-gray-50 rounded">
+                  <span className="text-sm text-gray-400">Sin historial</span>
                 </div>
               )}
 
-              {/* Action Button - Asegurar que quepa */}
+              {/* Action Button */}
               <Button
                 variant="outline"
-                size="sm"
-                className="text-xs border-gray-200 hover:bg-gray-50 flex-shrink-0 px-3 py-1.5 h-auto w-full md:w-auto whitespace-nowrap"
+                size="default"
+                className="text-sm border-gray-300 hover:bg-gray-100 flex-shrink-0 px-4 py-2 w-full md:w-auto"
                 onClick={() => onViewDetails(collaborator)}
               >
-                <Eye className="h-3 w-3 mr-1.5" />
+                <Eye className="h-4 w-4 mr-2" />
                 Ver KPIs
               </Button>
             </div>

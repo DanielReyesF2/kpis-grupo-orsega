@@ -293,9 +293,9 @@ export function ExchangeRateCards() {
     const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
     
     return (
-      <div className="space-y-2">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm space-y-2">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+          <span className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
             {type === 'buy' ? 'Compra' : 'Venta'}
           </span>
           <div className={`flex items-center gap-1 ${trendColor}`}>
@@ -305,17 +305,16 @@ export function ExchangeRateCards() {
             </span>
           </div>
         </div>
-        
-        <div 
-          className={`text-2xl font-extrabold leading-none transition-all duration-500 ${
+
+        <div
+          className={`text-3xl font-extrabold text-gray-900 dark:text-white leading-tight transition-all duration-500 ${
             isAnimated ? 'animate-pulse scale-110 brightness-125' : ''
-          } ${config.accent}`}
-          style={{ fontSize: '24px' }}
+          }`}
         >
           ${value.toFixed(4)}
         </div>
-        
-        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-relaxed">
+
+        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
           {interpretation}
         </p>
       </div>
@@ -339,10 +338,13 @@ export function ExchangeRateCards() {
     
     return (
       <Card className={`border-2 ${config.border} shadow-xl ${config.bg} overflow-hidden relative`}>
-        <CardHeader className="pb-3">
+        {/* Gradient accent bar */}
+        <div className={`h-2 bg-gradient-to-r ${config.gradient}`} />
+
+        <CardHeader className="pb-4 pt-5">
           <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-gradient-to-br ${config.gradient} text-white shadow-md`}>
+              <div className={`p-3 rounded-xl bg-gradient-to-br ${config.gradient} text-white shadow-lg`}>
                   <Icon className="h-5 w-5" />
                 </div>
               <CardTitle className={`text-xl font-bold ${config.text}`}>
@@ -371,8 +373,8 @@ export function ExchangeRateCards() {
             </div>
           )}
           </CardHeader>
-          
-        <CardContent className="space-y-4 pt-2">
+
+        <CardContent className="space-y-4 pt-0 pb-5">
             {cardLoading ? (
               <div className="space-y-4">
               <Skeleton className="h-20 w-full" />
@@ -402,13 +404,11 @@ export function ExchangeRateCards() {
                 </div>
                 
                 {/* Spread */}
-              <div className={`pt-3 border-t-2 ${config.border} ${config.bg} rounded-lg px-3 py-2`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Spread</span>
-                  <span className={`text-lg font-bold ${config.accent}`}>
-                    ${(data.rate.sell_rate - data.rate.buy_rate).toFixed(4)}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between text-sm pt-3 mt-3 border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4 py-2.5">
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Spread</span>
+                <span className="font-bold text-lg text-gray-900 dark:text-white">
+                  ${(data.rate.sell_rate - data.rate.buy_rate).toFixed(4)}
+                </span>
               </div>
               
               {/* Botones de acción */}

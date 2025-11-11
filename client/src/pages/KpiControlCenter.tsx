@@ -1103,7 +1103,7 @@ export default function KpiControlCenter() {
                       </div>
                     )}
                     {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
-                      <div className="space-y-3 max-w-full px-2 md:px-4">
+                      <div className="space-y-5 max-w-full px-2 md:px-4">
                         {collaborators.map((collaborator, index) => (
                           <CollaboratorCard
                             key={collaborator.name}
