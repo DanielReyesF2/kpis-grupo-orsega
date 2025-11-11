@@ -168,3 +168,4 @@ export function normalizeStatus(status: string | null | undefined): KpiStatus {
   return statusMap[status.toLowerCase()] || 'not_compliant';
 }
 
+

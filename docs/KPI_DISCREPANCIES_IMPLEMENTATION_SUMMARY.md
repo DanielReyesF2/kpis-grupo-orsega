@@ -222,3 +222,4 @@ npm test shared/__tests__/kpi-utils.test.ts
 
 Se ha implementado una solución completa para unificar y corregir las discrepancias en KPIs. Todas las funciones de cálculo están centralizadas, el último valor se obtiene de manera consistente, y se ha creado documentación y herramientas de validación para asegurar que las discrepancias no vuelvan a aparecer.
 
+

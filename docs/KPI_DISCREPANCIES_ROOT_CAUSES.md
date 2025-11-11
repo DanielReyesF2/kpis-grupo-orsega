@@ -228,3 +228,4 @@ El sistema usa tanto `target` como `goal` de manera inconsistente:
 
 Ver plan principal en `an-lisis-de-discrepancias-kpis.plan.md` para los pasos detallados de implementación.
 
+

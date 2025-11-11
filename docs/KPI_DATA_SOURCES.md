@@ -336,3 +336,4 @@ Este documento describe todas las fuentes de datos, endpoints API, funciones de 
 - `server/routes.ts` - Endpoints API
 - `shared/schema.ts` - Definición de tablas y tipos
 
+
