@@ -544,9 +544,15 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     onSuccess: async (updatedKpi) => {
       console.log('[KpiUpdateModal] ✅ Actualización exitosa, invalidando queries...');
       console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
-      
-      // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
-      console.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
+
+      // PASO 1: Actualizar directamente el cache de React Query con los datos devueltos
+      // Esto es más confiable que depender del refetch
+      console.log('[KpiUpdateModal] Paso 1: Actualizando cache directamente...');
+      queryClient.setQueryData([`/api/kpis/${kpiId}`], updatedKpi);
+      console.log('[KpiUpdateModal] ✅ Cache actualizado con datos de la mutación');
+
+      // PASO 2: Invalidar TODAS las queries relacionadas de forma MUY agresiva
+      console.log('[KpiUpdateModal] Paso 2: Invalidando todas las queries...');
       
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({ 
@@ -570,71 +576,37 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'], exact: false }),
         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
       ]);
-      
-      console.log('[KpiUpdateModal] Paso 2: Forzando refetch inmediato...');
-      
-      // PASO 2: Forzar refetch inmediato del KPI para ver los cambios
+
+      // PASO 3: Actualizar estado local inmediatamente con los datos de la mutación
+      console.log('[KpiUpdateModal] Paso 3: Actualizando estado local...');
+      if (updatedKpi.annualGoal !== undefined && updatedKpi.annualGoal !== null) {
+        const annualGoalStr = String(updatedKpi.annualGoal);
+        setNewAnnualGoal(annualGoalStr);
+        console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado:', annualGoalStr);
+      } else {
+        setNewAnnualGoal('');
+        console.log('[KpiUpdateModal] ✅ AnnualGoal limpiado (null/undefined)');
+      }
+
+      if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
+        const goalStr = String(updatedKpi.goal || updatedKpi.target || '');
+        setNewGoal(goalStr);
+        console.log('[KpiUpdateModal] ✅ Goal actualizado en estado:', goalStr);
+      }
+
+      // PASO 4: Forzar refetch de otras queries relacionadas (opcional, ya que usamos setQueryData)
+      console.log('[KpiUpdateModal] Paso 4: Refetch de queries relacionadas...');
       try {
-        const refetchedData = await refetchKpi();
-        console.log('[KpiUpdateModal] ✅ Refetch completado:', refetchedData.data);
+        await refetchKpi();
+        console.log('[KpiUpdateModal] ✅ Refetch completado');
       } catch (error) {
         console.error('[KpiUpdateModal] ❌ Error en refetch:', error);
       }
-      
-      // PASO 3: Esperar un momento para que las queries se invaliden completamente
-      console.log('[KpiUpdateModal] Paso 3: Esperando invalidación de queries...');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // PASO 4: Forzar refetch de nuevo después de la invalidación
-      console.log('[KpiUpdateModal] Paso 4: Refetch después de invalidación...');
-      try {
-        const refetchedDataAfterInvalidation = await refetchKpi();
-        console.log('[KpiUpdateModal] ✅ Refetch después de invalidación completado:', refetchedDataAfterInvalidation.data);
-        
-        // Actualizar estado local con los datos recién obtenidos del servidor
-        if (refetchedDataAfterInvalidation.data) {
-          const freshKpi = refetchedDataAfterInvalidation.data;
-          console.log('[KpiUpdateModal] Datos frescos del servidor:', {
-            annualGoal: freshKpi.annualGoal,
-            goal: freshKpi.goal,
-            target: freshKpi.target
-          });
-          
-          if (freshKpi.annualGoal !== undefined && freshKpi.annualGoal !== null) {
-            const annualGoalStr = String(freshKpi.annualGoal);
-            setNewAnnualGoal(annualGoalStr);
-            console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado desde servidor:', annualGoalStr);
-          } else {
-            setNewAnnualGoal('');
-            console.log('[KpiUpdateModal] ✅ AnnualGoal limpiado (null/undefined)');
-          }
-          
-          // Si también se actualizó la meta mensual, actualizar el estado
-          if (freshKpi.goal !== undefined || freshKpi.target !== undefined) {
-            const goalStr = String(freshKpi.goal || freshKpi.target || '');
-            setNewGoal(goalStr);
-            console.log('[KpiUpdateModal] ✅ Goal actualizado en estado desde servidor:', goalStr);
-          }
-        }
-      } catch (error) {
-        console.error('[KpiUpdateModal] ❌ Error en segundo refetch:', error);
-        // Si el refetch falla, usar los datos de la respuesta original
-        if (updatedKpi) {
-          if (updatedKpi.annualGoal !== undefined && updatedKpi.annualGoal !== null) {
-            setNewAnnualGoal(String(updatedKpi.annualGoal));
-          } else {
-            setNewAnnualGoal('');
-          }
-          if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
-            setNewGoal(String(updatedKpi.goal || updatedKpi.target || ''));
-          }
-        }
-      }
-      
+
       // PASO 5: Forzar re-render del componente
       console.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
       setIsEditingAnnualGoal(false);
-      
+
       // PASO 6: Mostrar toast de éxito
       toast({
         title: '✅ Objetivo anual actualizado',
