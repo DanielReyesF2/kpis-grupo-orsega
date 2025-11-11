@@ -136,7 +136,11 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
 
           <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
             <Calendar className="h-3 w-3" />
-            Vence: {format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })}
+            Vence: {payment.dueDate ? (
+              format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })
+            ) : (
+              'Sin fecha'
+            )}
             {isOverdue && <span className="ml-1 font-semibold">(Vencida)</span>}
           </div>
 
