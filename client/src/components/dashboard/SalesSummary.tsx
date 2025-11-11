@@ -70,7 +70,8 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   // Esto es más robusto ya que los IDs pueden cambiar entre tablas
   const { data: allKpis } = useQuery<any[]>({
     queryKey: ['/api/kpis', { companyId: currentCompanyId }],
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 segundos para refrescar más rápido
+    refetchOnWindowFocus: true,
   });
 
   // Encontrar el KPI de Volumen de Ventas por nombre
@@ -93,15 +94,17 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
     }
   }, [allKpis, salesKpi, kpiId, currentCompanyId]);
   
-  // Meta mensual según la empresa
-  const monthlyTarget = currentCompanyId === 1 ? 55620 : 858373;
+  // Meta mensual: calcular desde annualGoal del KPI o usar fallback
+  // NO usar valores hardcodeados - siempre calcular desde el objetivo anual
 
   // Cargar datos históricos desde la API (solo si tenemos un kpiId válido)
   // IMPORTANTE: incluir companyId en la query para obtener los datos correctos
+  // Usar companyId directamente (prop) en lugar de currentCompanyId (estado) para la query key
+  // React Query maneja los cambios de dependencias automáticamente
   const { data: kpiHistory } = useQuery<any[]>({
-    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId: currentCompanyId }],
+    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${currentCompanyId}`);
+      const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${companyId}`);
       return await response.json();
     },
     refetchInterval: 30000,
@@ -114,6 +117,42 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   useEffect(() => {
     setCurrentCompanyId(companyId);
   }, [companyId]);
+
+  // Calcular totalTarget primero (necesario para monthlyTarget)
+  const defaultAnnualTargets = {
+    dura: 667449,
+    orsega: 10300476
+  };
+  
+  // Prioridad 1: Usar annualGoal del KPI si existe
+  let totalTarget: number;
+  if (salesKpi?.annualGoal) {
+    const annualGoal = parseFloat(String(salesKpi.annualGoal).toString().replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(annualGoal) && annualGoal > 0) {
+      totalTarget = Math.round(annualGoal);
+      console.log(`[SalesSummary] ✅ Usando annualGoal del KPI: ${totalTarget}`);
+    } else {
+      // Fallback a localStorage o default
+      const storedTarget = currentCompanyId === 1 
+        ? localStorage.getItem('duraAnnualTarget')
+        : localStorage.getItem('orsegaAnnualTarget');
+      totalTarget = storedTarget 
+        ? parseInt(storedTarget, 10) 
+        : (currentCompanyId === 1 ? defaultAnnualTargets.dura : defaultAnnualTargets.orsega);
+    }
+  } else {
+    // Prioridad 2: localStorage
+    const storedTarget = currentCompanyId === 1 
+      ? localStorage.getItem('duraAnnualTarget')
+      : localStorage.getItem('orsegaAnnualTarget');
+    totalTarget = storedTarget 
+      ? parseInt(storedTarget, 10) 
+      : (currentCompanyId === 1 ? defaultAnnualTargets.dura : defaultAnnualTargets.orsega);
+  }
+  
+  // Calcular meta mensual desde el objetivo anual (NO hardcodeado)
+  // Esto es crítico: el monthlyTarget debe calcularse desde totalTarget, no ser hardcodeado
+  const monthlyTarget = totalTarget > 0 ? Math.round(totalTarget / 12) : (currentCompanyId === 1 ? 55620 : 858373);
 
   // Procesar datos cuando llegan de la API
   useEffect(() => {
@@ -192,26 +231,19 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
         setSalesData(processedData);
       }
     }
-  }, [kpiHistory, timeView, currentCompanyId]);
-
-  // Metas anuales
-  const defaultAnnualTargets = {
-    dura: 667449,
-    orsega: 10300476
-  };
-  
-  const duraStoredTarget = localStorage.getItem('duraAnnualTarget');
-  const orsegaStoredTarget = localStorage.getItem('orsegaAnnualTarget');
-  
-  const annualTargets = {
-    dura: duraStoredTarget ? parseInt(duraStoredTarget, 10) : defaultAnnualTargets.dura,
-    orsega: orsegaStoredTarget ? parseInt(orsegaStoredTarget, 10) : defaultAnnualTargets.orsega
-  };
+  }, [kpiHistory, timeView, currentCompanyId, monthlyTarget]);
 
   // Calcular totales
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
-  const totalTarget = currentCompanyId === 1 ? annualTargets.dura : annualTargets.orsega;
   const compliancePercentage = Math.round((totalSales / totalTarget) * 100);
+  
+  console.log(`[SalesSummary] Objetivos calculados - Company ${currentCompanyId}:`, {
+    'annualGoal del KPI': salesKpi?.annualGoal || 'No hay',
+    totalTarget: totalTarget.toLocaleString(),
+    monthlyTarget: monthlyTarget.toLocaleString(),
+    totalSales: totalSales.toLocaleString(),
+    compliancePercentage: `${compliancePercentage}%`
+  });
 
   // Crecimiento del último mes
   const getGrowthRate = () => {

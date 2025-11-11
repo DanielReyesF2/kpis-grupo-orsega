@@ -85,6 +85,7 @@ export const kpisDura = pgTable("kpis_dura", {
   description: text("description"),
   calculationMethod: text("calculation_method"),
   goal: text("goal"),
+  annualGoal: text("annual_goal"), // Objetivo anual (para KPIs de ventas)
   unit: text("unit"),
   frequency: text("frequency"),
   source: text("source"),
@@ -100,6 +101,7 @@ export const kpisOrsega = pgTable("kpis_orsega", {
   description: text("description"),
   calculationMethod: text("calculation_method"),
   goal: text("goal"),
+  annualGoal: text("annual_goal"), // Objetivo anual (para KPIs de ventas)
   unit: text("unit"),
   frequency: text("frequency"),
   source: text("source"),
@@ -186,6 +188,7 @@ export type Kpi = {
   description: string | null;
   goal: string | null;
   target: string | null;
+  annualGoal: string | null; // Objetivo anual (para KPIs de ventas)
   unit: string | null;
   frequency: string | null;
   calculationMethod: string | null;
@@ -267,6 +270,7 @@ export const updateKpiSchema = z.object({
   unit: z.string().optional(),
   target: stringOrNumberToString.optional(),
   goal: stringOrNumberToString.optional(),
+  annualGoal: z.union([stringOrNumberToString, z.null()]).optional(), // Objetivo anual (para KPIs de ventas) - permite null para borrar
   frequency: z.string().optional(),
   calculationMethod: z.string().optional(),
   responsible: z.string().optional(),

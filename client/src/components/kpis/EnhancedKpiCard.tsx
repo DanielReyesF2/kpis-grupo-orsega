@@ -18,7 +18,8 @@ import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine } from 'recharts';
+import { apiRequest } from '@/lib/queryClient';
 
 interface KpiValue {
   value: number;
@@ -38,10 +39,12 @@ interface EnhancedKpiCardProps {
     responsible?: string;
     historicalData?: KpiValue[];
     company?: string; // Nueva propiedad para identificar la empresa
+    companyId?: number; // ID de la compañía para cargar historial correctamente
   };
   onClick?: () => void;
   onViewDetails?: () => void;
   delay?: number;
+  expandedLayout?: boolean; // Si es true, usa un layout más expandido para el panel
 }
 
 const getStatusColor = (status: string) => {
@@ -74,18 +77,33 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: EnhancedKpiCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expandedLayout = false }: EnhancedKpiCardProps) {
+  const [isExpanded, setIsExpanded] = useState(expandedLayout); // Si está en expandedLayout, empezar expandido
   const statusColors = getStatusColor(kpi.status);
   
   // Cargar historial completo cuando se expanda
   // Usar endpoint genérico que automáticamente busca en las tablas correctas
-  const historyEndpoint = `/api/kpi-history/${kpi.id}`;
-  
-  const { data: fullHistory, isLoading: isLoadingHistory } = useQuery<any[]>({
-    queryKey: [historyEndpoint, { months: 12 }],
-    enabled: isExpanded && !!kpi.id,
-    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+  // Incluir companyId si está disponible para asegurar que se carguen los datos correctos
+  const { data: fullHistory, isLoading: isLoadingHistory, error: historyError } = useQuery<any[]>({
+    queryKey: [`/api/kpi-history/${kpi.id}`, { months: 12, companyId: kpi.companyId }],
+    queryFn: async () => {
+      const url = kpi.companyId 
+        ? `/api/kpi-history/${kpi.id}?months=12&companyId=${kpi.companyId}`
+        : `/api/kpi-history/${kpi.id}?months=12`;
+      console.log(`[EnhancedKpiCard] Cargando historial para KPI ${kpi.id}, companyId: ${kpi.companyId}, url: ${url}`);
+      const response = await apiRequest('GET', url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error al cargar historial: ${response.status} ${errorText}`);
+      }
+      const data = await response.json();
+      console.log(`[EnhancedKpiCard] Historial cargado: ${data.length} registros`);
+      return data;
+    },
+    enabled: (isExpanded || expandedLayout) && !!kpi.id, // Cargar siempre si está en expandedLayout
+    staleTime: 0, // No cachear para asegurar datos frescos
+    refetchOnWindowFocus: true,
+    retry: 2,
   });
   
   // Preparar datos para el gráfico de tendencia (últimos 6 puntos)
@@ -105,18 +123,46 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
     if (!fullHistory || fullHistory.length === 0) return [];
     
     // Ordenar por fecha ascendente para visualización correcta
-    return fullHistory
+    const sortedData = fullHistory
       .sort((a: any, b: any) => {
-        const dateA = new Date(a.date || a.period).getTime();
-        const dateB = new Date(b.date || b.period).getTime();
+        const dateA = new Date(a.date || a.period || a.created_at).getTime();
+        const dateB = new Date(b.date || b.period || b.created_at).getTime();
         return dateA - dateB;
       })
-      .map((item: any, index: number) => ({
-        name: item.period || `Periodo ${index + 1}`,
-        value: parseFloat(item.value?.toString() || '0'),
-        period: item.period || '',
-        date: item.date ? new Date(item.date).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }) : ''
-      }));
+      .map((item: any, index: number) => {
+        // Intentar formatear el período de manera más legible
+        let periodName = item.period || '';
+        
+        // Si el período contiene información de fecha, formatearlo mejor
+        if (item.date) {
+          const date = new Date(item.date);
+          periodName = date.toLocaleDateString('es-MX', { 
+            month: 'short', 
+            year: 'numeric',
+            day: item.date.includes('T') ? undefined : 'numeric'
+          });
+        } else if (item.period) {
+          // Si el período es algo como "ENERO 2025", formatearlo mejor
+          periodName = item.period
+            .split(' ')
+            .map((word: string) => 
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            )
+            .join(' ');
+        } else {
+          periodName = `Periodo ${index + 1}`;
+        }
+        
+        return {
+          name: periodName,
+          value: parseFloat(item.value?.toString() || '0'),
+          period: item.period || '',
+          date: item.date || item.created_at || '',
+          formattedValue: parseFloat(item.value?.toString() || '0')
+        };
+      });
+    
+    return sortedData;
   }, [fullHistory]);
   
   // Calcular tendencia (último vs penúltimo)
@@ -132,6 +178,188 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
   const hasData = kpi.value !== null && kpi.value !== undefined;
   const displayValue = hasData ? `${kpi.value} ${kpi.unit}` : 'Sin datos';
   const complianceDisplay = kpi.compliancePercentage > 0 ? `${kpi.compliancePercentage}%` : 'N/A';
+
+  // Si está en expandedLayout y hay datos históricos, mostrar solo la gráfica
+  if (expandedLayout && fullHistoryData.length > 0) {
+    const values = fullHistoryData.map(d => d.value);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const range = maxValue - minValue;
+    const padding = range * 0.1 || Math.abs(maxValue) * 0.1 || 10;
+    const yAxisMin = Math.max(0, minValue - padding);
+    const yAxisMax = maxValue + padding;
+    
+    return (
+      <div className="w-full">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">Tendencia Histórica - {kpi.name}</h4>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Últimos {fullHistoryData.length} períodos registrados
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              {fullHistoryData.length} puntos de datos
+            </div>
+          </div>
+          
+          <div className="h-[500px] w-full bg-white rounded-lg p-6 border-2 border-gray-200 shadow-md">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart 
+                data={fullHistoryData} 
+                margin={{ top: 20, right: 40, bottom: 100, left: 30 }}
+              >
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="#e5e7eb" 
+                  opacity={0.5}
+                  vertical={false}
+                />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-60}
+                  textAnchor="end"
+                  height={110}
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  interval={0}
+                  stroke="#9ca3af"
+                  tickMargin={15}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  stroke="#9ca3af"
+                  width={70}
+                  tickMargin={10}
+                  domain={[yAxisMin, yAxisMax]}
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+                    return value.toLocaleString('es-MX', { maximumFractionDigits: 0 });
+                  }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    padding: '10px 14px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  formatter={(value: any) => [
+                    `${Number(value).toLocaleString('es-MX', { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 2 
+                    })} ${kpi.unit}`, 
+                    'Valor'
+                  ]}
+                  labelFormatter={(label) => `📅 ${label}`}
+                  cursor={{ stroke: statusColors.chartColor, strokeWidth: 2, strokeDasharray: '5 5' }}
+                />
+                {kpi.target && !isNaN(parseFloat(kpi.target)) && (
+                  <ReferenceLine 
+                    y={parseFloat(kpi.target)} 
+                    stroke="#ef4444" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    label={{ 
+                      value: `Meta: ${kpi.target} ${kpi.unit}`, 
+                      position: "right",
+                      fill: "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 600
+                    }}
+                  />
+                )}
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke={statusColors.chartColor}
+                  strokeWidth={4}
+                  dot={{ 
+                    r: 6, 
+                    fill: statusColors.chartColor,
+                    strokeWidth: 2,
+                    stroke: '#fff'
+                  }}
+                  activeDot={{ 
+                    r: 8, 
+                    fill: statusColors.chartColor,
+                    strokeWidth: 2,
+                    stroke: '#fff',
+                    strokeDasharray: '0'
+                  }}
+                  name={`${kpi.name}`}
+                  animationDuration={800}
+                  animationEasing="ease-out"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4 pt-2">
+            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1 font-medium">Valor Mínimo</div>
+              <div className="text-base font-bold text-gray-700">
+                {minValue.toLocaleString('es-MX', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2
+                })} {kpi.unit}
+              </div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1 font-medium">Promedio</div>
+              <div className="text-base font-bold text-gray-700">
+                {avgValue.toLocaleString('es-MX', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2
+                })} {kpi.unit}
+              </div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 mb-1 font-medium">Valor Máximo</div>
+              <div className="text-base font-bold text-gray-700">
+                {maxValue.toLocaleString('es-MX', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2
+                })} {kpi.unit}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si está en expandedLayout pero no hay datos, mostrar estado de carga/error
+  if (expandedLayout) {
+    if (isLoadingHistory) {
+      return (
+        <div className="w-full py-12 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+          <span className="text-sm text-gray-500">Cargando historial...</span>
+        </div>
+      );
+    }
+    if (historyError) {
+      return (
+        <div className="w-full py-12 text-center">
+          <Info className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+          <span className="text-sm text-gray-500">Error al cargar historial</span>
+        </div>
+      );
+    }
+    if (!fullHistoryData || fullHistoryData.length === 0) {
+      return (
+        <div className="w-full py-12 text-center">
+          <Info className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+          <span className="text-sm text-gray-500">No hay datos históricos disponibles</span>
+        </div>
+      );
+    }
+  }
 
   return (
     <motion.div
@@ -242,60 +470,185 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
                     <Activity className="h-6 w-6 animate-spin text-gray-400" />
                     <span className="ml-2 text-sm text-gray-500">Cargando historial...</span>
                   </div>
+                ) : historyError ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Info className="h-6 w-6 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500 mb-1">Error al cargar historial</span>
+                    <span className="text-xs text-gray-400">
+                      {historyError instanceof Error ? historyError.message : 'Error desconocido'}
+                    </span>
+                  </div>
                 ) : fullHistoryData.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={fullHistoryData} margin={{ top: 5, right: 20, bottom: 60, left: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                          <XAxis 
-                            dataKey="name" 
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                            tick={{ fontSize: 10 }}
-                            interval={0}
-                          />
-                          <YAxis tick={{ fontSize: 10 }} />
+                  (() => {
+                    // Calcular estadísticas para el gráfico
+                    const values = fullHistoryData.map(d => d.value);
+                    const minValue = Math.min(...values);
+                    const maxValue = Math.max(...values);
+                    const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;
+                    const range = maxValue - minValue;
+                    const padding = range * 0.1 || Math.abs(maxValue) * 0.1 || 10;
+                    const yAxisMin = Math.max(0, minValue - padding);
+                    const yAxisMax = maxValue + padding;
+                    
+                    return (
+                      <div className="space-y-4">
+                        {/* Encabezado del gráfico */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-700">Tendencia Histórica</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Últimos {fullHistoryData.length} períodos
+                            </p>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {fullHistoryData.length} puntos de datos
+                          </div>
+                        </div>
+                        
+                        {/* Gráfico mejorado con más espacio */}
+                        <div className="h-80 w-full bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart 
+                              data={fullHistoryData} 
+                              margin={{ top: 20, right: 30, bottom: 80, left: 20 }}
+                            >
+                              <CartesianGrid 
+                                strokeDasharray="3 3" 
+                                stroke="#e5e7eb" 
+                                opacity={0.5}
+                                vertical={false}
+                              />
+                              <XAxis 
+                                dataKey="name" 
+                                angle={-45}
+                                textAnchor="end"
+                                height={90}
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
+                                interval={0}
+                                stroke="#9ca3af"
+                                tickMargin={10}
+                              />
+                              <YAxis 
+                                tick={{ fontSize: 11, fill: '#6b7280' }}
+                                stroke="#9ca3af"
+                                width={60}
+                                tickMargin={8}
+                                domain={[yAxisMin, yAxisMax]}
+                                tickFormatter={(value) => {
+                                  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+                                  return value.toLocaleString('es-MX', { maximumFractionDigits: 0 });
+                                }}
+                              />
                           <Tooltip 
                             contentStyle={{ 
                               backgroundColor: 'white', 
-                              border: `1px solid ${statusColors.border.replace('border-', '')}`,
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              padding: '6px 10px'
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              padding: '10px 14px',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                             }}
-                            formatter={(value: any) => [`${value} ${kpi.unit}`, 'Valor']}
-                            labelFormatter={(label) => `Periodo: ${label}`}
+                            formatter={(value: any) => [
+                              `${Number(value).toLocaleString('es-MX', { 
+                                minimumFractionDigits: 0, 
+                                maximumFractionDigits: 2 
+                              })} ${kpi.unit}`, 
+                              'Valor'
+                            ]}
+                            labelFormatter={(label) => `📅 ${label}`}
+                            cursor={{ stroke: statusColors.chartColor, strokeWidth: 2, strokeDasharray: '5 5' }}
                           />
-                          <Legend />
+                          {/* Línea de referencia para la meta si está disponible */}
+                          {kpi.target && !isNaN(parseFloat(kpi.target)) && (
+                            <ReferenceLine 
+                              y={parseFloat(kpi.target)} 
+                              stroke="#ef4444" 
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              label={{ 
+                                value: `Meta: ${kpi.target} ${kpi.unit}`, 
+                                position: "right",
+                                fill: "#ef4444",
+                                fontSize: 11,
+                                fontWeight: 500
+                              }}
+                            />
+                          )}
                           <Line 
                             type="monotone" 
                             dataKey="value" 
                             stroke={statusColors.chartColor}
                             strokeWidth={3}
-                            dot={{ r: 4, fill: statusColors.chartColor }}
-                            activeDot={{ r: 6 }}
-                            name={`${kpi.name} (${kpi.unit})`}
+                            dot={{ 
+                              r: 5, 
+                              fill: statusColors.chartColor,
+                              strokeWidth: 2,
+                              stroke: '#fff'
+                            }}
+                            activeDot={{ 
+                              r: 7, 
+                              fill: statusColors.chartColor,
+                              strokeWidth: 2,
+                              stroke: '#fff',
+                              strokeDasharray: '0'
+                            }}
+                            name={`${kpi.name}`}
+                            animationDuration={800}
+                            animationEasing="ease-out"
                           />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="text-xs text-gray-500 text-center">
-                      Mostrando {fullHistoryData.length} puntos de datos históricos
-                    </div>
-                  </div>
+                    
+                        {/* Estadísticas resumidas */}
+                        <div className="grid grid-cols-3 gap-3 pt-2">
+                          <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-xs text-gray-500 mb-1">Valor Mínimo</div>
+                            <div className="text-sm font-semibold text-gray-700">
+                              {minValue.toLocaleString('es-MX', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </div>
+                          <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-xs text-gray-500 mb-1">Promedio</div>
+                            <div className="text-sm font-semibold text-gray-700">
+                              {avgValue.toLocaleString('es-MX', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </div>
+                          <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-xs text-gray-500 mb-1">Valor Máximo</div>
+                            <div className="text-sm font-semibold text-gray-700">
+                              {maxValue.toLocaleString('es-MX', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
-                  <div className="text-center py-4 text-gray-500 text-sm">
-                    No hay datos históricos disponibles
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Info className="h-6 w-6 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">No hay datos históricos disponibles</span>
+                    <span className="text-xs text-gray-400 mt-1">
+                      Los datos históricos aparecerán aquí cuando se registren valores para este KPI
+                    </span>
                   </div>
                 )}
               </CollapsibleContent>
             </Collapsible>
 
             {/* Botones de acción */}
-            <div className="flex gap-2 pt-3 border-t border-gray-200">
-              {onClick && (
+            {onClick && (
+              <div className="flex gap-2 pt-3 border-t border-gray-200">
                 <Button
                   variant="outline"
                   size="sm"
@@ -308,22 +661,8 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0 }: Enha
                   <Activity className="h-3 w-3 mr-1" />
                   Actualizar
                 </Button>
-              )}
-              {onViewDetails && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewDetails();
-                  }}
-                >
-                  <Info className="h-3 w-3 mr-1" />
-                  Detalles
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

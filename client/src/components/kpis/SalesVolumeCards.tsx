@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Card,
   CardContent,
@@ -34,17 +35,42 @@ export function SalesVolumeCards({
 }) {
   const [monthsData, setMonthsData] = useState<MonthData[]>([]);
   
-  // KPI IDs para volumen de ventas
-  const kpiId = companyId === 1 ? 39 : 1; // 39=Dura, 1=Orsega
+  // Buscar el KPI de Volumen de Ventas por nombre (más robusto que IDs hardcodeados)
+  const { data: allKpis, isLoading: isLoadingKpis } = useQuery<any[]>({
+    queryKey: ['/api/kpis', { companyId }],
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  // Encontrar el KPI de Volumen de Ventas por nombre
+  const salesKpi = allKpis?.find((kpi: any) => {
+    const name = (kpi.kpiName || kpi.name || '').toLowerCase();
+    return (name.includes('volumen') && name.includes('ventas')) || 
+           name.includes('ventas') || 
+           name.includes('sales');
+  });
+
+  const kpiId = salesKpi?.id || (companyId === 1 ? 39 : 1); // Fallback a IDs conocidos
   const unit = companyId === 1 ? 'KG' : 'unidades';
   
   // Meta mensual según la empresa
   const monthlyTarget = companyId === 1 ? 55620 : 858373;
 
   // Cargar datos históricos desde la API
-  const { data: kpiHistory } = useQuery<any[]>({
-    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12 }],
+  // IMPORTANTE: incluir companyId en la query key para estandarizar con otros componentes
+  const { data: kpiHistory, error: kpiHistoryError } = useQuery<any[]>({
+    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${companyId}`);
+      if (!response.ok) {
+        throw new Error(`Error al cargar historial: ${response.status}`);
+      }
+      return await response.json();
+    },
     refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchOnWindowFocus: true,
+    staleTime: 0, // No cachear para asegurar datos frescos después de actualizaciones
+    enabled: !!kpiId && kpiId > 0 && !isLoadingKpis, // Solo ejecutar si tenemos un ID válido y los KPIs están cargados
   });
 
   // Procesar datos cuando llegan de la API
@@ -96,6 +122,21 @@ export function SalesVolumeCards({
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('es-MX').format(num);
   };
+
+  // Mostrar error si hay un problema al cargar los datos
+  if (kpiHistoryError) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <p className="text-red-800 font-medium">Error al cargar datos de ventas</p>
+        <p className="text-red-600 text-sm mt-1">
+          {kpiHistoryError instanceof Error ? kpiHistoryError.message : 'Error desconocido'}
+        </p>
+        <p className="text-red-500 text-xs mt-2">
+          KPI ID: {kpiId} | Company ID: {companyId}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>

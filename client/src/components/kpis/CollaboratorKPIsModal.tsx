@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, ArrowUpDown, ArrowDown, ArrowUp, Minus } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { User, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EnhancedKpiCard } from './EnhancedKpiCard';
 import type { CollaboratorScore } from './CollaboratorCard';
 
 interface CollaboratorKPIsModalProps {
@@ -15,15 +12,13 @@ interface CollaboratorKPIsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateKpi: (kpiId: number) => void;
-  onViewDetails: (kpiId: number) => void;
 }
 
 export function CollaboratorKPIsModal({
   collaborator,
   isOpen,
   onClose,
-  onUpdateKpi,
-  onViewDetails
+  onUpdateKpi
 }: CollaboratorKPIsModalProps) {
   const [sortBy, setSortBy] = useState<'compliance' | 'name' | 'status' | 'trend'>('compliance');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -58,46 +53,51 @@ export function CollaboratorKPIsModal({
     });
   }, [collaborator, sortBy, sortOrder]);
 
+  // Mapear los KPIs del colaborador al formato que espera EnhancedKpiCard
+  const mappedKpis = useMemo(() => {
+    if (!collaborator || !collaborator.kpis) return [];
+    
+    return sortedKpis.map((kpi) => {
+      // Convertir status del colaborador al formato de EnhancedKpiCard
+      let visualStatus: 'excellent' | 'good' | 'warning' | 'critical' = 'warning';
+      if (kpi.status === 'complies') {
+        visualStatus = kpi.compliance >= 100 ? 'excellent' : 'good';
+      } else if (kpi.status === 'alert') {
+        visualStatus = 'warning';
+      } else if (kpi.status === 'not_compliant') {
+        visualStatus = 'critical';
+      }
+
+      // Convertir value a número
+      const value = kpi.latestValue?.value 
+        ? parseFloat(String(kpi.latestValue.value).replace(/[^0-9.-]+/g, '')) 
+        : null;
+
+      // Extraer companyId del KPI si está disponible
+      const companyId = kpi.companyId || (kpi as any).companyId;
+
+      return {
+        id: kpi.id,
+        name: kpi.name || kpi.kpiName || 'KPI sin nombre',
+        value: value,
+        target: kpi.target || '0',
+        unit: kpi.unit || '',
+        compliancePercentage: kpi.compliance || 0,
+        status: visualStatus,
+        areaName: kpi.area || undefined,
+        responsible: kpi.responsible || collaborator.name,
+        companyId: companyId, // Pasar companyId para cargar historial correctamente
+        company: companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined,
+      };
+    });
+  }, [sortedKpis, collaborator]);
+
   // Return condicional DESPUÉS de todos los hooks
   if (!collaborator) return null;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'complies':
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700">
-            ✅ Cumplido
-          </Badge>
-        );
-      case 'alert':
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700">
-            ⚠️ En Riesgo
-          </Badge>
-        );
-      case 'not_compliant':
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700">
-            ❌ No Cumplido
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">Sin Estado</Badge>;
-    }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    try {
-      return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
-    } catch {
-      return 'Fecha inválida';
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -128,86 +128,23 @@ export function CollaboratorKPIsModal({
           </Button>
         </div>
 
-        {/* Lista de KPIs */}
-        <div className="space-y-3">
-          {sortedKpis.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+        {/* Lista de KPIs con gráficas históricas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {mappedKpis.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
               <p>No hay KPIs asignados a este colaborador</p>
             </div>
           ) : (
-            sortedKpis.map((kpi) => (
-              <Card key={kpi.id} className="border">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          {kpi.name || kpi.kpiName}
-                        </h3>
-                        {getStatusBadge(kpi.status)}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <div>
-                          <span className="font-medium">Valor Actual:</span>{' '}
-                          {kpi.latestValue?.value || 'N/A'} {kpi.unit || ''}
-                        </div>
-                        <div>
-                          <span className="font-medium">Meta:</span> {kpi.target || 'N/A'}{' '}
-                          {kpi.unit || ''}
-                        </div>
-                        <div>
-                          <span className="font-medium">Compliance:</span>{' '}
-                          {kpi.compliance.toFixed(1)}%
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Tendencia:</span>
-                          {kpi.complianceChange !== null && kpi.complianceChange !== undefined ? (
-                            <div className="flex items-center gap-1">
-                              {kpi.trendDirection === 'up' && <ArrowUp className="h-3 w-3 text-green-600" />}
-                              {kpi.trendDirection === 'down' && <ArrowDown className="h-3 w-3 text-red-600" />}
-                              {kpi.trendDirection === 'stable' && <Minus className="h-3 w-3 text-gray-500" />}
-                              <span className={`text-xs font-semibold ${
-                                kpi.trendDirection === 'up' ? 'text-green-600' :
-                                kpi.trendDirection === 'down' ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {kpi.complianceChange > 0 ? '+' : ''}{kpi.complianceChange.toFixed(1)}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-500">Sin datos</span>
-                          )}
-                        </div>
-                        <div className="col-span-2">
-                          <span className="font-medium">Última Actualización:</span>{' '}
-                          {formatDate(kpi.lastUpdate)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          onUpdateKpi(kpi.id);
-                          onClose();
-                        }}
-                      >
-                        Actualizar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          onViewDetails(kpi.id);
-                          onClose();
-                        }}
-                      >
-                        Detalles
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            mappedKpis.map((kpi, index) => (
+              <EnhancedKpiCard
+                key={kpi.id}
+                kpi={kpi}
+                onClick={() => {
+                  onUpdateKpi(kpi.id);
+                  onClose();
+                }}
+                delay={index * 0.05}
+              />
             ))
           )}
         </div>

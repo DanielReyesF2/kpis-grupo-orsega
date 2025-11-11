@@ -61,13 +61,24 @@ export function KpiHistoryBulkEditModal({
   const [saveResults, setSaveResults] = useState<{ successful: number; failed: number } | null>(null);
 
   // Obtener historial del KPI
-  const { data: history, isLoading } = useQuery({
+  // IMPORTANTE: Incluir companyId en query key y usar staleTime: 0 para evitar cache
+  const { data: history, isLoading, refetch: refetchHistory } = useQuery({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     queryFn: async () => {
+      console.log(`[KpiHistoryBulkEditModal] Obteniendo historial para KPI ${kpiId}, companyId ${companyId}`);
       const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${companyId}`);
-      return await response.json();
+      if (!response.ok) {
+        throw new Error(`Error al obtener historial: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log(`[KpiHistoryBulkEditModal] Historial obtenido:`, data?.length || 0, 'registros');
+      return data;
     },
-    enabled: isOpen && !!kpiId,
+    enabled: isOpen && !!kpiId && !!companyId,
+    staleTime: 0, // No cachear para ver datos actualizados
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    gcTime: 0, // No mantener en cache
   });
 
   // Preparar datos del año seleccionado
@@ -154,7 +165,7 @@ export function KpiHistoryBulkEditModal({
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setSaveError(null);
       setSaveResults({
         successful: data.successful || data.results?.filter((r: any) => r.success).length || 0,
@@ -178,17 +189,66 @@ export function KpiHistoryBulkEditModal({
         });
       }
       
-      // Invalidar cachés
-      queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+      console.log('[KpiHistoryBulkEditModal] ✅ Actualización exitosa, invalidando queries...');
       
-      // Cerrar después de un breve delay para mostrar el resultado
-      setTimeout(() => {
-        onClose();
-        setSaveResults(null);
-      }, 2000);
+      // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
+      console.log('[KpiHistoryBulkEditModal] Paso 1: Invalidando todas las queries...');
+      
+      // Invalidar usando predicate para cubrir TODAS las variantes
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0];
+          if (typeof queryKey === 'string') {
+            return queryKey.includes('/api/kpi') || 
+                   queryKey.includes('/api/kpis') ||
+                   queryKey.includes('/api/collaborators-performance') ||
+                   queryKey.includes('/api/sales');
+          }
+          return false;
+        }
+      });
+      
+      // Invalidar específicamente las queries conocidas con exact: false para cubrir todas las variantes
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-history'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpis'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
+      ]);
+      
+      console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries invalidadas');
+      
+      // PASO 2: Esperar un momento para que las queries se invaliden completamente
+      console.log('[KpiHistoryBulkEditModal] Paso 2: Esperando invalidación de queries...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // PASO 3: Refetch inmediato de la query del historial
+      console.log('[KpiHistoryBulkEditModal] Paso 3: Refetch del historial...');
+      try {
+        // Refetch usando el método del hook
+        const refetchResult = await refetchHistory();
+        console.log('[KpiHistoryBulkEditModal] ✅ Historial refrescado desde hook:', refetchResult.data?.length || 0, 'registros');
+        
+        // También refetch todas las queries relacionadas
+        await queryClient.refetchQueries({ 
+          queryKey: [`/api/kpi-history/${kpiId}`],
+          exact: false 
+        });
+        console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries de historial refrescadas');
+      } catch (error) {
+        console.error('[KpiHistoryBulkEditModal] ❌ Error al refrescar historial:', error);
+      }
+      
+      // PASO 4: Esperar un poco más antes de cerrar para asegurar que los datos se refresquen
+      console.log('[KpiHistoryBulkEditModal] Paso 4: Esperando antes de cerrar...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Cerrar después de mostrar el resultado
+      console.log('[KpiHistoryBulkEditModal] Cerrando modal...');
+      onClose();
+      setSaveResults(null);
     },
     onError: (error: any) => {
       console.error('[KpiHistoryBulkEditModal] Error al guardar:', error);

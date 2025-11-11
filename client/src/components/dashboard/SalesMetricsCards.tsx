@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { BarChart2, Award, ArrowUp, ArrowDown } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -10,17 +9,26 @@ interface SalesMetricsCardsProps {
 }
 
 export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
-  // Estado para los objetivos anuales (derivados del objetivo mensual del KPI)
-  const [annualTargets, setAnnualTargets] = useState({
-    dura: 667449, // fallback: 55,620 * 12 (mensual)
-    orsega: 10300476 // fallback: 858,373 * 12 (mensual)
-  });
+  const queryClient = useQueryClient();
+  
+  // Valores por defecto para fallback (solo si no hay datos del KPI)
+  const defaultAnnualTargets = {
+    dura: 667449,    // ~55,620 * 12
+    orsega: 10300476 // ~858,373 * 12
+  };
 
   // Buscar el KPI de Volumen de Ventas por nombre
   const { data: allKpis } = useQuery<any[]>({
     queryKey: ['/api/kpis', { companyId }],
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0, // No cachear para asegurar datos frescos
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refrescar cada 30 segundos
   });
+
+  // Forzar refresco cuando se monta el componente
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/kpis', { companyId }] });
+  }, [companyId, queryClient]);
 
   const salesKpi = allKpis?.find((kpi: any) => {
     const name = (kpi.kpiName || kpi.name || '').toLowerCase();
@@ -28,25 +36,10 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
            name.includes('ventas') || 
            name.includes('sales');
   });
-  
-  // Cuando llegue la metadata del KPI, derivar el objetivo anual desde "goal" (objetivo mensual)
-  useEffect(() => {
-    // Si hay KPI y trae goal numérico, usamos goal * 12; fallback a valores por defecto
-    const monthlyGoal = salesKpi?.goal != null
-      ? parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''))
-      : undefined;
-
-    if (!isNaN(monthlyGoal as number) && monthlyGoal! > 0) {
-      setAnnualTargets(prev => ({
-        ...prev,
-        [companyId === 1 ? 'dura' : 'orsega']: Math.round((monthlyGoal as number) * 12)
-      }));
-    }
-  }, [salesKpi, companyId]);
 
   const kpiId = salesKpi?.id || (companyId === 1 ? 39 : 1);
 
-  // Cargar datos históricos - IMPORTANTE: incluir companyId en la query para obtener los datos correctos
+  // Cargar datos históricos
   const { data: kpiHistory } = useQuery<any[]>({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     queryFn: async () => {
@@ -54,8 +47,8 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       return await response.json();
     },
     refetchInterval: 30000,
-    refetchOnWindowFocus: true, // Refrescar cuando la ventana vuelve a estar en foco
-    staleTime: 0, // No cachear para asegurar datos frescos después de actualizaciones
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     enabled: !!kpiId && kpiId > 0,
   });
 
@@ -68,7 +61,6 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     
     console.log(`[SalesMetricsCards] Procesando ${kpiHistory.length} registros de historial para Company ${companyId}`);
     
-    // Aceptar mayúsculas y minúsculas en nombres de meses (igual que en la gráfica)
     const monthOrder: { [key: string]: number } = {
       'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4,
       'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8,
@@ -81,7 +73,6 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     const currentYear = new Date().getFullYear();
 
     const filtered = kpiHistory.filter((item: any) => {
-      // Intentar obtener el año de distintas formas
       const period = String(item.period || '');
       const parts = period.split(' ');
       let year = parseInt(parts[1], 10);
@@ -113,13 +104,11 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       const rawValue = String(item.value);
       const parsed = parseFloat(rawValue.replace(/[^0-9.-]+/g, '')) || 0;
       
-      // Log para debugging de valores sospechosos
       if (parsed > 1000000) {
-        console.warn(`[SalesMetricsCards] ⚠️ Valor sospechosamente alto detectado:`, {
+        console.warn(`[SalesMetricsCards] ⚠️ Valor alto detectado:`, {
           raw: rawValue,
           parsed,
-          period: item.period,
-          kpiId: item.kpiId
+          period: item.period
         });
       }
       
@@ -127,125 +116,101 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     });
     
     return processed;
-  }, [kpiHistory]);
+  }, [kpiHistory, companyId]);
 
   // Volumen total del año (YTD)
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
   
-  // Log del total calculado para debugging
-  console.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros procesados = ${salesData.length}`);
+  console.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros = ${salesData.length}`);
 
-  // Objetivo anual: Prioridad 1) localStorage (salesTargets), 2) localStorage (duraAnnualTarget/orsegaAnnualTarget), 3) cálculo desde KPI, 4) fallback
-  const salesTargetsStored = localStorage.getItem('salesTargets');
-  let storedTargetNumeric: number | null = null;
+  // ============================================================================
+  // CÁLCULO DEL OBJETIVO ANUAL - UNA SOLA FUENTE DE VERDAD
+  // ============================================================================
+  // Prioridad: 1) annualGoal del KPI, 2) goal mensual * 12, 3) localStorage, 4) default
+  // ============================================================================
   
-  if (salesTargetsStored) {
-    try {
-      const targets = JSON.parse(salesTargetsStored);
-      if (targets[companyId]?.annualTarget) {
-        storedTargetNumeric = parseInt(String(targets[companyId].annualTarget), 10);
-      }
-    } catch (e) {
-      console.warn('[SalesMetricsCards] Error parsing salesTargets from localStorage:', e);
+  let calculatedFromKpi: number | null = null;
+  
+  // Prioridad 1: Usar annualGoal del KPI si existe
+  if (salesKpi?.annualGoal) {
+    const annualGoal = parseFloat(String(salesKpi.annualGoal).toString().replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(annualGoal) && annualGoal > 0) {
+      calculatedFromKpi = Math.round(annualGoal);
+      console.log(`[SalesMetricsCards] ✅ Usando annualGoal del KPI: ${calculatedFromKpi}`);
     }
   }
   
-  // Si no está en salesTargets, intentar con duraAnnualTarget/orsegaAnnualTarget
-  if (!storedTargetNumeric || isNaN(storedTargetNumeric) || storedTargetNumeric <= 0) {
-    const legacyTarget = companyId === 1 
-      ? localStorage.getItem('duraAnnualTarget')
-      : localStorage.getItem('orsegaAnnualTarget');
-    
-    if (legacyTarget) {
-      storedTargetNumeric = parseInt(legacyTarget, 10);
+  // Prioridad 2: Calcular desde goal mensual * 12 (solo si no hay annualGoal)
+  if (!calculatedFromKpi && salesKpi?.goal) {
+    const monthlyGoalFromDb = parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(monthlyGoalFromDb) && monthlyGoalFromDb > 0) {
+      calculatedFromKpi = Math.round(monthlyGoalFromDb * 12);
+      console.log(`[SalesMetricsCards] ⚠️  Calculando desde goal mensual * 12: ${calculatedFromKpi}`);
     }
   }
-  
-  // Si no hay valor en localStorage, calcular desde el KPI (goal mensual * 12)
-  const monthlyGoalFromDb = salesKpi?.goal != null
-    ? parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''))
-    : undefined;
 
-  const calculatedFromKpi = !isNaN(monthlyGoalFromDb as number) && monthlyGoalFromDb! > 0
-    ? Math.round((monthlyGoalFromDb as number) * 12)
-    : null;
-
-  // Validar que el valor calculado desde el KPI no sea sospechosamente bajo antes de usarlo
+  // Validar que el valor calculado desde el KPI sea razonable
   const minReasonableTargetForKpi = companyId === 1 ? 500000 : 8000000;
   const isValidKpiTarget = calculatedFromKpi && calculatedFromKpi >= minReasonableTargetForKpi;
-  
-  // Si el valor calculado desde el KPI es sospechosamente bajo, ignorarlo y usar el valor por defecto
   const kpiTargetToUse = isValidKpiTarget ? calculatedFromKpi : null;
 
-  // Validar que el objetivo no sea claramente incorrecto
-  // Prioridad: 1) localStorage, 2) KPI (si es válido), 3) valor por defecto
-  const rawTarget = storedTargetNumeric && !isNaN(storedTargetNumeric) && storedTargetNumeric > 0
-    ? storedTargetNumeric
-    : kpiTargetToUse && kpiTargetToUse > 0
-    ? kpiTargetToUse
-    : (companyId === 1 ? annualTargets.dura : annualTargets.orsega);
+  // Prioridad 3: localStorage (solo si no hay annualGoal del KPI válido)
+  let storedTargetNumeric: number | null = null;
   
-  // Validación: si el objetivo es sospechosamente bajo, usar el valor por defecto
-  const minReasonableTarget = companyId === 1 ? 500000 : 8000000; // Valores mínimos razonables
-  const defaultTarget = companyId === 1 ? annualTargets.dura : annualTargets.orsega;
-  
-  // Verificar si el objetivo es sospechosamente bajo
-  // Condición 1: El objetivo es menor que el mínimo razonable
-  // Condición 2: Las ventas son más del doble del objetivo (indicando que el objetivo está mal)
-  const isTargetSuspiciouslyLow = rawTarget < minReasonableTarget || (totalSales > 0 && totalSales > rawTarget * 2);
-  
-  // Usar el valor por defecto si el objetivo es sospechosamente bajo
-  let totalTarget = isTargetSuspiciouslyLow ? defaultTarget : rawTarget;
-  
-  // Log para debugging
-  console.log(`[SalesMetricsCards] Objetivo anual - Company ${companyId}:`, {
-    storedTargetNumeric,
-    calculatedFromKpi,
-    isValidKpiTarget,
-    kpiTargetToUse,
-    monthlyGoalFromDb,
-    rawTarget,
-    isTargetSuspiciouslyLow,
-    defaultTarget,
-    finalTarget: totalTarget,
-    totalSales,
-    percentage: totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0,
-    minReasonableTarget
-  });
-
-  // 🚨 DEBUGGING: Alerta visual si el porcentaje es sospechosamente alto
-  if (companyId === 2 && totalTarget > 0) {
-    const debugPercentage = Math.round((totalSales / totalTarget) * 100);
-    if (debugPercentage > 300) {
-      console.error(`🚨 [SalesMetricsCards] PROBLEMA DETECTADO - Orsega (Company 2):`, {
-        '⚠️ Porcentaje anormal': `${debugPercentage}%`,
-        'Total de ventas YTD': totalSales.toLocaleString(),
-        'Objetivo anual usado': totalTarget.toLocaleString(),
-        'Objetivo por defecto': defaultTarget.toLocaleString(),
-        'Objetivo de localStorage': storedTargetNumeric || 'No hay',
-        'Objetivo calculado desde KPI': calculatedFromKpi || 'No hay',
-        'Goal mensual del KPI': monthlyGoalFromDb || 'No hay',
-        'Número de meses con datos': salesData.length,
-        'Registros históricos': salesData.map(d => ({
-          periodo: d.period,
-          ventas: d.sales.toLocaleString()
-        }))
-      });
+  if (!salesKpi?.annualGoal) {
+    const salesTargetsStored = localStorage.getItem('salesTargets');
+    if (salesTargetsStored) {
+      try {
+        const targets = JSON.parse(salesTargetsStored);
+        if (targets[companyId]?.annualTarget) {
+          storedTargetNumeric = parseInt(String(targets[companyId].annualTarget), 10);
+        }
+      } catch (e) {
+        console.warn('[SalesMetricsCards] Error parsing salesTargets:', e);
+      }
+    }
+    
+    // Si no está en salesTargets, intentar con duraAnnualTarget/orsegaAnnualTarget
+    if (!storedTargetNumeric || isNaN(storedTargetNumeric) || storedTargetNumeric <= 0) {
+      const legacyTarget = companyId === 1 
+        ? localStorage.getItem('duraAnnualTarget')
+        : localStorage.getItem('orsegaAnnualTarget');
+      
+      if (legacyTarget) {
+        storedTargetNumeric = parseInt(legacyTarget, 10);
+      }
     }
   }
+
+  // Determinar el objetivo final
+  const rawTarget = kpiTargetToUse && kpiTargetToUse > 0
+    ? kpiTargetToUse
+    : (storedTargetNumeric && !isNaN(storedTargetNumeric) && storedTargetNumeric > 0
+      ? storedTargetNumeric
+      : (companyId === 1 ? defaultAnnualTargets.dura : defaultAnnualTargets.orsega));
   
-  // Si detectamos un objetivo incorrecto, limpiar localStorage para evitar el problema en el futuro
-  if (isTargetSuspiciouslyLow) {
-    console.warn(`[SalesMetricsCards] ⚠️ Objetivo sospechosamente bajo detectado (${rawTarget}), usando valor por defecto (${totalTarget})`);
+  // Validación: si el objetivo es sospechosamente bajo Y no tenemos annualGoal del KPI, usar default
+  const minReasonableTarget = companyId === 1 ? 500000 : 8000000;
+  const defaultTarget = companyId === 1 ? defaultAnnualTargets.dura : defaultAnnualTargets.orsega;
+  const hasAnnualGoalFromKpi = salesKpi?.annualGoal && isValidKpiTarget;
+  const isTargetSuspiciouslyLow = !hasAnnualGoalFromKpi && (
+    rawTarget < minReasonableTarget || 
+    (totalSales > 0 && totalSales > rawTarget * 2)
+  );
+  
+  // Usar el valor por defecto solo si el objetivo es sospechosamente bajo Y no tenemos annualGoal del KPI
+  const totalTarget = (isTargetSuspiciouslyLow && !hasAnnualGoalFromKpi) ? defaultTarget : rawTarget;
+  
+  // Limpiar localStorage si detectamos un objetivo incorrecto
+  if (isTargetSuspiciouslyLow && !hasAnnualGoalFromKpi) {
+    console.warn(`[SalesMetricsCards] ⚠️ Objetivo bajo (${rawTarget}), usando default (${totalTarget})`);
     
-    // Limpiar localStorage
     if (companyId === 1) {
       localStorage.removeItem('duraAnnualTarget');
     } else {
       localStorage.removeItem('orsegaAnnualTarget');
     }
     
-    // También limpiar salesTargets si existe
     try {
       const salesTargetsStored = localStorage.getItem('salesTargets');
       if (salesTargetsStored) {
@@ -257,32 +222,46 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       console.warn('[SalesMetricsCards] Error al limpiar salesTargets:', e);
     }
   }
-  
-  const compliancePercentage = totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0;
 
-  // Calcular objetivo mensual desde el objetivo anual (para consistencia)
-  // Dividir el objetivo anual por 12 para obtener el objetivo mensual
+  // Calcular métricas
+  const compliancePercentage = totalTarget > 0 ? Math.round((totalSales / totalTarget) * 100) : 0;
   const monthlyTarget = totalTarget > 0 ? Math.round(totalTarget / 12) : 0;
   
-  // Log para debugging del objetivo mensual
-  console.log(`[SalesMetricsCards] Objetivo mensual - Company ${companyId}:`, {
-    annualTarget: totalTarget,
+  // Log para debugging
+  console.log(`[SalesMetricsCards] Objetivo anual - Company ${companyId}:`, {
+    'annualGoal del KPI': salesKpi?.annualGoal || 'No hay',
+    calculatedFromKpi: calculatedFromKpi || 'No hay',
+    isValidKpiTarget,
+    storedTargetNumeric: storedTargetNumeric || 'No hay',
+    rawTarget,
+    isTargetSuspiciouslyLow,
+    hasAnnualGoalFromKpi,
+    finalTarget: totalTarget,
     monthlyTarget,
-    monthsWithData: salesData.length
+    totalSales: totalSales.toLocaleString(),
+    compliancePercentage: `${compliancePercentage}%`
   });
-  
-  // Resumen de TODOS los meses del año (para cálculo de "En meta")
-  // Crear estructura con los 12 meses del año, llenando con datos reales donde existan
+
+  // Alerta si el porcentaje es sospechosamente alto
+  if (companyId === 2 && totalTarget > 0 && compliancePercentage > 300) {
+    console.error(`🚨 [SalesMetricsCards] PROBLEMA DETECTADO - Orsega:`, {
+      'Porcentaje anormal': `${compliancePercentage}%`,
+      'Total ventas YTD': totalSales.toLocaleString(),
+      'Objetivo anual': totalTarget.toLocaleString(),
+      'annualGoal del KPI': salesKpi?.annualGoal || 'No hay',
+      'Meses con datos': salesData.length
+    });
+  }
+
+  // Resumen de TODOS los meses del año
   const allYearlyData = useMemo(() => {
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const monthShortNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
                             'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     
-    const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth(); // 0-11
     
-    // Crear mapa de datos por mes para acceso rápido
     const dataByMonth = new Map<string, { sales: number; period: string }>();
     salesData.forEach(item => {
       const monthName = (item.period || '').split(' ')[0] || '';
@@ -294,30 +273,24 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       }
     });
     
-    // Crear array con los 12 meses del año
     return monthNames.map((monthName, index) => {
       const monthData = dataByMonth.get(monthName.toLowerCase());
       const sales = monthData?.sales || 0;
       const hasData = !!monthData;
       const isFutureMonth = index > currentMonthIndex;
       
-      // Calcular compliance solo si hay datos y el mes no es futuro
       let compliance = 0;
       if (hasData && monthlyTarget > 0) {
         compliance = Math.round((sales / monthlyTarget) * 100);
       } else if (isFutureMonth) {
-        // Meses futuros no tienen compliance (aún no han ocurrido)
-        compliance = -1;
+        compliance = -1; // Meses futuros
       }
-      // Meses pasados sin datos tienen compliance 0 (no cumplieron)
       
-      // Log para debugging de valores sospechosos
       if (compliance > 500) {
-        console.warn(`[SalesMetricsCards] ⚠️ Compliance sospechosamente alto para ${monthShortNames[index]}:`, {
+        console.warn(`[SalesMetricsCards] ⚠️ Compliance alto para ${monthShortNames[index]}:`, {
           sales,
           monthlyTarget,
-          compliance,
-          period: monthData?.period || 'Sin datos'
+          compliance
         });
       }
       
@@ -332,36 +305,25 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     });
   }, [salesData, monthlyTarget]);
 
-  // Todos los meses del año para mostrar en el gráfico visual
-  const monthlySummary = useMemo(() => {
-    return allYearlyData;
-  }, [allYearlyData]);
+  const monthlySummary = useMemo(() => allYearlyData, [allYearlyData]);
 
-  // Calcular promedio y meses en meta usando solo meses con datos (excluyendo meses futuros)
+  // Calcular métricas de meses
   const monthsWithData = allYearlyData.filter(m => m.hasData && !m.isFutureMonth);
   const avgCompliance = monthsWithData.length > 0
     ? Math.round(monthsWithData.reduce((sum, m) => sum + (m.compliance >= 0 ? m.compliance : 0), 0) / monthsWithData.length)
     : 0;
   
-  // Solo contar meses que realmente cumplieron la meta (>= 100% y tienen datos)
   const monthsOnTarget = allYearlyData.filter(m => m.hasData && m.compliance >= 100 && !m.isFutureMonth).length;
-  
-  // Total de meses con datos (para el denominador correcto)
   const totalMonthsWithData = monthsWithData.length;
-  
-  // Total de meses pasados (excluyendo futuros) para el cálculo
   const totalPastMonths = allYearlyData.filter(m => !m.isFutureMonth).length;
 
-  // Calcular crecimiento vs mes anterior usando meses consecutivos reales
-  // Buscar el último mes con datos y compararlo con el mes inmediatamente anterior
+  // Calcular crecimiento vs mes anterior
   const growthRateData = useMemo(() => {
-    const currentMonthIndex = new Date().getMonth(); // 0-11 (mes actual)
+    const currentMonthIndex = new Date().getMonth();
     
-    // Encontrar el último mes con datos (excluyendo meses futuros)
     let lastMonthWithData = null;
     let lastMonthIndex = -1;
     
-    // Buscar desde el mes actual hacia atrás
     for (let i = currentMonthIndex; i >= 0; i--) {
       if (allYearlyData[i]?.hasData) {
         lastMonthWithData = allYearlyData[i];
@@ -370,59 +332,29 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       }
     }
     
-    if (!lastMonthWithData || lastMonthIndex === -1) {
+    if (!lastMonthWithData || lastMonthIndex === -1 || lastMonthIndex === 0) {
       return { growthRate: '0.0', lastMonthSales: 0, previousMonthSales: 0 };
-    }
-    
-    // Buscar el mes inmediatamente anterior (index - 1)
-    if (lastMonthIndex === 0) {
-      // Si el último mes con datos es Enero, no hay mes anterior en el año
-      return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
     }
     
     const previousMonthData = allYearlyData[lastMonthIndex - 1];
     
-    // Si el mes anterior no tiene datos, no podemos calcular el crecimiento
-    if (!previousMonthData.hasData) {
-      console.log(`[SalesMetricsCards] Mes anterior (${previousMonthData.month}) no tiene datos, no se puede calcular crecimiento`);
-      return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
-    }
-    
-    if (previousMonthData.sales === 0) {
+    if (!previousMonthData.hasData || previousMonthData.sales === 0) {
       return { growthRate: '0.0', lastMonthSales: lastMonthWithData.sales, previousMonthSales: 0 };
     }
     
     const growthRate = ((lastMonthWithData.sales - previousMonthData.sales) / previousMonthData.sales) * 100;
-    
-    console.log(`[SalesMetricsCards] Cálculo de crecimiento - Company ${companyId}:`, {
-      lastMonth: lastMonthWithData.month,
-      lastMonthSales: lastMonthWithData.sales,
-      previousMonth: previousMonthData.month,
-      previousMonthSales: previousMonthData.sales,
-      growthRate: growthRate.toFixed(1) + '%'
-    });
     
     return {
       growthRate: growthRate.toFixed(1),
       lastMonthSales: lastMonthWithData.sales,
       previousMonthSales: previousMonthData.sales
     };
-  }, [allYearlyData, companyId]);
+  }, [allYearlyData]);
 
   const growthRate = growthRateData.growthRate;
   const previousMonthSales = growthRateData.previousMonthSales;
   const previousMonthPercentage = totalTarget > 0 && previousMonthSales > 0
     ? Math.round((previousMonthSales / totalTarget) * 100) 
-    : 0;
-
-  // Calcular proyección anual para insight
-  const currentMonth = new Date().getMonth() + 1;
-  const monthsElapsed = salesData.length;
-  const projectedAnnual = monthsElapsed > 0 
-    ? (totalSales / monthsElapsed) * 12 
-    : 0;
-  const projectedPercentage = totalTarget > 0 
-    ? Math.round((projectedAnnual / totalTarget) * 100) 
     : 0;
 
   const formatNumber = (value: number) => {
@@ -461,7 +393,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-foreground">Avance del Objetivo Anual</span>
             <span className="text-[10px] font-semibold text-muted-foreground bg-card/95 backdrop-blur-sm px-1.5 py-0.5 rounded border border-border/50 whitespace-nowrap">
-              {formatNumber(totalTarget).replace(' unidades', '')}
+              {formatNumber(totalTarget).replace(' unidades', '').replace(' KG', '')}
             </span>
           </div>
           <div className="relative w-full" style={{ overflow: 'visible', paddingTop: '8px', paddingBottom: '8px' }}>
@@ -516,41 +448,35 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
           </div>
         </div>
 
-          {/* Resumen del año - Simplificado */}
-          {monthlySummary.length > 0 && (
-            <div className="pt-4 border-t border-border/50">
-              <p className="text-xs font-semibold text-foreground mb-3">Resumen del año</p>
-            
-            {/* Gráfico de barras simplificado - Mostrar TODOS los 12 meses */}
+        {/* Resumen del año */}
+        {monthlySummary.length > 0 && (
+          <div className="pt-4 border-t border-border/50">
+            <p className="text-xs font-semibold text-foreground mb-3">Resumen del año</p>
+          
+            {/* Gráfico de barras */}
             <div className="flex items-end justify-between gap-1.5 mb-4" style={{ height: '60px' }}>
               {monthlySummary.map((month, idx) => {
-                // Determinar color y altura según el estado del mes
-                let backgroundColor = '#e5e7eb'; // Gris para meses sin datos o futuros
+                let backgroundColor = '#e5e7eb';
                 let opacity = 0.5;
                 let heightPercent = 0;
                 
                 if (month.isFutureMonth) {
-                  // Meses futuros: gris claro
                   backgroundColor = '#f3f4f6';
                   opacity = 0.3;
-                  heightPercent = 10; // Altura mínima para indicar que es futuro
+                  heightPercent = 10;
                 } else if (!month.hasData) {
-                  // Meses pasados sin datos: gris (no cumplieron)
                   backgroundColor = '#ef4444';
                   opacity = 0.4;
-                  heightPercent = 15; // Altura mínima para indicar que no hay datos
+                  heightPercent = 15;
                 } else if (month.compliance >= 100) {
-                  // En meta: verde
                   backgroundColor = '#22c55e';
                   opacity = 0.9;
                   heightPercent = Math.min((month.compliance / 150) * 100, 100);
                 } else if (month.compliance >= 75) {
-                  // En riesgo: amarillo
                   backgroundColor = '#eab308';
                   opacity = 0.8;
                   heightPercent = Math.min((month.compliance / 150) * 100, 100);
                 } else {
-                  // No cumplió: rojo
                   backgroundColor = '#ef4444';
                   opacity = 0.8;
                   heightPercent = Math.min((month.compliance / 150) * 100, 100);
@@ -566,7 +492,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
                         opacity,
                         minHeight: '4px'
                       }}
-                      title={`${month.fullMonth}: ${month.hasData ? `${month.sales.toLocaleString()} unidades (${month.compliance}%)` : 'Sin datos'}`}
+                      title={`${month.fullMonth}: ${month.hasData ? `${month.sales.toLocaleString()} (${month.compliance}%)` : 'Sin datos'}`}
                     />
                     <div className={`text-xs font-medium ${month.isFutureMonth ? 'text-muted-foreground' : 'text-foreground'}`}>
                       {month.month}
@@ -576,7 +502,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
               })}
             </div>
 
-            {/* Métricas clave - Simplificadas */}
+            {/* Métricas clave */}
             <div className="flex justify-between items-center pt-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30">

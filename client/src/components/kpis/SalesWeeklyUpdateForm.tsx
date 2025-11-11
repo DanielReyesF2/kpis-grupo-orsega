@@ -140,6 +140,13 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       // Invalidar específicamente la query de colaboradores
       queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
       
+      // Invalidar TODAS las queries de kpi-history (con y sin parámetros, diferentes companyId)
+      // Esto asegura que todas las variantes de query keys se invaliden correctamente
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/kpi-history'],
+        exact: false
+      });
+      
       // Invalidar específicamente las queries de kpi-history con el KPI ID correcto
       if (kpiId) {
         queryClient.invalidateQueries({ 

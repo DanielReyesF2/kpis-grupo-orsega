@@ -123,9 +123,10 @@ export async function loginUser(username: string, password: string): Promise<{ t
       return null;
     }
 
-    // ✅ FIX VULN #3: Verificar que la cuenta esté activa
+    // ✅ FIX VULN #3: Verificar que la cuenta esté activa (si existe la columna)
     // Esto fuerza el flujo de activación por email y previene acceso no autorizado
-    if (!user.isActive) {
+    // Nota: La columna isActive puede no existir en todas las bases de datos
+    if ('isActive' in user && user.isActive === false) {
       console.log(`[Auth] Intento de login en cuenta inactiva: ${user.email}`);
       // No revelar que la cuenta existe pero no está activada (security best practice)
       return null;

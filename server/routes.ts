@@ -984,32 +984,57 @@ export function registerRoutes(app: express.Application) {
   app.get("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
-      let companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
-
-      if (!companyId || (companyId !== 1 && companyId !== 2)) {
-        const allKpis = await storage.getKpis();
-        const match = allKpis.find((item) => item.id === id);
-        if (!match) {
-          return res.status(400).json({ message: "companyId query param es requerido (1=Dura, 2=Orsega)" });
-        }
-        companyId = match.companyId ?? undefined;
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID de KPI inválido" });
       }
 
-      const kpi = companyId ? await storage.getKpi(id, companyId) : undefined;
-      if (!companyId || !kpi) {
+      let companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+      // Si no se proporciona companyId, intentar encontrarlo automáticamente
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        console.log(`[GET /api/kpis/${id}] companyId no proporcionado, buscando automáticamente...`);
+        // Buscar en todas las empresas
+        const duraKpi = await storage.getKpi(id, 1);
+        const orsegaKpi = await storage.getKpi(id, 2);
+        
+        if (duraKpi) {
+          companyId = 1;
+        } else if (orsegaKpi) {
+          companyId = 2;
+        } else {
+          // Si no se encuentra en ninguna tabla, intentar buscar en la lista de todos los KPIs
+          const allKpis = await storage.getKpis();
+          const match = allKpis.find((item) => item.id === id);
+          if (match) {
+            companyId = match.companyId ?? undefined;
+          }
+        }
+      }
+
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
         return res.status(404).json({ message: "KPI not found" });
       }
 
-      const isLowerBetter = isLowerBetterKPI(kpi.name || "");
-      console.log(`[GET KPI/${id}] Calculando para "${kpi.name}". ¿Es invertido?: ${isLowerBetter}`);
+      const kpi = await storage.getKpi(id, companyId);
+      if (!kpi) {
+        return res.status(404).json({ message: "KPI not found" });
+      }
 
-      res.json({
+      // Asegurar que el companyId esté presente en la respuesta
+      const kpiResponse = {
         ...kpi,
-        isLowerBetter,
-      });
+        companyId: kpi.companyId ?? companyId, // Asegurar que companyId esté presente
+        isLowerBetter: isLowerBetterKPI(kpi.name || ""),
+      };
+
+      console.log(`[GET /api/kpis/${id}] KPI encontrado:`, { id: kpiResponse.id, name: kpiResponse.name, companyId: kpiResponse.companyId });
+      res.json(kpiResponse);
     } catch (error) {
       console.error(`[GET /api/kpis/${req.params.id}] Error:`, error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -1047,38 +1072,84 @@ export function registerRoutes(app: express.Application) {
       }
       
       const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID de KPI inválido" });
+      }
+
+      // Intentar obtener companyId del body, query, o buscarlo automáticamente
+      let companyId: number | undefined;
       const bodyCompanyId = req.body?.companyId;
       const queryCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
-      const companyId = bodyCompanyId ?? queryCompanyId;
+      
+      if (bodyCompanyId !== undefined && bodyCompanyId !== null) {
+        companyId = typeof bodyCompanyId === 'string' ? parseInt(bodyCompanyId, 10) : bodyCompanyId;
+      } else if (queryCompanyId !== undefined) {
+        companyId = queryCompanyId;
+      } else {
+        // Si no se proporciona, intentar encontrarlo automáticamente
+        console.log(`[PUT /api/kpis/${id}] companyId no proporcionado, buscando automáticamente...`);
+        // El storage.updateKpi intentará encontrarlo automáticamente
+      }
 
-      if (companyId !== 1 && companyId !== 2) {
-        return res.status(400).json({ message: "companyId debe ser 1 (Dura) o 2 (Orsega)" });
+      // Validar companyId solo si se proporcionó (si no, se buscará automáticamente)
+      if (companyId !== undefined && companyId !== null) {
+        if (companyId !== 1 && companyId !== 2) {
+          return res.status(400).json({ message: "companyId debe ser 1 (Dura) o 2 (Orsega)" });
+        }
       }
 
       const validatedData = updateKpiSchema.parse({
         ...req.body,
-        companyId,
+        companyId: companyId,
       });
       
       console.log(`[PUT /api/kpis/${id}] Datos validados:`, validatedData);
       
-      // VUL-001: Validar acceso multi-tenant
-      if (companyId) {
-        validateTenantAccess(req as AuthRequest, companyId);
-      }
-      
+      // Actualizar el KPI - esto intentará encontrar companyId si no se proporcionó
       const kpi = await storage.updateKpi(id, validatedData);
       
+      if (!kpi) {
+        return res.status(404).json({ message: "KPI no encontrado o no se pudo actualizar" });
+      }
+
+      // Obtener el companyId real del KPI actualizado para validar acceso
+      const finalCompanyId = kpi.companyId ?? companyId;
       
-      console.log(`[PUT /api/kpis/${id}] KPI actualizado:`, kpi);
+      // VUL-001: Validar acceso multi-tenant (después de obtener el companyId real)
+      if (finalCompanyId) {
+        try {
+          validateTenantAccess(req as AuthRequest, finalCompanyId);
+        } catch (tenantError) {
+          console.error(`[PUT /api/kpis/${id}] Error de validación de tenant:`, tenantError);
+          return res.status(403).json({ 
+            message: tenantError instanceof Error ? tenantError.message : "Acceso denegado",
+            code: 'TENANT_ACCESS_DENIED'
+          });
+        }
+      }
+      
+      console.log(`[PUT /api/kpis/${id}] KPI actualizado exitosamente:`, kpi.id);
       res.json(kpi);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error(`[PUT /api/kpis] Error de validación:`, error.errors);
-        return res.status(400).json({ message: error.errors });
+        console.error(`[PUT /api/kpis/${id}] Error de validación:`, error.errors);
+        return res.status(400).json({ message: "Error de validación", errors: error.errors });
       }
-      console.error(`[PUT /api/kpis] Error interno:`, error);
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof Error && (error.message.includes('Forbidden') || error.message.includes('Access denied'))) {
+        console.error(`[PUT /api/kpis/${id}] Error de acceso:`, error.message);
+        return res.status(403).json({ message: error.message });
+      }
+      // Capturar errores de DatabaseStorage que pueden lanzarse
+      if (error instanceof Error && (error.message.includes('No se pudo determinar') || error.message.includes('no encontrado'))) {
+        console.error(`[PUT /api/kpis/${id}] Error al encontrar KPI:`, error.message);
+        return res.status(404).json({ message: error.message });
+      }
+      console.error(`[PUT /api/kpis/${id}] Error interno:`, error);
+      console.error(`[PUT /api/kpis/${id}] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -1606,6 +1677,8 @@ export function registerRoutes(app: express.Application) {
 
           return {
             ...kpi,
+            id: kpi.id,
+            companyId: kpi.companyId, // Asegurar que companyId se incluya explícitamente
             latestValue,
             previousValue,
             compliance,
@@ -2320,7 +2393,25 @@ export function registerRoutes(app: express.Application) {
         updatedBy: user.id,
       });
 
-      const monthlyTarget = numericCompanyId === 1 ? 55620 : 858373;
+      // Calcular monthlyTarget desde annualGoal del KPI (NO hardcodeado)
+      let monthlyTarget: number;
+      if (salesKpi.annualGoal) {
+        // Prioridad 1: Usar annualGoal del KPI
+        const annualGoal = parseFloat(String(salesKpi.annualGoal).toString().replace(/[^0-9.-]+/g, ''));
+        if (!isNaN(annualGoal) && annualGoal > 0) {
+          monthlyTarget = Math.round(annualGoal / 12);
+          console.log(`[POST /api/sales/update-month] ✅ Usando annualGoal del KPI: ${annualGoal} → monthlyTarget: ${monthlyTarget}`);
+        } else {
+          // Fallback a goal mensual * 12 / 12 = goal mensual
+          const goalValue = parseFloat(String(salesKpi.goal || '').toString().replace(/[^0-9.-]+/g, ''));
+          monthlyTarget = !isNaN(goalValue) && goalValue > 0 ? Math.round(goalValue) : (numericCompanyId === 1 ? 55620 : 858373);
+        }
+      } else {
+        // Prioridad 2: Calcular desde goal mensual del KPI
+        const goalValue = parseFloat(String(salesKpi.goal || '').toString().replace(/[^0-9.-]+/g, ''));
+        monthlyTarget = !isNaN(goalValue) && goalValue > 0 ? Math.round(goalValue) : (numericCompanyId === 1 ? 55620 : 858373);
+      }
+      
       const numericValue = extractNumericValue(value);
       const compliance = isNaN(numericValue)
         ? null

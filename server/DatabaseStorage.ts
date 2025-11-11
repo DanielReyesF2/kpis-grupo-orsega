@@ -134,6 +134,7 @@ export class DatabaseStorage implements IStorage {
       calculationMethod: record.calculationMethod ?? null,
       goal: record.goal ?? null,
       target: record.goal ?? null,
+      annualGoal: record.annualGoal ?? null,
       unit: record.unit ?? null,
       frequency: record.frequency ?? null,
       source: record.source ?? null,
@@ -667,11 +668,22 @@ export class DatabaseStorage implements IStorage {
 
   async updateKpi(id: number, kpiData: Partial<Kpi>): Promise<Kpi | undefined> {
     try {
-      const companyId = kpiData.companyId ?? (await this.findCompanyForKpiId(id));
+      console.log(`[DatabaseStorage.updateKpi] Actualizando KPI ${id} con datos:`, kpiData);
+      
+      // Intentar obtener companyId: primero del kpiData, luego buscarlo automáticamente
+      let companyId = kpiData.companyId;
       if (!companyId) {
-        console.warn(`[DatabaseStorage] No se encontró compañía para KPI ${id}`);
-        return undefined;
+        console.log(`[DatabaseStorage.updateKpi] companyId no proporcionado, buscando para KPI ${id}...`);
+        companyId = await this.findCompanyForKpiId(id);
       }
+      
+      if (!companyId) {
+        const errorMsg = `No se pudo determinar la compañía del KPI ${id}. El KPI no existe en ninguna tabla.`;
+        console.error(`[DatabaseStorage.updateKpi] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+
+      console.log(`[DatabaseStorage.updateKpi] KPI ${id} pertenece a companyId ${companyId}`);
 
       const resolved = this.resolveCompany(companyId);
       const table = this.getKpiTable(resolved);
@@ -680,8 +692,44 @@ export class DatabaseStorage implements IStorage {
       if (kpiData.name !== undefined) updates.kpiName = kpiData.name;
       if (kpiData.description !== undefined) updates.description = kpiData.description;
       if (kpiData.calculationMethod !== undefined) updates.calculationMethod = kpiData.calculationMethod;
+      // IMPORTANTE: Si se actualiza annualGoal, calcular automáticamente la meta mensual (goal = annualGoal / 12)
+      // La meta mensual siempre debe derivarse del objetivo anual para KPIs de ventas
+      if ('annualGoal' in kpiData) {
+        updates.annualGoal = kpiData.annualGoal ?? null;
+        console.log(`[DatabaseStorage.updateKpi] Actualizando annualGoal a: ${kpiData.annualGoal ?? 'null (borrado)'}`);
+        
+        // Si annualGoal tiene un valor válido, calcular automáticamente la meta mensual
+        if (kpiData.annualGoal !== null && kpiData.annualGoal !== undefined && kpiData.annualGoal !== '') {
+          const annualGoalNum = parseFloat(String(kpiData.annualGoal));
+          if (!isNaN(annualGoalNum) && annualGoalNum > 0) {
+            // Calcular meta mensual = objetivo anual / 12
+            const monthlyGoal = Math.round(annualGoalNum / 12);
+            updates.goal = monthlyGoal.toString();
+            console.log(`[DatabaseStorage.updateKpi] Meta mensual calculada automáticamente: ${monthlyGoal} (desde annualGoal: ${annualGoalNum} / 12)`);
+          } else {
+            // Si annualGoal se borra (null o vacío), no tocar goal (dejar el valor actual)
+            console.log(`[DatabaseStorage.updateKpi] annualGoal inválido o borrado, manteniendo goal actual`);
+          }
+        }
+      }
+      
+      // Actualizar goal manualmente solo si NO hay annualGoal o si se está actualizando explícitamente
+      // Si hay annualGoal, la meta mensual se calcula automáticamente del anual
       if (kpiData.target !== undefined || kpiData.goal !== undefined) {
-        updates.goal = kpiData.goal ?? kpiData.target;
+        // Solo actualizar goal manualmente si NO hay annualGoal definido
+        // Si hay annualGoal, la meta mensual debe venir del anual (ya calculada arriba)
+        const hasAnnualGoal = updates.annualGoal !== undefined ? 
+          (updates.annualGoal !== null && updates.annualGoal !== '') : 
+          (kpiData.annualGoal !== null && kpiData.annualGoal !== undefined && kpiData.annualGoal !== '');
+        
+        if (!hasAnnualGoal) {
+          // No hay annualGoal, permitir actualización manual de goal
+          const goalValue = kpiData.goal ?? kpiData.target;
+          updates.goal = goalValue;
+          console.log(`[DatabaseStorage.updateKpi] Actualizando goal manualmente a: ${goalValue} (no hay annualGoal)`);
+        } else {
+          console.log(`[DatabaseStorage.updateKpi] Ignorando actualización manual de goal porque hay annualGoal definido. La meta mensual se calcula del anual.`);
+        }
       }
       if (kpiData.unit !== undefined) updates.unit = kpiData.unit;
       if (kpiData.frequency !== undefined) updates.frequency = kpiData.frequency;
@@ -691,7 +739,7 @@ export class DatabaseStorage implements IStorage {
 
       if (kpiData.areaId !== undefined || kpiData.area !== undefined) {
         let areaName = kpiData.area;
-        if (kpiData.areaId !== undefined) {
+        if (kpiData.areaId !== undefined && kpiData.areaId !== null) {
           const [area] = await db.select().from(areas).where(eq(areas.id, kpiData.areaId)).limit(1);
           if (!area) {
             throw new Error(`Area with id ${kpiData.areaId} not found`);
@@ -707,22 +755,42 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (Object.keys(updates).length === 0) {
+        console.log(`[DatabaseStorage.updateKpi] No hay campos para actualizar, retornando KPI actual`);
         return await this.getKpi(id, resolved);
       }
 
+      console.log(`[DatabaseStorage.updateKpi] Ejecutando UPDATE en tabla ${resolved} con updates:`, updates);
       const [updated] = await db
         .update(table)
         .set(updates)
         .where(eq(table.id, id))
         .returning();
 
-      if (!updated) return undefined;
+      if (!updated) {
+        const errorMsg = `KPI ${id} no encontrado en la tabla ${resolved} para actualizar`;
+        console.error(`[DatabaseStorage.updateKpi] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
 
+      console.log(`[DatabaseStorage.updateKpi] KPI ${id} actualizado exitosamente`);
       const areaMap = await this.getCompanyAreaMap(resolved);
-      return this.mapKpiRecord(updated, resolved, areaMap);
+      const mappedKpi = this.mapKpiRecord(updated, resolved, areaMap);
+      console.log(`[DatabaseStorage.updateKpi] KPI mapeado:`, { 
+        id: mappedKpi.id, 
+        name: mappedKpi.name, 
+        goal: mappedKpi.goal, 
+        annualGoal: mappedKpi.annualGoal,
+        companyId: mappedKpi.companyId
+      });
+      return mappedKpi;
     } catch (error) {
-      console.error("Error updating KPI:", error);
-      return undefined;
+      console.error(`[DatabaseStorage.updateKpi] Error actualizando KPI ${id}:`, error);
+      if (error instanceof Error) {
+        console.error(`[DatabaseStorage.updateKpi] Error message:`, error.message);
+        console.error(`[DatabaseStorage.updateKpi] Error stack:`, error.stack);
+        throw error; // Re-lanzar el error para que el endpoint lo maneje
+      }
+      throw new Error(`Error desconocido al actualizar KPI: ${String(error)}`);
     }
   }
 

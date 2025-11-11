@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Target, 
@@ -55,14 +56,46 @@ interface KpiUpdateModalProps {
 
 export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [newGoal, setNewGoal] = useState('');
+  const [isEditingAnnualGoal, setIsEditingAnnualGoal] = useState(false);
+  const [newAnnualGoal, setNewAnnualGoal] = useState('');
 
   // Obtener datos del KPI
-  const { data: kpi, isLoading: kpiLoading } = useQuery({
+  // IMPORTANTE: Incluir companyId en el query key si está disponible para evitar problemas de cache
+  const { data: kpi, isLoading: kpiLoading, error: kpiError, refetch: refetchKpi } = useQuery({
     queryKey: [`/api/kpis/${kpiId}`],
+    queryFn: async () => {
+      if (!kpiId) return null;
+      console.log(`[KpiUpdateModal] Obteniendo datos del KPI ${kpiId}`);
+      const response = await apiRequest('GET', `/api/kpis/${kpiId}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error al obtener KPI: ${response.status} ${errorText}`);
+      }
+      const kpiData = await response.json();
+      console.log(`[KpiUpdateModal] KPI obtenido:`, kpiData);
+      // Log detallado para debugging
+      console.log(`[KpiUpdateModal] KPI datos completos:`, {
+        id: kpiData.id,
+        name: kpiData.name,
+        goal: kpiData.goal,
+        target: kpiData.target,
+        annualGoal: kpiData.annualGoal,
+        companyId: kpiData.companyId
+      });
+      return kpiData;
+    },
     enabled: isOpen && !!kpiId,
+    retry: 2,
+    staleTime: 0, // No cachear para ver datos actualizados
+    refetchOnWindowFocus: true,
+    refetchOnMount: true, // Refetch cuando el componente se monta
+    gcTime: 0, // No mantener en cache (anteriormente cacheTime)
   });
 
   // Obtener valores del KPI específico usando el parámetro correcto
@@ -112,15 +145,29 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   // El formulario de ventas solo se muestra desde el formulario prominente en la página
   const isSalesKpi = false; // SIEMPRE false para que todos usen el mismo modal genérico
 
-  // Log para debugging
+  // Log para debugging y asegurar que companyId esté disponible
   useEffect(() => {
     if (kpi && isOpen && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) {
       console.log('[KpiUpdateModal] KPI detectado:', {
         id: (kpi as any).id,
         name: (kpi as any).name,
+        companyId: (kpi as any).companyId,
+        goal: (kpi as any).goal,
+        target: (kpi as any).target,
+        annualGoal: (kpi as any).annualGoal,
         isSalesKpi: isSalesKpi,
         willShowSalesForm: isSalesKpi
       });
+      
+      // Inicializar los valores de goal y annualGoal cuando el KPI se carga
+      if ('target' in kpi || 'goal' in kpi) {
+        const goalValue = (kpi as any).goal || (kpi as any).target || '';
+        setNewGoal(goalValue);
+      }
+      if ('annualGoal' in kpi) {
+        const annualGoalValue = (kpi as any).annualGoal || '';
+        setNewAnnualGoal(annualGoalValue);
+      }
     }
   }, [kpi, isOpen, isSalesKpi]);
 
@@ -227,6 +274,407 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     }
   };
 
+  // Actualizar newGoal y newAnnualGoal cuando cambia el KPI (sincronización adicional)
+  // IMPORTANTE: Este efecto sincroniza el estado local con los datos del servidor
+  // Solo se ejecuta cuando NO estamos editando para evitar conflictos
+  useEffect(() => {
+    if (kpi && typeof kpi === 'object' && kpi !== null && !isEditingGoal && !isEditingAnnualGoal) {
+      const goalValue = (kpi as any).goal || (kpi as any).target || '';
+      const annualGoalValue = (kpi as any).annualGoal || '';
+      
+      // Convertir a strings para comparación
+      const currentGoalStr = String(newGoal || '');
+      const newGoalStr = String(goalValue || '');
+      const currentAnnualGoalStr = String(newAnnualGoal || '');
+      const newAnnualGoalStr = String(annualGoalValue || '');
+      
+      // Solo actualizar si los valores han cambiado y NO estamos editando
+      if (newGoalStr !== currentGoalStr) {
+        setNewGoal(newGoalStr);
+        console.log(`[KpiUpdateModal] ✅ Goal sincronizado desde servidor: ${newGoalStr}`);
+      }
+      if (newAnnualGoalStr !== currentAnnualGoalStr) {
+        setNewAnnualGoal(newAnnualGoalStr);
+        console.log(`[KpiUpdateModal] ✅ AnnualGoal sincronizado desde servidor: ${newAnnualGoalStr}`);
+      }
+    }
+  }, [kpi, isEditingGoal, isEditingAnnualGoal]); // Incluir flags de edición para evitar conflictos
+
+  // Detectar si es KPI de ventas
+  const isSalesKpiForAnnualGoal = kpi && typeof kpi === 'object' && kpi !== null && 'name' in kpi && 
+    ((kpi as any).name?.toLowerCase().includes('volumen') && (kpi as any).name?.toLowerCase().includes('ventas'));
+
+  // Mutación para actualizar la meta del KPI
+  const updateGoalMutation = useMutation({
+    mutationFn: async (goal: string) => {
+      // Obtener companyId del KPI actual o buscar desde el KPI cargado
+      let companyId: number | undefined;
+      
+      // Primero intentar obtenerlo del KPI cargado
+      if (kpi && typeof kpi === 'object' && kpi !== null && 'companyId' in kpi) {
+        companyId = (kpi as any).companyId;
+        console.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
+      }
+      
+      // Si no está disponible, cargar el KPI desde el servidor
+      if (!companyId) {
+        console.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
+        try {
+          const kpiResponse = await apiRequest('GET', `/api/kpis/${kpiId}`);
+          if (!kpiResponse.ok) {
+            const errorText = await kpiResponse.text();
+            throw new Error(`No se pudo cargar el KPI: ${kpiResponse.status} ${errorText}`);
+          }
+          const kpiData = await kpiResponse.json();
+          companyId = kpiData.companyId;
+          console.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
+        } catch (error) {
+          console.error('[KpiUpdateModal] Error al cargar KPI:', error);
+          throw new Error('No se pudo cargar el KPI para determinar la compañía');
+        }
+      }
+      
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        throw new Error(`No se pudo determinar la compañía del KPI. companyId: ${companyId}`);
+      }
+      
+      console.log(`[KpiUpdateModal] Actualizando meta del KPI ${kpiId} para companyId ${companyId}`, {
+        goal: goal
+      });
+      
+      const response = await apiRequest('PUT', `/api/kpis/${kpiId}`, {
+        goal: goal,
+        target: goal,
+        companyId: companyId
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
+        throw new Error(`Error al actualizar meta: ${response.status} ${errorText}`);
+      }
+      
+      const updatedKpi = await response.json();
+      console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
+      return updatedKpi;
+    },
+    onSuccess: async (updatedKpi) => {
+      console.log('[KpiUpdateModal] ✅ Actualización de meta exitosa, invalidando queries...');
+      console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
+      
+      // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
+      console.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
+      
+      // Invalidar usando predicate para cubrir TODAS las variantes
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0];
+          if (typeof queryKey === 'string') {
+            return queryKey.includes('/api/kpi') || 
+                   queryKey.includes('/api/kpis') ||
+                   queryKey.includes('/api/collaborators-performance') ||
+                   queryKey.includes('/api/sales');
+          }
+          return false;
+        }
+      });
+      
+      // Invalidar específicamente las queries conocidas con exact: false
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpis'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-history'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
+      ]);
+      
+      console.log('[KpiUpdateModal] Paso 2: Forzando refetch inmediato...');
+      
+      // PASO 2: Forzar refetch inmediato del KPI para ver los cambios
+      try {
+        const refetchedData = await refetchKpi();
+        console.log('[KpiUpdateModal] ✅ Refetch completado:', refetchedData.data);
+      } catch (error) {
+        console.error('[KpiUpdateModal] ❌ Error en refetch:', error);
+      }
+      
+      // PASO 3: Esperar un momento para que las queries se invaliden completamente
+      console.log('[KpiUpdateModal] Paso 3: Esperando invalidación de queries...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // PASO 4: Forzar refetch de nuevo después de la invalidación
+      console.log('[KpiUpdateModal] Paso 4: Refetch después de invalidación...');
+      try {
+        const refetchedDataAfterInvalidation = await refetchKpi();
+        console.log('[KpiUpdateModal] ✅ Refetch después de invalidación completado:', refetchedDataAfterInvalidation.data);
+        
+        // Actualizar estado local con los datos recién obtenidos del servidor
+        if (refetchedDataAfterInvalidation.data) {
+          const freshKpi = refetchedDataAfterInvalidation.data;
+          console.log('[KpiUpdateModal] Datos frescos del servidor:', {
+            annualGoal: freshKpi.annualGoal,
+            goal: freshKpi.goal,
+            target: freshKpi.target
+          });
+          
+          if (freshKpi.goal !== undefined || freshKpi.target !== undefined) {
+            const goalStr = String(freshKpi.goal || freshKpi.target || '');
+            setNewGoal(goalStr);
+            console.log('[KpiUpdateModal] ✅ Goal actualizado en estado desde servidor:', goalStr);
+          }
+          
+          // Si también se actualizó el objetivo anual, actualizar el estado
+          if (freshKpi.annualGoal !== undefined) {
+            const annualGoalStr = String(freshKpi.annualGoal || '');
+            setNewAnnualGoal(annualGoalStr);
+            console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado desde servidor:', annualGoalStr);
+          }
+        }
+      } catch (error) {
+        console.error('[KpiUpdateModal] ❌ Error en segundo refetch:', error);
+        // Si el refetch falla, usar los datos de la respuesta original
+        if (updatedKpi) {
+          if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
+            setNewGoal(String(updatedKpi.goal || updatedKpi.target || ''));
+          }
+          if (updatedKpi.annualGoal !== undefined) {
+            setNewAnnualGoal(String(updatedKpi.annualGoal || ''));
+          }
+        }
+      }
+      
+      // PASO 5: Forzar re-render del componente
+      console.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
+      setIsEditingGoal(false);
+      
+      // PASO 6: Mostrar toast de éxito
+      toast({
+        title: '✅ Meta actualizada',
+        description: 'La meta del KPI se ha actualizado correctamente.'
+      });
+      
+      console.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
+    },
+    onError: (error: any) => {
+      console.error('[KpiUpdateModal] Error al actualizar meta:', error);
+      toast({
+        title: 'Error al actualizar meta',
+        description: error.message || 'No se pudo actualizar la meta. Verifica que tengas permisos de administrador.',
+        variant: 'destructive'
+      });
+    },
+  });
+
+  const handleSaveGoal = () => {
+    if (!newGoal || newGoal.trim() === '') {
+      toast({
+        title: 'Error',
+        description: 'La meta no puede estar vacía.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    updateGoalMutation.mutate(newGoal);
+  };
+
+  const handleCancelEditGoal = () => {
+    if (kpi && typeof kpi === 'object' && kpi !== null && 'target' in kpi) {
+      setNewGoal((kpi as any).target || (kpi as any).goal || '');
+    }
+    setIsEditingGoal(false);
+  };
+
+  // Mutación para actualizar el objetivo anual del KPI
+  const updateAnnualGoalMutation = useMutation({
+    mutationFn: async (annualGoal: string) => {
+      // Obtener companyId del KPI actual o buscar desde el KPI cargado
+      let companyId: number | undefined;
+      
+      // Primero intentar obtenerlo del KPI cargado
+      if (kpi && typeof kpi === 'object' && kpi !== null && 'companyId' in kpi) {
+        companyId = (kpi as any).companyId;
+        console.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
+      }
+      
+      // Si no está disponible, cargar el KPI desde el servidor
+      if (!companyId) {
+        console.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
+        try {
+          const kpiResponse = await apiRequest('GET', `/api/kpis/${kpiId}`);
+          if (!kpiResponse.ok) {
+            const errorText = await kpiResponse.text();
+            throw new Error(`No se pudo cargar el KPI: ${kpiResponse.status} ${errorText}`);
+          }
+          const kpiData = await kpiResponse.json();
+          companyId = kpiData.companyId;
+          console.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
+        } catch (error) {
+          console.error('[KpiUpdateModal] Error al cargar KPI:', error);
+          throw new Error('No se pudo cargar el KPI para determinar la compañía');
+        }
+      }
+      
+      if (!companyId || (companyId !== 1 && companyId !== 2)) {
+        throw new Error(`No se pudo determinar la compañía del KPI. companyId: ${companyId}`);
+      }
+      
+      // Normalizar annualGoal: si está vacío, enviar null
+      const normalizedAnnualGoal = annualGoal.trim() === '' ? null : annualGoal.trim();
+      
+      console.log(`[KpiUpdateModal] Actualizando objetivo anual del KPI ${kpiId} para companyId ${companyId}`, {
+        annualGoal: normalizedAnnualGoal,
+        originalValue: annualGoal
+      });
+      
+      const response = await apiRequest('PUT', `/api/kpis/${kpiId}`, {
+        annualGoal: normalizedAnnualGoal,
+        companyId: companyId
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
+        throw new Error(`Error al actualizar objetivo anual: ${response.status} ${errorText}`);
+      }
+      
+      const updatedKpi = await response.json();
+      console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
+      return updatedKpi;
+    },
+    onSuccess: async (updatedKpi) => {
+      console.log('[KpiUpdateModal] ✅ Actualización exitosa, invalidando queries...');
+      console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
+      
+      // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
+      console.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
+      
+      // Invalidar usando predicate para cubrir TODAS las variantes
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey[0];
+          if (typeof queryKey === 'string') {
+            return queryKey.includes('/api/kpi') || 
+                   queryKey.includes('/api/kpis') ||
+                   queryKey.includes('/api/collaborators-performance') ||
+                   queryKey.includes('/api/sales');
+          }
+          return false;
+        }
+      });
+      
+      // Invalidar específicamente las queries conocidas con exact: false
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpis'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-history'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
+      ]);
+      
+      console.log('[KpiUpdateModal] Paso 2: Forzando refetch inmediato...');
+      
+      // PASO 2: Forzar refetch inmediato del KPI para ver los cambios
+      try {
+        const refetchedData = await refetchKpi();
+        console.log('[KpiUpdateModal] ✅ Refetch completado:', refetchedData.data);
+      } catch (error) {
+        console.error('[KpiUpdateModal] ❌ Error en refetch:', error);
+      }
+      
+      // PASO 3: Esperar un momento para que las queries se invaliden completamente
+      console.log('[KpiUpdateModal] Paso 3: Esperando invalidación de queries...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // PASO 4: Forzar refetch de nuevo después de la invalidación
+      console.log('[KpiUpdateModal] Paso 4: Refetch después de invalidación...');
+      try {
+        const refetchedDataAfterInvalidation = await refetchKpi();
+        console.log('[KpiUpdateModal] ✅ Refetch después de invalidación completado:', refetchedDataAfterInvalidation.data);
+        
+        // Actualizar estado local con los datos recién obtenidos del servidor
+        if (refetchedDataAfterInvalidation.data) {
+          const freshKpi = refetchedDataAfterInvalidation.data;
+          console.log('[KpiUpdateModal] Datos frescos del servidor:', {
+            annualGoal: freshKpi.annualGoal,
+            goal: freshKpi.goal,
+            target: freshKpi.target
+          });
+          
+          if (freshKpi.annualGoal !== undefined && freshKpi.annualGoal !== null) {
+            const annualGoalStr = String(freshKpi.annualGoal);
+            setNewAnnualGoal(annualGoalStr);
+            console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado desde servidor:', annualGoalStr);
+          } else {
+            setNewAnnualGoal('');
+            console.log('[KpiUpdateModal] ✅ AnnualGoal limpiado (null/undefined)');
+          }
+          
+          // Si también se actualizó la meta mensual, actualizar el estado
+          if (freshKpi.goal !== undefined || freshKpi.target !== undefined) {
+            const goalStr = String(freshKpi.goal || freshKpi.target || '');
+            setNewGoal(goalStr);
+            console.log('[KpiUpdateModal] ✅ Goal actualizado en estado desde servidor:', goalStr);
+          }
+        }
+      } catch (error) {
+        console.error('[KpiUpdateModal] ❌ Error en segundo refetch:', error);
+        // Si el refetch falla, usar los datos de la respuesta original
+        if (updatedKpi) {
+          if (updatedKpi.annualGoal !== undefined && updatedKpi.annualGoal !== null) {
+            setNewAnnualGoal(String(updatedKpi.annualGoal));
+          } else {
+            setNewAnnualGoal('');
+          }
+          if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
+            setNewGoal(String(updatedKpi.goal || updatedKpi.target || ''));
+          }
+        }
+      }
+      
+      // PASO 5: Forzar re-render del componente
+      console.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
+      setIsEditingAnnualGoal(false);
+      
+      // PASO 6: Mostrar toast de éxito
+      toast({
+        title: '✅ Objetivo anual actualizado',
+        description: 'El objetivo anual del KPI se ha actualizado correctamente. La meta mensual se ha calculado automáticamente.',
+      });
+      
+      console.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
+    },
+    onError: (error: any) => {
+      console.error('[KpiUpdateModal] Error al actualizar objetivo anual:', error);
+      toast({
+        title: 'Error al actualizar objetivo anual',
+        description: error.message || 'No se pudo actualizar el objetivo anual. Verifica que tengas permisos de administrador.',
+        variant: 'destructive'
+      });
+    },
+  });
+
+  const handleSaveAnnualGoal = () => {
+    // Permitir valores vacíos (se convertirán a null en el backend)
+    // Validar que sea un número si no está vacío
+    const trimmedValue = newAnnualGoal.trim();
+    if (trimmedValue !== '' && isNaN(Number(trimmedValue))) {
+      toast({
+        title: 'Error',
+        description: 'El objetivo anual debe ser un número válido.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    updateAnnualGoalMutation.mutate(newAnnualGoal);
+  };
+
+  const handleCancelEditAnnualGoal = () => {
+    if (kpi && typeof kpi === 'object' && kpi !== null) {
+      setNewAnnualGoal((kpi as any).annualGoal || '');
+    }
+    setIsEditingAnnualGoal(false);
+  };
+
   // Resetear formulario cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
@@ -283,6 +731,53 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     );
   }
 
+  if (kpiError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Error al cargar KPI</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600 mb-4">
+              {kpiError instanceof Error ? kpiError.message : 'No se pudo cargar el KPI. Por favor, intenta nuevamente.'}
+            </p>
+            <p className="text-xs text-gray-500">
+              KPI ID: {kpiId}
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={onClose} variant="outline">
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!kpi || (typeof kpi === 'object' && kpi !== null && !('id' in kpi))) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>KPI no encontrado</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              No se pudo encontrar el KPI con ID {kpiId}. Por favor, verifica que el KPI existe.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={onClose} variant="outline">
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -332,9 +827,126 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <span className="text-sm font-medium text-gray-600">Meta:</span>
-                        <div className="text-lg font-bold text-blue-600">{(kpi as any).target || 'Sin meta definida'}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600">Meta Mensual:</span>
+                          {/* Solo permitir editar meta manualmente si NO es KPI de ventas con annualGoal */}
+                          {isAdmin && !isEditingGoal && !(isSalesKpiForAnnualGoal && (kpi as any)?.annualGoal) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => setIsEditingGoal(true)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {/* Si hay annualGoal, mostrar que es calculada automáticamente */}
+                          {isSalesKpiForAnnualGoal && (kpi as any)?.annualGoal && (
+                            <span className="text-xs text-gray-500 italic">(calculada automáticamente)</span>
+                          )}
+                        </div>
+                        {isEditingGoal ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newGoal}
+                              onChange={(e) => setNewGoal(e.target.value)}
+                              className="w-32 h-8 text-sm"
+                              placeholder="Meta"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={handleSaveGoal}
+                              disabled={updateGoalMutation.isPending}
+                            >
+                              <Save className="h-3 w-3 text-green-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={handleCancelEditGoal}
+                              disabled={updateGoalMutation.isPending}
+                            >
+                              <XCircle className="h-3 w-3 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="text-lg font-bold text-blue-600">
+                            {(kpi as any)?.target || (kpi as any)?.goal || 'Sin meta definida'}
+                            {isSalesKpiForAnnualGoal && (kpi as any)?.annualGoal && (
+                              <span className="text-xs text-gray-500 ml-2 font-normal italic">
+                                (del anual: {Number((kpi as any).annualGoal).toLocaleString('es-MX', { maximumFractionDigits: 0 })} / 12)
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
+                      
+                      {/* Objetivo Anual (solo para KPIs de ventas) */}
+                      {isSalesKpiForAnnualGoal && (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">Objetivo Anual:</span>
+                            {isAdmin && !isEditingAnnualGoal && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => setIsEditingAnnualGoal(true)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          {isEditingAnnualGoal ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={newAnnualGoal}
+                                onChange={(e) => setNewAnnualGoal(e.target.value)}
+                                className="w-40 h-8 text-sm"
+                                placeholder="Objetivo anual"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={handleSaveAnnualGoal}
+                                disabled={updateAnnualGoalMutation.isPending}
+                              >
+                                <Save className="h-3 w-3 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={handleCancelEditAnnualGoal}
+                                disabled={updateAnnualGoalMutation.isPending}
+                              >
+                                <XCircle className="h-3 w-3 text-red-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="text-lg font-bold text-purple-600">
+                              {(() => {
+                                const annualGoalValue = (kpi as any)?.annualGoal;
+                                if (annualGoalValue) {
+                                  const annualGoalNum = Number(annualGoalValue);
+                                  if (!isNaN(annualGoalNum) && annualGoalNum > 0) {
+                                    return annualGoalNum.toLocaleString('es-MX', { maximumFractionDigits: 0 });
+                                  }
+                                }
+                                return 'Sin objetivo anual definido';
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       {latestValue && (
                         <div>

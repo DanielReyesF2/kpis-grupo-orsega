@@ -228,14 +228,13 @@ export function SalesVolumeChart({
     })));
   }
   
-  // Obtener datos reales de la API - Optimizado para carga rápida
+  // Obtener datos reales de la API - Estandarizado para sincronización con otros componentes
   const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     enabled: !!kpiId && kpiId > 0,
-    staleTime: 10 * 60 * 1000, // Cache por 10 minutos (aumentado)
-    refetchInterval: 5 * 60 * 1000, // Refrescar cada 5 minutos (reducido de 30 segundos)
-    refetchOnWindowFocus: false, // No refetch al cambiar de ventana
-    refetchOnMount: false, // No refetch si ya hay datos en cache
+    staleTime: 0, // No cachear para asegurar datos frescos después de actualizaciones
+    refetchInterval: 30000, // Refrescar cada 30 segundos (estandarizado)
+    refetchOnWindowFocus: true, // Refrescar cuando la ventana vuelve a estar en foco
   });
 
   // Procesar datos históricos de la API - Optimizado con useMemo

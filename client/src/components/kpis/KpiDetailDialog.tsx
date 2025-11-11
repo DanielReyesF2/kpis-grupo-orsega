@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -32,7 +32,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/use-auth';
 import { formatDate } from '@/lib/utils/dates';
 import { calculateKpiStatus, calculateCompliance } from '@/lib/utils/kpi-status';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Edit2, Save, X } from 'lucide-react';
 import KpiHistoryChart from '@/components/dashboard/KpiHistoryChart';
 import SalesWeeklyUpdateForm from '@/components/kpis/SalesWeeklyUpdateForm';
 
@@ -70,7 +70,9 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [newGoal, setNewGoal] = useState('');
 
   // Consulta para obtener los detalles del KPI
   const { data: kpi, isLoading: isLoadingKpi } = useQuery({
@@ -115,6 +117,56 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     },
     enabled: !!kpi?.companyId && isOpen
   });
+
+  // Actualizar newGoal cuando cambia el KPI
+  useEffect(() => {
+    if (kpi) {
+      setNewGoal(kpi.goal || kpi.target || '');
+    }
+  }, [kpi]);
+
+  // Mutación para actualizar la meta del KPI
+  const updateGoalMutation = useMutation({
+    mutationFn: async (goal: string) => {
+      return apiRequest('PUT', `/api/kpis/${kpiId}`, {
+        goal: goal,
+        target: goal
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/kpis', kpiId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      setIsEditingGoal(false);
+      toast({
+        title: 'Meta actualizada',
+        description: 'La meta del KPI se ha actualizado correctamente.'
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error al actualizar meta',
+        description: error.message || 'No se pudo actualizar la meta.',
+        variant: 'destructive'
+      });
+    },
+  });
+
+  const handleSaveGoal = () => {
+    if (!newGoal || newGoal.trim() === '') {
+      toast({
+        title: 'Error',
+        description: 'La meta no puede estar vacía.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    updateGoalMutation.mutate(newGoal);
+  };
+
+  const handleCancelEditGoal = () => {
+    setNewGoal(kpi?.goal || kpi?.target || '');
+    setIsEditingGoal(false);
+  };
 
   // Mutación para crear una nueva actualización
   const updateMutation = useMutation({
@@ -330,7 +382,52 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
               </div>
               <DialogDescription>
                 <div className="mt-1 sm:mt-2 space-y-0.5 sm:space-y-1 text-xs sm:text-sm">
-                  <p><span className="font-medium">Objetivo:</span> {kpi.goal ?? kpi.target ?? 'Sin meta definida'}</p>
+                  <div className="flex items-center gap-2">
+                    <p><span className="font-medium">Objetivo:</span> {
+                      isEditingGoal ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={newGoal}
+                            onChange={(e) => setNewGoal(e.target.value)}
+                            className="w-32 h-7 text-xs"
+                            placeholder="Meta"
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={handleSaveGoal}
+                            disabled={updateGoalMutation.isPending}
+                          >
+                            <Save className="h-3 w-3 text-green-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={handleCancelEditGoal}
+                            disabled={updateGoalMutation.isPending}
+                          >
+                            <X className="h-3 w-3 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span>{kpi.goal ?? kpi.target ?? 'Sin meta definida'}</span>
+                      )
+                    }</p>
+                    {isAdmin && !isEditingGoal && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setIsEditingGoal(true)}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                   <p><span className="font-medium">Área:</span> {area?.name || 'Cargando...'}</p>
                   <p><span className="font-medium">Responsable:</span> {kpi.responsible || 'No asignado'}</p>
                   <p><span className="font-medium">Frecuencia:</span> {kpi.frequency === 'weekly' ? 'Semanal' : 

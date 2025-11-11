@@ -1,0 +1,28 @@
+🚨 INSTRUCCIONES RÁPIDAS PARA CLAUDE CODE
+
+PROBLEMA: Los datos no se actualizan en el frontend después de guardar.
+
+ARCHIVOS A REVISAR:
+1. client/src/components/kpis/KpiUpdateModal.tsx (líneas 507-608)
+2. client/src/components/kpis/KpiHistoryBulkEditModal.tsx (líneas 168-252)
+3. server/routes.ts (línea 1131)
+4. server/DatabaseStorage.ts (línea 777)
+
+VERIFICAR:
+- ¿El refetchKpi() devuelve los datos actualizados?
+- ¿El estado local (newAnnualGoal) se actualiza después del refetch?
+- ¿El backend devuelve annualGoal en la respuesta?
+
+SOLUCIÓN RÁPIDA SI FALLA:
+- Agregar window.location.reload() después de guardar
+- O agregar un botón "Actualizar" que fuerce el refetch
+
+COMANDOS:
+npm run build
+npm run dev
+tail -f server.log
+
+DOCUMENTOS:
+- INSTRUCCIONES-CLAUDE-CODE.md (instrucciones detalladas)
+- HANDOFF-CLAUDE-CODE-URGENTE.md (handoff completo)
+- AUDITORIA-ACTUALIZACION-DATOS.md (auditoría técnica)

@@ -12,11 +12,9 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
-import { KpiExtendedDetailsModal } from '@/components/kpis/KpiExtendedDetailsModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { CollaboratorCard, type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
-import { CollaboratorKPIsModal } from '@/components/kpis/CollaboratorKPIsModal';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -476,7 +474,6 @@ export default function KpiControlCenter() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(2);
   const [selectedKpiId, setSelectedKpiId] = useState<number | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-  const [isExtendedDetailsModalOpen, setIsExtendedDetailsModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
@@ -489,10 +486,7 @@ export default function KpiControlCenter() {
   // Estados para Vista General mejorada
   const [showAllKpis, setShowAllKpis] = useState(false);
   const [showAllCharts, setShowAllCharts] = useState(false);
-
-  // Estados para modal de colaborador
-  const [selectedCollaborator, setSelectedCollaborator] = useState<CollaboratorScore | null>(null);
-  const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
+  
 
 
   // Obtener empresas
@@ -829,10 +823,6 @@ export default function KpiControlCenter() {
     setIsUpdateModalOpen(true);
   };
 
-  const handleViewExtendedDetails = (kpiId: number) => {
-    setSelectedKpiId(kpiId);
-    setIsExtendedDetailsModalOpen(true);
-  };
 
 
   if (companiesLoading || kpisLoading) {
@@ -850,7 +840,7 @@ export default function KpiControlCenter() {
     <AppLayout title="Centro de Control KPIs">
       <div className="space-y-8">
         {/* Vista General de KPIs */}
-        <div className="space-y-6">
+          <div className="space-y-6">
             {/* KPIs Recientes Agrupados - Nueva implementación mejorada */}
             <Card>
               <CardHeader>
@@ -1066,16 +1056,13 @@ export default function KpiControlCenter() {
                       </div>
                     )}
                     {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
-                      <div className="space-y-5 max-w-full px-2 md:px-4">
+                      <div className="space-y-0 max-w-full px-2 md:px-4">
                         {collaborators.map((collaborator, index) => (
                           <CollaboratorCard
                             key={collaborator.name}
                             collaborator={collaborator}
                             delay={index * 0.05}
-                            onViewDetails={(collab) => {
-                              setSelectedCollaborator(collab);
-                              setShowCollaboratorModal(true);
-                            }}
+                            onUpdateKpi={handleUpdateKpi}
                           />
                         ))}
                       </div>
@@ -1122,7 +1109,6 @@ export default function KpiControlCenter() {
                               company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
                             }}
                             onClick={() => handleUpdateKpi(kpi.id)}
-                            onViewDetails={() => handleViewExtendedDetails(kpi.id)}
                             delay={index * 0.05}
                           />
                         ))}
@@ -1134,44 +1120,8 @@ export default function KpiControlCenter() {
               </CardContent>
             </Card>
 
-            {/* KPIs que Requieren Atención - Versión Simplificada */}
-            {(() => {
-              const criticalKpis = processedKpis
-                .filter((kpi: any) => kpi.status === 'alert' || kpi.status === 'not_compliant')
-                .sort((a: any, b: any) => parseFloat(a.compliancePercentage || '0') - parseFloat(b.compliancePercentage || '0'))
-                .slice(0, 3);
-              
-              if (criticalKpis.length === 0) return null;
-                      
-                      return (
-                <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
-                      {criticalKpis.length} {criticalKpis.length === 1 ? 'KPI requiere atención' : 'KPIs requieren atención'}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {criticalKpis.map((kpi: any) => (
-                      <div 
-                        key={kpi.id}
-                        className="flex items-center justify-between text-sm cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/20 rounded px-2 py-1 transition-colors"
-                        onClick={() => handleUpdateKpi(kpi.id)}
-                      >
-                        <span className="text-gray-700 dark:text-gray-300 truncate flex-1">{kpi.name}</span>
-                        <span className={`font-semibold ml-2 ${
-                          kpi.status === 'not_compliant' ? 'text-red-600' : 'text-yellow-600'
-                        }`}>
-                          {kpi.compliancePercentage}%
-                        </span>
-                          </div>
-                    ))}
-                          </div>
-                        </div>
-                      );
-            })()}
 
-          </div>
+                  </div>
 
 
 
@@ -1185,27 +1135,6 @@ export default function KpiControlCenter() {
           }}
         />
 
-        {/* Modal de Detalles Extendidos (12 atributos) */}
-        <KpiExtendedDetailsModal
-          kpiId={selectedKpiId || 0}
-          isOpen={isExtendedDetailsModalOpen}
-          onClose={() => {
-            setIsExtendedDetailsModalOpen(false);
-            setSelectedKpiId(null);
-          }}
-        />
-
-        {/* Modal de KPIs del Colaborador */}
-        <CollaboratorKPIsModal
-          collaborator={selectedCollaborator}
-          isOpen={showCollaboratorModal}
-          onClose={() => {
-            setShowCollaboratorModal(false);
-            setSelectedCollaborator(null);
-          }}
-          onUpdateKpi={handleUpdateKpi}
-          onViewDetails={handleViewExtendedDetails}
-        />
 
 
       </div>
