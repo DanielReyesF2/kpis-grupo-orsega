@@ -268,15 +268,25 @@ export function KpiHistoryBulkEditModal({
   };
 
   const handleSave = () => {
+    console.log('[KpiHistoryBulkEditModal] ====== INICIO handleSave ======');
+    console.log('[KpiHistoryBulkEditModal] kpiId:', kpiId);
+    console.log('[KpiHistoryBulkEditModal] companyId:', companyId);
+    console.log('[KpiHistoryBulkEditModal] selectedYear:', selectedYear);
+    console.log('[KpiHistoryBulkEditModal] editedValues:', editedValues);
+
     setSaveError(null);
     setSaveResults(null);
     setIsSaving(true);
-    
+
     const valuesToSave = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const value = editedValues[key] || '0';
+      console.log(`[KpiHistoryBulkEditModal] Procesando ${month}: raw="${value}"`);
+
       // Limpiar el valor: remover caracteres no numéricos excepto punto decimal
       const cleanedValue = value.toString().replace(/[^0-9.]/g, '') || '0';
+      console.log(`[KpiHistoryBulkEditModal]   → cleaned="${cleanedValue}"`);
+
       return {
         month,
         year: selectedYear,
@@ -284,10 +294,32 @@ export function KpiHistoryBulkEditModal({
       };
     });
 
-    console.log('[KpiHistoryBulkEditModal] Guardando valores:', valuesToSave);
+    console.log('[KpiHistoryBulkEditModal] ====== VALORES A GUARDAR ======');
+    console.log('[KpiHistoryBulkEditModal] Total de valores:', valuesToSave.length);
+    console.log('[KpiHistoryBulkEditModal] Primeros 3 valores:', valuesToSave.slice(0, 3));
+
+    // Validar que hay valores para guardar
+    if (valuesToSave.length === 0) {
+      console.error('[KpiHistoryBulkEditModal] ❌ ERROR: No hay valores para guardar');
+      setIsSaving(false);
+      setSaveError('No hay valores para guardar');
+      return;
+    }
+
+    console.log('[KpiHistoryBulkEditModal] ====== LLAMANDO saveMutation.mutate ======');
+
     saveMutation.mutate(valuesToSave, {
       onSettled: () => {
+        console.log('[KpiHistoryBulkEditModal] ====== saveMutation SETTLED ======');
         setIsSaving(false);
+      },
+      onError: (error) => {
+        console.error('[KpiHistoryBulkEditModal] ====== saveMutation ERROR ======');
+        console.error('[KpiHistoryBulkEditModal] Error:', error);
+      },
+      onSuccess: (data) => {
+        console.log('[KpiHistoryBulkEditModal] ====== saveMutation SUCCESS ======');
+        console.log('[KpiHistoryBulkEditModal] Data:', data);
       }
     });
   };
