@@ -6,7 +6,7 @@ Sistema de actualización automática de KPIs de Logística mediante el uso del 
 
 ## 🎯 KPIs Implementados
 
-1. **Costo de Transporte** - Costo total mensual de envíos (MXN)
+1. **Costo de Transporte** - Costo promedio por envío individual (MXN)
 2. **Tiempo de Preparación** - Tiempo promedio desde creación hasta "En Ruta" (horas)
 3. **Tiempo de Entrega** - Tiempo promedio desde "En Ruta" hasta "Entregado" (horas)
 
@@ -42,7 +42,7 @@ Sistema de actualización automática de KPIs de Logística mediante el uso del 
 
 **Función nueva:** `updateLogisticsKPIs(companyId)`
 - Obtiene todos los shipments entregados del mes
-- Calcula costo total, tiempos promedio
+- Calcula costo promedio por transporte y tiempos promedio
 - Actualiza o inserta en `KpiValue`
 - Logging detallado para debug
 
@@ -134,23 +134,25 @@ Una vez en producción:
 
 ## 🔧 Configuración de Metas
 
-Las metas actuales son:
-- Costo de Transporte: $50,000 MXN/mes
+Las metas por defecto son (TODAS EDITABLES DESDE LA UI):
+- Costo de Transporte: $5,000 MXN por envío
 - Tiempo de Preparación: 24 horas
 - Tiempo de Entrega: 48 horas
 
-Para ajustarlas:
+Para ajustar las metas:
 1. Ve a "Centro de Control de KPIs" → "Gestión del Equipo"
-2. Busca a Thalia Rodríguez
+2. Busca a Thalia Rodríguez (o ve a "Administración de KPIs")
 3. Edita cada KPI y cambia el "Objetivo Mensual (goal)"
+4. Los goals son completamente editables - ajústalos según las necesidades reales
 
 ## 📊 Cómo Funcionan los Cálculos
 
 ### Costo de Transporte
 ```
-Total = Suma de transportCost de todos los envíos entregados este mes
-Compliance = (Goal / Total) * 100
-Ejemplo: Goal $50,000, Total $35,000 → Compliance = 142% ✅
+Promedio = Suma de transportCost / Cantidad de envíos entregados este mes
+Compliance = (Goal / Promedio) * 100
+Ejemplo: Goal $5,000, Promedio $3,500 → Compliance = 142% ✅
+Nota: Esto mide el costo promedio POR ENVÍO, no el total mensual
 ```
 
 ### Tiempo de Preparación
