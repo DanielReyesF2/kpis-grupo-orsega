@@ -190,16 +190,16 @@ export function KpiHistoryBulkEditModal({
       }
       
       console.log('[KpiHistoryBulkEditModal] ✅ Actualización exitosa, invalidando queries...');
-      
+
       // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
       console.log('[KpiHistoryBulkEditModal] Paso 1: Invalidando todas las queries...');
-      
+
       // Invalidar usando predicate para cubrir TODAS las variantes
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
-            return queryKey.includes('/api/kpi') || 
+            return queryKey.includes('/api/kpi') ||
                    queryKey.includes('/api/kpis') ||
                    queryKey.includes('/api/collaborators-performance') ||
                    queryKey.includes('/api/sales');
@@ -207,7 +207,7 @@ export function KpiHistoryBulkEditModal({
           return false;
         }
       });
-      
+
       // Invalidar específicamente las queries conocidas con exact: false para cubrir todas las variantes
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`], exact: false }),
@@ -217,34 +217,30 @@ export function KpiHistoryBulkEditModal({
         queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
       ]);
-      
+
       console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries invalidadas');
-      
-      // PASO 2: Esperar un momento para que las queries se invaliden completamente
-      console.log('[KpiHistoryBulkEditModal] Paso 2: Esperando invalidación de queries...');
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // PASO 3: Refetch inmediato de la query del historial
-      console.log('[KpiHistoryBulkEditModal] Paso 3: Refetch del historial...');
+
+      // PASO 2: Refetch inmediato y forzado del historial
+      console.log('[KpiHistoryBulkEditModal] Paso 2: Refetch del historial...');
       try {
-        // Refetch usando el método del hook
-        const refetchResult = await refetchHistory();
-        console.log('[KpiHistoryBulkEditModal] ✅ Historial refrescado desde hook:', refetchResult.data?.length || 0, 'registros');
-        
-        // También refetch todas las queries relacionadas
-        await queryClient.refetchQueries({ 
+        // Refetch forzado usando el método del hook
+        await refetchHistory();
+        console.log('[KpiHistoryBulkEditModal] ✅ Historial refrescado desde servidor');
+
+        // También refetch todas las queries relacionadas con historial
+        await queryClient.refetchQueries({
           queryKey: [`/api/kpi-history/${kpiId}`],
-          exact: false 
+          exact: false
         });
         console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries de historial refrescadas');
       } catch (error) {
         console.error('[KpiHistoryBulkEditModal] ❌ Error al refrescar historial:', error);
       }
-      
-      // PASO 4: Esperar un poco más antes de cerrar para asegurar que los datos se refresquen
-      console.log('[KpiHistoryBulkEditModal] Paso 4: Esperando antes de cerrar...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+
+      // PASO 3: Esperar un momento breve para asegurar que React Query procese el refetch
+      console.log('[KpiHistoryBulkEditModal] Paso 3: Esperando procesamiento...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Cerrar después de mostrar el resultado
       console.log('[KpiHistoryBulkEditModal] Cerrando modal...');
       onClose();
