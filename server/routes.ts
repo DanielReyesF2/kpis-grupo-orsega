@@ -1880,12 +1880,15 @@ export function registerRoutes(app: express.Application) {
             historicalCompliance: completeHistory,
             advancedTrend
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error(`❌ Error fetching historical data for ${collaborator.name}:`, error);
+          // ✅ FIX CRÍTICO: Agregar flags de error para notificar al frontend
           return {
             ...collaborator,
             historicalCompliance: fillMissingMonths([]),
-            advancedTrend: { direction: null, strength: 0, slope: 0, r2: 0 }
+            advancedTrend: { direction: null, strength: 0, slope: 0, r2: 0 },
+            hasHistoryError: true,
+            historyErrorMessage: error.message || 'Error desconocido al cargar historial'
           };
         }
       }));

@@ -133,8 +133,15 @@ export function EnhancedKpiDashboard({ kpis, companyName, areaName, companyId, o
     const complies = kpis.filter(k => k.status === 'complies').length;
     const alert = kpis.filter(k => k.status === 'alert').length;
     const not_compliant = kpis.filter(k => k.status === 'not_compliant').length;
-    const avgCompliance = kpis.length > 0 ? 
-      kpis.reduce((acc, k) => acc + parseFloat(k.compliancePercentage || '0'), 0) / kpis.length : 0;
+
+    // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular promedio
+    const validComplianceValues = kpis
+      .map(k => parseFloat(k.compliancePercentage || '0'))
+      .filter(v => !isNaN(v) && isFinite(v));
+
+    const avgCompliance = validComplianceValues.length > 0
+      ? validComplianceValues.reduce((acc, v) => acc + v, 0) / validComplianceValues.length
+      : 0;
 
     return { total, complies, alert, not_compliant, avgCompliance };
   }, [kpis]);
