@@ -6,7 +6,7 @@
 
 1. Ve a https://platform.openai.com/api-keys
 2. Inicia sesión con tu cuenta de OpenAI
-3. Busca la clave que comienza con `sk-proj-... (revisa tus claves activas en OpenAI)`
+3. Busca la clave que comienza con `sk-proj-...` (revisa tus claves activas en OpenAI)
 4. Haz clic en "Revoke" o "Delete" para revocar la clave
 5. **IMPORTANTE**: Anota el nombre/descripción de la clave antes de revocarla (si la tienes) para identificar dónde se usa
 

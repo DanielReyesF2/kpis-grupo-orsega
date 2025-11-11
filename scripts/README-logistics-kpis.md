@@ -48,46 +48,47 @@ Sistema de actualización automática de KPIs de Logística mediante el uso del 
 
 ## 📝 Pasos Pendientes
 
-### 1. Crear KPIs en la Base de Datos
+### Opción 1: Setup Completo (TODO EN UNO) ⭐ RECOMENDADO
 
-Ejecuta el script SQL:
+Ejecuta el script que hace todo automáticamente:
 
 ```bash
-# Edita el archivo primero para reemplazar [USER_ID_THALIA] y [COMPANY_ID]
-nano scripts/create-logistics-kpis.sql
-
-# Luego ejecútalo en Neon (reemplaza con tu connection string)
-psql "postgresql://neondb_owner:npg_xxx@ep-xxx.aws.neon.tech/neondb?sslmode=require" < scripts/create-logistics-kpis.sql
+# Ejecuta en Neon (reemplaza con tu connection string)
+psql "postgresql://tu-connection-string" < scripts/setup-logistics-kpis-complete.sql
 ```
 
-**Información necesaria:**
-- **[USER_ID_THALIA]**: ID del usuario de Thalia Rodríguez en tabla `User`
-- **[COMPANY_ID]**: ID de la empresa (1=Digocel, 2=Orsega)
+Este script hace:
+- ✅ Agrega 3 columnas a tabla `shipments`
+- ✅ Crea 3 KPIs para Dura International (ID: 1)
+- ✅ Crea 3 KPIs para Grupo Orsega (ID: 2)
+- ✅ Muestra resumen de verificación
 
-Para obtener estos IDs:
+**Total: 6 KPIs creados automáticamente**
+
+### Opción 2: Paso por Paso
+
+Si prefieres hacerlo manualmente:
+
+**1. Agregar columnas a shipments:**
 ```sql
--- Ver usuarios
-SELECT id, name, email FROM "User" WHERE name ILIKE '%thalia%';
-
--- Ver empresas
-SELECT id, name FROM "Company";
-```
-
-### 2. Agregar Columnas a Tabla Shipments
-
-Ejecuta esta migración en Neon:
-
-```sql
--- Agregar columnas para KPIs de Logística
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS transport_cost REAL;
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS in_route_at TIMESTAMP;
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
-
--- Verificar
-\d shipments
 ```
 
-### 3. Deploy a Producción
+**2. Crear KPIs para Dura International:**
+```bash
+psql "postgresql://tu-connection-string" < scripts/create-logistics-kpis-dura.sql
+```
+
+**3. Crear KPIs para Grupo Orsega:**
+```bash
+psql "postgresql://tu-connection-string" < scripts/create-logistics-kpis-orsega.sql
+```
+
+---
+
+### Deploy a Producción
 
 ```bash
 # 1. Commit cambios
@@ -103,7 +104,7 @@ git push origin claude/app-audit-review-011CUyUxRrpPskEUWSVZ9AGM
 # 4. Railway auto-deployará
 ```
 
-### 4. Testing
+### Testing
 
 Una vez en producción:
 
