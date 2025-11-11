@@ -2,17 +2,26 @@
 -- Script para crear KPIs de Logística automatizados
 -- =====================================================
 --
+-- CONFIGURACIÓN:
+-- - Usuario: Thalia Rodríguez (ID: 7)
+-- - Se crearán KPIs para AMBAS empresas (ejecutar 2 veces, una por empresa)
+--
 -- INSTRUCCIONES:
--- 1. Reemplaza [USER_ID_THALIA] con el ID real de Thalia
--- 2. Reemplaza [COMPANY_ID] con el ID de la empresa (1=Digocel, 2=Orsega)
--- 3. Ejecuta este script en tu base de datos Neon
+-- 1. Primero obtén los IDs de las empresas ejecutando:
+--    SELECT id, name FROM "Company" ORDER BY id;
+--
+-- 2. Reemplaza [COMPANY_ID] con el ID de cada empresa:
+--    - Grupo Orsega: ?
+--    - Dura International: ?
+--
+-- 3. Ejecuta este script UNA VEZ por cada empresa
 --
 -- NOTA: Estos KPIs se actualizarán automáticamente cuando
 -- Thalia mueva tarjetas del Kanban a "Entregado"
 -- =====================================================
 
--- KPI 1: Costo de Transporte
--- Mide el costo total mensual de todos los envíos
+-- KPI 1: Costo de Transporte (PROMEDIO POR ENVÍO)
+-- Mide el costo promedio por transporte individual
 INSERT INTO "Kpi" (
   name,
   description,
@@ -25,10 +34,10 @@ INSERT INTO "Kpi" (
   "updatedAt"
 ) VALUES (
   'Costo de Transporte',
-  'Costo total mensual de envíos (MXN)',
-  '50000', -- Meta: $50,000 MXN/mes (ajustar según necesidad)
-  [COMPANY_ID], -- Reemplazar con ID de empresa
-  [USER_ID_THALIA], -- Reemplazar con ID de Thalia
+  'Costo promedio por envío (MXN)',
+  '5000', -- Meta por defecto: $5,000 MXN por transporte (EDITABLE DESDE UI)
+  [COMPANY_ID], -- Reemplazar con ID de empresa (Orsega o Dura)
+  7, -- Thalia Rodríguez
   'Logística',
   'monthly',
   NOW(),
@@ -50,9 +59,9 @@ INSERT INTO "Kpi" (
 ) VALUES (
   'Tiempo de Preparación',
   'Tiempo promedio desde creación hasta envío (horas)',
-  '24', -- Meta: 24 horas
-  [COMPANY_ID], -- Reemplazar con ID de empresa
-  [USER_ID_THALIA], -- Reemplazar con ID de Thalia
+  '24', -- Meta: 24 horas (EDITABLE DESDE UI)
+  [COMPANY_ID], -- Reemplazar con ID de empresa (Orsega o Dura)
+  7, -- Thalia Rodríguez
   'Logística',
   'monthly',
   NOW(),
@@ -74,9 +83,9 @@ INSERT INTO "Kpi" (
 ) VALUES (
   'Tiempo de Entrega',
   'Tiempo promedio desde envío hasta entrega (horas)',
-  '48', -- Meta: 48 horas (2 días)
-  [COMPANY_ID], -- Reemplazar con ID de empresa
-  [USER_ID_THALIA], -- Reemplazar con ID de Thalia
+  '48', -- Meta: 48 horas (EDITABLE DESDE UI)
+  [COMPANY_ID], -- Reemplazar con ID de empresa (Orsega o Dura)
+  7, -- Thalia Rodríguez
   'Logística',
   'monthly',
   NOW(),
@@ -95,5 +104,10 @@ SELECT
   category
 FROM "Kpi"
 WHERE category = 'Logística'
-ORDER BY id DESC
-LIMIT 3;
+AND "userId" = 7
+ORDER BY "companyId", id DESC;
+
+-- =====================================================
+-- DESPUÉS DE CREAR PARA AMBAS EMPRESAS:
+-- Deberías ver 6 KPIs en total (3 por cada empresa)
+-- =====================================================

@@ -186,13 +186,16 @@ async function updateLogisticsKPIs(companyId: number) {
       console.log(`[KPI Logística] No hay envíos entregados este mes, usando valores en 0`);
     }
 
-    // 2. CALCULAR COSTO TOTAL DE TRANSPORTE
-    const totalCost = monthlyShipments.reduce((sum, s) => {
-      const cost = s.transportCost ? parseFloat(s.transportCost.toString()) : 0;
-      return sum + cost;
-    }, 0);
+    // 2. CALCULAR COSTO PROMEDIO POR TRANSPORTE
+    const transportCosts = monthlyShipments
+      .filter(s => s.transportCost && parseFloat(s.transportCost.toString()) > 0)
+      .map(s => parseFloat(s.transportCost!.toString()));
 
-    console.log(`[KPI Logística] Costo total de transporte: $${totalCost.toFixed(2)} MXN`);
+    const avgTransportCost = transportCosts.length > 0
+      ? transportCosts.reduce((a, b) => a + b, 0) / transportCosts.length
+      : 0;
+
+    console.log(`[KPI Logística] Costo promedio por transporte: $${avgTransportCost.toFixed(2)} MXN (${transportCosts.length} muestras)`);
 
     // 3. CALCULAR TIEMPO PROMEDIO DE PREPARACIÓN (createdAt → inRouteAt)
     const preparationTimes = monthlyShipments
@@ -228,18 +231,18 @@ async function updateLogisticsKPIs(companyId: number) {
     const kpiUpdates = [
       {
         name: 'Costo de Transporte',
-        value: totalCost.toFixed(2),
-        goal: 50000 // Meta por defecto, se puede ajustar
+        value: avgTransportCost.toFixed(2),
+        goal: 5000 // Meta por defecto: $5,000 MXN por transporte (editable desde UI)
       },
       {
         name: 'Tiempo de Preparación',
         value: avgPreparationTime.toFixed(2),
-        goal: 24 // Meta: 24 horas
+        goal: 24 // Meta: 24 horas (editable desde UI)
       },
       {
         name: 'Tiempo de Entrega',
         value: avgDeliveryTime.toFixed(2),
-        goal: 48 // Meta: 48 horas
+        goal: 48 // Meta: 48 horas (editable desde UI)
       }
     ];
 
