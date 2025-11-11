@@ -156,7 +156,7 @@ export function KpiExtendedDetailsModal({ kpiId, isOpen, onClose }: KpiExtendedD
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Obtener datos del KPI
-  const { data: kpi, isLoading: kpiLoading } = useQuery({
+  const { data: kpi, isLoading: kpiLoading } = useQuery<any>({
     queryKey: [`/api/kpis/${kpiId}`],
     enabled: isOpen && !!kpiId,
   });

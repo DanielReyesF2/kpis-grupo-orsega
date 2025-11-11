@@ -70,7 +70,7 @@ function Router() {
       </Route>
 
       <Route path="/team-management">
-        <ProtectedRoute>
+        <ProtectedRoute adminOnly>
           <SystemAdminPage />
         </ProtectedRoute>
       </Route>

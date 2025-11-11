@@ -8,9 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -34,16 +31,10 @@ import {
   User,
   MapPin,
   Filter,
-  Edit3,
   CheckCircle,
   AlertTriangle,
   XCircle,
   Users,
-  Plus,
-  Edit,
-  Trash2,
-  UserPlus,
-  Settings,
   Mail,
   BarChart3,
   Award,
@@ -478,7 +469,7 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
 export default function KpiControlCenter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user, isAdmin, isMarioOrAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [location] = useLocation();
   
   // Estados para KPIs - 🔧 FORZAR Grupo Orsega por defecto
@@ -499,10 +490,6 @@ export default function KpiControlCenter() {
   const [showAllKpis, setShowAllKpis] = useState(false);
   const [showAllCharts, setShowAllCharts] = useState(false);
 
-  // Estados para edición de KPIs desde modal de usuario
-  const [showEditKpiDialog, setShowEditKpiDialog] = useState(false);
-  const [editingUserKpi, setEditingUserKpi] = useState<Kpi | null>(null);
-  
   // Estados para modal de colaborador
   const [selectedCollaborator, setSelectedCollaborator] = useState<CollaboratorScore | null>(null);
   const [showCollaboratorModal, setShowCollaboratorModal] = useState(false);
@@ -512,14 +499,12 @@ export default function KpiControlCenter() {
   const { data: companies, isLoading: companiesLoading } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
     staleTime: 5 * 60 * 1000, // Los datos son válidos por 5 minutos
-    enabled: !!user,
   });
 
   // Obtener áreas
   const { data: areas } = useQuery<Area[]>({
     queryKey: ['/api/areas'],
     staleTime: 5 * 60 * 1000, // Los datos son válidos por 5 minutos
-    enabled: !!user,
   });
 
   // Obtener todos los KPIs (con actualización optimizada)
@@ -527,7 +512,6 @@ export default function KpiControlCenter() {
     queryKey: ['/api/kpis', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
     refetchInterval: 30000, // Actualizar cada 30 segundos
-    enabled: !!user,
   });
 
   // Obtener valores de KPIs (con actualización balanceada)
@@ -535,7 +519,6 @@ export default function KpiControlCenter() {
     queryKey: ['/api/kpi-values'],
     staleTime: 1 * 60 * 1000, // Los datos son válidos por 1 minuto
     refetchInterval: 15000, // Actualizar cada 15 segundos (más crítico)
-    enabled: !!user,
   });
 
   // Obtener rendimiento de colaboradores
@@ -851,26 +834,6 @@ export default function KpiControlCenter() {
     setIsExtendedDetailsModalOpen(true);
   };
 
-  // Mutaciones para edición de KPIs
-  const updateKpiMutation = useMutation({
-    mutationFn: ({ id, ...kpiData }: { id: number } & Partial<Kpi>) => 
-      apiRequest('PUT', `/api/kpis/${id}`, kpiData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
-      setShowEditKpiDialog(false);
-      setEditingUserKpi(null);
-      toast({ title: 'KPI actualizado exitosamente' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Error al actualizar KPI', description: error.message, variant: 'destructive' });
-    },
-  });
-
-  // Función para editar KPI
-  const handleEditKpi = (kpi: Kpi) => {
-    setEditingUserKpi(kpi);
-    setShowEditKpiDialog(true);
-  };
 
   if (companiesLoading || kpisLoading) {
     return (
@@ -1245,124 +1208,6 @@ export default function KpiControlCenter() {
         />
 
 
-        {/* Modal de Edición de KPI */}
-        <Dialog open={showEditKpiDialog} onOpenChange={setShowEditKpiDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Editar KPI: {editingUserKpi?.name}
-              </DialogTitle>
-            </DialogHeader>
-            
-            {editingUserKpi && (
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const updateData = {
-                    id: editingUserKpi.id,
-                    name: formData.get('name') as string,
-                    description: formData.get('description') as string,
-                    target: formData.get('target') as string,
-                    unit: formData.get('unit') as string,
-                    frequency: formData.get('frequency') as string,
-                    responsible: formData.get('responsible') as string,
-                  };
-                  updateKpiMutation.mutate(updateData);
-                }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Nombre del KPI</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      defaultValue={editingUserKpi.name}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="unit">Unidad de Medida</Label>
-                    <Input
-                      id="unit"
-                      name="unit"
-                      defaultValue={editingUserKpi.unit || ''}
-                      placeholder="%, días, unidades, kg, etc."
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Descripción</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    defaultValue={editingUserKpi.description || ''}
-                    rows={3}
-                    placeholder="Describe el objetivo y metodología del KPI"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="target">🎯 Meta/Objetivo</Label>
-                    <Input
-                      id="target"
-                      name="target"
-                      defaultValue={editingUserKpi.target || ''}
-                      placeholder="100%, 50, 2.5, etc."
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="frequency">Frecuencia</Label>
-                    <Select name="frequency" defaultValue={editingUserKpi.frequency || undefined}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Diaria</SelectItem>
-                        <SelectItem value="weekly">Semanal</SelectItem>
-                        <SelectItem value="monthly">Mensual</SelectItem>
-                        <SelectItem value="quarterly">Trimestral</SelectItem>
-                        <SelectItem value="yearly">Anual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="responsible">Responsable</Label>
-                  <Input
-                    id="responsible"
-                    name="responsible"
-                    defaultValue={editingUserKpi.responsible || ''}
-                    placeholder="Nombre del responsable o cargo"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setShowEditKpiDialog(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={updateKpiMutation.isPending}
-                  >
-                    {updateKpiMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );

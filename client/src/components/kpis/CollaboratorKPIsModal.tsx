@@ -25,7 +25,7 @@ export function CollaboratorKPIsModal({
   onUpdateKpi,
   onViewDetails
 }: CollaboratorKPIsModalProps) {
-  const [sortBy, setSortBy] = useState<'compliance' | 'name' | 'status'>('compliance');
+  const [sortBy, setSortBy] = useState<'compliance' | 'name' | 'status' | 'trend'>('compliance');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Ordenar KPIs - validación dentro del useMemo

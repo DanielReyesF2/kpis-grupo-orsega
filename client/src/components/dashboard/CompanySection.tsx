@@ -9,6 +9,7 @@ import { KpiCard } from './KpiCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { KpiStatus } from '@/lib/utils/kpi-status';
 import { KpiDetailDialog } from '../kpis/KpiDetailDialog';
+import type { Company, Area } from '@shared/schema';
 
 interface CompanySectionProps {
   companyId: number;
@@ -30,12 +31,12 @@ export function CompanySection({
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
 
   // Fetch company
-  const { data: company, isLoading: isLoadingCompany } = useQuery({
+  const { data: company, isLoading: isLoadingCompany } = useQuery<Company>({
     queryKey: [`/api/companies/${companyId}`],
   });
 
   // Fetch areas for this company
-  const { data: areas, isLoading: isLoadingAreas } = useQuery({
+  const { data: areas, isLoading: isLoadingAreas } = useQuery<Area[]>({
     queryKey: [`/api/areas`, { companyId }],
     enabled: !!company,
   });
@@ -77,9 +78,9 @@ export function CompanySection({
     };
 
     // Ordenar las áreas según el orden especificado
-    return filteredAreas.sort((a, b) => {
-      const orderA = areaOrder[a.name] || 999;
-      const orderB = areaOrder[b.name] || 999;
+    return filteredAreas.sort((a: Area, b: Area) => {
+      const orderA = areaOrder[a.name as keyof typeof areaOrder] || 999;
+      const orderB = areaOrder[b.name as keyof typeof areaOrder] || 999;
       return orderA - orderB;
     });
   }, [kpis, areas, companyId]);

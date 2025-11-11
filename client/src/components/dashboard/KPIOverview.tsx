@@ -44,7 +44,7 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
     queryKey: ['/api/kpi-overview'],
   });
 
-  const { data: companies } = useQuery({
+  const { data: companies } = useQuery<any[]>({
     queryKey: ['/api/companies'],
   });
 

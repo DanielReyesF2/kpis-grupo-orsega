@@ -40,7 +40,7 @@ export default function SalesTargetsCard() {
   const loadTargets = useCallback(() => {
     console.log("Cargando objetivos de ventas...", { kpis, companies });
     
-    if (kpis?.length > 0 && companies?.length > 0) {
+    if (Array.isArray(kpis) && kpis.length > 0 && Array.isArray(companies) && companies.length > 0) {
       const salesTargets: CompanyTarget[] = [];
       
       // Intentar recuperar valores almacenados localmente
@@ -96,8 +96,8 @@ export default function SalesTargetsCard() {
             console.log(`Usando orsegaAnnualTarget para ${company.name}:`, annualTargetNumeric);
           }
           // 2. Si no hay valor almacenado, usar el valor predeterminado correcto
-          else if (defaultTargets[company.id]) {
-            annualTargetNumeric = defaultTargets[company.id];
+          else if (defaultTargets[company.id as keyof typeof defaultTargets]) {
+            annualTargetNumeric = defaultTargets[company.id as keyof typeof defaultTargets];
             console.log(`Usando objetivo predeterminado para ${company.name}:`, annualTargetNumeric);
           }
           // 3. Si no hay valor predeterminado, extraer del KPI
