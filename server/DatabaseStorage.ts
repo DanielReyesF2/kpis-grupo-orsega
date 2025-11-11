@@ -915,12 +915,24 @@ export class DatabaseStorage implements IStorage {
 
       const resolved = this.resolveCompany(companyIdInput);
       const { month, year } = this.extractMonthYear(kpiValue);
-      const numericValue =
-        typeof kpiValue.value === "string" ? parseFloat(kpiValue.value) : Number(kpiValue.value);
+
+      // ✅ FIX CRÍTICO: Limpiar el valor para remover caracteres no numéricos
+      // Esto previene errores como "invalid input syntax for type numeric: 100.0%"
+      let cleanValue: string | number = kpiValue.value;
+      if (typeof cleanValue === "string") {
+        // Remover símbolos de moneda, porcentajes, comas, espacios, etc.
+        // Solo mantener dígitos, punto decimal y signo negativo
+        cleanValue = cleanValue.replace(/[^0-9.-]/g, '');
+        console.log(`[createKpiValue] Valor original: "${kpiValue.value}" → limpio: "${cleanValue}"`);
+      }
+
+      const numericValue = typeof cleanValue === "string" ? parseFloat(cleanValue) : Number(cleanValue);
 
       if (!Number.isFinite(numericValue)) {
-        throw new Error(`El valor del KPI debe ser numérico. Recibido: ${kpiValue.value}`);
+        throw new Error(`El valor del KPI debe ser numérico. Valor original: "${kpiValue.value}", valor limpio: "${cleanValue}"`);
       }
+
+      console.log(`[createKpiValue] Valor numérico final: ${numericValue}`);
 
       return await this.upsertCompanyKpiValueNormalized(resolved, {
         kpiId: kpiValue.kpiId,
