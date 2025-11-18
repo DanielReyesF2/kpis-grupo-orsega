@@ -255,7 +255,7 @@ export function DofChart() {
               <FileText className="h-4 w-4 text-[#ea580c]" />
               Comparativa de Tipos de Cambio
             </CardTitle>
-            <CardDescription className="text-xs mt-1">Compara diferentes fuentes de tipo de cambio</CardDescription>
+            <CardDescription className="text-sm mt-1 font-medium text-foreground/80">Compara diferentes fuentes de tipo de cambio</CardDescription>
           </div>
           <Select value={fxPeriodDays.toString()} onValueChange={(value) => setFxPeriodDays(parseInt(value))}>
             <SelectTrigger className="w-[120px] h-9">
