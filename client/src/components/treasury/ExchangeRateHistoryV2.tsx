@@ -1,11 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { format, subDays, subMonths, subYears, parseISO } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { PeriodSelector, type PeriodOption } from './PeriodSelector';
-import { SourceFilter, type SourceOption } from './SourceFilter';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface RangeDataPoint {
@@ -29,41 +27,18 @@ interface RateHistoryEntry {
 }
 
 export function ExchangeRateHistoryV2() {
-  const [period, setPeriod] = useState<PeriodOption>('1m');
-  const [selectedSources, setSelectedSources] = useState<SourceOption[]>(['monex', 'santander', 'dof']);
-  const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
-
-  // Calcular fechas según periodo seleccionado
+  // Configuración simplificada: último mes, todas las fuentes
+  const selectedSources = ['monex', 'santander', 'dof'];
+  
+  // Calcular fechas: último mes
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-    
-    if (dateRange) {
-      return dateRange;
-    }
+    return { startDate: subDays(today, 30), endDate: today };
+  }, []);
 
-    switch (period) {
-      case '1w':
-        return { startDate: subDays(today, 7), endDate: today };
-      case '1m':
-        return { startDate: subDays(today, 30), endDate: today };
-      case '3m':
-        return { startDate: subMonths(today, 3), endDate: today };
-      case '6m':
-        return { startDate: subMonths(today, 6), endDate: today };
-      case '1y':
-        return { startDate: subYears(today, 1), endDate: today };
-      default:
-        return { startDate: subDays(today, 30), endDate: today };
-    }
-  }, [period, dateRange]);
-
-  // Determinar intervalo de agregación según periodo
-  const interval = useMemo(() => {
-    if (period === '1w') return 'hour';
-    if (period === '1m') return 'day';
-    return 'day';
-  }, [period]);
+  // Intervalo de agregación: día
+  const interval = 'day';
 
   // Query para datos de compra
   const { data: buyData, isLoading: isLoadingBuy } = useQuery<RangeDataPoint[]>({
@@ -144,48 +119,29 @@ export function ExchangeRateHistoryV2() {
       }
     });
 
-    // Ordenar por fecha (más reciente primero)
-    return Array.from(entryMap.values()).sort((a, b) => {
-      const dateA = a.timestamp ? new Date(a.timestamp) : new Date(a.date);
-      const dateB = b.timestamp ? new Date(b.timestamp) : new Date(b.date);
-      return dateB.getTime() - dateA.getTime();
-    });
+    // Ordenar por fecha (más reciente primero) y limitar a 15 entradas
+    return Array.from(entryMap.values())
+      .sort((a, b) => {
+        const dateA = a.timestamp ? new Date(a.timestamp) : new Date(a.date);
+        const dateB = b.timestamp ? new Date(b.timestamp) : new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, 15); // Limitar a las últimas 15 entradas para reducir scroll
   }, [buyData, sellData]);
 
   // Colores y nombres de fuentes
   const sourceConfig = {
-    santander: { label: 'Santander', color: '#16a34a', bgColor: 'bg-green-50 dark:bg-green-950/20' },
-    monex: { label: 'MONEX', color: '#2563eb', bgColor: 'bg-blue-50 dark:bg-blue-950/20' },
-    dof: { label: 'DOF', color: '#ea580c', bgColor: 'bg-orange-50 dark:bg-orange-950/20' },
+    santander: { label: 'Santander', color: '#16a34a', bgColor: 'bg-green-50 dark:bg-green-800/5' },
+    monex: { label: 'MONEX', color: '#2563eb', bgColor: 'bg-blue-50 dark:bg-blue-800/5' },
+    dof: { label: 'DOF', color: '#ea580c', bgColor: 'bg-orange-50 dark:bg-orange-800/5' },
   };
 
   const isLoading = isLoadingBuy || isLoadingSell;
 
   return (
-    <div className="space-y-6">
-      {/* Filtros */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <PeriodSelector
-          value={period}
-          onChange={(p) => {
-            setPeriod(p);
-            if (p !== 'custom') {
-              setDateRange(null);
-            }
-          }}
-          onCustomRangeChange={(start, end) => {
-            setDateRange({ startDate: start, endDate: end });
-          }}
-        />
-        <SourceFilter
-          selectedSources={selectedSources}
-          onChange={setSelectedSources}
-          className="w-full md:w-auto"
-        />
-      </div>
-
-      {/* Historial en tarjetas */}
-      <div className="space-y-4">
+    <div className="space-y-4">
+      {/* Historial en tarjetas - sin filtros */}
+      <div className="space-y-3">
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
@@ -199,22 +155,20 @@ export function ExchangeRateHistoryV2() {
               const previousEntry = historyEntries[index + 1];
               
               return (
-                <Card key={entry.timestamp || entry.date} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    {/* Fecha y hora */}
-                    <div className="flex items-center justify-between mb-4">
+                <Card key={entry.timestamp || entry.date} className="overflow-hidden border">
+                  <CardContent className="p-3">
+                    {/* Fecha y hora - más compacto */}
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">
-                          {interval === 'hour' && entry.hour
-                            ? `${format(entryDate, "dd 'de' MMMM, yyyy", { locale: es })} - ${entry.hour}`
-                            : format(entryDate, "dd 'de' MMMM, yyyy", { locale: es })}
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="font-medium text-sm">
+                          {format(entryDate, "dd MMM yyyy", { locale: es })}
                         </span>
                       </div>
                     </div>
 
-                    {/* Fuentes */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Fuentes - diseño más compacto */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {selectedSources.map(sourceKey => {
                         const source = entry.sources[sourceKey];
                         if (!source || (!source.buy && !source.sell)) return null;
@@ -233,29 +187,29 @@ export function ExchangeRateHistoryV2() {
                         return (
                           <div
                             key={sourceKey}
-                            className={`rounded-lg p-3 border ${config.bgColor}`}
-                            style={{ borderColor: config.color + '40' }}
+                            className={`rounded-md p-2.5 border ${config.bgColor}`}
+                            style={{ borderColor: config.color + '30' }}
                           >
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-1.5 mb-1.5">
                               <div
-                                className="w-3 h-3 rounded-full"
+                                className="w-2.5 h-2.5 rounded-full"
                                 style={{ backgroundColor: config.color }}
                               />
-                              <span className="font-semibold text-sm">{config.label}</span>
+                              <span className="font-medium text-xs">{config.label}</span>
                             </div>
                             
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                               {/* Compra */}
                               {source.buy && (
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-muted-foreground">Compra</span>
                                   <div className="flex items-center gap-1">
-                                    <span className="font-semibold">${source.buy.toFixed(4)}</span>
+                                    <span className="font-semibold text-xs">${source.buy.toFixed(4)}</span>
                                     {buyTrend && (
                                       <>
-                                        {buyTrend === 'up' && <TrendingUp className="h-3 w-3 text-green-600" />}
-                                        {buyTrend === 'down' && <TrendingDown className="h-3 w-3 text-red-600" />}
-                                        {buyTrend === 'stable' && <Minus className="h-3 w-3 text-gray-500" />}
+                                        {buyTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
+                                        {buyTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
+                                        {buyTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
                                       </>
                                     )}
                                   </div>
@@ -267,12 +221,12 @@ export function ExchangeRateHistoryV2() {
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-muted-foreground">Venta</span>
                                   <div className="flex items-center gap-1">
-                                    <span className="font-semibold">${source.sell.toFixed(4)}</span>
+                                    <span className="font-semibold text-xs">${source.sell.toFixed(4)}</span>
                                     {sellTrend && (
                                       <>
-                                        {sellTrend === 'up' && <TrendingUp className="h-3 w-3 text-green-600" />}
-                                        {sellTrend === 'down' && <TrendingDown className="h-3 w-3 text-red-600" />}
-                                        {sellTrend === 'stable' && <Minus className="h-3 w-3 text-gray-500" />}
+                                        {sellTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
+                                        {sellTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
+                                        {sellTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
                                       </>
                                     )}
                                   </div>

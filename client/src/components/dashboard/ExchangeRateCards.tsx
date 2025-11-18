@@ -259,7 +259,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       gradient: string;
     }> = {
       'Santander': {
-        bg: 'bg-green-100 dark:bg-green-900/20',
+        bg: 'bg-green-50 dark:bg-green-800/5',
         border: 'border-green-300 dark:border-green-700',
         text: 'text-green-700 dark:text-green-400',
         icon: Building2,
@@ -267,7 +267,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
         gradient: 'from-green-600 to-green-700',
       },
       'MONEX': {
-        bg: 'bg-blue-100 dark:bg-blue-900/20',
+        bg: 'bg-blue-50 dark:bg-blue-800/5',
         border: 'border-blue-300 dark:border-blue-700',
         text: 'text-blue-700 dark:text-blue-400',
         icon: DollarSign,
@@ -275,7 +275,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
         gradient: 'from-blue-600 to-blue-700',
       },
       'DOF': {
-        bg: 'bg-orange-100 dark:bg-orange-900/20',
+        bg: 'bg-orange-50 dark:bg-orange-800/5',
         border: 'border-orange-300 dark:border-orange-700',
         text: 'text-orange-700 dark:text-orange-400',
         icon: FileText,
@@ -318,7 +318,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
     
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm space-y-2">
+      <div className="bg-white dark:bg-gray-800/30 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm space-y-2">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
             {type === 'buy' ? 'Compra' : 'Venta'}
@@ -362,7 +362,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     const sellAnimated = valueAnimations[`${source}-sell`] || false;
     
     return (
-      <Card className={`border ${config.border} shadow-md hover:shadow-lg transition-shadow bg-white dark:bg-gray-900 overflow-hidden`}>
+      <Card className={`border ${config.border} shadow-md hover:shadow-lg transition-shadow bg-white dark:bg-gray-800/50 overflow-hidden`}>
         <CardHeader className="pb-3 pt-4 px-4">
           {/* Header con icono y título */}
           <div className="flex items-center gap-3 mb-3">

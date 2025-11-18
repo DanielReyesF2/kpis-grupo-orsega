@@ -9,7 +9,8 @@ import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { FilteredKpisModal } from '@/components/kpis/FilteredKpisModal';
 import { SalesSummary } from '@/components/dashboard/SalesSummary';
 import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
-import { DofChart } from '@/components/dashboard/DofChart';
+import { ExchangeRateCards } from '@/components/dashboard/ExchangeRateCards';
+import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,6 +63,10 @@ export default function Dashboard() {
   
   // Estado para la empresa seleccionada en el gráfico de histórico de ventas (dentro del div de bienvenida)
   const [selectedChartCompany, setSelectedChartCompany] = useState<number>(1); // Por defecto Dura
+
+  // Estado para el formulario de tipos de cambio
+  const [showRateForm, setShowRateForm] = useState(false);
+  const [formSource, setFormSource] = useState<string | undefined>(undefined);
 
   // Fetch all companies with optimized refresh
   const { data: companies, isLoading: isLoadingCompanies } = useQuery<Company[]>({
@@ -325,9 +330,24 @@ export default function Dashboard() {
       </div>
 
       {/* Comparativa de Tipos de Cambio */}
-      <div className="mb-6 sm:mb-12" data-onboarding="dof-chart">
-        <DofChart />
+      <div className="mb-6 sm:mb-12" data-onboarding="exchange-rates">
+        <ExchangeRateCards 
+          onUpdateRate={(source) => {
+            setFormSource(source);
+            setShowRateForm(true);
+          }}
+        />
       </div>
+
+      {/* Modal de formulario para actualizar tipo de cambio */}
+      <ExchangeRateForm
+        isOpen={showRateForm}
+        onClose={() => {
+          setShowRateForm(false);
+          setFormSource(undefined);
+        }}
+        source={formSource}
+      />
 
       {/* Preview de Logística */}
       <div className="mb-6 sm:mb-12" data-onboarding="logistics-preview">

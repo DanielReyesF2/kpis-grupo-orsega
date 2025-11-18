@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Send, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -22,7 +21,8 @@ export function DofChart() {
   
   const { user } = useAuth();
   const { toast } = useToast();
-  const [fxPeriodDays, setFxPeriodDays] = useState(90);
+  // Periodo fijo: 90 días (sin filtro para simplificar)
+  const fxPeriodDays = 90;
   
   // Forzar log inmediato
   useEffect(() => {
@@ -41,9 +41,9 @@ export function DofChart() {
   const [mxnAmount, setMxnAmount] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
 
-  // Obtener datos de las 3 fuentes
+  // Obtener datos de las 3 fuentes - periodo fijo de 90 días
   const { data: monexSeries, isLoading: monexLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=MONEX&days=${fxPeriodDays}`],
+    queryKey: [`/api/fx/source-series?source=MONEX&days=90`],
     staleTime: 0, // No cachear para obtener datos frescos
     gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
@@ -52,7 +52,7 @@ export function DofChart() {
   });
 
   const { data: santanderSeries, isLoading: santanderLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=Santander&days=${fxPeriodDays}`],
+    queryKey: [`/api/fx/source-series?source=Santander&days=90`],
     staleTime: 0, // No cachear para obtener datos frescos
     gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
@@ -61,7 +61,7 @@ export function DofChart() {
   });
 
   const { data: dofSeries, isLoading: dofLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=DOF&days=${fxPeriodDays}`],
+    queryKey: [`/api/fx/source-series?source=DOF&days=90`],
     staleTime: 0, // No cachear para obtener datos frescos
     gcTime: 0, // No mantener en caché
     refetchInterval: 30000,
@@ -247,24 +247,12 @@ export function DofChart() {
   return (
     <Card className="border-0 shadow-lg">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[#ea580c]" />
-              Comparativa de Tipos de Cambio
-            </CardTitle>
-            <CardDescription className="text-sm mt-1 font-medium text-foreground/80">Compara diferentes fuentes de tipo de cambio</CardDescription>
-          </div>
-          <Select value={fxPeriodDays.toString()} onValueChange={(value) => setFxPeriodDays(parseInt(value))}>
-            <SelectTrigger className="w-[120px] h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="30">1 Mes</SelectItem>
-              <SelectItem value="60">2 Meses</SelectItem>
-              <SelectItem value="90">3 Meses</SelectItem>
-            </SelectContent>
-          </Select>
+        <div>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#ea580c]" />
+            Histórico de Tipos de Cambio
+          </CardTitle>
+          <CardDescription className="text-sm mt-1 font-medium text-foreground/80">Último mes de tipos de cambio</CardDescription>
         </div>
       </CardHeader>
       {isLoading ? (
@@ -273,14 +261,6 @@ export function DofChart() {
         </CardContent>
       ) : (
         <CardContent className="pt-3">
-          {/* Histórico de Tipos de Cambio */}
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-base font-semibold text-foreground">Histórico de Tipos de Cambio</h3>
-            </div>
-          </div>
-          
           <ExchangeRateHistory />
         </CardContent>
       )}
