@@ -172,7 +172,7 @@ export function CollaboratorKPIsExpanded({
                     <button className="w-full p-5 hover:bg-gray-50/50 transition-colors text-left border-b border-gray-100 last:border-b-0">
                       <div className="flex items-center justify-between gap-6">
                         {/* Información principal del KPI - Diseño horizontal */}
-                        <div className="flex-1 grid grid-cols-5 gap-6 items-center">
+                        <div className="flex-1 grid grid-cols-3 gap-6 items-center">
                           {/* Nombre del KPI */}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1">
@@ -188,12 +188,12 @@ export function CollaboratorKPIsExpanded({
                               {kpi.areaName || 'Sin área'}
                             </div>
                           </div>
-                          
+
                           {/* Valor Actual */}
                           <div>
                             <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Valor Actual</div>
                             <div className="text-lg font-bold text-gray-900">
-                              {kpi.value !== null 
+                              {kpi.value !== null
                                 ? `${kpi.value.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`
                                 : 'N/A'
                               }
@@ -202,40 +202,13 @@ export function CollaboratorKPIsExpanded({
                               )}
                             </div>
                           </div>
-                          
+
                           {/* Meta */}
                           <div>
                             <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Meta</div>
                             <div className="text-lg font-semibold text-gray-800">
                               {kpi.target}
                               {kpi.unit && <span className="text-sm font-normal text-gray-500 ml-1">{kpi.unit}</span>}
-                            </div>
-                          </div>
-                          
-                          {/* Cumplimiento */}
-                          <div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Cumplimiento</div>
-                            <div className={`text-xl font-bold ${
-                              kpi.compliancePercentage >= 100 ? 'text-green-600' :
-                              kpi.compliancePercentage >= 75 ? 'text-amber-600' :
-                              'text-red-600'
-                            }`}>
-                              {kpi.compliancePercentage.toFixed(1)}%
-                            </div>
-                          </div>
-                          
-                          {/* Barra de progreso visual */}
-                          <div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Progreso</div>
-                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                              <div 
-                                className={`h-full transition-all duration-300 ${
-                                  kpi.compliancePercentage >= 100 ? 'bg-green-500' :
-                                  kpi.compliancePercentage >= 75 ? 'bg-amber-500' :
-                                  'bg-red-500'
-                                }`}
-                                style={{ width: `${Math.min(kpi.compliancePercentage, 100)}%` }}
-                              />
                             </div>
                           </div>
                         </div>
