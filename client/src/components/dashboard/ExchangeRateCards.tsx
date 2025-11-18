@@ -10,6 +10,36 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianG
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// Función auxiliar para formatear fecha en hora de México (CDMX)
+function formatDateInMexicoTime(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Obtener los componentes de fecha/hora en zona horaria de México
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  };
+  
+  const formatter = new Intl.DateTimeFormat('es-MX', options);
+  const parts = formatter.formatToParts(dateObj);
+  
+  // Extraer las partes
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const hour = parts.find(p => p.type === 'hour')?.value || '';
+  const minute = parts.find(p => p.type === 'minute')?.value || '';
+  const second = parts.find(p => p.type === 'second')?.value || '';
+  
+  return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+}
+
 interface ExchangeRate {
   id: number;
   buy_rate: number;
@@ -210,7 +240,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     yesterday.setHours(yesterday.getHours() - 24);
     const history24h = rates.filter((r: ExchangeRate) => new Date(r.date) >= yesterday);
     
-    // Calcular lastUpdate con logging detallado
+    // Calcular lastUpdate con logging detallado (en hora de México)
     let lastUpdate: Date | null = null;
     if (latest) {
       const dateStr = latest.date;
@@ -220,11 +250,11 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
         lastUpdate = null;
       } else {
         lastUpdate = date;
-        const formatted = format(date, "dd/MM/yyyy HH:mm:ss", { locale: es });
+        const formatted = formatDateInMexicoTime(date);
         console.log(`[ExchangeRateCards] ${source} - lastUpdate final:`, {
           input: dateStr,
           parsed: date.toISOString(),
-          formatted: formatted,
+          formattedMexico: formatted,
           willDisplay: formatted
         });
       }
@@ -378,7 +408,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
           {data.lastUpdate ? (
             <div className="space-y-1.5">
               <div className="text-xs text-muted-foreground">
-                Última actualización: <span className={`font-semibold ${config.accent}`}>{format(data.lastUpdate, "dd/MM/yyyy HH:mm:ss", { locale: es })}</span>
+                Última actualización: <span className={`font-semibold ${config.accent}`}>{formatDateInMexicoTime(data.lastUpdate)}</span>
               </div>
               <Badge variant="secondary" className="text-xs">
                 {data.updateCount} actualizaciones hoy

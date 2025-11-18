@@ -78,11 +78,13 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
       // Invalidar todas las queries relacionadas con tipos de cambio (más agresivo)
       await queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["/api/fx/source-series"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates/range"], exact: false });
       
       // Forzar refetch inmediato con un pequeño delay para asegurar que el backend procesó
       setTimeout(async () => {
         await queryClient.refetchQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false });
         await queryClient.refetchQueries({ queryKey: ["/api/fx/source-series"], exact: false });
+        await queryClient.refetchQueries({ queryKey: ["/api/treasury/exchange-rates/range"], exact: false });
         console.log('[ExchangeRateForm] Queries refetched después de guardar');
       }, 500);
       
