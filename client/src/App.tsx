@@ -75,7 +75,17 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/treasury">
+      <Route path="/treasury" component={TreasuryPage}>
+        <ProtectedRoute>
+          <TreasuryPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/treasury/vouchers">
+        <ProtectedRoute>
+          <TreasuryPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/treasury/exchange-rates">
         <ProtectedRoute>
           <TreasuryPage />
         </ProtectedRoute>

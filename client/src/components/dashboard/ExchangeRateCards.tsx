@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 
 interface ExchangeRate {
   id: number;
@@ -47,11 +46,13 @@ function getEmptyRateCardData(): RateCardData {
   };
 }
 
-export function ExchangeRateCards() {
+interface ExchangeRateCardsProps {
+  onUpdateRate?: (source: string) => void; // Callback para abrir formulario desde tarjetas
+}
+
+export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {}) {
   const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  const [showRateForm, setShowRateForm] = useState(false);
-  const [formSource, setFormSource] = useState<string | undefined>(undefined);
   const [valueAnimations, setValueAnimations] = useState<Record<string, boolean>>({});
   const previousValuesRef = useRef<Record<string, { buy: number; sell: number }>>({});
 
@@ -65,10 +66,12 @@ export function ExchangeRateCards() {
 
   // Efecto para logging cuando los datos cambian
   useEffect(() => {
-    if (exchangeRates && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
+    let isMounted = true;
+    
+    if (isMounted && exchangeRates && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
       console.log('[ExchangeRateCards] Datos recibidos:', exchangeRates.length, 'registros');
       const santander = exchangeRates.filter((r: ExchangeRate) => r.source === 'Santander').sort((a: ExchangeRate, b: ExchangeRate) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-      if (santander) {
+      if (santander && isMounted) {
         console.log('[ExchangeRateCards] Último Santander:', {
           id: santander.id,
           date: santander.date,
@@ -77,23 +80,35 @@ export function ExchangeRateCards() {
         });
       }
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [exchangeRates]);
 
   // Detectar cambios y activar animaciones
   useEffect(() => {
-    if (Array.isArray(exchangeRates) && exchangeRates.length > 0) {
+    let isMounted = true;
+    const timeouts: NodeJS.Timeout[] = [];
+    
+    if (isMounted && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
       const newAnimations: Record<string, boolean> = {};
       
       ['Santander', 'MONEX', 'DOF'].forEach(source => {
         const latest = exchangeRates.find((r: ExchangeRate) => r.source === source);
-        if (!latest) return;
+        if (!latest || !isMounted) return;
         
         const key = `${source}-buy`;
         const prevBuy = previousValuesRef.current[key]?.buy;
         
         if (prevBuy !== undefined && prevBuy !== latest.buy_rate) {
           newAnimations[key] = true;
-          setTimeout(() => setValueAnimations(prev => ({ ...prev, [key]: false })), 500);
+          const timeout = setTimeout(() => {
+            if (isMounted) {
+              setValueAnimations(prev => ({ ...prev, [key]: false }));
+            }
+          }, 500);
+          timeouts.push(timeout);
         }
         
         previousValuesRef.current[key] = { buy: latest.buy_rate, sell: latest.sell_rate };
@@ -103,16 +118,26 @@ export function ExchangeRateCards() {
         
         if (prevSell !== undefined && prevSell !== latest.sell_rate) {
           newAnimations[sellKey] = true;
-          setTimeout(() => setValueAnimations(prev => ({ ...prev, [sellKey]: false })), 500);
+          const timeout = setTimeout(() => {
+            if (isMounted) {
+              setValueAnimations(prev => ({ ...prev, [sellKey]: false }));
+            }
+          }, 500);
+          timeouts.push(timeout);
         }
         
         previousValuesRef.current[sellKey] = { buy: latest.buy_rate, sell: latest.sell_rate };
       });
       
-      if (Object.keys(newAnimations).length > 0) {
+      if (isMounted && Object.keys(newAnimations).length > 0) {
         setValueAnimations(newAnimations);
       }
     }
+    
+    return () => {
+      isMounted = false;
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
   }, [exchangeRates]);
 
   // Procesar datos para cada fuente
@@ -411,28 +436,30 @@ export function ExchangeRateCards() {
                 </span>
               </div>
               
-              {/* Botones de acción */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Botones de acción - Actualizar es el principal */}
+              <div className="space-y-3 pt-2">
+                {/* Botón principal de Actualizar - MUY VISIBLE */}
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className={`border-2 ${config.border} ${config.text} hover:${config.bg} transition-all text-sm`}
+                  size="lg"
+                  className={`w-full ${config.bg} ${config.border} ${config.text} hover:opacity-90 transition-all text-base font-bold py-6 shadow-lg hover:shadow-xl transform hover:scale-[1.02] border-2`}
                   onClick={() => {
-                    setFormSource(source);
-                    setShowRateForm(true);
+                    if (onUpdateRate) {
+                      onUpdateRate(source);
+                    }
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Actualizar
+                  <Plus className="h-5 w-5 mr-2" />
+                  Actualizar {source}
                 </Button>
+                {/* Botón secundario de Ver detalle */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`border-2 ${config.border} ${config.text} hover:${config.bg} transition-all text-sm`}
+                  className={`w-full border-2 ${config.border} ${config.text} hover:${config.bg} transition-all text-sm font-medium`}
                   onClick={() => setSelectedSource(source)}
                 >
                   <Sparkles className="h-4 w-4 mr-1" />
-                  Ver detalle
+                  Ver Histórico 24h
                 </Button>
               </div>
             </>
@@ -467,7 +494,7 @@ export function ExchangeRateCards() {
         </h2>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <RateCard source="Santander" data={santanderData} isLoading={isLoading} />
         <RateCard source="MONEX" data={monexData} isLoading={isLoading} />
         <RateCard source="DOF" data={dofData} isLoading={isLoading} />
@@ -549,17 +576,6 @@ export function ExchangeRateCards() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de formulario para actualizar tipo de cambio */}
-      <ExchangeRateForm
-        isOpen={showRateForm}
-        onClose={async () => {
-          setShowRateForm(false);
-          setFormSource(undefined);
-          // Forzar refetch cuando se cierra el modal para asegurar actualización
-          await queryClient.refetchQueries({ queryKey: ['/api/treasury/exchange-rates'] });
-        }}
-        source={formSource}
-      />
     </div>
   );
 }

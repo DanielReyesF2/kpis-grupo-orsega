@@ -160,19 +160,19 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <DialogTitle className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
             Registrar Tipo de Cambio
           </DialogTitle>
-          <DialogDescription className="text-base">
-            Ingresa los nuevos valores de compra y venta
+          <DialogDescription className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
+            Ingresa los nuevos valores de compra y venta para {source ? <strong className="text-primary-700 dark:text-primary-400">{source}</strong> : 'la fuente seleccionada'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="source" className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                Fuente *
+              <Label htmlFor="source" className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Fuente <span className="text-red-600 dark:text-red-400">*</span>
               </Label>
               <Select
                 value={selectedSource}
@@ -192,15 +192,15 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="buyRate" className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded text-xs font-bold">COMPRA</span>
-                    <span className="text-sm text-muted-foreground">(USD → MXN)</span>
+                  <Label htmlFor="buyRate" className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-2">
+                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-3 py-1.5 rounded-md text-sm font-bold">COMPRA</span>
+                    <span className="text-base text-gray-700 dark:text-gray-300 font-medium">(USD → MXN)</span>
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">
                     Cuántos pesos te dan por 1 dólar
                   </p>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-gray-500 dark:text-gray-400" />
                     <Input
                       id="buyRate"
                       type="text"
@@ -210,22 +210,22 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
                         setBuyRate(value);
                       }}
                       placeholder="18.5000"
-                      className="h-12 text-lg pl-10 font-semibold border-2 border-green-300 dark:border-green-700 focus:border-green-500"
+                      className="h-14 text-xl pl-12 font-bold border-3 border-green-400 dark:border-green-600 focus:border-green-600 dark:focus:border-green-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="sellRate" className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-1 rounded text-xs font-bold">VENTA</span>
-                    <span className="text-sm text-muted-foreground">(MXN → USD)</span>
+                  <Label htmlFor="sellRate" className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-2">
+                    <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-3 py-1.5 rounded-md text-sm font-bold">VENTA</span>
+                    <span className="text-base text-gray-700 dark:text-gray-300 font-medium">(MXN → USD)</span>
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">
                     Cuántos pesos necesitas para 1 dólar
                   </p>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-gray-500 dark:text-gray-400" />
                     <Input
                       id="sellRate"
                       type="text"
@@ -235,7 +235,7 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
                         setSellRate(value);
                       }}
                       placeholder="19.5000"
-                      className="h-12 text-lg pl-10 font-semibold border-2 border-red-300 dark:border-red-700 focus:border-red-500"
+                      className="h-14 text-xl pl-12 font-bold border-3 border-red-400 dark:border-red-600 focus:border-red-600 dark:focus:border-red-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                       required
                     />
                   </div>
@@ -243,8 +243,8 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
               </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                Notas (opcional)
+              <Label htmlFor="notes" className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Notas <span className="text-gray-500 dark:text-gray-400 font-normal text-base">(opcional)</span>
               </Label>
               <Input
                 id="notes"
@@ -252,7 +252,7 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ej: Actualización de mercado matutino"
-                className="h-12 text-base"
+                className="h-12 text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-2"
               />
             </div>
           </div>

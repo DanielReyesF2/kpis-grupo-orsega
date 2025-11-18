@@ -667,6 +667,7 @@ export const scheduledPayments = pgTable("scheduled_payments", {
   approvedAt: timestamp("approved_at"),
   approvedBy: integer("approved_by"), // user_id
   paymentScheduledAt: timestamp("payment_scheduled_at"), // Fecha programada de pago
+  paymentDate: timestamp("payment_date"), // Fecha de pago (cuando se va a pagar) - obligatoria para facturas manuales
   paidAt: timestamp("paid_at"),
   paidBy: integer("paid_by"), // user_id
   // Vinculación con comprobante

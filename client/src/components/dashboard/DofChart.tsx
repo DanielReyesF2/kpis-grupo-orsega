@@ -28,7 +28,13 @@ export function DofChart() {
   
   // Forzar log inmediato
   useEffect(() => {
-    console.log('[DofChart] ✅ useEffect ejecutado - Componente está vivo');
+    let isMounted = true;
+    if (isMounted) {
+      console.log('[DofChart] ✅ useEffect ejecutado - Componente está vivo');
+    }
+    return () => {
+      isMounted = false;
+    };
   }, []);
   
   const [selectedCard, setSelectedCard] = useState<any | null>(null);

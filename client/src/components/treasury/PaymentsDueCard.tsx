@@ -14,6 +14,8 @@ interface Payment {
   currency: string;
   due_date?: string;
   dueDate?: string;
+  payment_date?: string; // ✅ Agregar paymentDate
+  paymentDate?: string; // ✅ Agregar paymentDate
   status: string;
   company_id?: number;
   companyId?: number;
@@ -27,8 +29,33 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   // Obtener pagos programados
   const { data: payments = [], isLoading } = useQuery<Payment[]>({
     queryKey: ["/api/treasury/payments"],
-    staleTime: 30000,
+    staleTime: 0, // Reducir staleTime para que siempre refetch después de invalidación
     refetchInterval: 60000,
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch("/api/treasury/payments", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch payments');
+      const data = await response.json();
+      
+      // Normalizar datos: convertir snake_case a camelCase
+      const normalizedData = data.map((payment: any) => ({
+        ...payment,
+        companyId: payment.company_id || payment.companyId,
+        supplierId: payment.supplier_id || payment.supplierId,
+        supplierName: payment.supplier_name || payment.supplierName,
+        dueDate: payment.due_date || payment.dueDate,
+        paymentDate: payment.payment_date || payment.paymentDate, // ✅ IMPORTANTE: paymentDate
+        voucherId: payment.voucher_id || payment.voucherId,
+        createdAt: payment.created_at || payment.createdAt,
+        updatedAt: payment.updated_at || payment.updatedAt,
+      }));
+      
+      return normalizedData;
+    },
   });
 
   // Log para depuración
@@ -41,14 +68,38 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   sevenDaysFromNow.setDate(today.getDate() + 7);
 
   const paymentsDue = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled") {
+    if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") {
       console.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
       return false;
     }
     
-    const dueDateStr = p.due_date || p.dueDate;
+    // ✅ PRIORIDAD: Usar paymentDate si existe, sino usar dueDate
+    // Mostrar pagos que están programados para los próximos 7 días (por paymentDate)
+    // O pagos que están vencidos (por dueDate)
+    const paymentDateStr = p.paymentDate || p.payment_date;
+    const dueDateStr = p.dueDate || p.due_date;
+    
+    // Si tiene paymentDate, usar ese para mostrar pagos programados
+    if (paymentDateStr) {
+      const paymentDate = new Date(paymentDateStr);
+      if (isNaN(paymentDate.getTime())) {
+        console.log('[PaymentsDueCard] Fecha de pago inválida:', p.id, paymentDateStr);
+        // Si paymentDate es inválido, intentar con dueDate
+        if (!dueDateStr) return false;
+      } else {
+        paymentDate.setHours(0, 0, 0, 0);
+        // Mostrar si está programado para los próximos 7 días
+        const isInRange = paymentDate <= sevenDaysFromNow && paymentDate >= today;
+        if (isInRange) {
+          console.log('[PaymentsDueCard] Pago en rango (paymentDate):', p.id, paymentDate.toISOString());
+        }
+        return isInRange;
+      }
+    }
+    
+    // Si no tiene paymentDate, usar dueDate (para pagos vencidos o antiguos)
     if (!dueDateStr) {
-      console.log('[PaymentsDueCard] Sin fecha de vencimiento:', p.id);
+      console.log('[PaymentsDueCard] Sin fecha de pago ni vencimiento:', p.id);
       return false;
     }
     
@@ -59,15 +110,16 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     }
     dueDate.setHours(0, 0, 0, 0);
     
-    // Incluir vencidos o próximos 7 días
+    // Incluir vencidos o próximos 7 días (usando dueDate como fallback)
     const isInRange = dueDate <= sevenDaysFromNow;
     if (!isInRange) {
-      console.log('[PaymentsDueCard] Fuera de rango:', p.id, dueDateStr, 'hasta', sevenDaysFromNow.toISOString());
+      console.log('[PaymentsDueCard] Fuera de rango (dueDate):', p.id, dueDateStr, 'hasta', sevenDaysFromNow.toISOString());
     }
     return isInRange;
   }).sort((a, b) => {
-    const dateA = new Date(a.due_date || a.dueDate || "").getTime();
-    const dateB = new Date(b.due_date || b.dueDate || "").getTime();
+    // Ordenar por paymentDate si existe, sino por dueDate
+    const dateA = new Date((a.paymentDate || a.payment_date || a.dueDate || a.due_date || "")).getTime();
+    const dateB = new Date((b.paymentDate || b.payment_date || b.dueDate || b.due_date || "")).getTime();
     return dateA - dateB;
   });
 

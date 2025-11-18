@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,8 +19,13 @@ import {
   Settings,
   Bell,
   User,
-  Wallet
+  Wallet,
+  ChevronDown,
+  ChevronRight,
+  Receipt,
+  DollarSign
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface NavItemProps {
   href: string;
@@ -67,6 +72,16 @@ function Sidebar() {
   const [location] = useLocation();
   const { user, isAdmin, isMarioOrAdmin, hasLogisticsAccess, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isTreasuryOpen, setIsTreasuryOpen] = useState(
+    location === "/treasury" || location.startsWith("/treasury/")
+  );
+  
+  // Auto-expandir cuando se navega a una ruta de treasury
+  useEffect(() => {
+    if (location === "/treasury" || location.startsWith("/treasury/")) {
+      setIsTreasuryOpen(true);
+    }
+  }, [location]);
 
 
   const toggleMobileMenu = () => {
@@ -165,15 +180,51 @@ function Sidebar() {
             </NavItem>
           )}
 
-          {/* Tesorería */}
-          <NavItem
-            href="/treasury"
-            icon={<Wallet className="mr-3 h-5 w-5 transition-transform duration-200" />}
-            active={location === "/treasury"}
-            onClick={closeMenu}
-          >
-            Tesorería
-          </NavItem>
+          {/* Tesorería con Submenú */}
+          <div className="space-y-1">
+            <Collapsible open={isTreasuryOpen} onOpenChange={setIsTreasuryOpen}>
+              <CollapsibleTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 group",
+                    location === "/treasury" || location.startsWith("/treasury/")
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <div className="flex items-center">
+                    <Wallet className="mr-3 h-5 w-5 transition-transform duration-200" />
+                    <span>Tesorería</span>
+                  </div>
+                  {isTreasuryOpen ? (
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="ml-4 mt-1 space-y-1">
+                <NavItem
+                  href="/treasury/vouchers"
+                  icon={<Receipt className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  active={location === "/treasury/vouchers" || (location === "/treasury" && !location.includes("/exchange-rates"))}
+                  onClick={closeMenu}
+                  className="text-sm pl-8"
+                >
+                  Comprobantes de Pago
+                </NavItem>
+                <NavItem
+                  href="/treasury/exchange-rates"
+                  icon={<DollarSign className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  active={location === "/treasury/exchange-rates"}
+                  onClick={closeMenu}
+                  className="text-sm pl-8"
+                >
+                  Tipos de Cambio
+                </NavItem>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
 
           {/* Sistema Admin - Solo para administradores */}
           {isAdmin && (

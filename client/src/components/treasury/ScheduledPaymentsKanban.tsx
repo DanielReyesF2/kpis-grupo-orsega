@@ -39,6 +39,7 @@ interface ScheduledPayment {
   amount: number;
   currency: string;
   dueDate: string;
+  paymentDate?: string | null; // Agregar paymentDate
   status: string;
   reference: string | null;
   notes: string | null;
@@ -134,10 +135,18 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
             </Badge>
           </div>
 
-          <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
-            <Calendar className="h-3 w-3" />
-            Vence: {format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })}
-            {isOverdue && <span className="ml-1 font-semibold">(Vencida)</span>}
+          <div className="space-y-1">
+            {payment.paymentDate && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                <Calendar className="h-3 w-3" />
+                Pago programado: {format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })}
+              </div>
+            )}
+            <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
+              <Calendar className="h-3 w-3" />
+              Vence: {format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })}
+              {isOverdue && <span className="ml-1 font-semibold">(Vencida)</span>}
+            </div>
           </div>
 
           {isPorPagar && (
@@ -269,9 +278,27 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
         }
       });
       if (!response.ok) throw new Error('Failed to fetch payments');
-      return await response.json();
+      const data = await response.json();
+      
+      // Normalizar datos: convertir snake_case a camelCase si es necesario
+      const normalizedData = data.map((payment: any) => ({
+        ...payment,
+        companyId: payment.company_id || payment.companyId,
+        supplierId: payment.supplier_id || payment.supplierId,
+        supplierName: payment.supplier_name || payment.supplierName,
+        dueDate: payment.due_date || payment.dueDate,
+        paymentDate: payment.payment_date || payment.paymentDate,
+        voucherId: payment.voucher_id || payment.voucherId,
+        hydralFileUrl: payment.hydral_file_url || payment.hydralFileUrl,
+        hydralFileName: payment.hydral_file_name || payment.hydralFileName,
+        createdAt: payment.created_at || payment.createdAt,
+        updatedAt: payment.updated_at || payment.updatedAt,
+      }));
+      
+      console.log(`📊 [ScheduledPaymentsKanban] Payments recibidos: ${normalizedData.length}`, normalizedData);
+      return normalizedData;
     },
-    staleTime: 30000,
+    staleTime: 0, // Reducir staleTime para que siempre refetch después de invalidación
     refetchInterval: 60000,
   });
 

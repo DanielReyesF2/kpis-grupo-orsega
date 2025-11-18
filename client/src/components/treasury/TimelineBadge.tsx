@@ -73,3 +73,5 @@ export function TimelineBadge({ date, status, amount, currency = "MXN" }: Timeli
 
 
 
+
+

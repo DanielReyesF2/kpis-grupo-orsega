@@ -509,6 +509,16 @@ process.on('uncaughtException', (error: Error) => {
 
     console.log("✅ Health check endpoints registered");
 
+    // Ensure treasury schema is up to date (migrations)
+    try {
+      const { ensureTreasurySchema } = await import("./treasury-schema");
+      await ensureTreasurySchema();
+      console.log("✅ Treasury schema migrations applied");
+    } catch (error) {
+      console.error("⚠️ Warning: Error applying treasury schema migrations (server still running):", error);
+      console.error("⚠️ Error details:", error);
+    }
+
     // Register routes (this might take time but won't block /health)
     try {
       registerRoutes(app);

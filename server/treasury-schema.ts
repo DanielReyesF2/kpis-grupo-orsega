@@ -16,6 +16,8 @@ const ALTER_TABLE_QUERIES = [
   `ALTER TABLE scheduled_payments
    ADD COLUMN IF NOT EXISTS payment_scheduled_at TIMESTAMP;`,
   `ALTER TABLE scheduled_payments
+   ADD COLUMN IF NOT EXISTS payment_date TIMESTAMP;`,
+  `ALTER TABLE scheduled_payments
    ADD COLUMN IF NOT EXISTS voucher_id INTEGER REFERENCES payment_vouchers(id);`,
   `ALTER TABLE scheduled_payments
    ALTER COLUMN status SET DEFAULT 'idrall_imported';`,
@@ -27,6 +29,7 @@ const CREATE_INDEX_QUERIES = [
   `CREATE INDEX IF NOT EXISTS idx_scheduled_payments_voucher_id ON scheduled_payments(voucher_id);`,
   `CREATE INDEX IF NOT EXISTS idx_scheduled_payments_status ON scheduled_payments(status);`,
   `CREATE INDEX IF NOT EXISTS idx_scheduled_payments_due_date ON scheduled_payments(due_date);`,
+  `CREATE INDEX IF NOT EXISTS idx_scheduled_payments_payment_date ON scheduled_payments(payment_date);`,
 ];
 
 export async function ensureTreasurySchema(): Promise<void> {
@@ -52,6 +55,7 @@ export async function ensureTreasurySchema(): Promise<void> {
     client.release();
   }
 }
+
 
 
 

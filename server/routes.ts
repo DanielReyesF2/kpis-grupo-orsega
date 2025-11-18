@@ -4217,6 +4217,18 @@ export function registerRoutes(app: express.Application) {
         ORDER BY due_date ASC
       `, params);
 
+      console.log(`📊 [GET /api/treasury/payments] Retornando ${result.length} pagos programados`);
+      if (result.length > 0) {
+        console.log(`📊 [GET /api/treasury/payments] Ejemplo de pago:`, {
+          id: result[0].id,
+          supplierName: result[0].supplier_name,
+          amount: result[0].amount,
+          dueDate: result[0].due_date,
+          paymentDate: result[0].payment_date,
+          status: result[0].status,
+        });
+      }
+
       res.json(result);
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -4252,6 +4264,134 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('Error creating payment:', error);
       res.status(500).json({ error: 'Failed to create payment' });
+    }
+  });
+
+  // POST /api/scheduled-payments/confirm - Confirmar creación de cuenta por pagar con fecha de pago
+  app.post("/api/scheduled-payments/confirm", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      
+      // Validar datos recibidos
+      const confirmSchema = z.object({
+        payerCompanyId: z.number().int().positive(),
+        supplierId: z.number().int().positive().nullable().optional(),
+        supplierName: z.string().min(1),
+        amount: z.number().positive(),
+        currency: z.string().default('MXN'),
+        dueDate: z.string().or(z.date()), // Fecha de vencimiento
+        paymentDate: z.string().or(z.date()), // Fecha de pago (OBLIGATORIA)
+        reference: z.string().nullable().optional(),
+        notes: z.string().nullable().optional(),
+        invoiceFilePath: z.string(), // Ruta del archivo temporal
+        invoiceFileName: z.string(), // Nombre original del archivo
+        extractedInvoiceNumber: z.string().nullable().optional(),
+        extractedTaxId: z.string().nullable().optional(),
+      });
+
+      const validatedData = confirmSchema.parse(req.body);
+      
+      // Validar que paymentDate esté presente
+      if (!validatedData.paymentDate) {
+        return res.status(400).json({ 
+          error: 'Fecha de pago requerida', 
+          details: 'La fecha de pago es obligatoria para confirmar la cuenta por pagar' 
+        });
+      }
+
+      // Parsear fechas
+      const dueDate = validatedData.dueDate instanceof Date 
+        ? validatedData.dueDate 
+        : new Date(validatedData.dueDate);
+      
+      const paymentDate = validatedData.paymentDate instanceof Date 
+        ? validatedData.paymentDate 
+        : new Date(validatedData.paymentDate);
+
+      // Crear cuenta por pagar usando storage
+      const scheduledPaymentData = {
+        companyId: validatedData.payerCompanyId,
+        supplierId: validatedData.supplierId || null,
+        supplierName: validatedData.supplierName,
+        amount: validatedData.amount,
+        currency: validatedData.currency || 'MXN',
+        dueDate: dueDate,
+        paymentDate: paymentDate, // ✅ Fecha de pago obligatoria
+        reference: validatedData.reference || validatedData.extractedInvoiceNumber || `Factura ${Date.now()}`,
+        status: 'idrall_imported',
+        sourceType: 'manual',
+        notes: validatedData.notes || `Factura confirmada desde ${validatedData.invoiceFileName}. ${validatedData.extractedTaxId ? `RFC: ${validatedData.extractedTaxId}` : ''}`,
+        createdBy: user.id,
+      };
+
+      const createdScheduledPayment = await storage.createScheduledPayment(scheduledPaymentData);
+      console.log(`✅ [Confirm Invoice] Cuenta por pagar creada: ID ${createdScheduledPayment.id}`);
+
+      // Mover archivo de temp a la ubicación final
+      const fs = await import('fs');
+      const path = await import('path');
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', String(year), month);
+      
+      if (!fs.existsSync(invoiceDir)) {
+        fs.mkdirSync(invoiceDir, { recursive: true });
+      }
+      
+      const invoiceFileName = `${Date.now()}-${validatedData.invoiceFileName}`;
+      const finalInvoicePath = path.join(invoiceDir, invoiceFileName);
+      
+      // Mover archivo de temp a final
+      if (fs.existsSync(validatedData.invoiceFilePath)) {
+        fs.renameSync(validatedData.invoiceFilePath, finalInvoicePath);
+      } else {
+        console.warn(`⚠️ [Confirm Invoice] Archivo temporal no encontrado: ${validatedData.invoiceFilePath}`);
+      }
+      
+      // Actualizar el scheduled payment con la URL del archivo
+      const { db } = await import('./db');
+      const { scheduledPayments } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      await db.update(scheduledPayments)
+        .set({
+          hydralFileUrl: finalInvoicePath,
+          hydralFileName: validatedData.invoiceFileName,
+        })
+        .where(eq(scheduledPayments.id, createdScheduledPayment.id));
+
+      // Obtener el scheduled payment actualizado
+      const [updatedPayment] = await db.select()
+        .from(scheduledPayments)
+        .where(eq(scheduledPayments.id, createdScheduledPayment.id));
+
+      console.log(`✅ [Confirm Invoice] Cuenta por pagar confirmada y archivo movido: ID ${createdScheduledPayment.id}`);
+      console.log(`✅ [Confirm Invoice] Datos del pago creado:`, {
+        id: updatedPayment.id,
+        supplierName: updatedPayment.supplierName,
+        amount: updatedPayment.amount,
+        dueDate: updatedPayment.dueDate,
+        paymentDate: updatedPayment.paymentDate,
+        status: updatedPayment.status,
+        companyId: updatedPayment.companyId,
+      });
+
+      res.status(201).json({
+        scheduledPayment: updatedPayment,
+        message: 'Cuenta por pagar creada exitosamente con fecha de pago'
+      });
+    } catch (error) {
+      console.error('❌ [Confirm Invoice] Error confirmando cuenta por pagar:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: 'Validación fallida', 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        error: 'Error al confirmar cuenta por pagar', 
+        details: error instanceof Error ? error.message : 'Error desconocido' 
+      });
     }
   });
 
@@ -5676,9 +5816,17 @@ export function registerRoutes(app: express.Application) {
 
   // POST /api/scheduled-payments/:id/upload-voucher - Subir comprobante a tarjeta existente
   app.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+    console.log(`📤 [Upload Voucher] Petición recibida para payment ID: ${req.params.id}`);
+    console.log(`📤 [Upload Voucher] Content-Type:`, req.headers['content-type']);
+    
     voucherUpload.single('file')(req, res, (err) => {
       if (err) {
-        console.error('❌ Multer error:', err.message);
+        console.error('❌ [Upload Voucher] Multer error:', {
+          message: err.message,
+          code: (err as any).code,
+          field: (err as any).field,
+          name: err.name
+        });
         return res.status(400).json({ error: err.message });
       }
       next();
@@ -5689,7 +5837,16 @@ export function registerRoutes(app: express.Application) {
       const scheduledPaymentId = parseInt(req.params.id);
       const file = req.file;
 
+      console.log(`📤 [Upload Voucher] Procesando archivo para payment ID: ${scheduledPaymentId}`);
+      console.log(`📤 [Upload Voucher] Archivo recibido:`, file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path
+      } : 'NINGUNO');
+
       if (!file) {
+        console.error('❌ [Upload Voucher] No se subió ningún archivo');
         return res.status(400).json({ error: 'No se subió ningún archivo' });
       }
 
@@ -5701,19 +5858,53 @@ export function registerRoutes(app: express.Application) {
       const [scheduledPayment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
       
       if (!scheduledPayment) {
+        console.error(`❌ [Upload Voucher] Payment ID ${scheduledPaymentId} no encontrado`);
         return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
       }
 
-      // Analizar el documento con OpenAI
-      const { analyzePaymentDocument } = await import("./document-analyzer");
-      const fs = await import('fs');
-      const path = await import('path');
-      const fileBuffer = fs.readFileSync(file.path);
-      
-      const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+      console.log(`📤 [Upload Voucher] Payment encontrado:`, {
+        id: scheduledPayment.id,
+        supplierName: scheduledPayment.supplierName,
+        amount: scheduledPayment.amount
+      });
 
-      // Verificar que sea un comprobante
-      if (analysis.documentType !== 'voucher' && analysis.documentType !== 'rep') {
+      // Analizar el documento con OpenAI
+      let analysis;
+      try {
+        console.log(`🤖 [Upload Voucher] Iniciando análisis con OpenAI...`);
+        const { analyzePaymentDocument } = await import("./document-analyzer");
+        const fs = await import('fs');
+        const path = await import('path');
+        const fileBuffer = fs.readFileSync(file.path);
+        
+        analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+        console.log(`✅ [Upload Voucher] Análisis completado:`, {
+          documentType: analysis.documentType,
+          extractedAmount: analysis.extractedAmount,
+          ocrConfidence: analysis.ocrConfidence
+        });
+      } catch (analyzeError: any) {
+        console.error('❌ [Upload Voucher] Error en análisis de documento:', analyzeError);
+        // Si falla el análisis, continuar pero con valores por defecto
+        analysis = {
+          documentType: 'unknown' as any,
+          extractedAmount: null,
+          extractedDate: null,
+          extractedBank: null,
+          extractedReference: null,
+          extractedCurrency: null,
+          extractedOriginAccount: null,
+          extractedDestinationAccount: null,
+          extractedTrackingKey: null,
+          extractedBeneficiaryName: null,
+          ocrConfidence: 0,
+        };
+        console.log(`⚠️ [Upload Voucher] Continuando con análisis fallido (valores por defecto)`);
+      }
+
+      // Verificar que sea un comprobante (solo si el análisis fue exitoso)
+      if (analysis.documentType && analysis.documentType !== 'voucher' && analysis.documentType !== 'rep' && analysis.documentType !== 'unknown') {
+        console.error(`❌ [Upload Voucher] Tipo de documento inválido: ${analysis.documentType}`);
         return res.status(400).json({ 
           error: 'Documento inválido',
           details: 'Solo se pueden subir comprobantes de pago o REPs. Las facturas deben subirse primero.'
@@ -5736,18 +5927,26 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Guardar archivo en estructura organizada
+      const fsModule = await import('fs');
+      const pathModule = await import('path');
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
-      const uploadDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
+      const uploadDir = pathModule.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
       
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      console.log(`📁 [Upload Voucher] Directorio de upload: ${uploadDir}`);
+      
+      if (!fsModule.existsSync(uploadDir)) {
+        fsModule.mkdirSync(uploadDir, { recursive: true });
+        console.log(`📁 [Upload Voucher] Directorio creado: ${uploadDir}`);
       }
       
       const fileName = `${Date.now()}-${file.originalname}`;
-      const newFilePath = path.join(uploadDir, fileName);
-      fs.renameSync(file.path, newFilePath);
+      const newFilePath = pathModule.join(uploadDir, fileName);
+      
+      console.log(`📁 [Upload Voucher] Moviendo archivo de ${file.path} a ${newFilePath}`);
+      fsModule.renameSync(file.path, newFilePath);
+      console.log(`✅ [Upload Voucher] Archivo movido exitosamente`);
 
       // Determinar estado inicial
       const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
@@ -5773,6 +5972,7 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Crear comprobante vinculado
+      console.log(`📝 [Upload Voucher] Preparando datos del voucher...`);
       const newVoucher: InsertPaymentVoucher = {
         companyId: scheduledPayment.companyId,
         payerCompanyId: scheduledPayment.companyId,
@@ -5796,7 +5996,15 @@ export function registerRoutes(app: express.Application) {
         uploadedBy: user.id,
       };
 
-      const voucher = await storage.createPaymentVoucher(newVoucher);
+      console.log(`📝 [Upload Voucher] Creando voucher en la base de datos...`);
+      let voucher;
+      try {
+        voucher = await storage.createPaymentVoucher(newVoucher);
+        console.log(`✅ [Upload Voucher] Voucher creado con ID: ${voucher.id}`);
+      } catch (dbError: any) {
+        console.error('❌ [Upload Voucher] Error al crear voucher en la BD:', dbError);
+        throw new Error(`Error al crear comprobante: ${dbError?.message || 'Error desconocido'}`);
+      }
 
       // Actualizar scheduled payment con voucherId y estado
       const newStatus = finalStatus === 'cerrado' ? 'payment_completed' : scheduledPayment.status;
@@ -5822,12 +6030,29 @@ export function registerRoutes(app: express.Application) {
         documentType: analysis.documentType,
         message: 'Comprobante subido y vinculado exitosamente'
       });
-    } catch (error) {
-      console.error('Error uploading voucher to scheduled payment:', error);
+    } catch (error: any) {
+      console.error('❌ [Upload Voucher] Error completo:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        code: error?.code
+      });
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+        return res.status(400).json({ 
+          error: 'Validación fallida', 
+          details: error.errors 
+        });
       }
-      res.status(500).json({ error: 'Error al subir comprobante' });
+      
+      // Proporcionar mensaje de error más descriptivo
+      const errorMessage = error?.message || 'Error al subir comprobante';
+      console.error(`❌ [Upload Voucher] Respondiendo con error 500: ${errorMessage}`);
+      
+      res.status(500).json({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      });
     }
   });
 
@@ -5996,77 +6221,151 @@ export function registerRoutes(app: express.Application) {
 
       // 🧾 LÓGICA INTELIGENTE: Determinar si debe crear tarjeta de pago
       // - Si OpenAI detectó 'invoice' → crear tarjeta
-      // - Si NO hay scheduledPaymentId y tenemos payerCompanyId → asumir que es factura nueva
+      // - Si el documento tiene características de factura (proveedor o monto) pero tipo es 'unknown' → tratar como factura
+      // - Si NO hay scheduledPaymentId y tenemos payerCompanyId y hay monto → asumir que es factura nueva
       // - Si hay scheduledPaymentId → es un comprobante para tarjeta existente
+      const hasInvoiceCharacteristics = (
+        analysis.extractedSupplierName || 
+        (analysis.extractedAmount && analysis.documentType !== 'voucher' && analysis.documentType !== 'rep')
+      );
+      
       const shouldCreateInvoice = (
         analysis.documentType === 'invoice' ||
-        (!validatedData.scheduledPaymentId && validatedData.payerCompanyId)
+        (analysis.documentType === 'unknown' && hasInvoiceCharacteristics && validatedData.payerCompanyId) ||
+        (!validatedData.scheduledPaymentId && validatedData.payerCompanyId && analysis.extractedAmount)
       );
 
       console.log('🤖 [Upload] Decisión automática:', {
         documentType: analysis.documentType,
         hasScheduledPaymentId: !!validatedData.scheduledPaymentId,
         hasPayerCompanyId: !!validatedData.payerCompanyId,
+        hasInvoiceCharacteristics: hasInvoiceCharacteristics,
+        extractedSupplierName: analysis.extractedSupplierName ? analysis.extractedSupplierName.substring(0, 50) : "NO ENCONTRADO",
+        extractedAmount: analysis.extractedAmount || "NO ENCONTRADO",
+        extractedDueDate: analysis.extractedDueDate ? "SÍ" : "NO",
         shouldCreateInvoice
       });
 
-      // 🧾 Si debe crear FACTURA/TARJETA DE PAGO, crearla automáticamente y retornar
+      // 🧾 Si debe crear FACTURA/TARJETA DE PAGO, guardar archivo y devolver datos para verificación
       if (shouldCreateInvoice) {
-        if (!analysis.extractedSupplierName || !analysis.extractedAmount || !analysis.extractedDueDate) {
-          return res.status(400).json({ 
-            error: 'Factura incompleta', 
-            details: 'La factura debe contener al menos: proveedor, monto y fecha de vencimiento' 
-          });
+        // Validación más flexible: permitir verificación manual incluso si faltan algunos campos
+        // El usuario podrá completar los campos faltantes en el modal de verificación
+        console.log(`📋 [Invoice Detection] Datos extraídos del análisis:`, {
+          supplierName: analysis.extractedSupplierName || "NO ENCONTRADO",
+          amount: analysis.extractedAmount || "NO ENCONTRADO",
+          dueDate: analysis.extractedDueDate || "NO ENCONTRADO",
+          invoiceDate: analysis.extractedDate || "NO ENCONTRADO",
+          invoiceNumber: analysis.extractedInvoiceNumber || "NO ENCONTRADO",
+          taxId: analysis.extractedTaxId || "NO ENCONTRADO",
+          currency: analysis.extractedCurrency || "NO ENCONTRADO",
+          documentType: analysis.documentType,
+          ocrConfidence: analysis.ocrConfidence
+        });
+        
+        // Si no hay monto, mostrar advertencia pero permitir verificación manual
+        if (!analysis.extractedAmount) {
+          console.warn(`⚠️ [Invoice Detection] ADVERTENCIA: No se pudo extraer el monto de la factura. Se permitirá verificación manual.`);
+          // NO rechazar, permitir que el usuario complete el monto manualmente
+        }
+
+        // Si falta proveedor o fecha de vencimiento, aún permitir verificación manual
+        // El usuario podrá completar estos campos en el modal
+        if (!analysis.extractedSupplierName) {
+          console.warn(`⚠️ [Invoice Detection] Proveedor no encontrado en factura. Se permitirá verificación manual.`);
+        }
+        
+        if (!analysis.extractedDueDate) {
+          console.warn(`⚠️ [Invoice Detection] Fecha de vencimiento no encontrada. Se calculará o el usuario la especificará.`);
+          // Si hay fecha de factura, calcular fecha de vencimiento por defecto (+30 días)
+          if (analysis.extractedDate) {
+            const defaultDueDate = new Date(analysis.extractedDate);
+            defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+            analysis.extractedDueDate = defaultDueDate;
+            console.log(`📅 [Invoice Detection] Fecha de vencimiento calculada por defecto: ${defaultDueDate.toISOString().split('T')[0]}`);
+          }
         }
 
         try {
-          console.log(`📋 [Invoice Detection] Factura detectada, creando cuenta por pagar automáticamente`);
+          console.log(`📋 [Invoice Detection] Factura detectada, preparando datos para verificación`);
           
           // Buscar proveedor/cliente por nombre o RFC
           let supplierId = null;
           const supplierName = analysis.extractedSupplierName || '';
           const taxId = analysis.extractedTaxId || '';
           
-          // Buscar cliente/proveedor existente
+          // Buscar cliente/proveedor existente con búsqueda mejorada
           if (!validatedData.payerCompanyId) {
             return res.status(400).json({ error: 'PayerCompanyId requerido para procesar factura' });
           }
           const payerCompanyId = validatedData.payerCompanyId; // Type narrowing
           const allClients = await storage.getClientsByCompany(payerCompanyId);
-          const matchingClient = allClients.find(client => 
-            client.name.toLowerCase().includes(supplierName.toLowerCase()) ||
-            supplierName.toLowerCase().includes(client.name.toLowerCase())
-          );
+          
+          // Búsqueda mejorada: normalizar nombres y buscar coincidencias parciales
+          const normalizeName = (name: string): string => {
+            return name
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "") // Remover acentos
+              .replace(/[^a-z0-9\s]/g, "") // Remover caracteres especiales
+              .replace(/\s+/g, " ") // Normalizar espacios
+              .trim();
+          };
+          
+          const normalizedSupplierName = normalizeName(supplierName);
+          
+          // Buscar coincidencias exactas o parciales
+          const matchingClient = allClients.find(client => {
+            const normalizedClientName = normalizeName(client.name);
+            
+            // Coincidencia exacta
+            if (normalizedClientName === normalizedSupplierName) {
+              return true;
+            }
+            
+            // Coincidencia parcial (una contiene a la otra)
+            if (normalizedClientName.includes(normalizedSupplierName) || 
+                normalizedSupplierName.includes(normalizedClientName)) {
+              return true;
+            }
+            
+            // Coincidencia de palabras clave (al menos 2 palabras en común)
+            const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
+            const clientWords = normalizedClientName.split(/\s+/).filter(w => w.length > 3);
+            const commonWords = supplierWords.filter(w => clientWords.includes(w));
+            
+            if (commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3)) {
+              return true;
+            }
+            
+            return false;
+          });
+          
+          // También buscar por RFC si está disponible
+          if (!matchingClient && taxId) {
+            const clientByTaxId = allClients.find(client => {
+              // Aquí podrías buscar en una columna de RFC si existe
+              // Por ahora, solo buscamos por nombre
+              return false;
+            });
+            if (clientByTaxId) {
+              supplierId = clientByTaxId.id;
+              console.log(`🔗 [Invoice Detection] Proveedor encontrado por RFC: ${clientByTaxId.name} (ID: ${supplierId})`);
+            }
+          }
           
           if (matchingClient) {
             supplierId = matchingClient.id;
             console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
+          } else if (supplierName) {
+            console.log(`⚠️ [Invoice Detection] Proveedor no encontrado en base de datos, se creará con nombre: ${supplierName}`);
           } else {
-            console.log(`⚠️ [Invoice Detection] Proveedor no encontrado, se creará con nombre: ${supplierName}`);
+            console.log(`⚠️ [Invoice Detection] Proveedor no especificado en factura, requerirá entrada manual`);
           }
 
-          // Crear cuenta por pagar (scheduled payment)
-          const scheduledPaymentData = {
-            companyId: payerCompanyId,
-            supplierId: supplierId,
-            supplierName: supplierName,
-            amount: analysis.extractedAmount,
-            currency: analysis.extractedCurrency || 'MXN',
-            dueDate: analysis.extractedDueDate,
-            reference: analysis.extractedInvoiceNumber || analysis.extractedReference || `Factura ${Date.now()}`,
-            status: 'idrall_imported',
-            sourceType: 'manual',
-            notes: `Factura detectada automáticamente desde ${file.originalname}. ${taxId ? `RFC: ${taxId}` : ''}`,
-            createdBy: user.id,
-          };
-
-          const createdScheduledPayment = await storage.createScheduledPayment(scheduledPaymentData);
-          console.log(`✅ [Invoice Detection] Cuenta por pagar creada: ID ${createdScheduledPayment.id}`);
-          
-          // Guardar el archivo de factura en el scheduled payment
+          // Guardar el archivo de factura temporalmente para verificación
           const year = new Date().getFullYear();
           const month = String(new Date().getMonth() + 1).padStart(2, '0');
-          const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', String(year), month);
+          const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', 'temp', String(year), month);
           
           if (!fs.existsSync(invoiceDir)) {
             fs.mkdirSync(invoiceDir, { recursive: true });
@@ -6076,30 +6375,68 @@ export function registerRoutes(app: express.Application) {
           const invoiceFilePath = path.join(invoiceDir, invoiceFileName);
           fs.copyFileSync(file.path, invoiceFilePath);
           
-          // Actualizar el scheduled payment con la URL del archivo usando Drizzle directamente
-          const { db } = await import('./db');
-          const { scheduledPayments } = await import('../shared/schema');
-          const { eq } = await import('drizzle-orm');
+          // Log detallado de datos extraídos
+          const hasSupplier = !!analysis.extractedSupplierName;
+          const hasAmount = !!analysis.extractedAmount;
+          const hasDueDate = !!analysis.extractedDueDate;
           
-          await db.update(scheduledPayments)
-            .set({
-              hydralFileUrl: invoiceFilePath,
-              hydralFileName: file.originalname,
-            })
-            .where(eq(scheduledPayments.id, createdScheduledPayment.id));
+          console.log(`📋 [Invoice Detection] Datos extraídos para verificación:`, {
+            supplierName: analysis.extractedSupplierName || "⚠️ NO ENCONTRADO - requerirá entrada manual",
+            amount: analysis.extractedAmount || "⚠️ NO ENCONTRADO - requerirá entrada manual",
+            currency: analysis.extractedCurrency || 'MXN',
+            dueDate: analysis.extractedDueDate ? analysis.extractedDueDate.toISOString().split('T')[0] : "⚠️ NO ENCONTRADO - se calculará o requerirá entrada manual",
+            invoiceDate: analysis.extractedDate ? analysis.extractedDate.toISOString().split('T')[0] : "NO ENCONTRADO",
+            invoiceNumber: analysis.extractedInvoiceNumber || "NO ENCONTRADO",
+            taxId: analysis.extractedTaxId || "NO ENCONTRADO",
+            confidence: (analysis.ocrConfidence * 100).toFixed(1) + "%",
+            summary: `Proveedor: ${hasSupplier ? '✅' : '❌'}, Monto: ${hasAmount ? '✅' : '❌'}, Fecha Vencimiento: ${hasDueDate ? '✅' : '❌'}`
+          });
+
+          // Construir mensaje descriptivo según qué datos se encontraron
+          let message = 'Factura detectada. ';
+          if (hasSupplier && hasAmount && hasDueDate) {
+            message += 'Datos extraídos correctamente. Por favor verifica la información y especifica la fecha de pago.';
+          } else if (hasAmount && hasSupplier) {
+            message += 'Se extrajo el proveedor y el monto. Por favor completa la fecha de vencimiento (si falta) y especifica la fecha de pago.';
+          } else if (hasAmount) {
+            message += 'Se extrajo el monto, pero faltan algunos datos. Por favor completa el proveedor, fecha de vencimiento (si falta) y especifica la fecha de pago.';
+          } else {
+            message += 'Algunos datos no se pudieron extraer automáticamente. Por favor completa todos los campos necesarios (proveedor, monto, fecha de vencimiento) y especifica la fecha de pago.';
+          }
+
+          // Retornar datos extraídos para verificación (NO crear cuenta por pagar aún)
+          // SIEMPRE permitir verificación manual, incluso si faltan todos los campos
+          console.log(`✅ [Invoice Detection] Retornando datos para verificación manual (siempre permitido)`);
           
-          // Retornar solo el scheduledPayment (NO crear voucher)
-          return res.status(201).json({
-            scheduledPayment: createdScheduledPayment,
-            analysis,
+          return res.status(200).json({
+            requiresVerification: true,
             documentType: 'invoice',
-            message: 'Factura procesada y cuenta por pagar creada exitosamente'
+            analysis: {
+              extractedSupplierName: analysis.extractedSupplierName || '', // Permitir vacío para entrada manual
+              extractedAmount: analysis.extractedAmount || null, // Permitir null si no se encontró
+              extractedCurrency: analysis.extractedCurrency || 'MXN',
+              extractedDueDate: analysis.extractedDueDate ? analysis.extractedDueDate.toISOString() : null,
+              extractedDate: analysis.extractedDate ? analysis.extractedDate.toISOString() : null, // Incluir fecha de factura
+              extractedInvoiceNumber: analysis.extractedInvoiceNumber || null,
+              extractedReference: analysis.extractedReference || null,
+              extractedTaxId: analysis.extractedTaxId || null,
+            },
+            invoiceFile: {
+              path: invoiceFilePath,
+              originalName: file.originalname,
+            },
+            supplier: {
+              id: supplierId,
+              name: supplierName || '', // Permitir vacío si no se encontró
+            },
+            payerCompanyId: payerCompanyId,
+            message: message
           });
           
         } catch (invoiceError) {
-          console.error(`❌ [Invoice Detection] Error creando cuenta por pagar:`, invoiceError);
+          console.error(`❌ [Invoice Detection] Error procesando factura:`, invoiceError);
           return res.status(500).json({ 
-            error: 'Error al crear cuenta por pagar', 
+            error: 'Error al procesar factura', 
             details: invoiceError instanceof Error ? invoiceError.message : 'Error desconocido' 
           });
         }
