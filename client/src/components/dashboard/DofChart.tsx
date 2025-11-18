@@ -6,7 +6,6 @@ import { FileText, TrendingUp, TrendingDown, Minus, RefreshCw, DollarSign, Send,
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +23,6 @@ export function DofChart() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [fxPeriodDays, setFxPeriodDays] = useState(90);
-  const [viewMode, setViewMode] = useState<'cards' | 'history'>('cards');
   
   // Forzar log inmediato
   useEffect(() => {
@@ -275,110 +273,16 @@ export function DofChart() {
         </CardContent>
       ) : (
         <CardContent className="pt-3">
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'cards' | 'history')}>
-          <TabsList className="mb-3 h-9">
-            <TabsTrigger value="cards" className="text-sm">Vista de Tarjetas</TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-1.5 text-sm">
-              <Clock className="h-3.5 w-3.5" />
-              Histórico
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="cards" className="space-y-3">
-            {/* Tarjetas con últimos valores */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {allSources.map((data: any) => {
-                if (!data) return null;
-                const config = getSourceConfig(data.source);
-                
-                return (
-                  <Card key={data.source} className={`border ${config.borderColor} ${config.bgColor}`}>
-                    <CardHeader className="pb-2 pt-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base font-bold" style={{ color: config.color }}>
-                            {data.source}
-                          </CardTitle>
-                          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: config.color }}></div>
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {format(new Date(data.date), "dd/MM/yyyy HH:mm", { locale: es })}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3 pt-2">
-                      {/* Compra */}
-                      <div className="space-y-1">
-                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">COMPRA (USD → MXN)</div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold" style={{ color: config.color }}>
-                            ${data.buy.toFixed(4)}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {getTrendIcon(data.buyChange)}
-                            <span className={`text-xs font-medium ${data.buyChange > 0 ? 'text-green-600' : data.buyChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                              {data.buyChange !== 0 ? `${data.buyChange > 0 ? '+' : ''}${data.buyChange.toFixed(4)}` : '—'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Venta */}
-                      <div className="space-y-1">
-                        <div className="text-xs font-medium text-gray-600 dark:text-gray-400">VENTA (MXN → USD)</div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold" style={{ color: config.color }}>
-                            ${data.sell.toFixed(4)}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {getTrendIcon(data.sellChange)}
-                            <span className={`text-xs font-medium ${data.sellChange > 0 ? 'text-green-600' : data.sellChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                              {data.sellChange !== 0 ? `${data.sellChange > 0 ? '+' : ''}${data.sellChange.toFixed(4)}` : '—'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Spread */}
-                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Spread</span>
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">
-                            ${data.spread.toFixed(4)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Botón de compra */}
-                      <Button
-                        onClick={() => handleOpenPurchaseDialog(data)}
-                        size="sm"
-                        className="w-full text-sm font-medium shadow-sm hover:shadow transition-all mt-2"
-                        style={{ backgroundColor: config.color, color: 'white' }}
-                      >
-                        <DollarSign className="h-3.5 w-3.5 mr-1.5" />
-                        Comprar a este precio
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+          {/* Histórico de Tipos de Cambio */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-base font-semibold text-foreground">Histórico de Tipos de Cambio</h3>
             </div>
-
-            {/* Mensaje si no hay datos */}
-            {allSources.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">No hay datos disponibles de tipos de cambio</p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="history">
-            <ExchangeRateHistory />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
+          </div>
+          
+          <ExchangeRateHistory />
+        </CardContent>
       )}
 
       {/* Dialog para solicitud de compra */}
