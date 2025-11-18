@@ -387,8 +387,8 @@ export default function TreasuryPage() {
     return (
       <AppLayout title="Tesorería - Tipos de Cambio">
         <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
+          {/* Header con botón volver */}
+          <div className="flex items-center justify-start mb-2">
             <Button 
               onClick={() => {
                 setLocation("/treasury/vouchers");
@@ -398,22 +398,9 @@ export default function TreasuryPage() {
             >
               ← Volver a Comprobantes
             </Button>
-            <h1 className="text-3xl font-bold text-foreground">Gestión de Tipos de Cambio</h1>
-            <div className="w-32" /> {/* Spacer */}
           </div>
 
-          {/* Instrucciones claras para usar las tarjetas */}
-          <Card className="border-2 border-primary-200 dark:border-primary-800 bg-primary-50/30 dark:bg-primary-950/20 shadow-sm">
-            <CardContent className="p-4">
-              <div className="text-center">
-                <p className="text-base font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">
-                  💡 Haz clic en <strong className="text-primary-700 dark:text-primary-400">"Actualizar"</strong> en la tarjeta de la fuente que quieres actualizar
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tarjetas Comparativas de Tipos de Cambio - MÉTODO PRINCIPAL */}
+          {/* Tarjetas Comparativas de Tipos de Cambio */}
           <ExchangeRateCards 
             onUpdateRate={(source) => {
               setFormSource(source);

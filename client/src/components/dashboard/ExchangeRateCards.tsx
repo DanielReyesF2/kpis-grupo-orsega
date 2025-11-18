@@ -479,12 +479,6 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">
-          Compara diferentes fuentes de tipo de cambio
-        </h2>
-      </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <RateCard source="Santander" data={santanderData} isLoading={isLoading} />
         <RateCard source="MONEX" data={monexData} isLoading={isLoading} />
