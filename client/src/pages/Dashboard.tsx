@@ -307,16 +307,16 @@ export default function Dashboard() {
           <div className="mt-6" data-onboarding="sales-chart">
             <Tabs value={selectedChartCompany.toString()} onValueChange={(value) => setSelectedChartCompany(Number(value))}>
               <TabsContent value="1" className="mt-0">
-                <SalesVolumeChart 
+                <SalesVolumeChart
                   companyId={1}
-                  kpiId={1}
+                  kpiId={39}
                   target="55620"
                   limit={12}
                   showControls={true}
                 />
               </TabsContent>
               <TabsContent value="2" className="mt-0">
-                <SalesVolumeChart 
+                <SalesVolumeChart
                   companyId={2}
                   kpiId={1}
                   target="858373"
