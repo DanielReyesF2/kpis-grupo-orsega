@@ -23,7 +23,9 @@ import {
   ChevronDown,
   ChevronRight,
   Receipt,
-  DollarSign
+  DollarSign,
+  ShoppingCart,
+  TrendingDown
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -75,11 +77,17 @@ function Sidebar() {
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(
     location === "/treasury" || location.startsWith("/treasury/")
   );
-  
-  // Auto-expandir cuando se navega a una ruta de treasury
+  const [isSalesOpen, setIsSalesOpen] = useState(
+    location === "/sales" || location.startsWith("/sales/")
+  );
+
+  // Auto-expandir cuando se navega a una ruta de treasury o sales
   useEffect(() => {
     if (location === "/treasury" || location.startsWith("/treasury/")) {
       setIsTreasuryOpen(true);
+    }
+    if (location === "/sales" || location.startsWith("/sales/")) {
+      setIsSalesOpen(true);
     }
   }, [location]);
 
@@ -221,6 +229,52 @@ function Sidebar() {
                   className="text-sm pl-8"
                 >
                   Tipos de Cambio
+                </NavItem>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Módulo de Ventas con Submenú */}
+          <div className="space-y-1">
+            <Collapsible open={isSalesOpen} onOpenChange={setIsSalesOpen}>
+              <CollapsibleTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 group",
+                    location === "/sales" || location.startsWith("/sales/")
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <div className="flex items-center">
+                    <ShoppingCart className="mr-3 h-5 w-5 transition-transform duration-200" />
+                    <span>Módulo de Ventas</span>
+                  </div>
+                  {isSalesOpen ? (
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="ml-4 mt-1 space-y-1">
+                <NavItem
+                  href="/sales/dura"
+                  icon={<Building className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  active={location === "/sales/dura"}
+                  onClick={closeMenu}
+                  className="text-sm pl-8"
+                >
+                  Ventas DI
+                </NavItem>
+                <NavItem
+                  href="/sales/orsega"
+                  icon={<Building className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  active={location === "/sales/orsega"}
+                  onClick={closeMenu}
+                  className="text-sm pl-8"
+                >
+                  Ventas GO
                 </NavItem>
               </CollapsibleContent>
             </Collapsible>

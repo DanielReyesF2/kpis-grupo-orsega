@@ -22,6 +22,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import ShipmentsPage from "@/pages/ShipmentsPage";
 import NewShipmentPage from "@/pages/NewShipmentPage";
 import TreasuryPage from "@/pages/TreasuryPage";
+import SalesPage from "@/pages/SalesPage";
 
 function Router() {
   return (
@@ -88,6 +89,22 @@ function Router() {
       <Route path="/treasury/exchange-rates">
         <ProtectedRoute>
           <TreasuryPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/sales" component={SalesPage}>
+        <ProtectedRoute>
+          <SalesPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/sales/dura">
+        <ProtectedRoute>
+          <SalesPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/sales/orsega">
+        <ProtectedRoute>
+          <SalesPage />
         </ProtectedRoute>
       </Route>
 
