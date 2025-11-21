@@ -80,6 +80,14 @@ const getStatusIcon = (status: string) => {
 export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expandedLayout = false }: EnhancedKpiCardProps) {
   const [isExpanded, setIsExpanded] = useState(expandedLayout); // Si está en expandedLayout, empezar expandido
   const statusColors = getStatusColor(kpi.status);
+
+  // Detectar si es un KPI de porcentaje estático (0-100%) que no requiere gráfica de tendencia
+  const isStaticPercentageKPI = useMemo(() => {
+    const isPercentage = kpi.unit === '%' || kpi.unit === 'porcentaje' || kpi.unit.toLowerCase().includes('%');
+    const isRetention = kpi.name.toLowerCase().includes('retención') || kpi.name.toLowerCase().includes('retention');
+    // Solo ocultar gráfica para KPIs de retención/porcentajes estáticos
+    return isPercentage && isRetention;
+  }, [kpi.unit, kpi.name]);
   
   // Cargar historial completo cuando se expanda
   // Usar endpoint genérico que automáticamente busca en las tablas correctas
@@ -492,6 +500,31 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
                   </div>
                 ) : fullHistoryData.length > 0 ? (
                   (() => {
+                    // ✅ Si es un KPI de porcentaje estático (retención), no mostrar gráfica de tendencia
+                    if (isStaticPercentageKPI) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-8 text-center bg-blue-50/30 rounded-lg border border-blue-200/40">
+                          <div className="mb-4">
+                            <div className="text-5xl font-bold text-blue-600 mb-2">
+                              {kpi.value?.toFixed(1) || '0'}%
+                            </div>
+                            <div className="text-sm text-gray-600 font-medium">Valor Actual</div>
+                          </div>
+                          {kpi.target && (
+                            <div className="text-xs text-gray-500 mt-2">
+                              Meta: {kpi.target}
+                            </div>
+                          )}
+                          <div className="mt-4 px-4 py-2 bg-white rounded-md border border-gray-200">
+                            <p className="text-xs text-gray-600">
+                              Los KPIs de porcentaje estático se visualizan mejor como un valor único.<br/>
+                              Para análisis de tendencias, usa el modal de detalles.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
                     const values = fullHistoryData.map(d => d.value).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
