@@ -519,6 +519,16 @@ process.on('uncaughtException', (error: Error) => {
       console.error("⚠️ Error details:", error);
     }
 
+    // Ensure sales schema is up to date (migrations)
+    try {
+      const { ensureSalesSchema } = await import("./sales-schema");
+      await ensureSalesSchema();
+      console.log("✅ Sales schema migrations applied");
+    } catch (error) {
+      console.error("⚠️ Warning: Error applying sales schema migrations (server still running):", error);
+      console.error("⚠️ Error details:", error);
+    }
+
     // Register routes (this might take time but won't block /health)
     try {
       registerRoutes(app);

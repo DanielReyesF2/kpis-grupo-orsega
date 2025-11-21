@@ -32,66 +32,53 @@ export const CustomTooltip = ({
   return (
     <div style={{
       pointerEvents: 'none',
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 9999
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+      border: '1px solid rgba(0, 0, 0, 0.1)',
+      fontSize: '11px',
+      maxWidth: customWidth,
+      minWidth: '120px',
+      zIndex: 50
     }}>
-      <div style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-        padding: '6px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-        fontSize: '10px',
-        maxWidth: customWidth,
-        width: 'auto',
-        textAlign: 'center'
-      }}>
-        <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', color: '#4b5563', fontSize: '10px' }}>
-          {formattedLabel}
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {payload.map((entry, index) => {
-            const { value, name } = formatValue(entry.value, entry.name);
-            return (
-              <div 
-                key={`item-${index}`} 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  justifyContent: 'center'
+      <p style={{ margin: '0 0 6px 0', fontWeight: 'bold', color: '#1f2937', fontSize: '11px' }}>
+        {formattedLabel}
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {payload.map((entry, index) => {
+          const { value, name } = formatValue(entry.value, entry.name);
+          return (
+            <div
+              key={`item-${index}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: entry.color,
+                  flexShrink: 0
                 }}
-              >
-                <div 
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: entry.color,
-                    marginRight: '4px',
-                    flexShrink: 0
-                  }}
-                />
-                <span style={{ 
-                  fontWeight: 'bold', 
-                  marginRight: '4px',
-                  fontSize: '9px'
-                }}>
-                  {name}:
-                </span>
-                <span style={{ fontSize: '9px' }}>
-                  {value}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+              />
+              <span style={{
+                fontWeight: '600',
+                fontSize: '10px',
+                color: '#374151'
+              }}>
+                {name}:
+              </span>
+              <span style={{ fontSize: '10px', fontWeight: '500', color: '#111827' }}>
+                {value}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

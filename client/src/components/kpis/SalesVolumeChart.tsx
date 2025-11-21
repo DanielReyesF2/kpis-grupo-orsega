@@ -119,11 +119,11 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
 
     return (
       <div
-        className="bg-card border border-border p-4 shadow-lg rounded-lg"
-        style={{ width: customWidth, fontSize: "12px", zIndex: 1000 }}
+        className="bg-card border border-border p-3 sm:p-4 shadow-lg rounded-lg max-w-[90vw] sm:max-w-none"
+        style={{ width: customWidth, fontSize: "12px", zIndex: 50, pointerEvents: "none" }}
       >
         {/* Período */}
-        <div className="font-semibold mb-3 text-sm border-b border-border pb-2">
+        <div className="font-semibold mb-2 sm:mb-3 text-xs sm:text-sm border-b border-border pb-2">
           {labelFormatter ? labelFormatter(label) : label}
         </div>
         

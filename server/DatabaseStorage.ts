@@ -229,17 +229,31 @@ export class DatabaseStorage implements IStorage {
   async getCompanyKpiValuesByKpiNormalized(companyId: number, kpiId: number) {
     const resolved = this.resolveCompany(companyId);
     const table = this.getKpiValuesTable(resolved);
-    
-    // Optimización: Limitar a 12 registros más recientes directamente en la query
+
+    // Obtener todos los registros para el KPI (ordenados por más reciente)
     const records = await db
       .select()
       .from(table)
       .where(eq(table.kpi_id, kpiId))
-      .orderBy(desc(table.year), desc(table.created_at))
-      .limit(12); // Limitar en la query para mejor rendimiento
-    
-    const mapped = records.map((record) => this.mapKpiValueRecord(record, resolved));
-    
+      .orderBy(desc(table.year), desc(table.created_at));
+
+    // Deduplicar por mes/año: mantener solo el registro más reciente de cada periodo
+    const seen = new Map<string, any>();
+    const deduplicatedRecords = [];
+
+    for (const record of records) {
+      const key = `${record.month}-${record.year}`;
+      if (!seen.has(key)) {
+        seen.set(key, true);
+        deduplicatedRecords.push(record);
+      }
+    }
+
+    // Limitar a los 12 periodos más recientes después de deduplicar
+    const limitedRecords = deduplicatedRecords.slice(0, 12);
+
+    const mapped = limitedRecords.map((record) => this.mapKpiValueRecord(record, resolved));
+
     return mapped;
   }
 

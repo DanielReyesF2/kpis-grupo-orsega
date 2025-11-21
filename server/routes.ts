@@ -7047,6 +7047,283 @@ export function registerRoutes(app: express.Application) {
 
   logger.info("✅ All routes have been configured successfully");
   
+  // ============================================================================
+  // SALES MODULE API - Módulo de Ventas
+  // ============================================================================
+
+  // GET /api/sales-stats - Estadísticas generales de ventas
+  app.get("/api/sales-stats", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      // Multi-tenant filtering
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      // Clientes activos este mes
+      const activeClients = await sql(`
+        SELECT COUNT(DISTINCT client_id) as count
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year = $2
+          AND sale_month = $3
+      `, [resolvedCompanyId, currentYear, currentMonth]);
+
+      // Volumen del mes actual
+      const currentVolume = await sql(`
+        SELECT
+          SUM(quantity) as total,
+          unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year = $2
+          AND sale_month = $3
+        GROUP BY unit
+        LIMIT 1
+      `, [resolvedCompanyId, currentYear, currentMonth]);
+
+      // Comparativo vs año anterior
+      const lastYearVolume = await sql(`
+        SELECT SUM(quantity) as total
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year = $2
+          AND sale_month = $3
+      `, [resolvedCompanyId, currentYear - 1, currentMonth]);
+
+      const currentTotal = parseFloat(currentVolume[0]?.total || '0');
+      const lastYearTotal = parseFloat(lastYearVolume[0]?.total || '0');
+      const growth = lastYearTotal > 0
+        ? ((currentTotal - lastYearTotal) / lastYearTotal * 100).toFixed(1)
+        : '0';
+
+      // Alertas activas
+      const activeAlerts = await sql(`
+        SELECT COUNT(*) as count
+        FROM sales_alerts
+        WHERE company_id = $1
+          AND is_active = true
+          AND is_read = false
+      `, [resolvedCompanyId]);
+
+      res.json({
+        activeClients: parseInt(activeClients[0]?.count || '0'),
+        currentVolume: currentTotal,
+        unit: currentVolume[0]?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades'),
+        growth: parseFloat(growth),
+        activeAlerts: parseInt(activeAlerts[0]?.count || '0')
+      });
+    } catch (error) {
+      console.error('[GET /api/sales-stats] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch sales stats' });
+    }
+  });
+
+  // GET /api/sales-comparison - Comparativo año actual vs anterior por cliente
+  app.get("/api/sales-comparison", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, year, month } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+      const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
+
+      const comparison = await sql(`
+        SELECT
+          current_year.client_id,
+          current_year.client_name,
+          SUM(current_year.quantity) as current_year_total,
+          COALESCE(SUM(previous_year.quantity), 0) as previous_year_total,
+          SUM(current_year.quantity) - COALESCE(SUM(previous_year.quantity), 0) as differential,
+          CASE
+            WHEN COALESCE(SUM(previous_year.quantity), 0) > 0
+            THEN ROUND(((SUM(current_year.quantity) - SUM(previous_year.quantity)) / SUM(previous_year.quantity) * 100)::numeric, 2)
+            ELSE NULL
+          END as percent_change,
+          current_year.unit
+        FROM sales_data current_year
+        LEFT JOIN sales_data previous_year
+          ON current_year.client_id = previous_year.client_id
+          AND current_year.company_id = previous_year.company_id
+          AND current_year.sale_month = previous_year.sale_month
+          AND current_year.sale_year = previous_year.sale_year + 1
+        WHERE current_year.company_id = $1
+          AND current_year.sale_year = $2
+          AND current_year.sale_month = $3
+        GROUP BY
+          current_year.client_id,
+          current_year.client_name,
+          current_year.unit
+        ORDER BY differential ASC
+      `, [resolvedCompanyId, targetYear, targetMonth]);
+
+      res.json(comparison);
+    } catch (error) {
+      console.error('[GET /api/sales-comparison] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch sales comparison' });
+    }
+  });
+
+  // GET /api/sales-alerts - Obtener alertas activas
+  app.get("/api/sales-alerts", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, type } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      let query = `
+        SELECT
+          id, alert_type, client_id, client_name, severity,
+          title, description, data, is_active, is_read,
+          created_at, resolved_at
+        FROM sales_alerts
+        WHERE company_id = $1
+          AND is_active = true
+      `;
+
+      const params: any[] = [resolvedCompanyId];
+
+      if (type) {
+        query += ` AND alert_type = $2`;
+        params.push(type);
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      const alerts = await sql(query, params);
+
+      res.json(alerts);
+    } catch (error) {
+      console.error('[GET /api/sales-alerts] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch sales alerts' });
+    }
+  });
+
+  // POST /api/sales-alerts/:id/read - Marcar alerta como leída
+  app.post("/api/sales-alerts/:id/read", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const alertId = parseInt(req.params.id);
+
+      await sql(`
+        UPDATE sales_alerts
+        SET is_read = true
+        WHERE id = $1
+      `, [alertId]);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[POST /api/sales-alerts/:id/read] Error:', error);
+      res.status(500).json({ error: 'Failed to mark alert as read' });
+    }
+  });
+
+  // POST /api/sales-alerts/:id/resolve - Resolver alerta
+  app.post("/api/sales-alerts/:id/resolve", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const alertId = parseInt(req.params.id);
+
+      await sql(`
+        UPDATE sales_alerts
+        SET
+          is_active = false,
+          resolved_at = CURRENT_TIMESTAMP,
+          resolved_by = $1
+        WHERE id = $2
+      `, [user?.id, alertId]);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[POST /api/sales-alerts/:id/resolve] Error:', error);
+      res.status(500).json({ error: 'Failed to resolve alert' });
+    }
+  });
+
+  // GET /api/sales-data - Obtener datos de ventas con filtros
+  app.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, clientId, year, month, limit = '100' } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      let query = `
+        SELECT
+          id, client_id, client_name, product_name, quantity, unit,
+          sale_date, sale_month, sale_year, invoice_number, notes
+        FROM sales_data
+        WHERE company_id = $1
+      `;
+
+      const params: any[] = [resolvedCompanyId];
+      let paramIndex = 2;
+
+      if (clientId) {
+        query += ` AND client_id = $${paramIndex}`;
+        params.push(parseInt(clientId as string));
+        paramIndex++;
+      }
+
+      if (year) {
+        query += ` AND sale_year = $${paramIndex}`;
+        params.push(parseInt(year as string));
+        paramIndex++;
+      }
+
+      if (month) {
+        query += ` AND sale_month = $${paramIndex}`;
+        params.push(parseInt(month as string));
+        paramIndex++;
+      }
+
+      query += ` ORDER BY sale_date DESC LIMIT $${paramIndex}`;
+      params.push(parseInt(limit as string));
+
+      const salesData = await sql(query, params);
+
+      res.json(salesData);
+    } catch (error) {
+      console.error('[GET /api/sales-data] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch sales data' });
+    }
+  });
+
   // Verificar que las rutas estén registradas correctamente (solo en desarrollo)
   if (process.env.NODE_ENV === 'development') {
     const routes = app._router?.stack || [];
