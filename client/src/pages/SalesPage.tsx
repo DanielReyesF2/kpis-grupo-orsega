@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 
 type ViewMode = "overview" | "upload" | "comparison" | "alerts";
 
@@ -41,6 +42,39 @@ export default function SalesPage() {
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
   const canViewOrsega = user?.role === 'admin' || user?.companyId === 2;
+
+  // Query para estadísticas generales
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['/api/sales-stats', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-stats?companyId=${selectedCompany}`);
+      return await res.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000 // Refrescar cada 30 segundos
+  });
+
+  // Query para alertas activas
+  const { data: alerts, isLoading: isLoadingAlerts } = useQuery({
+    queryKey: ['/api/sales-alerts', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-alerts?companyId=${selectedCompany}`);
+      return await res.json();
+    },
+    enabled: !!user && viewMode === 'alerts',
+    refetchInterval: 60000
+  });
+
+  // Query para comparativo
+  const { data: comparison, isLoading: isLoadingComparison } = useQuery({
+    queryKey: ['/api/sales-comparison', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-comparison?companyId=${selectedCompany}`);
+      return await res.json();
+    },
+    enabled: !!user && viewMode === 'comparison',
+    refetchInterval: 60000
+  });
 
   return (
     <AppLayout>
@@ -90,7 +124,9 @@ export default function SalesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-2xl font-bold">
+                      {isLoadingStats ? '...' : stats?.activeClients || 0}
+                    </div>
                     <Users className="h-8 w-8 text-blue-500 opacity-20" />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
@@ -107,11 +143,13 @@ export default function SalesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-2xl font-bold">
+                      {isLoadingStats ? '...' : (stats?.currentVolume?.toLocaleString('es-MX') || 0)}
+                    </div>
                     <Package className="h-8 w-8 text-green-500 opacity-20" />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {selectedCompany === 1 ? 'KG' : 'Unidades'}
+                    {stats?.unit || (selectedCompany === 1 ? 'KG' : 'Unidades')}
                   </p>
                 </CardContent>
               </Card>
@@ -125,8 +163,16 @@ export default function SalesPage() {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">0%</div>
-                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <div className={`text-2xl font-bold ${
+                        stats?.growth >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {isLoadingStats ? '...' : `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`}
+                      </div>
+                      {stats?.growth >= 0 ? (
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-500" />
+                      )}
                     </div>
                     <BarChart3 className="h-8 w-8 text-emerald-500 opacity-20" />
                   </div>
@@ -144,7 +190,9 @@ export default function SalesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold text-amber-600">0</div>
+                    <div className="text-2xl font-bold text-amber-600">
+                      {isLoadingStats ? '...' : stats?.activeAlerts || 0}
+                    </div>
                     <AlertTriangle className="h-8 w-8 text-amber-500 opacity-20" />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
@@ -280,12 +328,73 @@ export default function SalesPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">
-                  No hay datos disponibles aún
-                </p>
-              </div>
+              {isLoadingComparison ? (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Cargando datos comparativos...
+                  </p>
+                </div>
+              ) : !comparison || comparison.length === 0 ? (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    No hay datos disponibles aún
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Sube el primer archivo Excel para comenzar
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold">Cliente</th>
+                          <th className="px-4 py-3 text-right font-semibold">Año Anterior</th>
+                          <th className="px-4 py-3 text-right font-semibold">Año Actual</th>
+                          <th className="px-4 py-3 text-right font-semibold">Diferencial</th>
+                          <th className="px-4 py-3 text-right font-semibold">% Cambio</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {comparison.map((item: any) => {
+                          const isDanger = item.differential < 0;
+                          const isWarning = item.differential >= 0 && item.differential < (item.previous_year_total * 0.1);
+                          const isSuccess = item.differential > (item.previous_year_total * 0.1);
+
+                          return (
+                            <tr key={item.client_id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                              <td className="px-4 py-3 font-medium">{item.client_name}</td>
+                              <td className="px-4 py-3 text-right">
+                                {parseFloat(item.previous_year_total).toLocaleString('es-MX')} {item.unit}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {parseFloat(item.current_year_total).toLocaleString('es-MX')} {item.unit}
+                              </td>
+                              <td className={`px-4 py-3 text-right font-semibold ${
+                                isDanger ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-green-600'
+                              }`}>
+                                {item.differential >= 0 ? '+' : ''}{parseFloat(item.differential).toLocaleString('es-MX')} {item.unit}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {item.percent_change !== null ? (
+                                  <Badge variant={isDanger ? 'destructive' : isSuccess ? 'default' : 'secondary'}>
+                                    {item.percent_change >= 0 ? '+' : ''}{item.percent_change}%
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400">N/A</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -299,12 +408,73 @@ export default function SalesPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">
-                  No hay alertas activas
-                </p>
-              </div>
+              {isLoadingAlerts ? (
+                <div className="text-center py-8">
+                  <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Cargando alertas...
+                  </p>
+                </div>
+              ) : !alerts || alerts.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    No hay alertas activas
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Las alertas se generan automáticamente al subir datos
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {alerts.map((alert: any) => (
+                    <Card key={alert.id} className={`border-l-4 ${
+                      alert.severity === 'critical' ? 'border-red-500' :
+                      alert.severity === 'warning' ? 'border-amber-500' :
+                      'border-blue-500'
+                    }`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className={`h-5 w-5 mt-0.5 ${
+                              alert.severity === 'critical' ? 'text-red-500' :
+                              alert.severity === 'warning' ? 'text-amber-500' :
+                              'text-blue-500'
+                            }`} />
+                            <div>
+                              <CardTitle className="text-base">{alert.title}</CardTitle>
+                              <CardDescription className="mt-1">
+                                {alert.description}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <Badge variant={
+                            alert.severity === 'critical' ? 'destructive' :
+                            alert.severity === 'warning' ? 'secondary' :
+                            'default'
+                          }>
+                            {alert.alert_type === 'inactive_client' ? 'Cliente Inactivo' :
+                             alert.alert_type === 'negative_differential' ? 'Diferencial Negativo' :
+                             alert.alert_type}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      {alert.client_name && (
+                        <CardContent className="pt-0">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <span className="font-semibold">Cliente:</span> {alert.client_name}
+                          </p>
+                          {alert.data && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              {JSON.stringify(alert.data)}
+                            </div>
+                          )}
+                        </CardContent>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
