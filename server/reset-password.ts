@@ -53,7 +53,7 @@ export async function resetUserPassword(email: string, newPassword: string) {
 
 // Ejecutar si se llama directamente
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const email = process.argv[2] || 'daniel@econova.com.mx';
+  const email = process.argv[2] || 'doloresnavarro@grupoorsega.com';
   const newPassword = process.argv[3] || 'password123';
   
   console.log(`\n🚀 Iniciando reset de contraseña...\n`);

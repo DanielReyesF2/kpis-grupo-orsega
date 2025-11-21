@@ -61,3 +61,5 @@ ORDER BY k.area_id, k.name;
 -- Si hay KPIs mal asignados, se deben corregir manualmente según corresponda
 
 
+
+

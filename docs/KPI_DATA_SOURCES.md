@@ -337,3 +337,5 @@ Este documento describe todas las fuentes de datos, endpoints API, funciones de 
 - `shared/schema.ts` - Definición de tablas y tipos
 
 
+
+

@@ -7,8 +7,8 @@ dotenv.config();
 const sqlClient = neon(process.env.DATABASE_URL!);
 
 async function resetPassword() {
-  const email = 'daniel@econova.com.mx';
-  const newPassword = process.argv[2] || 'Econova2024!';
+  const email = process.argv[2] || 'doloresnavarro@grupoorsega.com';
+  const newPassword = process.argv[3] || 'password123';
   
   try {
     console.log(`🔍 Buscando usuario: ${email}`);

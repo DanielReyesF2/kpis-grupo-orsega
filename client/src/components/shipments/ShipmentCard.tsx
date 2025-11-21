@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel } from "lucide-react";
+import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel, Lock } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ShipmentMap } from "./ShipmentMap";
 import { getCoordinates } from "@/utils/geo-utils";
@@ -238,11 +238,13 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                           )}
                         </div>
 
-                        {shipment.actualDeliveryDate && (
+                        {(shipment.actualDeliveryDate || (shipment as any).deliveredAt) && (
                           <div className="flex items-center space-x-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">Fecha real de entrega:</span>{" "}
-                            <FormattedDate date={new Date(shipment.actualDeliveryDate)} />
+                            <Lock className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <span className="font-medium text-green-700 dark:text-green-300">Fecha real de entrega:</span>{" "}
+                            <span className="font-semibold text-green-700 dark:text-green-300">
+                              <FormattedDate date={new Date(shipment.actualDeliveryDate || (shipment as any).deliveredAt)} />
+                            </span>
                           </div>
                         )}
                       </div>

@@ -47,3 +47,5 @@ WHERE (LOWER(u.name) LIKE '%thalia%' OR LOWER(u.name) LIKE '%thalía%' OR LOWER(
 ORDER BY u.name;
 
 
+
+

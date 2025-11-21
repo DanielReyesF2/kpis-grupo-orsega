@@ -1,534 +1,1011 @@
-# Auditoría post-rollback — KPIs DIGO
+# 📋 AUDITORÍA PROFUNDA - FUNCIONALIDADES APLICACIÓN KPIs GRUPO ORSEGA
 
-## Versiones
-v20.19.3
-10.8.2
+**Fecha:** 10 de Noviembre, 2025
+**Auditor:** Claude Code (Anthropic)
+**Alcance:** Funcionalidades esenciales, interacciones de usuario, validaciones, y seguridad
 
-## Árbol básico
-total 1680
-drwxr-xr-x 1 runner runner     838 Aug 18 19:54 .
-drwxrwxrwx 1 runner runner      54 Aug 18 19:45 ..
--rw-r--r-- 1 runner runner    1833 Jul  8 22:29 access_control_summary.md
-drwxr-xr-x 1 runner runner   16918 Aug 18 19:54 attached_assets
--rw-r--r-- 1 runner runner      90 Aug 18 19:54 AUDIT_REPORT.md
-drwxr-xr-x 1 runner runner      32 Apr 25 21:06 .cache
-drwxr-xr-x 1 runner runner      26 Aug 15 01:37 client
--rw-r--r-- 1 runner runner     459 Apr 22 19:27 components.json
-drwxr-xr-x 1 runner runner       6 Apr 29 22:21 .config
--rw-r--r-- 1 runner runner     273 Aug 15 01:37 cookies.txt
--rw-r--r-- 1 runner runner   12678 Apr 30 04:05 dashboard.new.txt
--rw-r--r-- 1 runner runner   12183 Apr 30 04:05 dashboard.part1.txt
--rw-r--r-- 1 runner runner     495 Apr 30 04:05 dashboard.part2.txt
--rw-r--r-- 1 runner runner   20756 Apr 30 04:04 dashboard.txt
-drwxr-xr-x 1 runner runner      12 Aug 13 23:44 dist
--rw-r--r-- 1 runner runner     325 Apr 22 19:27 drizzle.config.ts
--rw-r--r-- 1 runner runner    6148 Apr 22 19:27 .DS_Store
--rw-r--r-- 1 runner runner    4325 Jul 12 00:54 ejemplos_historial_kpis.md
--rw-r--r-- 1 runner runner 1023294 May  8 00:14 generated-icon.png
-drwxr-xr-x 1 runner runner     162 Aug 18 19:54 .git
--rw-r--r-- 1 runner runner      67 Apr 22 19:27 .gitignore
--rw-r--r-- 1 runner runner       0 Apr 25 16:28 kpis.json
-drwxr-xr-x 1 runner runner      10 Apr 22 19:23 .local
-drwxr-xr-x 1 runner runner   11320 Aug 15 01:38 node_modules
--rw-r--r-- 1 runner runner    4168 Aug 15 01:37 package.json
--rw-r--r-- 1 runner runner  552177 Aug 15 01:37 package-lock.json
--rw-r--r-- 1 runner runner      80 Apr 22 19:27 postcss.config.js
-drwxr-xr-x 1 runner runner      52 Jul 12 00:07 public
--rw-r--r-- 1 runner runner     925 Aug 15 01:38 .replit
--rw-r--r-- 1 runner runner   12353 Aug 15 01:37 replit.md
-drwxr-xr-x 1 runner runner     680 Aug 15 01:37 scripts
-drwxr-xr-x 1 runner runner     340 Aug 15 01:37 server
-drwxr-xr-x 1 runner runner      18 Aug 15 01:37 shared
--rw-r--r-- 1 runner runner    2894 Apr 22 19:59 tailwind.config.ts
--rw-r--r-- 1 runner runner     657 Apr 22 19:27 tsconfig.json
-drwxr-xr-x 1 runner runner      20 Aug 13 23:01 .upm
--rw-r--r-- 1 runner runner     894 Aug 15 01:37 vite.config.ts
+---
 
-client/ (top)
-total 4
-drwxr-xr-x 1 runner runner  26 Aug 15 01:37 .
-drwxr-xr-x 1 runner runner 838 Aug 18 19:54 ..
--rw-r--r-- 1 runner runner 689 Apr 22 19:27 index.html
-drwxr-xr-x 1 runner runner 132 Aug 15 01:37 src
+## 📊 RESUMEN EJECUTIVO
 
-server/ (top)
-total 324
-drwxr-xr-x 1 runner runner   340 Aug 15 01:37 .
-drwxr-xr-x 1 runner runner   838 Aug 18 19:54 ..
--rw-r--r-- 1 runner runner  4172 Aug 15 01:37 auth.ts
--rw-r--r-- 1 runner runner 30688 Aug 15 01:37 DatabaseStorage.ts
--rw-r--r-- 1 runner runner 27565 Aug 15 01:37 DatabaseStorage.ts.backup
--rw-r--r-- 1 runner runner   552 Aug 15 01:37 db.ts
-drwxr-xr-x 1 runner runner   590 Aug 15 00:33 dist
--rw-r--r-- 1 runner runner  5979 Aug 13 23:44 email.ts
--rw-r--r-- 1 runner runner  2121 Aug 15 01:37 index.ts
--rw-r--r-- 1 runner runner 37613 Aug 15 01:37 routes.ts
--rw-r--r-- 1 runner runner 50294 Aug 15 01:37 routes.ts.backup
--rw-r--r-- 1 runner runner  5098 Aug 15 01:37 sendgrid.ts
--rw-r--r-- 1 runner runner 24147 Aug 15 01:37 storage.new.ts
--rw-r--r-- 1 runner runner 65469 Aug 15 01:37 storage.ts
--rw-r--r-- 1 runner runner 41841 Aug 15 01:37 storage.ts.bak
--rw-r--r-- 1 runner runner   280 Aug 15 01:37 storage.ts.new
--rw-r--r-- 1 runner runner  2254 Aug 15 01:37 vite.ts
+Se realizó una auditoría exhaustiva de todas las funcionalidades críticas de la aplicación, evaluando:
+- ✅ Operaciones CRUD (Create, Read, Update, Delete)
+- ✅ Eventos de clicks y handlers
+- ✅ Validaciones de formularios
+- ✅ Guardado y persistencia de datos
+- ✅ Exportación/Importación de datos
+- ✅ Seguridad y autenticación
+- ✅ Manejo de errores
 
-shared/ (top)
-total 16
-drwxr-xr-x 1 runner runner    18 Aug 15 01:37 .
-drwxr-xr-x 1 runner runner   838 Aug 18 19:54 ..
--rw-r--r-- 1 runner runner 13683 Aug 15 01:37 schema.ts
+### Estado General: ⚠️ **BUENO CON MEJORAS NECESARIAS**
 
-## vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+**Puntuación:** 7.5/10
 
-export default defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-    },
-  },
-  root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-  },
+---
+
+## 🎯 HALLAZGOS PRINCIPALES
+
+### ✅ FORTALEZAS IDENTIFICADAS
+
+1. **Arquitectura sólida**
+   - Separación clara frontend/backend/shared
+   - TypeScript en toda la aplicación
+   - React Query para gestión de estado y caché
+
+2. **Validación robusta**
+   - Zod schemas en frontend y backend
+   - React Hook Form con validación en tiempo real
+   - Validación de tipos con TypeScript
+
+3. **Autenticación y autorización**
+   - JWT correctamente implementado
+   - Contraseñas hasheadas con bcrypt (10 rounds)
+   - Rate limiting en endpoints críticos
+   - Middleware de autenticación en todas las rutas protegidas
+
+4. **Seguridad básica implementada**
+   - Helmet configurado para headers HTTP seguros
+   - CORS configurado correctamente
+   - Sanitización de datos sensibles en logs
+   - Validación de tenant (VUL-001 fix)
+
+5. **UX/UI considerada**
+   - Estados de loading en la mayoría de operaciones
+   - Feedback visual con toasts
+   - Error boundaries para capturar errores React
+   - Dark mode implementado
+
+---
+
+## 🔴 PROBLEMAS CRÍTICOS ENCONTRADOS
+
+### 1. **EXPOSICIÓN DE CREDENCIALES EN LOGS**
+**Severidad:** 🔴 CRÍTICA
+**Archivo:** `server/generate-hash.ts:10`
+
+```typescript
+// ❌ PROBLEMA
+console.log('Password:', password);
+
+// ✅ SOLUCIÓN
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Password hash generated for user');
+}
+```
+
+**Impacto:** Contraseñas en texto plano en logs de servidor
+
+---
+
+### 2. **VALIDACIÓN INSUFICIENTE DE UPLOADS**
+**Severidad:** 🔴 CRÍTICA
+**Archivo:** `server/routes.ts:5219-5250`
+
+```typescript
+// ❌ PROBLEMA: Solo valida MIME type (puede ser spoofed)
+const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+if (!allowedMimeTypes.includes(file.mimetype)) {
+  return res.status(400).json({ error: 'Tipo de archivo no permitido' });
+}
+
+// ✅ SOLUCIÓN: Validar contenido real del archivo
+import { fileTypeFromBuffer } from 'file-type';
+
+const buffer = fs.readFileSync(file.path);
+const type = await fileTypeFromBuffer(buffer);
+
+if (!type || !['pdf', 'png', 'jpg'].includes(type.ext)) {
+  fs.unlinkSync(file.path);
+  return res.status(400).json({ error: 'Tipo de archivo no válido' });
+}
+```
+
+**Impacto:** Archivos maliciosos podrían ser subidos spoofing el MIME type
+
+---
+
+### 3. **FALTA DE VALIDACIÓN DE AUTORIZACIÓN**
+**Severidad:** 🟠 ALTA
+**Archivo:** `server/routes.ts:2533-2554` (PUT /api/shipments/:id)
+
+```typescript
+// ❌ PROBLEMA: No valida si el usuario puede editar este shipment
+app.put("/api/shipments/:id", jwtAuthMiddleware, async (req, res) => {
+  const shipment = await storage.getShipment(shipmentId);
+  // ⚠️ No se valida si req.user.companyId === shipment.companyId
+  await storage.updateShipment(shipmentId, validatedData);
 });
 
-## tsconfig.json
-{
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
-  "compilerOptions": {
-    "incremental": true,
-    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
-    "noEmit": true,
-    "module": "ESNext",
-    "strict": true,
-    "lib": ["esnext", "dom", "dom.iterable"],
-    "jsx": "preserve",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
-    "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "types": ["node", "vite/client"],
-    "paths": {
-      "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"]
+// ✅ SOLUCIÓN
+app.put("/api/shipments/:id", jwtAuthMiddleware, async (req, res) => {
+  const user = getAuthUser(req as AuthRequest);
+  const shipment = await storage.getShipment(shipmentId);
+
+  // Validar autorización
+  if (user.role !== 'admin' && user.companyId !== shipment.companyId) {
+    return res.status(403).json({
+      error: 'No tienes permiso para editar este envío'
+    });
+  }
+
+  await storage.updateShipment(shipmentId, validatedData);
+});
+```
+
+**Impacto:** Usuarios pueden modificar recursos de otras compañías
+
+---
+
+### 4. **EXPOSICIÓN DE STACK TRACES EN PRODUCCIÓN**
+**Severidad:** 🟠 ALTA
+**Archivo:** `server/routes.ts` (múltiples endpoints)
+
+```typescript
+// ❌ PROBLEMA
+} catch (error) {
+  console.error('Error:', error);
+  res.status(500).json({
+    error: 'Error interno',
+    details: error.message  // ⚠️ Expone detalles internos
+  });
+}
+
+// ✅ SOLUCIÓN
+} catch (error) {
+  logger.error('Error en endpoint', { error, userId: user.id });
+
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Error interno del servidor'
+    : error.message;
+
+  res.status(500).json({ error: message });
+}
+```
+
+---
+
+## 🟡 PROBLEMAS MEDIOS
+
+### 5. **FALTA DE TOKENS CSRF**
+**Severidad:** 🟡 MEDIA
+**Archivos:** Todos los formularios
+
+**Descripción:** La aplicación no implementa protección CSRF para operaciones de escritura.
+
+**Solución recomendada:**
+```bash
+npm install csurf
+```
+
+```typescript
+// server/index.ts
+import csrf from 'csurf';
+const csrfProtection = csrf({ cookie: true });
+
+app.post('/api/*', csrfProtection, ...);
+```
+
+---
+
+### 6. **RATE LIMITING NO DISTRIBUIDO**
+**Severidad:** 🟡 MEDIA
+**Archivo:** `server/index.ts:280-307`
+
+**Problema:** El rate limiting actual usa memoria local. En un entorno distribuido (múltiples instancias), cada servidor tiene su propio contador.
+
+**Solución:**
+```typescript
+import RedisStore from 'rate-limit-redis';
+import { createClient } from 'redis';
+
+const client = createClient({
+  url: process.env.REDIS_URL
+});
+
+const limiter = rateLimit({
+  store: new RedisStore({
+    client,
+    prefix: 'rl:'
+  }),
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
+```
+
+---
+
+### 7. **CSP MUY PERMISIVA**
+**Severidad:** 🟡 MEDIA
+**Archivo:** `server/index.ts:261`
+
+**Problema:**
+```typescript
+contentSecurityPolicy: {
+  directives: {
+    defaultSrc: ["'self'"],
+    imgSrc: ["'self'", "data:", "https:"],  // ⚠️ Muy permisivo
+    scriptSrc: ["'self'", "'unsafe-inline'"]  // ⚠️ Permite scripts inline
+  }
+}
+```
+
+**Solución:** Usar nonces para scripts y limitar fuentes de imágenes
+
+---
+
+### 8. **RESPUESTAS DEL SERVIDOR NO VALIDADAS**
+**Severidad:** 🟡 MEDIA
+**Archivo:** `client/src/components/kpis/KpiUpdateModal.tsx:69-83`
+
+```typescript
+// ❌ PROBLEMA: No valida el schema de la respuesta
+const { data: kpiValues } = useQuery({
+  queryFn: async () => {
+    const response = await apiRequest('GET', `/api/kpi-values?kpiId=${kpiId}`);
+    return await response.json();  // ⚠️ No valida el schema
+  }
+});
+
+// ✅ SOLUCIÓN
+import { z } from 'zod';
+
+const kpiValueSchema = z.array(z.object({
+  id: z.number(),
+  kpiId: z.number(),
+  value: z.string(),
+  date: z.string(),
+  status: z.enum(['complies', 'alert', 'not_compliant'])
+}));
+
+const { data: kpiValues } = useQuery({
+  queryFn: async () => {
+    const response = await apiRequest('GET', `/api/kpi-values?kpiId=${kpiId}`);
+    const data = await response.json();
+    return kpiValueSchema.parse(data);  // ✅ Valida antes de usar
+  }
+});
+```
+
+---
+
+## 📱 AUDITORÍA DE FUNCIONALIDADES PRINCIPALES
+
+### 1️⃣ **CREAR/AGREGAR KPIs**
+
+#### Frontend
+**Archivo:** `client/src/components/kpis/KpiUpdateForm.tsx`
+
+✅ **Funcionalidades correctas:**
+- Formulario con React Hook Form + Zod
+- Validación en tiempo real
+- Select dinámico de KPIs por empresa/área
+- Período auto-calculado por semana
+- Estados de loading con `mutation.isPending`
+- Toast de confirmación/error
+- Invalidación de queries tras éxito
+
+```typescript
+// Validación Zod implementada
+const kpiUpdateSchema = z.object({
+  kpiId: z.number().min(1, "Debe seleccionar un KPI"),
+  value: z.string().min(1, "El valor es requerido"),
+  period: z.string().min(1, "El período es requerido"),
+  comments: z.string().optional(),
+});
+```
+
+⚠️ **Problemas encontrados:**
+1. No valida formato del valor (ej: si debe ser número, porcentaje, etc.)
+2. El campo `value` acepta cualquier string sin validación específica
+
+**Recomendación:**
+```typescript
+const kpiUpdateSchema = z.object({
+  kpiId: z.number().min(1),
+  value: z.string()
+    .min(1)
+    .refine((val) => {
+      // Aceptar números con/sin unidades
+      return /^[\d.,]+\s*(%|kg|días|USD|MXN)?$/i.test(val);
+    }, "Formato inválido. Use: 95.5%, 1500 KG, 2.3 días"),
+  period: z.string().min(1),
+  comments: z.string().optional(),
+});
+```
+
+#### Backend
+**Archivo:** `server/routes.ts:1536-1647`
+
+✅ **Funcionalidades correctas:**
+- Autenticación JWT validada
+- Validación con `insertKpiValueSchema`
+- Cálculo automático de `status` (complies/alert/not_compliant)
+- Cálculo de `compliancePercentage`
+- Detección automática de `companyId` si no se provee
+- Notificaciones en cambios críticos de estado
+
+```typescript
+app.post("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
+  const user = getAuthUser(req as AuthRequest);
+  const validatedData = insertKpiValueSchema.parse(req.body);
+
+  // ✅ Calcula status automáticamente
+  const calculatedStatus = calculateKpiStatus(
+    validatedData.value,
+    kpi.target || kpi.goal,
+    kpi.name
+  );
+
+  // ✅ Crea notificación en cambios críticos
+  await createKPIStatusChangeNotification(...);
+});
+```
+
+⚠️ **Problemas encontrados:**
+1. No limita la frecuencia de actualizaciones (un usuario podría crear 1000 valores en 1 minuto)
+2. No valida si el período ya existe para evitar duplicados
+
+**Recomendación:**
+```typescript
+// Agregar validación de período duplicado
+const existingValue = await storage.getKpiValueByPeriod(
+  validatedData.kpiId,
+  validatedData.period
+);
+
+if (existingValue) {
+  return res.status(409).json({
+    error: 'Ya existe un valor para este período',
+    suggestion: 'Usa el endpoint PUT para actualizar'
+  });
+}
+```
+
+---
+
+### 2️⃣ **EDITAR KPIs**
+
+#### Frontend
+**Archivo:** `client/src/components/kpis/KpiUpdateModal.tsx`
+
+✅ **Funcionalidades correctas:**
+- Modal con Dialog de Radix UI
+- Muestra información actual del KPI
+- Calcula período automáticamente
+- Botón para edición masiva del historial completo
+- Loading states en submit
+- Invalidación múltiple de queries
+
+```typescript
+onSuccess: (data) => {
+  // ✅ Invalida múltiples cachés relacionados
+  queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+  queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`] });
+  queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+
+  // ✅ Fuerza refetch inmediato
+  queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
+}
+```
+
+⚠️ **Problemas encontrados:**
+1. No hay confirmación antes de actualizar
+2. El formulario de ventas está deshabilitado (`isSalesKpi = false`) pero el código sigue ahí
+
+#### Edición Masiva
+**Archivo:** `client/src/components/kpis/KpiHistoryBulkEditModal.tsx`
+
+✅ **Funcionalidad implementada:**
+- Permite editar 12 meses a la vez
+- Inputs individuales por mes
+- Validación de cada campo
+- Vista previa de cambios
+- Loading state durante guardado
+
+**Endpoint Backend:**
+```typescript
+// PUT /api/kpi-values/bulk
+app.put("/api/kpi-values/bulk", jwtAuthMiddleware, async (req, res) => {
+  // ✅ Valida cada valor del array
+  // ✅ Calcula status para cada mes
+  // ✅ Maneja errores individuales sin romper el batch
+});
+```
+
+---
+
+### 3️⃣ **ELIMINAR KPIs**
+
+#### Backend
+**Archivo:** `server/routes.ts:940-969`
+
+```typescript
+// DELETE /api/kpis/:id - Eliminar KPI completo
+app.delete("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
+  const user = getAuthUser(req as AuthRequest);
+  const kpiId = parseInt(req.params.id);
+
+  // ⚠️ PROBLEMA: No valida autorización
+  // ❌ Cualquier usuario autenticado puede eliminar cualquier KPI
+
+  await storage.deleteKpi(kpiId);
+  res.json({ success: true });
+});
+```
+
+**🔴 PROBLEMA CRÍTICO:** No valida si el usuario tiene permiso para eliminar el KPI.
+
+**Solución:**
+```typescript
+app.delete("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
+  const user = getAuthUser(req as AuthRequest);
+  const kpiId = parseInt(req.params.id);
+
+  // Obtener el KPI primero
+  const allKpis = await storage.getKpis();
+  const kpi = allKpis.find(k => k.id === kpiId);
+
+  if (!kpi) {
+    return res.status(404).json({ error: 'KPI no encontrado' });
+  }
+
+  // ✅ Validar autorización
+  if (user.role !== 'admin' && user.companyId !== kpi.companyId) {
+    return res.status(403).json({
+      error: 'No tienes permiso para eliminar este KPI'
+    });
+  }
+
+  await storage.deleteKpi(kpiId);
+  res.json({ success: true });
+});
+```
+
+#### Frontend
+⚠️ **NO ENCONTRADO:** No hay UI implementada para eliminar KPIs desde el frontend. Esta funcionalidad solo existe en el backend.
+
+---
+
+### 4️⃣ **GUARDAR CAMBIOS (PERSISTENCIA)**
+
+#### LocalStorage
+**Archivos auditados:**
+- `client/src/lib/queryClient.ts` - Token JWT
+- `client/src/hooks/use-company-filter.tsx` - Filtro de empresa
+- `client/src/hooks/use-auth.tsx` - Autenticación
+
+✅ **Implementación correcta:**
+
+```typescript
+// 1. Token JWT con manejo de errores
+export function setAuthToken(token: string): void {
+  try {
+    localStorage.setItem('authToken', token);
+  } catch (error) {
+    console.error('[Auth] Error guardando token:', error);
+    throw new Error('No se pudo guardar el token');
+  }
+}
+
+// 2. Filtro de empresa persistente
+export function CompanyFilterProvider({ children }) {
+  const [selectedCompany, setSelectedCompany] = useState<number>(() => {
+    const storedCompany = localStorage.getItem('selectedCompanyId');
+    return storedCompany ? Number(storedCompany) : 1;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('selectedCompanyId', selectedCompany.toString());
+  }, [selectedCompany]);
+}
+
+// 3. Ruta post-login en sessionStorage
+if (!window.location.pathname.includes('/login')) {
+  sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+}
+```
+
+✅ **Datos guardados localmente:**
+1. `authToken` - Token JWT (localStorage)
+2. `selectedCompanyId` - Filtro de empresa (localStorage)
+3. `redirectAfterLogin` - Ruta para redirección (sessionStorage)
+
+⚠️ **No encontrado:**
+- No hay persistencia de filtros de fecha/período
+- No hay "draft" de formularios sin completar
+
+---
+
+### 5️⃣ **EXPORTAR A PDF**
+
+#### Frontend
+**Archivo:** `client/src/components/dashboard/PdfExport.tsx`
+
+```typescript
+const handleDownload = async () => {
+  await generatePdfFromElement(dashboardRef.current, {
+    company: company.name,
+    title: `Dashboard de KPIs - ${company.name}`,
+    subtitle: `Período: ${periodText} - Fecha: ${currentDate}`,
+    fileName: `kpis-dashboard-${company.name}`,
+  });
+
+  toast({ title: "PDF generado", description: "..." });
+};
+```
+
+**Servicio:**
+**Archivo:** `client/src/services/pdfService.ts`
+
+✅ **Funcionalidad correcta:**
+- Usa html2canvas para capturar elementos DOM
+- Genera PDF con jsPDF
+- Maneja errores con try-catch
+- Feedback visual con toast
+
+```typescript
+export async function generatePdfFromElement(
+  element: HTMLElement,
+  options: PdfOptions
+): Promise<void> {
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      logging: false,
+      useCORS: true
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+
+    // ... generación del PDF
+
+    pdf.save(`${options.fileName}.pdf`);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw error;
+  }
+}
+```
+
+⚠️ **Limitaciones:**
+1. Solo exporta lo visible en pantalla (no datos tabulares completos)
+2. No hay opción de exportar a Excel
+3. No permite personalización del contenido del PDF
+
+**Recomendación:**
+```typescript
+// Agregar exportación de datos tabulares
+export function exportKpiDataToPdf(kpis: Kpi[]): void {
+  const doc = new jsPDF();
+
+  autoTable(doc, {
+    head: [['KPI', 'Valor', 'Meta', 'Estado', 'Cumplimiento']],
+    body: kpis.map(k => [
+      k.name,
+      k.currentValue,
+      k.target,
+      k.status,
+      k.compliancePercentage
+    ])
+  });
+
+  doc.save('kpis-data.pdf');
+}
+```
+
+#### Utilidad general
+**Archivo:** `client/src/utils/export/pdf.ts`
+
+✅ **Funciones auxiliares implementadas:**
+```typescript
+exportToPdf()           // Genérica para cualquier dato
+exportShipmentsToPdf()  // Especializada para envíos
+exportKpisToPdf()       // Especializada para KPIs
+```
+
+---
+
+### 6️⃣ **IMPORTAR DESDE PDF**
+
+#### Backend
+**Archivo:** `server/routes.ts:5150-5300`
+
+**Endpoint:** `POST /api/treasury/payment-vouchers/upload`
+
+```typescript
+app.post('/api/treasury/payment-vouchers/upload',
+  jwtAuthMiddleware,
+  uploadLimiter,  // ✅ Rate limiting
+  upload.single('file'),
+  async (req, res) => {
+    // 1. Validar tipo de archivo
+    if (!file.mimetype.includes('pdf')) {
+      return res.status(400).json({ error: 'Solo PDFs' });
     }
+
+    // 2. Extraer texto del PDF
+    const pdfText = await extractPdfText(file.path);
+
+    // 3. Analizar con OpenAI
+    const analysis = await analyzePdfDocument(file.path);
+
+    // 4. Guardar en base de datos
+    const voucher = await storage.createPaymentVoucher(data);
+});
+```
+
+✅ **Funcionalidades correctas:**
+- Extracción de texto con pdfjs-dist
+- Análisis con OpenAI GPT-4
+- Rate limiting (20 uploads/hora)
+- Validación de tipo de archivo
+- Manejo de errores con try-catch
+
+⚠️ **Problemas:**
+1. Solo valida MIME type (ver problema #2 arriba)
+2. No hay límite de tamaño de archivo
+3. Los archivos temporales no se limpian en caso de error
+
+**Solución:**
+```typescript
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+if (file.size > MAX_FILE_SIZE) {
+  fs.unlinkSync(file.path);  // ✅ Limpiar archivo
+  return res.status(400).json({
+    error: 'Archivo muy grande. Máximo 10MB'
+  });
+}
+
+try {
+  // ... procesamiento
+} catch (error) {
+  // ✅ Limpiar archivo en caso de error
+  if (fs.existsSync(file.path)) {
+    fs.unlinkSync(file.path);
   }
+  throw error;
 }
+```
 
-## .replit
-modules = ["nodejs-20", "web", "postgresql-16"]
-run = "npm run dev"
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+---
 
-[nix]
-channel = "stable-24_05"
-packages = ["jq"]
+### 7️⃣ **CLICKS Y EVENTOS DE UI**
 
-[deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+**Patrones encontrados en componentes:**
 
-[[ports]]
-localPort = 5000
-externalPort = 80
+#### Buttons con onClick
+✅ **Implementación correcta en mayoría de casos:**
 
-[[ports]]
-localPort = 24678
-externalPort = 3000
+```typescript
+// KpiCard.tsx
+<Button onClick={() => onViewDetails(id)}>
+  Ver Detalles
+</Button>
 
-[workflows]
-runButton = "Project"
+// RequestShipmentModal.tsx
+const handleSubmit = () => {
+  if (!formData.providerId) {
+    toast({ title: "Error", description: "Selecciona un proveedor" });
+    return;
+  }
+  onSubmit(formData);
+};
 
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
+<Button onClick={handleSubmit} disabled={isSubmitting}>
+  {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
+</Button>
+```
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
+✅ **Buenas prácticas encontradas:**
+1. Estados de loading (`disabled={isSubmitting}`)
+2. Validación antes de ejecutar acción
+3. Feedback visual con toasts
+4. Handlers en funciones separadas (no inline)
 
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
+⚠️ **Problemas encontrados:**
 
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
+1. **Doble click no prevenido en algunos forms**
+```typescript
+// ❌ PROBLEMA
+<Button onClick={handleSubmit}>Submit</Button>
 
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
+// ✅ SOLUCIÓN
+const [isSubmitting, setIsSubmitting] = useState(false);
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
+const handleSubmit = async () => {
+  if (isSubmitting) return;  // ✅ Prevenir doble click
+  setIsSubmitting(true);
+  try {
+    await submitData();
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
 
-[agent]
-integrations = ["javascript_sendgrid==1.0.0"]
+2. **Falta de debounce en búsquedas**
+   - No hay búsqueda implementada con debouncing
+   - Las queries se ejecutan en cada keystroke sin optimización
 
-## drizzle.config.ts
-import { defineConfig } from "drizzle-kit";
+---
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
+### 8️⃣ **VALIDACIONES DE FORMULARIOS**
 
-export default defineConfig({
-  out: "./migrations",
-  schema: "./shared/schema.ts",
-  dialect: "postgresql",
-  dbCredentials: {
-    url: process.env.DATABASE_URL,
-  },
+#### React Hook Form + Zod
+
+✅ **Implementación correcta en:**
+- `KpiUpdateForm.tsx`
+- `KpiUpdateModal.tsx`
+- `LoginForm.tsx`
+- `RequestShipmentModal.tsx`
+
+**Ejemplo de validación robusta:**
+```typescript
+const kpiUpdateSchema = z.object({
+  kpiId: z.number().min(1, "Debe seleccionar un KPI"),
+  value: z.string().min(1, "El valor es requerido"),
+  period: z.string().min(1, "El período es requerido"),
+  comments: z.string().optional(),
 });
 
-## package.json
-{
-  "name": "rest-express",
-  "version": "1.0.0",
-  "type": "module",
-  "license": "MIT",
-  "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc",
-    "db:push": "drizzle-kit push"
-  },
-  "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@hookform/resolvers": "^3.10.0",
-    "@jridgewell/trace-mapping": "^0.3.25",
-    "@neondatabase/serverless": "^0.10.4",
-    "@nextui-org/react": "^2.6.11",
-    "@radix-ui/react-accordion": "^1.2.4",
-    "@radix-ui/react-alert-dialog": "^1.1.7",
-    "@radix-ui/react-aspect-ratio": "^1.1.3",
-    "@radix-ui/react-avatar": "^1.1.4",
-    "@radix-ui/react-checkbox": "^1.1.5",
-    "@radix-ui/react-collapsible": "^1.1.4",
-    "@radix-ui/react-context-menu": "^2.2.7",
-    "@radix-ui/react-dialog": "^1.1.7",
-    "@radix-ui/react-dropdown-menu": "^2.1.7",
-    "@radix-ui/react-hover-card": "^1.1.7",
-    "@radix-ui/react-label": "^2.1.3",
-    "@radix-ui/react-menubar": "^1.1.7",
-    "@radix-ui/react-navigation-menu": "^1.2.6",
-    "@radix-ui/react-popover": "^1.1.7",
-    "@radix-ui/react-progress": "^1.1.3",
-    "@radix-ui/react-radio-group": "^1.2.4",
-    "@radix-ui/react-scroll-area": "^1.2.4",
-    "@radix-ui/react-select": "^2.1.7",
-    "@radix-ui/react-separator": "^1.1.3",
-    "@radix-ui/react-slider": "^1.2.4",
-    "@radix-ui/react-slot": "^1.2.0",
-    "@radix-ui/react-switch": "^1.1.4",
-    "@radix-ui/react-tabs": "^1.1.4",
-    "@radix-ui/react-toast": "^1.2.7",
-    "@radix-ui/react-toggle": "^1.1.3",
-    "@radix-ui/react-toggle-group": "^1.1.3",
-    "@radix-ui/react-tooltip": "^1.2.0",
-    "@sendgrid/mail": "^8.1.5",
-    "@tailwindcss/vite": "^4.1.3",
-    "@tanstack/react-query": "^5.60.5",
-    "@types/bcrypt": "^5.0.2",
-    "@types/html2canvas": "^0.5.35",
-    "@types/jsonwebtoken": "^9.0.9",
-    "@types/jspdf": "^1.3.3",
-    "@types/leaflet": "^1.9.17",
-    "bcrypt": "^6.0.0",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "connect-pg-simple": "^10.0.0",
-    "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.1",
-    "drizzle-zod": "^0.7.0",
-    "embla-carousel-react": "^8.6.0",
-    "exceljs": "^4.4.0",
-    "express": "^4.21.2",
-    "express-session": "^1.18.1",
-    "framer-motion": "^11.18.2",
-    "html2canvas": "^1.4.1",
-    "input-otp": "^1.4.2",
-    "jsonwebtoken": "^9.0.2",
-    "jspdf": "^3.0.1",
-    "jspdf-autotable": "^5.0.2",
-    "leaflet": "^1.9.4",
-    "lucide-react": "^0.453.0",
-    "memorystore": "^1.6.7",
-    "moment": "^2.30.1",
-    "next-themes": "^0.4.6",
-    "passport": "^0.7.0",
-    "passport-local": "^1.0.0",
-    "react": "^18.3.1",
-    "react-calendar-timeline": "^0.30.0-beta.3",
-    "react-day-picker": "^8.10.1",
-    "react-dom": "^18.3.1",
-    "react-hook-form": "^7.55.0",
-    "react-icons": "^5.4.0",
-    "react-leaflet": "^4.2.1",
-    "react-resizable-panels": "^2.1.7",
-    "recharts": "^2.15.3",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7",
-    "tw-animate-css": "^1.2.5",
-    "vaul": "^1.1.2",
-    "wouter": "^3.3.5",
-    "ws": "^8.18.0",
-    "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
-  },
-  "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.2.7",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
-    "@tailwindcss/typography": "^0.5.15",
-    "@types/connect-pg-simple": "^7.0.3",
-    "@types/express": "4.17.21",
-    "@types/express-session": "^1.18.0",
-    "@types/node": "20.16.11",
-    "@types/passport": "^1.0.16",
-    "@types/passport-local": "^1.0.38",
-    "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.1",
-    "@types/ws": "^8.5.13",
-    "@vitejs/plugin-react": "^4.3.2",
-    "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.4",
-    "esbuild": "^0.25.0",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.1",
-    "typescript": "5.6.3",
-    "vite": "^5.4.14"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.8"
-  }
-}
-
-## Búsquedas de riesgo
-
-### (A) Importaciones de Vite en server (debe estar vacío):
-
-### (B) Alias '@shared' usados en server (deberían ser relativos ../shared):
-
-### (C) Alias faltantes en Vite (componentes/páginas/hooks):
-No encontrado
-
-## Builds
-Probando build del frontend...
-vite v5.4.14 building for production...
-transforming...
-Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
-  npx update-browserslist-db@latest
-  Why you should do it regularly: https://github.com/browserslist/update-db#readme
-
-## Orden de rutas y estáticos
-Buscando configuración de rutas y estáticos...
-server/vite.ts:79:  app.use(express.static(distPath));
-server/vite.ts:83:    res.sendFile(path.resolve(distPath, "index.html"));
-server/index.ts:11:app.use(express.static(path.join(process.cwd(), 'public')));
-
-## Smoke test
-Probando endpoints...
-GET http://localhost:5000/api/health
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <script type="module">
-import { createHotContext } from "/@vite/client";
-const hot = createHotContext("/__dummy__runtime-error-plugin");
-
-function sendError(error) {
-  if (!(error instanceof Error)) {
-    error = new Error("(unknown runtime error)");
-  }
-  const serialized = {
-    message: error.message,
-    stack: error.stack,
-  };
-  hot.send("runtime-error-plugin:error", serialized);
-}
-
-window.addEventListener("error", (evt) => {
-  sendError(evt.error);
+const form = useForm<FormValues>({
+  resolver: zodResolver(kpiUpdateSchema),
+  defaultValues: { ... }
 });
 
-window.addEventListener("unhandledrejection", (evt) => {
-  sendError(evt.reason);
+// ✅ Validación automática en submit
+<form onSubmit={form.handleSubmit(onSubmit)}>
+```
+
+✅ **Mensajes de error mostrados:**
+```typescript
+<FormField control={form.control} name="value">
+  <FormControl>
+    <Input {...field} />
+  </FormControl>
+  <FormMessage />  {/* ✅ Muestra errores de Zod */}
+</FormField>
+```
+
+⚠️ **Formularios sin validación completa:**
+1. `SimpleTargetsButtons.tsx` - Actualización de metas sin esquema Zod
+2. Algunos modales de tesorería usan validación manual
+
+---
+
+### 9️⃣ **CREACIÓN/EDICIÓN DE ENVÍOS**
+
+#### Frontend
+**Archivo:** `client/src/components/shipments/RequestShipmentModal.tsx`
+
+✅ **Funcionalidades correctas:**
+- Formulario controlado con useState
+- Validación manual de campos requeridos
+- Vista previa de email generado
+- Switch para citas requeridas
+- CCs múltiples
+- Genera mailto link automáticamente
+
+```typescript
+const handleSubmit = () => {
+  if (!formData.providerId) {
+    toast({ title: "Error", description: "Selecciona un proveedor" });
+    return;
+  }
+  onSubmit(formData);
+};
+```
+
+⚠️ **Problemas:**
+1. No usa React Hook Form ni Zod
+2. Validación manual incompleta
+3. Fecha de pickup no valida si es pasada
+
+#### Backend
+**Endpoints:**
+- `POST /api/shipments` (routes.ts:2412)
+- `POST /api/shipments` (routes-logistics.ts:109)
+
+⚠️ **CONFLICTO:** Hay dos endpoints con la misma ruta en diferentes archivos
+
+```typescript
+// routes.ts - Endpoint principal
+app.post("/api/shipments", jwtAuthMiddleware, async (req, res) => {
+  const validatedData = insertShipmentSchema.parse(req.body);
+  const shipment = await storage.createShipment(validatedData);
 });
-</script>
 
-    <script type="module">
-import RefreshRuntime from "/@react-refresh"
-RefreshRuntime.injectIntoGlobalHook(window)
-window.$RefreshReg$ = () => {}
-window.$RefreshSig$ = () => (type) => type
-window.__vite_plugin_react_preamble_installed__ = true
-</script>
+// routes-logistics.ts - Endpoint legacy
+logisticsRouter.post("/api/shipments", jwtAuthMiddleware, async (req, res) => {
+  const validated = createShipmentSchema.parse(req.body);
+  // ... código diferente
+});
+```
 
-    <script type="module" src="/@vite/client"></script>
+**Solución implementada:**
+```typescript
+// El router de logistics está montado en ruta diferente
+app.use("/api/logistics-legacy", logisticsRouter);
+```
 
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Econova KPI Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module">"use strict";(()=>{var P="0.2.7";var T={HIGHLIGHT_COLOR:"#0079F2",HIGHLIGHT_BG:"#0079F210",ALLOWED_DOMAIN:".replit.dev"},Q=`
-  [contenteditable] {
-    outline: none !important;
+---
+
+### 🔟 **TESORERÍA (PAGOS, COMPROBANTES)**
+
+#### Upload de Comprobantes
+**Archivo:** `client/src/components/treasury/flows/UploadVoucherFlow.tsx`
+
+✅ **Funcionalidades:**
+- Dropzone con drag & drop
+- Vista previa de PDFs
+- Upload con progress (parcial)
+- Análisis automático con IA
+- Extracción de datos (proveedor, monto, fecha)
+
+```typescript
+const handleUpload = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('companyId', companyId);
+
+  const response = await fetch('/api/treasury/payment-vouchers/upload', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    // ✅ Muestra datos extraídos para confirmación
+    setExtractedData(data);
   }
+};
+```
 
-  [contenteditable]:focus {
-    outline: none !important;
-  }
-`,Z=`
-  .beacon-highlighter {
-    content: '';
-    position: absolute;
-    z-index: ${Number.MAX_SAFE_INTEGER-3};
-    box-sizing: border-box;
-    pointer-events: none;
-    outline: 2px dashed ${T.HIGHLIGHT_COLOR} !important;
-    outline-offset: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
-    background: ${T.HIGHLIGHT_BG} !important;
-    opacity: 0;
-  }
-  
-  .beacon-hover-highlighter {
-    position: fixed;
-    z-index: ${Number.MAX_SAFE_INTEGER};
-  }
-  
-  .beacon-selected-highlighter {
-    position: fixed;
-    pointer-events: none;
-    outline: 2px solid ${T.HIGHLIGHT_COLOR} !important;
-    outline-offset: 3px !important;
-    background: none !important;
-  }
-  
-  .beacon-label {
-    position: absolute;
-    background-color: ${T.HIGHLIGHT_COLOR};
-    color: #FFFFFF;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-family: monospace;
-    line-height: 1;
-    white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    transform: translateY(-100%);
-    margin-top: -4px;
-    left: 0;
-    z-index: ${Number.MAX_SAFE_INTEGER-2};
-    pointer-events: none;
-    opacity: 0;
-  }
-  
-  .beacon-hover-label {
-    position: fixed;
-    z-index: ${Number.MAX_SAFE_INTEGER};
-  }
-  
-  .beacon-selected-label {
-    position: fixed;
-    pointer-events: none;
-  }
-  
-  .beacon-sibling-highlighter {
-    position: fixed;
-    pointer-events: none;
-    outline: 2px dashed ${T.HIGHLIGHT_COLOR} !important;
-    outline-offset: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
-    background: ${T.HIGHLIGHT_BG} !important;
-  }
-`;function Ne(e,i){return e[13]=1,e[14]=i>>8,e[15]=i&255,e[16]=i>>8,e[17]=i&255,e}var oe=112,le=72,ae=89,ce=115,W;function Ie(){let e=new Int32Array(256);for(let i=0;i<256;i++){let t=i;for(let n=0;n<8;n++)t=t&1?3988292384^t>>>1:t>>>1;e[i]=t}return e}function De(e){let i=-1;W||(W=Ie());for(let t=0;t<e.length;t++)i=W[(i^e[t])&255]^i>>>8;return i^-1}function Me(e){let i=e.length-1;for(let t=i;t>=4;t--)if(e[t-4]===9&&e[t-3]===oe&&e[t-2]===le&&e[t-1]===ae&&e[t]===ce)return t-3;return 0}function Re(e,i,t=!1){let n=new Uint8Array(13);i*=39.3701,n[0]=oe,n[1]=le,n[2]=ae,n[3]=ce,n[4]=i>>>24,n[5]=i>>>16,n[6]=i>>>8,n[7]=i&255,n[8]=n[4],n[9]=n[5],n[10]=n[6],n[11]=n[7],n[12]=1;let o=De(n),r=new Uint8Array(4);if(r[0]=o>>>24,r[1]=o>>>16,r[2]=o>>>8,r[3]=o&255,t){let l=Me(e);return e.set(n,l),e.set(r,l+13),e}else{let l=new Uint8Array(4);l[0]=0,l[1]=0,l[2]=0,l[3]=9;let s=new Uint8Array(54);return s.set(e,0),s.set(l,33),s.set(n,37),s.set(r,50),s}}var he="[modern-screenshot]",C=typeof window<"u",_e=C&&"Worker"in window,Oe=C&&"atob"in window,jt=C&&"btoa"in window,V=C?window.navigator?.userAgent:"",de=V.includes("Chrome"),k=V.includes("AppleWebKit")&&!de,j=V.includes("Firefox"),Pe=e=>e&&"__CONTEXT__"in e,ke=e=>e.constructor.name==="CSSFontFaceRule",Fe=e=>e.constructor.name==="CSSImportRule",v=e=>e.nodeType===1,D=e=>typeof e.className=="object",ge=e=>e.tagName==="image",Ue=e=>e.tagName==="use",x=e=>v(e)&&typeof e.style<"u"&&!D(e),$e=e=>e.nodeType===8,Be=e=>e.nodeType===3,L=e=>e.tagName==="IMG",F=e=>e.tagName==="VIDEO",We=e=>e.tagName==="CANVAS",Ge=e=>e.tagName==="TEXTAREA",Ve=e=>e.tagName==="INPUT",je=e=>e.tagName==="STYLE",ze=e=>e.tagName==="SCRIPT",qe=e=>e.tagName==="SELECT",Xe=e=>e.tagName==="SLOT",Ye=e=>e.tagName==="IFRAME",Ke=(...e)=>console.warn(he,...e);function Je(e){let i=e?.createElement?.("canvas");return i&&(i.height=i.width=1),!!i&&"toDataURL"in i&&!!i.toDataURL("image/webp").includes("image/webp")}var G=e=>e.startsWith("data:");function ue(e,i){if(e.match(/^[a-z]+:\/\//i))return e;if(C&&e.match(/^\/\//))return window.location.protocol+e;if(e.match(/^[a-z]+:/i)||!C)return e;let t=U().implementation.createHTMLDocument(),n=t.createElement("base"),o=t.createElement("a");return t.head.appendChild(n),t.body.appendChild(o),i&&(n.href=i),o.href=e,o.href}function U(e){return(e&&v(e)?e?.ownerDocument:e)??window.document}var $="http://www.w3.org/2000/svg";function Qe(e,i,t){let n=U(t).createElementNS($,"svg");return n.setAttributeNS(null,"width",e.toString()),n.setAttributeNS(null,"height",i.toString()),n.setAttributeNS(null,"viewBox",`0 0 ${e} ${i}`),n}function Ze(e,i){let t=new XMLSerializer().serializeToString(e);return i&&(t=t.replace(/[\u0000-\u0008\v\f\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu,"")),`data:image/svg+xml;charset=utf-8,${encodeURIComponent(t)}`}async function et(e,i="image/png",t=1){try{return await new Promise((n,o)=>{e.toBlob(r=>{r?n(r):o(new Error("Blob is null"))},i,t)})}catch(n){if(Oe)return tt(e.toDataURL(i,t));throw n}}function tt(e){let[i,t]=e.split(","),n=i.match(/data:(.+);/)?.[1]??void 0,o=window.atob(t),r=o.length,l=new Uint8Array(r);for(let s=0;s<r;s+=1)l[s]=o.charCodeAt(s);return new Blob([l],{type:n})}function me(e,i){return new Promise((t,n)=>{let o=new FileReader;o.onload=()=>t(o.result),o.onerror=()=>n(o.error),o.onabort=()=>n(new Error(`Failed read blob to ${i}`)),i==="dataUrl"?o.readAsDataURL(e):i==="arrayBuffer"&&o.readAsArrayBuffer(e)})}var it=e=>me(e,"dataUrl"),nt=e=>me(e,"arrayBuffer");function H(e,i){let t=U(i).createElement("img");return t.decoding="sync",t.loading="eager",t.src=e,t}function N(e,i){return new Promise(t=>{let{timeout:n,ownerDocument:o,onError:r,onWarn:l}=i??{},s=typeof e=="string"?H(e,U(o)):e,c=null,h=null;function a(){t(s),c&&clearTimeout(c),h?.()}if(n&&(c=setTimeout(a,n)),F(s)){let d=s.currentSrc||s.src;if(!d)return s.poster?N(s.poster,i).then(t):a();if(s.readyState>=2)return a();let g=a,m=u=>{l?.("Failed video load",d,u),r?.(u),a()};h=()=>{s.removeEventListener("loadeddata",g),s.removeEventListener("error",m)},s.addEventListener("loadeddata",g,{once:!0}),s.addEventListener("error",m,{once:!0})}else{let d=ge(s)?s.href.baseVal:s.currentSrc||s.src;if(!d)return a();let g=async()=>{if(L(s)&&"decode"in s)try{await s.decode()}catch(u){l?.("Failed to decode image, trying to render anyway",s.dataset.originalSrc||d,u)}a()},m=u=>{l?.("Failed image load",s.dataset.originalSrc||d,u),a()};if(L(s)&&s.complete)return g();h=()=>{s.removeEventListener("load",g),s.removeEventListener("error",m)},s.addEventListener("load",g,{once:!0}),s.addEventListener("error",m,{once:!0})}})}async function rt(e,i){x(e)&&(L(e)||F(e)?await N(e,i):await Promise.all(["img","video"].flatMap(t=>Array.from(e.querySelectorAll(t)).map(n=>N(n,i)))))}var fe=function(){let i=0,t=()=>`0000${(Math.random()*36**4<<0).toString(36)}`.slice(-4);return()=>(i+=1,`u${t()}${i}`)}();function pe(e){return e?.split(",").map(i=>i.trim().replace(/"|'/g,"").toLowerCase()).filter(Boolean)}var ee=0;function st(e){let i=`${he}[#${ee}]`;return ee++,{time:t=>e&&console.time(`${i} ${t}`),timeEnd:t=>e&&console.timeEnd(`${i} ${t}`),warn:(...t)=>e&&Ke(...t)}}function ot(e){return{cache:e?"no-cache":"force-cache"}}async function z(e,i){return Pe(e)?e:lt(e,{...i,autoDestruct:!0})}async function lt(e,i){let{scale:t=1,workerUrl:n,workerNumber:o=1}=i||{},r=!!i?.debug,l=i?.features??!0,s=e.ownerDocument??(C?window.document:void 0),c=e.ownerDocument?.defaultView??(C?window:void 0),h=new Map,a={width:0,height:0,quality:1,type:"image/png",scale:t,backgroundColor:null,style:null,filter:null,maximumCanvasSize:0,timeout:3e4,progress:null,debug:r,fetch:{requestInit:ot(i?.fetch?.bypassingCache),placeholderImage:"data:image/png;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",bypassingCache:!1,...i?.fetch},fetchFn:null,font:{},drawImageInterval:100,workerUrl:null,workerNumber:o,onCloneNode:null,onEmbedNode:null,onCreateForeignObjectSvg:null,includeStyleProperties:null,autoDestruct:!1,...i,__CONTEXT__:!0,log:st(r),node:e,ownerDocument:s,ownerWindow:c,dpi:t===1?null:96*t,svgStyleElement:be(s),svgDefsElement:s?.createElementNS($,"defs"),svgStyles:new Map,defaultComputedStyles:new Map,workers:[...Array.from({length:_e&&n&&o?o:0})].map(()=>{try{let m=new Worker(n);return m.onmessage=async u=>{let{url:f,result:p}=u.data;p?h.get(f)?.resolve?.(p):h.get(f)?.reject?.(new Error(`Error receiving message from worker: ${f}`))},m.onmessageerror=u=>{let{url:f}=u.data;h.get(f)?.reject?.(new Error(`Error receiving message from worker: ${f}`))},m}catch(m){return a.log.warn("Failed to new Worker",m),null}}).filter(Boolean),fontFamilies:new Map,fontCssTexts:new Map,acceptOfImage:`${[Je(s)&&"image/webp","image/svg+xml","image/*","*/*"].filter(Boolean).join(",")};q=0.8`,requests:h,drawImageCount:0,tasks:[],features:l,isEnable:m=>m==="restoreScrollPosition"?typeof l=="boolean"?!1:l[m]??!1:typeof l=="boolean"?l:l[m]??!0};a.log.time("wait until load"),await rt(e,{timeout:a.timeout,onWarn:a.log.warn}),a.log.timeEnd("wait until load");let{width:d,height:g}=at(e,a);return a.width=d,a.height=g,a}function be(e){if(!e)return;let i=e.createElement("style"),t=i.ownerDocument.createTextNode(`
-.______background-clip--text {
-  background-clip: text;
-  -webkit-background-clip: text;
-}
-`);return i.appendChild(t),i}function at(e,i){let{width:t,height:n}=i;if(v(e)&&(!t||!n)){let o=e.getBoundingClientRect();t=t||o.width||Number(e.getAttribute("width"))||0,n=n||o.height||Number(e.getAttribute("height"))||0}return{width:t,height:n}}async function ct(e,i){let{log:t,timeout:n,drawImageCount:o,drawImageInterval:r}=i;t.time("image to canvas");let l=await N(e,{timeout:n,onWarn:i.log.warn}),{canvas:s,context2d:c}=ht(e.ownerDocument,i),h=()=>{try{c?.drawImage(l,0,0,s.width,s.height)}catch(a){i.log.warn("Failed to drawImage",a)}};if(h(),i.isEnable("fixSvgXmlDecode"))for(let a=0;a<o;a++)await new Promise(d=>{setTimeout(()=>{h(),d()},a+r)});return i.drawImageCount=0,t.timeEnd("image to canvas"),s}function ht(e,i){let{width:t,height:n,scale:o,backgroundColor:r,maximumCanvasSize:l}=i,s=e.createElement("canvas");s.width=Math.floor(t*o),s.height=Math.floor(n*o),s.style.width=`${t}px`,s.style.height=`${n}px`,l&&(s.width>l||s.height>l)&&(s.width>l&&s.height>l?s.width>s.height?(s.height*=l/s.width,s.width=l):(s.width*=l/s.height,s.height=l):s.width>l?(s.height*=l/s.width,s.width=l):(s.width*=l/s.height,s.height=l));let c=s.getContext("2d");return c&&r&&(c.fillStyle=r,c.fillRect(0,0,s.width,s.height)),{canvas:s,context2d:c}}function Ee(e,i){if(e.ownerDocument)try{let r=e.toDataURL();if(r!=="data:,")return H(r,e.ownerDocument)}catch(r){i.log.warn("Failed to clone canvas",r)}let t=e.cloneNode(!1),n=e.getContext("2d"),o=t.getContext("2d");try{return n&&o&&o.putImageData(n.getImageData(0,0,e.width,e.height),0,0),t}catch(r){i.log.warn("Failed to clone canvas",r)}return t}function dt(e,i){try{if(e?.contentDocument?.body)return q(e.contentDocument.body,i)}catch(t){i.log.warn("Failed to clone iframe",t)}return e.cloneNode(!1)}function gt(e){let i=e.cloneNode(!1);return e.currentSrc&&e.currentSrc!==e.src&&(i.src=e.currentSrc,i.srcset=""),i.loading==="lazy"&&(i.loading="eager"),i}async function ut(e,i){if(e.ownerDocument&&!e.currentSrc&&e.poster)return H(e.poster,e.ownerDocument);let t=e.cloneNode(!1);t.crossOrigin="anonymous",e.currentSrc&&e.currentSrc!==e.src&&(t.src=e.currentSrc);let n=t.ownerDocument;if(n){let o=!0;if(await N(t,{onError:()=>o=!1,onWarn:i.log.warn}),!o)return e.poster?H(e.poster,e.ownerDocument):t;t.currentTime=e.currentTime,await new Promise(l=>{t.addEventListener("seeked",l,{once:!0})});let r=n.createElement("canvas");r.width=e.offsetWidth,r.height=e.offsetHeight;try{let l=r.getContext("2d");l&&l.drawImage(t,0,0,r.width,r.height)}catch(l){return i.log.warn("Failed to clone video",l),e.poster?H(e.poster,e.ownerDocument):t}return Ee(r,i)}return t}function mt(e,i){return We(e)?Ee(e,i):Ye(e)?dt(e,i):L(e)?gt(e):F(e)?ut(e,i):e.cloneNode(!1)}function ft(e){let i=e.sandbox;if(!i){let{ownerDocument:t}=e;try{t&&(i=t.createElement("iframe"),i.id=`__SANDBOX__-${fe()}`,i.width="0",i.height="0",i.style.visibility="hidden",i.style.position="fixed",t.body.appendChild(i),i.contentWindow?.document.write('<!DOCTYPE html><meta charset="UTF-8"><title></title><body>'),e.sandbox=i)}catch(n){e.log.warn("Failed to getSandBox",n)}}return i}var pt=["width","height","-webkit-text-fill-color"],bt=["stroke","fill"];function we(e,i,t){let{defaultComputedStyles:n}=t,o=e.nodeName.toLowerCase(),r=D(e)&&o!=="svg",l=r?bt.map(f=>[f,e.getAttribute(f)]).filter(([,f])=>f!==null):[],s=[r&&"svg",o,l.map((f,p)=>`${f}=${p}`).join(","),i].filter(Boolean).join(":");if(n.has(s))return n.get(s);let h=ft(t)?.contentWindow;if(!h)return new Map;let a=h?.document,d,g;r?(d=a.createElementNS($,"svg"),g=d.ownerDocument.createElementNS(d.namespaceURI,o),l.forEach(([f,p])=>{g.setAttributeNS(null,f,p)}),d.appendChild(g)):d=g=a.createElement(o),g.textContent=" ",a.body.appendChild(d);let m=h.getComputedStyle(g,i),u=new Map;for(let f=m.length,p=0;p<f;p++){let b=m.item(p);pt.includes(b)||u.set(b,m.getPropertyValue(b))}return a.body.removeChild(d),n.set(s,u),u}function ye(e,i,t){let n=new Map,o=[],r=new Map;if(t)for(let s of t)l(s);else for(let s=e.length,c=0;c<s;c++){let h=e.item(c);l(h)}for(let s=o.length,c=0;c<s;c++)r.get(o[c])?.forEach((h,a)=>n.set(a,h));function l(s){let c=e.getPropertyValue(s),h=e.getPropertyPriority(s),a=s.lastIndexOf("-"),d=a>-1?s.substring(0,a):void 0;if(d){let g=r.get(d);g||(g=new Map,r.set(d,g)),g.set(s,[c,h])}i.get(s)===c&&!h||(d?o.push(d):n.set(s,[c,h]))}return n}function Et(e,i,t,n){let{ownerWindow:o,includeStyleProperties:r,currentParentNodeStyle:l}=n,s=i.style,c=o.getComputedStyle(e),h=we(e,null,n);l?.forEach((d,g)=>{h.delete(g)});let a=ye(c,h,r);a.delete("transition-property"),a.delete("all"),a.delete("d"),a.delete("content"),t&&(a.delete("margin-top"),a.delete("margin-right"),a.delete("margin-bottom"),a.delete("margin-left"),a.delete("margin-block-start"),a.delete("margin-block-end"),a.delete("margin-inline-start"),a.delete("margin-inline-end"),a.set("box-sizing",["border-box",""])),a.get("background-clip")?.[0]==="text"&&i.classList.add("______background-clip--text"),de&&(a.has("font-kerning")||a.set("font-kerning",["normal",""]),(a.get("overflow-x")?.[0]==="hidden"||a.get("overflow-y")?.[0]==="hidden")&&a.get("text-overflow")?.[0]==="ellipsis"&&e.scrollWidth===e.clientWidth&&a.set("text-overflow",["clip",""]));for(let d=s.length,g=0;g<d;g++)s.removeProperty(s.item(g));return a.forEach(([d,g],m)=>{s.setProperty(m,d,g)}),a}function wt(e,i){(Ge(e)||Ve(e)||qe(e))&&i.setAttribute("value",e.value)}var yt=[":before",":after"],vt=[":-webkit-scrollbar",":-webkit-scrollbar-button",":-webkit-scrollbar-thumb",":-webkit-scrollbar-track",":-webkit-scrollbar-track-piece",":-webkit-scrollbar-corner",":-webkit-resizer"];function St(e,i,t,n,o){let{ownerWindow:r,svgStyleElement:l,svgStyles:s,currentNodeStyle:c}=n;if(!l||!r)return;function h(a){let d=r.getComputedStyle(e,a),g=d.getPropertyValue("content");if(!g||g==="none")return;o?.(g),g=g.replace(/(')|(")|(counter\(.+\))/g,"");let m=[fe()],u=we(e,a,n);c?.forEach((E,y)=>{u.delete(y)});let f=ye(d,u,n.includeStyleProperties);f.delete("content"),f.delete("-webkit-locale"),f.get("background-clip")?.[0]==="text"&&i.classList.add("______background-clip--text");let p=[`content: '${g}';`];if(f.forEach(([E,y],A)=>{p.push(`${A}: ${E}${y?" !important":""};`)}),p.length===1)return;try{i.className=[i.className,...m].join(" ")}catch(E){n.log.warn("Failed to copyPseudoClass",E);return}let b=p.join(`
-  `),w=s.get(b);w||(w=[],s.set(b,w)),w.push(`.${m[0]}:${a}`)}yt.forEach(h),t&&vt.forEach(h)}var te=new Set(["symbol"]);async function ie(e,i,t,n,o){if(v(t)&&(je(t)||ze(t))||n.filter&&!n.filter(t))return;te.has(i.nodeName)||te.has(t.nodeName)?n.currentParentNodeStyle=void 0:n.currentParentNodeStyle=n.currentNodeStyle;let r=await q(t,n,!1,o);n.isEnable("restoreScrollPosition")&&At(e,r),i.appendChild(r)}async function ne(e,i,t,n){let o=(v(e)?e.shadowRoot?.firstChild:void 0)??e.firstChild;for(let r=o;r;r=r.nextSibling)if(!$e(r))if(v(r)&&Xe(r)&&typeof r.assignedNodes=="function"){let l=r.assignedNodes();for(let s=0;s<l.length;s++)await ie(e,i,l[s],t,n)}else await ie(e,i,r,t,n)}function At(e,i){if(!x(e)||!x(i))return;let{scrollTop:t,scrollLeft:n}=e;if(!t&&!n)return;let{transform:o}=i.style,r=new DOMMatrix(o),{a:l,b:s,c,d:h}=r;r.a=1,r.b=0,r.c=0,r.d=1,r.translateSelf(-n,-t),r.a=l,r.b=s,r.c=c,r.d=h,i.style.transform=r.toString()}function Tt(e,i){let{backgroundColor:t,width:n,height:o,style:r}=i,l=e.style;if(t&&l.setProperty("background-color",t,"important"),n&&l.setProperty("width",`${n}px`,"important"),o&&l.setProperty("height",`${o}px`,"important"),r)for(let s in r)l[s]=r[s]}var Ct=/^[\w-:]+$/;async function q(e,i,t=!1,n){let{ownerDocument:o,ownerWindow:r,fontFamilies:l}=i;if(o&&Be(e))return n&&/\S/.test(e.data)&&n(e.data),o.createTextNode(e.data);if(o&&r&&v(e)&&(x(e)||D(e))){let c=await mt(e,i);if(i.isEnable("removeAbnormalAttributes")){let u=c.getAttributeNames();for(let f=u.length,p=0;p<f;p++){let b=u[p];Ct.test(b)||c.removeAttribute(b)}}let h=i.currentNodeStyle=Et(e,c,t,i);t&&Tt(c,i);let a=!1;if(i.isEnable("copyScrollbar")){let u=[h.get("overflow-x")?.[0],h.get("overflow-y")?.[0]];a=u.includes("scroll")||(u.includes("auto")||u.includes("overlay"))&&(e.scrollHeight>e.clientHeight||e.scrollWidth>e.clientWidth)}let d=h.get("text-transform")?.[0],g=pe(h.get("font-family")?.[0]),m=g?u=>{d==="uppercase"?u=u.toUpperCase():d==="lowercase"?u=u.toLowerCase():d==="capitalize"&&(u=u[0].toUpperCase()+u.substring(1)),g.forEach(f=>{let p=l.get(f);p||l.set(f,p=new Set),u.split("").forEach(b=>p.add(b))})}:void 0;return St(e,c,a,i,m),wt(e,c),F(e)||await ne(e,c,i,m),c}let s=e.cloneNode(!1);return await ne(e,s,i),s}function Ht(e){if(e.ownerDocument=void 0,e.ownerWindow=void 0,e.svgStyleElement=void 0,e.svgDefsElement=void 0,e.svgStyles.clear(),e.defaultComputedStyles.clear(),e.sandbox){try{e.sandbox.remove()}catch(i){e.log.warn("Failed to destroyContext",i)}e.sandbox=void 0}e.workers=[],e.fontFamilies.clear(),e.fontCssTexts.clear(),e.requests.clear(),e.tasks=[]}function Lt(e){let{url:i,timeout:t,responseType:n,...o}=e,r=new AbortController,l=t?setTimeout(()=>r.abort(),t):void 0;return fetch(i,{signal:r.signal,...o}).then(s=>{if(!s.ok)throw new Error("Failed fetch, not 2xx response",{cause:s});switch(n){case"arrayBuffer":return s.arrayBuffer();case"dataUrl":return s.blob().then(it);case"text":default:return s.text()}}).finally(()=>clearTimeout(l))}function I(e,i){let{url:t,requestType:n="text",responseType:o="text",imageDom:r}=i,l=t,{timeout:s,acceptOfImage:c,requests:h,fetchFn:a,fetch:{requestInit:d,bypassingCache:g,placeholderImage:m},font:u,workers:f,fontFamilies:p}=e;n==="image"&&(k||j)&&e.drawImageCount++;let b=h.get(t);if(!b){g&&g instanceof RegExp&&g.test(l)&&(l+=(/\?/.test(l)?"&":"?")+new Date().getTime());let w=n.startsWith("font")&&u&&u.minify,E=new Set;w&&n.split(";")[1].split(",").forEach(O=>{p.has(O)&&p.get(O).forEach(J=>E.add(J))});let y=w&&E.size,A={url:l,timeout:s,responseType:y?"arrayBuffer":o,headers:n==="image"?{accept:c}:void 0,...d};b={type:n,resolve:void 0,reject:void 0,response:null},b.response=(async()=>{if(a&&n==="image"){let S=await a(t);if(S)return S}return!k&&t.startsWith("http")&&f.length?new Promise((S,O)=>{f[h.size&f.length-1].postMessage({rawUrl:t,...A}),b.resolve=S,b.reject=O}):Lt(A)})().catch(S=>{if(h.delete(t),n==="image"&&m)return e.log.warn("Failed to fetch image base64, trying to use placeholder image",l),typeof m=="string"?m:m(r);throw S}),h.set(t,b)}return b.response}async function ve(e,i,t,n){if(!Se(e))return e;for(let[o,r]of xt(e,i))try{let l=await I(t,{url:r,requestType:n?"image":"text",responseType:"dataUrl"});e=e.replace(Nt(o),`$1${l}$3`)}catch(l){t.log.warn("Failed to fetch css data url",o,l)}return e}function Se(e){return/url\((['"]?)([^'"]+?)\1\)/.test(e)}var Ae=/url\((['"]?)([^'"]+?)\1\)/g;function xt(e,i){let t=[];return e.replace(Ae,(n,o,r)=>(t.push([r,ue(r,i)]),n)),t.filter(([n])=>!G(n))}function Nt(e){let i=e.replace(/([.*+?^${}()|\[\]\/\\])/g,"\\$1");return new RegExp(`(url\\(['"]?)(${i})(['"]?\\))`,"g")}var It=["background-image","border-image-source","-webkit-border-image","-webkit-mask-image","list-style-image"];function Dt(e,i){return It.map(t=>{let n=e.getPropertyValue(t);return!n||n==="none"?null:((k||j)&&i.drawImageCount++,ve(n,null,i,!0).then(o=>{!o||n===o||e.setProperty(t,o,e.getPropertyPriority(t))}))}).filter(Boolean)}function Mt(e,i){if(L(e)){let t=e.currentSrc||e.src;if(!G(t))return[I(i,{url:t,imageDom:e,requestType:"image",responseType:"dataUrl"}).then(n=>{n&&(e.srcset="",e.dataset.originalSrc=t,e.src=n||"")})];(k||j)&&i.drawImageCount++}else if(D(e)&&!G(e.href.baseVal)){let t=e.href.baseVal;return[I(i,{url:t,imageDom:e,requestType:"image",responseType:"dataUrl"}).then(n=>{n&&(e.dataset.originalSrc=t,e.href.baseVal=n||"")})]}return[]}function Rt(e,i){let{ownerDocument:t,svgDefsElement:n}=i,o=e.getAttribute("href")??e.getAttribute("xlink:href");if(!o)return[];let[r,l]=o.split("#");if(l){let s=`#${l}`,c=t?.querySelector(`svg ${s}`);if(r&&e.setAttribute("href",s),n?.querySelector(s))return[];if(c)return n?.appendChild(c.cloneNode(!0)),[];if(r)return[I(i,{url:r,responseType:"text"}).then(h=>{n?.insertAdjacentHTML("beforeend",h)})]}return[]}function Te(e,i){let{tasks:t}=i;v(e)&&((L(e)||ge(e))&&t.push(...Mt(e,i)),Ue(e)&&t.push(...Rt(e,i))),x(e)&&t.push(...Dt(e.style,i)),e.childNodes.forEach(n=>{Te(n,i)})}async function _t(e,i){let{ownerDocument:t,svgStyleElement:n,fontFamilies:o,fontCssTexts:r,tasks:l,font:s}=i;if(!(!t||!n||!o.size))if(s&&s.cssText){let c=se(s.cssText,i);n.appendChild(t.createTextNode(`${c}
-`))}else{let c=Array.from(t.styleSheets).filter(a=>{try{return"cssRules"in a&&!!a.cssRules.length}catch(d){return i.log.warn(`Error while reading CSS rules from ${a.href}`,d),!1}});await Promise.all(c.flatMap(a=>Array.from(a.cssRules).map(async(d,g)=>{if(Fe(d)){let m=g+1,u=d.href,f="";try{f=await I(i,{url:u,requestType:"text",responseType:"text"})}catch(b){i.log.warn(`Error fetch remote css import from ${u}`,b)}let p=f.replace(Ae,(b,w,E)=>b.replace(E,ue(E,u)));for(let b of Pt(p))try{a.insertRule(b,b.startsWith("@import")?m+=1:a.cssRules.length)}catch(w){i.log.warn("Error inserting rule from remote css import",{rule:b,error:w})}}}))),c.flatMap(a=>Array.from(a.cssRules)).filter(a=>ke(a)&&Se(a.style.getPropertyValue("src"))&&pe(a.style.getPropertyValue("font-family"))?.some(d=>o.has(d))).forEach(a=>{let d=a,g=r.get(d.cssText);g?n.appendChild(t.createTextNode(`${g}
-`)):l.push(ve(d.cssText,d.parentStyleSheet?d.parentStyleSheet.href:null,i).then(m=>{m=se(m,i),r.set(d.cssText,m),n.appendChild(t.createTextNode(`${m}
-`))}))})}}var Ot=/(\/\*[\s\S]*?\*\/)/g,re=/((@.*?keyframes [\s\S]*?){([\s\S]*?}\s*?)})/gi;function Pt(e){if(e==null)return[];let i=[],t=e.replace(Ot,"");for(;;){let r=re.exec(t);if(!r)break;i.push(r[0])}t=t.replace(re,"");let n=/@import[\s\S]*?url\([^)]*\)[\s\S]*?;/gi,o=new RegExp("((\\s*?(?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*?@media[\\s\\S]*?){([\\s\\S]*?)}\\s*?})|(([\\s\\S]*?){([\\s\\S]*?)})","gi");for(;;){let r=n.exec(t);if(r)o.lastIndex=n.lastIndex;else if(r=o.exec(t),r)n.lastIndex=o.lastIndex;else break;i.push(r[0])}return i}var kt=/url\([^)]+\)\s*format\((["']?)([^"']+)\1\)/g,Ft=/src:\s*(?:url\([^)]+\)\s*format\([^)]+\)[,;]\s*)+/g;function se(e,i){let{font:t}=i,n=t?t?.preferredFormat:void 0;return n?e.replace(Ft,o=>{for(;;){let[r,,l]=kt.exec(o)||[];if(!l)return"";if(l===n)return`src: ${r};`}}):e}async function Ut(e,i){let t=await z(e,i);if(v(t.node)&&D(t.node))return t.node;let{ownerDocument:n,log:o,tasks:r,svgStyleElement:l,svgDefsElement:s,svgStyles:c,font:h,progress:a,autoDestruct:d,onCloneNode:g,onEmbedNode:m,onCreateForeignObjectSvg:u}=t;o.time("clone node");let f=await q(t.node,t,!0);if(l&&n){let y="";c.forEach((A,S)=>{y+=`${A.join(`,
-`)} {
-  ${S}
-}
-`}),l.appendChild(n.createTextNode(y))}o.timeEnd("clone node"),await g?.(f),h!==!1&&v(f)&&(o.time("embed web font"),await _t(f,t),o.timeEnd("embed web font")),o.time("embed node"),Te(f,t);let p=r.length,b=0,w=async()=>{for(;;){let y=r.pop();if(!y)break;try{await y}catch(A){t.log.warn("Failed to run task",A)}a?.(++b,p)}};a?.(b,p),await Promise.all([...Array.from({length:4})].map(w)),o.timeEnd("embed node"),await m?.(f);let E=$t(f,t);return s&&E.insertBefore(s,E.children[0]),l&&E.insertBefore(l,E.children[0]),d&&Ht(t),await u?.(E),E}function $t(e,i){let{width:t,height:n}=i,o=Qe(t,n,e.ownerDocument),r=o.ownerDocument.createElementNS(o.namespaceURI,"foreignObject");return r.setAttributeNS(null,"x","0%"),r.setAttributeNS(null,"y","0%"),r.setAttributeNS(null,"width","100%"),r.setAttributeNS(null,"height","100%"),r.append(e),o.appendChild(r),o}async function Bt(e,i){let t=await z(e,i),n=await Ut(t),o=Ze(n,t.isEnable("removeControlCharacter"));t.autoDestruct||(t.svgStyleElement=be(t.ownerDocument),t.svgDefsElement=t.ownerDocument?.createElementNS($,"defs"),t.svgStyles.clear());let r=H(o,n.ownerDocument);return await ct(r,t)}async function Ce(e,i){let t=await z(e,i),{log:n,type:o,quality:r,dpi:l}=t,s=await Bt(t);n.time("canvas to blob");let c=await et(s,o,r);if(["image/png","image/jpeg"].includes(o)&&l){let h=await nt(c.slice(0,33)),a=new Uint8Array(h);return o==="image/png"?a=Re(a,l):o==="image/jpeg"&&(a=Ne(a,l)),n.timeEnd("canvas to blob"),new Blob([a,c.slice(33)],{type:o})}return n.timeEnd("canvas to blob"),c}var M={METADATA:"data-replit-metadata",COMPONENT_NAME:"data-component-name"};function He(e){if(e.startsWith("http://localhost:"))return!0;try{return new URL(e).hostname.endsWith(T.ALLOWED_DOMAIN)}catch{return!1}}function Y(e){if(!e)return null;let i=document.elementFromPoint(e.clientX,e.clientY);return i instanceof HTMLElement?i:null}function Jt(e,i=300){if(!e)return"";let t=String(e);return t.length<=i?t:t.slice(0,i)+"..."}function X(e){if(e)return{tagName:e.tagName.toLowerCase(),className:e.className.toString?e.className.toString():String(e.className),textContent:e.textContent??"",id:e.id}}function B(e){return e.getAttribute(M.COMPONENT_NAME)??e.tagName.toLowerCase()}function K(e){let i=window.getComputedStyle(e),t=e.parentElement,n=e.nextElementSibling,o=t?.parentElement??null,r={backgroundColor:i.backgroundColor,color:i.color,display:i.display,position:i.position,width:i.width,height:i.height,fontSize:i.fontSize,fontFamily:i.fontFamily,fontWeight:i.fontWeight,margin:i.margin,padding:i.padding,textAlign:i.textAlign};return{elementPath:e.getAttribute(M.METADATA)??"",elementName:B(e),textContent:e.textContent??"",originalTextContent:e.getAttribute("data-original-text")?decodeURIComponent(e.getAttribute("data-original-text")??""):void 0,srcAttribute:e.getAttribute("src")??"",hasChildElements:e.childElementCount>0,id:e.id,className:e.className.toString?e.className.toString():String(e.className),computedStyles:r,textAlign:i.textAlign,relatedElements:{parent:X(t),nextSibling:X(n),grandParent:X(o)}}}async function Le(e){try{let t=window.getComputedStyle(e).backgroundColor;return Wt(t)&&(t=window.getComputedStyle(document.documentElement).backgroundColor),await Ce(e,{type:"image/png",backgroundColor:t,fetch:{requestInit:{mode:"no-cors"}}})}catch(i){console.error("[replit-cartographer] Failed to take screenshot:",i);return}}function Wt(e){return e==="transparent"||e==="rgba(0, 0, 0, 0)"||e.endsWith(", 0)")||e.endsWith(",0)")}function R(e){let i=e.getAttribute(M.METADATA);if(!i)return[];let t=`[${M.METADATA}="${i}"]`;return Array.from(document.querySelectorAll(t)).filter(o=>o instanceof HTMLElement).filter(o=>o!==e)}var _=class{selectedElement=null;selectedSiblingElements=[];isActive=!1;lastHighlightedElement=null;enableEditing=!1;shadowHost=null;shadowRoot=null;hoverHighlighter=null;hoverLabel=null;selectedHighlighter=null;selectedLabel=null;hoverSiblingHighlighters=[];selectedSiblingHighlighters=[];mutationObserver=null;constructor(){this.setupMessageListener(),this.notifyScriptLoaded()}initializeHighlighter(){this.shadowHost=document.createElement("div"),this.shadowHost.style.all="initial",this.shadowRoot=this.shadowHost.attachShadow({mode:"open"}),document.body.appendChild(this.shadowHost);let i=document.createElement("style");i.textContent=Z,this.shadowRoot.appendChild(i);let t=document.createElement("style");t.textContent=Q,document.head.appendChild(t),this.hoverHighlighter=document.createElement("div"),this.hoverLabel=document.createElement("div"),this.hoverHighlighter.className="beacon-highlighter beacon-hover-highlighter",this.hoverLabel.className="beacon-label beacon-hover-label",this.selectedHighlighter=document.createElement("div"),this.selectedLabel=document.createElement("div"),this.selectedHighlighter.className="beacon-highlighter beacon-selected-highlighter",this.selectedLabel.className="beacon-label beacon-selected-label",this.shadowRoot.appendChild(this.selectedHighlighter),this.shadowRoot.appendChild(this.selectedLabel),this.shadowRoot.appendChild(this.hoverHighlighter),this.shadowRoot.appendChild(this.hoverLabel)}setupMessageListener(){window.addEventListener("message",this.handleMessage.bind(this))}notifyScriptLoaded(){this.postMessageToParent({type:"SELECTOR_SCRIPT_LOADED",timestamp:Date.now(),version:P})}postMessageToParent(i){window.parent&&window.parent.postMessage(i,"*")}handleMouseMove=i=>{if(this.isActive&&this.hoverHighlighter){let t=Y(i);if(!t||t===this.hoverHighlighter||t===this.selectedHighlighter||t===this.shadowHost||this.selectedSiblingHighlighters.includes(t)||this.hoverSiblingHighlighters.includes(t)){this.hideHighlight(this.hoverHighlighter,this.hoverLabel),this.lastHighlightedElement=null,this.clearHoverSiblingHighlighters();return}if(t===this.selectedElement){this.hideHighlight(this.hoverHighlighter,this.hoverLabel),this.lastHighlightedElement=null,this.clearHoverSiblingHighlighters();return}this.lastHighlightedElement&&this.lastHighlightedElement!==t&&this.lastHighlightedElement!==this.selectedElement&&this.lastHighlightedElement.removeAttribute("contenteditable"),this.lastHighlightedElement=t,this.updateHighlighterPosition(t,this.hoverHighlighter,this.hoverLabel)}};handleMouseLeave=()=>{this.isActive&&(this.hoverHighlighter&&(this.hoverHighlighter.style.opacity="0"),this.hoverLabel&&(this.hoverLabel.style.opacity="0"),this.hoverSiblingHighlighters.length>0&&this.clearHoverSiblingHighlighters(),this.lastHighlightedElement&&this.lastHighlightedElement!==this.selectedElement&&this.lastHighlightedElement.removeAttribute("contenteditable"))};calculateLabelPosition(i,t){return t<28?{top:`${t+window.scrollY}px`,left:`${i.left+window.scrollX}px`,transform:"none",marginTop:"2px"}:{top:`${t+window.scrollY}px`,left:`${i.left+window.scrollX}px`,transform:"translateY(-100%)",marginTop:"-4px"}}updateHighlighterPosition(i,t,n){if(!t||!n)return;let o=R(i);this.enableEditing&&o.length<=1&&i===this.selectedElement&&i.childElementCount===0&&i.tagName.toLowerCase()!=="img"&&i.setAttribute("contenteditable","plaintext-only");let r=i.getBoundingClientRect(),l=window.innerHeight,s=Math.max(0,r.top),c=Math.min(l,r.bottom),h=Math.max(0,c-s);Object.assign(t.style,{opacity:h>0?"1":"0",top:`${s}px`,left:`${r.left}px`,width:`${r.width}px`,height:`${h}px`}),n.textContent=B(i);let a=this.calculateLabelPosition(r,s);Object.assign(n.style,{...a,opacity:h>0?"1":"0"}),t===this.selectedHighlighter?this.highlightSelectedSiblings(i):this.highlightHoverSiblings(i)}hideHighlight(i,t){i&&(i.style.opacity="0"),t&&(t.style.opacity="0");let n=i===this.hoverHighlighter,o=i===this.selectedHighlighter;n&&this.clearHoverSiblingHighlighters(),o&&this.clearSelectedSiblingHighlighters()}handleClick=async i=>{if(!this.isActive)return;i.preventDefault(),i.stopPropagation();let t=Y(i);if((!t||t===this.hoverHighlighter||t===this.selectedHighlighter||t===this.shadowHost)&&(t=this.lastHighlightedElement),!t||t===this.selectedElement)return;this.unselectCurrentElement(),this.clearSelectedSiblingHighlighters(),this.selectedElement=t;let n=R(t),o=n.length>0;o&&this.highlightSelectedSiblings(t),t.hasAttribute("data-original-text")||t.setAttribute("data-original-text",encodeURIComponent(t.textContent??"")),!t.hasAttribute("data-original-style")&&t.hasAttribute("style")&&t.setAttribute("data-original-style",encodeURIComponent(t.getAttribute("style")??"")),!t.hasAttribute("data-original-src")&&t.hasAttribute("src")&&t.setAttribute("data-original-src",encodeURIComponent(t.getAttribute("src")??"")),!o&&this.enableEditing&&t.childElementCount===0&&t.tagName.toLowerCase()!=="img"&&(this.selectedElement.setAttribute("contenteditable","plaintext-only"),this.selectedElement.focus()),this.selectedHighlighter&&this.selectedLabel&&(this.selectedHighlighter.style.outlineStyle="solid",this.selectedHighlighter.style.opacity="1",this.selectedHighlighter.style.pointerEvents="none",this.selectedLabel.style.opacity="1",this.selectedLabel.textContent=B(t)),this.hoverHighlighter&&(this.hoverHighlighter.style.opacity="0",this.hoverHighlighter.style.pointerEvents="none"),this.hoverLabel&&(this.hoverLabel.style.opacity="0"),this.clearHoverSiblingHighlighters(),this.updateHighlighterPosition(t,this.selectedHighlighter,this.selectedLabel);let r=K(t),l;try{l=await Le(t)}catch(s){console.error("[replit-cartographer] Error capturing element screenshot:",s)}this.observeSelectedElement(),this.postMessageToParent({type:"ELEMENT_SELECTED",payload:{...r,screenshotBlob:l??void 0,siblingCount:o?n.length:0},timestamp:Date.now()})};restoreElements(){document.querySelectorAll('[data-replit-dirty="true"]').forEach(t=>{if(t.hasAttribute("data-original-text")&&t.textContent!==decodeURIComponent(t.getAttribute("data-original-text")||"")){let n=decodeURIComponent(t.getAttribute("data-original-text")||"");t.textContent=n,t.removeAttribute("data-original-text")}if(t.hasAttribute("data-original-style")){let n=decodeURIComponent(t.getAttribute("data-original-style")||"");t.setAttribute("style",n),t.removeAttribute("data-original-style")}else t.removeAttribute("style");if(t.hasAttribute("data-original-src")&&t.getAttribute("src")!==decodeURIComponent(t.getAttribute("data-original-src")||"")){let n=decodeURIComponent(t.getAttribute("data-original-src")||"");t.setAttribute("src",n),t.removeAttribute("data-original-src")}t.removeAttribute("data-replit-dirty")})}unselectCurrentElement(){if(this.restoreElements(),this.selectedElement){if(this.selectedElement.removeAttribute("contenteditable"),this.selectedElement.hasAttribute("data-original-style")){let i=decodeURIComponent(this.selectedElement.getAttribute("data-original-style")||"");this.selectedElement.setAttribute("style",i),this.selectedElement.removeAttribute("data-original-style")}if(this.selectedElement.hasAttribute("data-original-src")&&this.selectedElement.getAttribute("src")!==decodeURIComponent(this.selectedElement.getAttribute("data-original-src")||"")){let i=decodeURIComponent(this.selectedElement.getAttribute("data-original-src")||"");this.selectedElement.setAttribute("src",i),this.selectedElement.removeAttribute("data-original-src")}this.selectedElement=null}this.clearSelectedSiblingHighlighters(),this.mutationObserver&&(this.mutationObserver.disconnect(),this.mutationObserver=null)}handleMessage=i=>{if(!He(i.origin))return;let t=i.data;if(!(!t||typeof t!="object"))switch(t.type){case"TOGGLE_REPLIT_VISUAL_EDITOR":{this.handleVisualEditorToggle(t);break}case"CLEAR_SELECTION":{this.unselectCurrentElement(),this.hideHighlight(this.selectedHighlighter,this.selectedLabel);break}case"UPDATE_SELECTED_ELEMENT":{if(!this.selectedElement)return;let{attributes:n}=t;[this.selectedElement,...this.selectedSiblingElements].forEach(r=>{n.style!==void 0&&(r.setAttribute("style",n.style),r.setAttribute("data-replit-dirty","true")),n.textContent!==void 0&&(r.textContent=n.textContent,r.setAttribute("data-replit-dirty","true")),n.className!==void 0&&(r.className=n.className,r.setAttribute("data-replit-dirty","true")),n.src!==void 0&&(r.setAttribute("src",n.src),r.setAttribute("data-replit-dirty","true"))}),this.updateHighlighterPosition(this.selectedElement,this.selectedHighlighter,this.selectedLabel),this.selectedSiblingElements.length>0&&(this.clearHighlighters(this.selectedSiblingHighlighters),this.selectedSiblingHighlighters=[],this.selectedSiblingHighlighters=this.highlightElements(this.selectedSiblingElements));break}case"CLEAR_ELEMENT_DIRTY":{this.selectedElement&&this.selectedElement.removeAttribute("data-replit-dirty");break}}};handleVisualEditorToggle(i){if(i.type!=="TOGGLE_REPLIT_VISUAL_EDITOR")return;let t=!!i.enabled;this.enableEditing=!!i.enableEditing,t?this.postMessageToParent({type:"REPLIT_VISUAL_EDITOR_ENABLED",timestamp:Date.now()}):this.postMessageToParent({type:"REPLIT_VISUAL_EDITOR_DISABLED",timestamp:Date.now()}),this.isActive!==t&&(this.isActive=t,this.toggleEventListeners(t))}observeSelectedElement(){this.selectedElement&&(this.mutationObserver&&this.mutationObserver.disconnect(),this.mutationObserver=new MutationObserver(i=>{if(i.some(n=>n.type==="characterData")&&this.selectedElement){this.selectedElement.setAttribute("data-replit-dirty","true");let n=K(this.selectedElement);this.postMessageToParent({type:"ELEMENT_TEXT_CHANGED",payload:n,timestamp:Date.now()}),this.updateHighlighterPosition(this.selectedElement,this.selectedHighlighter,this.selectedLabel)}}),this.mutationObserver.observe(this.selectedElement,{characterData:!0,childList:!1,attributes:!1,subtree:!0}))}recalculateSelectedElement=()=>{this.isActive&&(this.selectedElement&&this.updateHighlighterPosition(this.selectedElement,this.selectedHighlighter,this.selectedLabel),this.lastHighlightedElement&&this.updateHighlighterPosition(this.lastHighlightedElement,this.hoverHighlighter,this.hoverLabel),this.selectedSiblingElements.length>0&&(this.clearHighlighters(this.selectedSiblingHighlighters),this.selectedSiblingHighlighters=[],this.selectedSiblingHighlighters=this.highlightElements(this.selectedSiblingElements)))};handleKeyDown=i=>{this.isActive&&(i.key==="Escape"||i.key==="Esc")&&this.handleVisualEditorToggle({type:"TOGGLE_REPLIT_VISUAL_EDITOR",enabled:!1,timestamp:Date.now()})};toggleEventListeners(i){i?(this.initializeHighlighter(),document.addEventListener("mousemove",this.handleMouseMove),document.addEventListener("mouseleave",this.handleMouseLeave),document.addEventListener("click",this.handleClick,!0),document.addEventListener("keydown",this.handleKeyDown),window.addEventListener("resize",this.recalculateSelectedElement),window.addEventListener("scroll",this.recalculateSelectedElement,!0)):(document.removeEventListener("mousemove",this.handleMouseMove),document.removeEventListener("click",this.handleClick,!0),document.removeEventListener("mouseleave",this.handleMouseLeave),document.removeEventListener("keydown",this.handleKeyDown),window.removeEventListener("resize",this.recalculateSelectedElement),window.removeEventListener("scroll",this.recalculateSelectedElement,!0),this.mutationObserver&&(this.mutationObserver.disconnect(),this.mutationObserver=null),this.selectedElement&&(this.selectedElement.removeAttribute("contenteditable"),this.selectedElement.removeAttribute("data-original-text"),document.querySelectorAll('[contenteditable="plaintext-only"]').forEach(t=>{t.removeAttribute("contenteditable")})),this.clearSelectedSiblingHighlighters(),this.clearHoverSiblingHighlighters(),this.hoverHighlighter?.remove(),this.hoverLabel?.remove(),this.selectedHighlighter?.remove(),this.selectedLabel?.remove(),this.shadowHost?.remove(),this.hoverHighlighter=null,this.hoverLabel=null,this.selectedHighlighter=null,this.selectedLabel=null,this.shadowHost=null,this.shadowRoot=null,this.selectedElement=null)}clearHighlighters(i){return i.forEach(t=>{t.remove()}),[]}clearHoverSiblingHighlighters(){this.hoverSiblingHighlighters=this.clearHighlighters(this.hoverSiblingHighlighters)}clearSelectedSiblingHighlighters(){this.selectedSiblingElements.forEach(i=>{i.removeAttribute("contenteditable")}),this.selectedSiblingElements=[],this.selectedSiblingHighlighters=this.clearHighlighters(this.selectedSiblingHighlighters)}highlightElements(i){if(!this.shadowRoot||i.length===0)return[];let t=[];return i.forEach(n=>{let o=document.createElement("div");o.className="beacon-highlighter beacon-sibling-highlighter",this.shadowRoot?.appendChild(o),t.push(o);let r=n.getBoundingClientRect(),l=window.innerHeight,s=Math.max(0,r.top),c=Math.min(l,r.bottom),h=Math.max(0,c-s);Object.assign(o.style,{opacity:h>0?"1":"0",top:`${s}px`,left:`${r.left}px`,width:`${r.width}px`,height:`${h}px`})}),t}highlightHoverSiblings(i){this.clearHoverSiblingHighlighters();let t=R(i);this.hoverSiblingHighlighters=this.highlightElements(t)}highlightSelectedSiblings(i){this.clearSelectedSiblingHighlighters(),this.selectedSiblingElements=R(i),this.selectedSiblingHighlighters=this.highlightElements(this.selectedSiblingElements)}};if(typeof window<"u")try{window.REPLIT_BEACON_VERSION||(window.REPLIT_BEACON_VERSION=P,new _)}catch(e){console.error("[replit-beacon] Failed to initialize:",e)}})();
-</script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx?v=nTYlAt80tBlLj7IUhEeUQ"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
-  </body>
-</html>
+⚠️ **Problemas:**
+1. No muestra progreso real del upload
+2. No hay retry en caso de fallo de red
+3. No limita tipos de archivo en el Dropzone
 
-GET http://localhost:5000/api/companies
-{"message":"Unauthorized","details":"No authentication token provided"}
-HEAD http://localhost:5000/
-HTTP/1.1 200 OK
-X-Powered-By: Express
-Vary: Origin
-Content-Type: text/html; charset=utf-8
-Date: Mon, 18 Aug 2025 19:54:32 GMT
-Connection: keep-alive
-Keep-Alive: timeout=5
+---
 
+## 🔒 AUDITORÍA DE SEGURIDAD
 
-## Dependencias
-Resumen de vulnerabilidades:
-{
-  "info": 0,
-  "low": 4,
-  "moderate": 2,
-  "high": 0,
-  "critical": 1,
-  "total": 7
-}
+### Vulnerabilidades por Categoría
 
-## Coherencia ESM/CJS
-Package.json type field:
-"module"
+#### CRÍTICAS (2)
+1. Exposición de credenciales en logs
+2. Validación insuficiente de uploads
 
-TSConfig module target:
-"ESNext"
+#### ALTAS (2)
+1. Falta de validación de autorización en endpoints CRUD
+2. Exposición de stack traces en producción
 
-## Resumen rápido
-- Front build: FAIL
-- Server tsc:  FAIL
-- Health:      WARN
-- Sistema:     RUNNING
+#### MEDIAS (7)
+1. Falta de tokens CSRF
+2. Rate limiting no distribuido
+3. CSP muy permisiva
+4. Respuestas del servidor no validadas
+5. Validación de parámetros incompleta
+6. Validación manual de FormData
+7. Manejo de errores inconsistente
+
+#### BAJAS (2)
+1. Falta de barra de progreso en uploads
+2. Esquemas Zod incompletos en algunos forms
+
+---
+
+## 📋 PLAN DE ACCIÓN RECOMENDADO
+
+### 🔴 **PRIORIDAD 1 (Esta semana)**
+
+1. **Remover logs de credenciales**
+   - Archivo: `server/generate-hash.ts`
+   - Tiempo: 5 minutos
+
+2. **Implementar validación de autorización**
+   - Archivos: `server/routes.ts` (todos los endpoints CRUD)
+   - Tiempo: 2 horas
+
+3. **Validar tipo real de archivos**
+   - Instalar: `npm install file-type`
+   - Archivo: `server/routes.ts` (endpoint upload)
+   - Tiempo: 30 minutos
+
+4. **Remover stack traces en producción**
+   - Archivos: Todos los catch blocks
+   - Tiempo: 1 hora
+
+### 🟠 **PRIORIDAD 2 (Próximas 2 semanas)**
+
+1. **Implementar CSRF tokens**
+   - Tiempo: 3 horas
+
+2. **Mejorar validación de formularios**
+   - Migrar formularios sin Zod a React Hook Form
+   - Tiempo: 4 horas
+
+3. **Agregar validación de duplicados**
+   - Prevenir KPI values duplicados por período
+   - Tiempo: 1 hora
+
+4. **Implementar confirmaciones**
+   - Agregar diálogos de confirmación antes de eliminar/actualizar
+   - Tiempo: 2 horas
+
+### 🟡 **PRIORIDAD 3 (Próximo mes)**
+
+1. **Migrar rate limiting a Redis**
+   - Tiempo: 4 horas
+
+2. **Mejorar CSP**
+   - Implementar nonces para scripts
+   - Tiempo: 2 horas
+
+3. **Agregar exportación a Excel**
+   - Instalar: `npm install exceljs`
+   - Tiempo: 3 horas
+
+4. **Implementar UI para eliminar KPIs**
+   - Con confirmación y validación
+   - Tiempo: 2 horas
+
+---
+
+## 📊 MÉTRICAS DE COBERTURA
+
+| Funcionalidad | Implementación | Validación | Seguridad | Puntuación |
+|---------------|----------------|------------|-----------|------------|
+| Crear KPIs | ✅ Completo | ✅ Buena | ⚠️ Falta autorización | 8/10 |
+| Editar KPIs | ✅ Completo | ✅ Buena | ⚠️ Falta autorización | 8/10 |
+| Eliminar KPIs | ⚠️ Solo backend | ❌ Sin validación | ❌ Sin autorización | 3/10 |
+| Guardar local | ✅ Completo | ✅ Buena | ✅ Buena | 9/10 |
+| Exportar PDF | ✅ Completo | ✅ Buena | ✅ Buena | 8/10 |
+| Importar PDF | ✅ Completo | ⚠️ Mejorable | ⚠️ Mejorable | 7/10 |
+| Clicks/Eventos | ✅ Completo | ✅ Buena | ✅ Buena | 9/10 |
+| Validaciones | ✅ Completo | ✅ Excelente | ✅ Buena | 9/10 |
+| Envíos | ✅ Completo | ⚠️ Mejorable | ⚠️ Conflicto rutas | 7/10 |
+| Tesorería | ✅ Completo | ✅ Buena | ⚠️ Mejorable | 8/10 |
+
+**Promedio General:** 7.6/10
+
+---
+
+## ✅ CONCLUSIONES
+
+### Fortalezas
+1. ✅ Arquitectura sólida y bien organizada
+2. ✅ TypeScript en toda la aplicación
+3. ✅ Validación con Zod en mayoría de formularios
+4. ✅ Autenticación JWT correctamente implementada
+5. ✅ Manejo de errores con Error Boundaries
+6. ✅ Estados de loading en operaciones async
+7. ✅ Rate limiting en endpoints críticos
+
+### Áreas de Mejora
+1. ⚠️ Validación de autorización inconsistente
+2. ⚠️ Falta de CSRF tokens
+3. ⚠️ Validación de uploads mejorable
+4. ⚠️ Algunos formularios sin React Hook Form
+5. ⚠️ No hay UI para eliminar KPIs
+6. ⚠️ Conflicto de rutas en shipments
+
+### Riesgo General
+**MEDIO** - La aplicación es funcional y segura en su mayoría, pero requiere mejoras en autorización y validación de uploads para alcanzar estándares de producción enterprise.
+
+---
+
+## 📞 CONTACTO
+
+Para dudas sobre este reporte:
+- **Revisar código:** `git log` para ver implementaciones
+- **Ejecutar tests:** `npm test`
+- **Documentación:** `/docs` folder
+
+---
+
+**Fin del Reporte de Auditoría**
+*Generado automáticamente por Claude Code*

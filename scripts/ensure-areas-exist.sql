@@ -26,3 +26,5 @@ LEFT JOIN companies c ON a.company_id = c.id
 ORDER BY a.company_id, a.id;
 
 
+
+

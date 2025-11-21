@@ -11,7 +11,8 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ interface Shipment {
   createdAt: string;
   updatedAt?: string;
   actualDeliveryDate?: string | null;
+  deliveredAt?: string | null;
   cycleTimes?: {
     hoursPendingToTransit?: string | null;
     hoursTransitToDelivered?: string | null;
@@ -279,7 +281,20 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                                 </div>
                               )}
                               
-                              {shipment.estimatedDeliveryDate && (
+                              {/* Fecha de entrega: mostrar real si está entregado, sino estimada */}
+                              {shipment.status === 'delivered' && (shipment.actualDeliveryDate || shipment.deliveredAt) ? (
+                                <div className="flex items-center gap-2">
+                                  <Lock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                  <span className="font-medium text-green-700 dark:text-green-300">Entrega real:</span>
+                                  <span className="font-semibold text-green-700 dark:text-green-300">
+                                    {new Date(shipment.actualDeliveryDate || shipment.deliveredAt!).toLocaleDateString('es-MX', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                              ) : shipment.estimatedDeliveryDate ? (
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-muted-foreground" />
                                   <span className="font-medium">Entrega estimada:</span>
@@ -291,21 +306,7 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                                     })}
                                   </span>
                                 </div>
-                              )}
-                              
-                              {shipment.actualDeliveryDate && (
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 className="w-4 h-4 text-success" />
-                                  <span className="font-medium">Entrega real:</span>
-                                  <span>
-                                    {new Date(shipment.actualDeliveryDate).toLocaleDateString('es-MX', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </span>
-                                </div>
-                              )}
+                              ) : null}
                               
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-muted-foreground" />

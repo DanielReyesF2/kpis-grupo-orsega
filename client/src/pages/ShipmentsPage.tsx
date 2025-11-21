@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, TrendingUp, Map, Calendar, Truck, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { Loader2, TrendingUp, Map, Calendar, Truck, AlertTriangle, CheckCircle2, X, Lock } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +45,7 @@ interface Shipment {
   departureDate: string | null;
   estimatedDeliveryDate: string | null;
   actualDeliveryDate: string | null;
+  deliveredAt?: string | null;
   status: 'pending' | 'in_transit' | 'delayed' | 'delivered' | 'cancelled';
   carrier: string;
   vehicleInfo: string | null;
@@ -420,7 +421,14 @@ export default function ShipmentsPage() {
                           <TableCell>{shipment.origin}</TableCell>
                           <TableCell>{shipment.destination}</TableCell>
                           <TableCell>
-                            {shipment.estimatedDeliveryDate ? (
+                            {shipment.status === 'delivered' && (shipment.actualDeliveryDate || shipment.deliveredAt) ? (
+                              <div className="flex items-center gap-2">
+                                <Lock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <span className="font-semibold text-green-700 dark:text-green-300">
+                                  <FormattedDate date={new Date(shipment.actualDeliveryDate || shipment.deliveredAt!)} />
+                                </span>
+                              </div>
+                            ) : shipment.estimatedDeliveryDate ? (
                               <FormattedDate date={new Date(shipment.estimatedDeliveryDate)} />
                             ) : (
                               "-"

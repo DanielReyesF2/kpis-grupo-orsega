@@ -76,3 +76,5 @@ WHERE k.company_id = 2  -- Grupo Orsega
 ORDER BY k.area_id, k.name;
 
 
+
+
