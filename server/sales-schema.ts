@@ -25,6 +25,22 @@ const CREATE_TABLES_QUERIES = [
     UNIQUE(company_id, product_code)
   );`,
 
+  // Tabla de tracking de archivos subidos (DEBE IR ANTES de sales_data por FK)
+  `CREATE TABLE IF NOT EXISTS sales_uploads (
+    id SERIAL PRIMARY KEY,
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    uploaded_by INTEGER NOT NULL REFERENCES users(id),
+    file_name VARCHAR(255) NOT NULL,
+    file_url TEXT,
+    file_size INTEGER,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    period_start DATE,
+    period_end DATE,
+    records_count INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'processed',
+    notes TEXT
+  );`,
+
   // Tabla principal de datos de ventas
   `CREATE TABLE IF NOT EXISTS sales_data (
     id SERIAL PRIMARY KEY,
@@ -44,22 +60,6 @@ const CREATE_TABLES_QUERIES = [
     upload_id INTEGER REFERENCES sales_uploads(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );`,
-
-  // Tabla de tracking de archivos subidos
-  `CREATE TABLE IF NOT EXISTS sales_uploads (
-    id SERIAL PRIMARY KEY,
-    company_id INTEGER NOT NULL REFERENCES companies(id),
-    uploaded_by INTEGER NOT NULL REFERENCES users(id),
-    file_name VARCHAR(255) NOT NULL,
-    file_url TEXT,
-    file_size INTEGER,
-    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    period_start DATE,
-    period_end DATE,
-    records_count INTEGER DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'processed',
-    notes TEXT
   );`,
 
   // Tabla de alertas de ventas
