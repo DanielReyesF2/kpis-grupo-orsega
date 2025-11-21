@@ -1,4 +1,4 @@
-# Dependencies
+17# Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -119,3 +119,24 @@ uploads/*
 # Cursor
 .cursor/
 NEW_JWT_SECRET.txt
+
+# Temporary audit and summary files
+*QUICK*.txt
+*QUICK*.md
+AUDIT-REPORT-*.md
+AUDITORIA-*.md
+RESUMEN-*.md
+LEER-*.md
+*_AUDIT*.md
+audit_results.json
+cookies.txt
+proyecto.zip
+railway-env-vars.txt
+
+# Temporary test files
+test-email.js
+check-user-areas.js
+
+# Temporary data files
+*.json.bak
+*.sql.bak

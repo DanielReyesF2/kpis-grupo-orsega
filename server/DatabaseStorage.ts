@@ -304,7 +304,7 @@ export class DatabaseStorage implements IStorage {
         if (isDuplicateError) {
           console.log(`[upsertCompanyKpiValueNormalized] Registro ya existe, actualizando...`);
 
-          const [updated] = await db
+          const updatedRecords = await db
             .update(table)
             .set({
               value: data.value,
@@ -323,6 +323,37 @@ export class DatabaseStorage implements IStorage {
             )
             .returning();
 
+          if (updatedRecords.length === 0) {
+            // Si no se actualizó ningún registro, intentar insertar de nuevo
+            // Esto puede pasar si el registro fue eliminado entre el INSERT y el UPDATE
+            console.warn(`[upsertCompanyKpiValueNormalized] ⚠️ No se encontró registro para actualizar, intentando insertar de nuevo...`);
+            const [reinserted] = await db
+              .insert(table)
+              .values({
+                kpi_id: data.kpiId,
+                month: monthUpper,
+                year: data.year,
+                value: data.value,
+                compliance_percentage: data.compliancePercentage ?? null,
+                status: data.status ?? null,
+                comments: data.comments ?? null,
+                updated_by: data.updatedBy ?? null,
+                created_at: new Date(),
+              })
+              .returning();
+            
+            console.log(`[upsertCompanyKpiValueNormalized] ✅ Re-inserción exitosa. Registro creado:`, {
+              id: reinserted.id,
+              status: reinserted.status,
+              compliance_percentage: reinserted.compliance_percentage,
+              value: reinserted.value
+            });
+            
+            const mapped = this.mapKpiValueRecord(reinserted, resolved);
+            return mapped;
+          }
+
+          const [updated] = updatedRecords;
           console.log(`[upsertCompanyKpiValueNormalized] ✅ Actualización exitosa. Registro actualizado:`, {
             id: updated.id,
             status: updated.status,
@@ -907,14 +938,24 @@ export class DatabaseStorage implements IStorage {
 
   async createKpiValue(kpiValue: InsertKpiValue): Promise<KpiValue> {
     try {
-      const companyIdInput =
-        kpiValue.companyId ?? (await this.findCompanyForKpiId(kpiValue.kpiId));
+      // ✅ FIX: Si companyId viene en el request, usarlo directamente
+      // Solo buscar automáticamente si no se proporciona
+      let companyIdInput = kpiValue.companyId;
+      
       if (!companyIdInput) {
-        throw new Error(`Unable to determine company for KPI ${kpiValue.kpiId}`);
+        companyIdInput = await this.findCompanyForKpiId(kpiValue.kpiId);
       }
+      
+      if (!companyIdInput) {
+        throw new Error(`Unable to determine company for KPI ${kpiValue.kpiId}. Por favor proporciona companyId en el request.`);
+      }
+
+      console.log(`[createKpiValue] Usando companyId: ${companyIdInput} (proporcionado: ${kpiValue.companyId ? 'sí' : 'no'})`);
 
       const resolved = this.resolveCompany(companyIdInput);
       const { month, year } = this.extractMonthYear(kpiValue);
+      
+      console.log(`[createKpiValue] Mes extraído: "${month}", Año: ${year}`);
 
       // ✅ FIX CRÍTICO: Limpiar el valor para remover caracteres no numéricos
       // Esto previene errores como "invalid input syntax for type numeric: 100.0%"

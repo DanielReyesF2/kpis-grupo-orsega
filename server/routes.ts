@@ -2183,11 +2183,19 @@ export function registerRoutes(app: express.Application) {
 
         // Guardar valor
         try {
-          console.log(`[PUT /api/kpi-values/bulk] Guardando ${month} ${year}: value=${value}, status=${status}, compliance=${compliancePercentage}`);
+          console.log(`[PUT /api/kpi-values/bulk] Guardando ${month} ${yearNum}: value="${value}", status=${status}, compliance=${compliancePercentage}`);
+          console.log(`[PUT /api/kpi-values/bulk] Datos completos:`, {
+            kpiId,
+            companyId,
+            month,
+            year: yearNum,
+            value: value.toString(),
+            period: `${month} ${yearNum}`
+          });
           
           const kpiValue = await storage.createKpiValue({
             kpiId,
-            companyId,
+            companyId, // ✅ Asegurar que companyId se pasa explícitamente
             value: value.toString(),
             month,
             year: yearNum,
@@ -2200,13 +2208,16 @@ export function registerRoutes(app: express.Application) {
 
           successCount++;
           results.push({ month, year: yearNum, success: true, kpiValue });
-          console.log(`[PUT /api/kpi-values/bulk] ✅ Guardado exitoso: ${month} ${yearNum}`);
+          console.log(`[PUT /api/kpi-values/bulk] ✅ Guardado exitoso: ${month} ${yearNum} (ID: ${kpiValue.id})`);
         } catch (error: any) {
           errorCount++;
           console.error(`[PUT /api/kpi-values/bulk] ❌ Error guardando ${month} ${yearNum}:`, error);
           console.error(`[PUT /api/kpi-values/bulk] Detalles del error:`, {
             message: error.message,
-            stack: error.stack
+            stack: error.stack,
+            code: error.code,
+            detail: error.detail,
+            hint: error.hint
           });
           results.push({ 
             month, 
@@ -3298,8 +3309,10 @@ export function registerRoutes(app: express.Application) {
       }
 
       if (validatedData.status === 'delivered' && !shipment.deliveredAt) {
-        updateData.deliveredAt = new Date();
-        console.log(`[KPI Logística] Capturando timestamp deliveredAt para shipment ${shipmentId}`);
+        const deliveryDate = new Date();
+        updateData.deliveredAt = deliveryDate;
+        updateData.actualDeliveryDate = deliveryDate;
+        console.log(`[KPI Logística] Capturando timestamp deliveredAt y actualDeliveryDate para shipment ${shipmentId}`);
       }
 
       const updatedShipment = await storage.updateShipment(shipmentId, updateData);
