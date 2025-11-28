@@ -41,7 +41,7 @@ COPY shared/ ./shared/
 # Copy required scripts (create directory first)
 RUN mkdir -p ./scripts
 COPY scripts/weekly_sales_update.ts ./scripts/weekly_sales_update.ts
-COPY scripts/verify-build-files.js ./scripts/verify-build-files.js
+# Note: verify-build-files.js was moved to scripts/archive/ - no longer needed in build
 COPY vite.config.ts ./
 COPY tailwind.config.ts ./
 COPY postcss.config.js ./
