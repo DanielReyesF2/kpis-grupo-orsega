@@ -407,7 +407,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          {(Object.keys(COLUMN_CONFIG) as Array<keyof typeof COLUMN_CONFIG>).map((columnId) => (
+          {(['por_pagar', 'en_seguimiento_rep', 'pagada'] as Array<keyof typeof COLUMN_CONFIG>).map((columnId) => (
             <KanbanColumn
               key={columnId}
               columnId={columnId}
