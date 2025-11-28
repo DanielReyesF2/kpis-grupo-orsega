@@ -297,6 +297,11 @@ export default function TreasuryPage() {
   
   const totalThisWeek = paymentsThisWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
 
+  // Calcular conteo de REPs pendientes (misma lógica que el Kanban)
+  const repsPendingCount = payments.filter((p) => 
+    p.voucherId && p.status === 'voucher_uploaded'
+  ).length;
+
   // Calcular pagos para siguiente semana (usando paymentDate)
   const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
   nextWeekStart.setHours(0, 0, 0, 0);
@@ -556,17 +561,18 @@ export default function TreasuryPage() {
             </Card>
           </div>
 
-          {/* REPs Pendientes */}
-          <div className="grid grid-cols-1 gap-4">
-            <PendingTodayCard onViewAll={() => {
-              // Ya estamos en vouchers
-            }} />
-          </div>
-
           {/* Kanban de Cuentas por Pagar - ÚNICO KANBAN */}
           <div className="mt-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-foreground">Cuentas por Pagar</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-foreground">Cuentas por Pagar</h2>
+                <PendingTodayCard 
+                  count={repsPendingCount}
+                  onViewAll={() => {
+                    // Ya estamos en vouchers, el click puede hacer scroll o highlight la columna
+                  }} 
+                />
+              </div>
               <Button
                 variant="outline"
                 onClick={() => setViewMode("history")}
@@ -877,12 +883,6 @@ export default function TreasuryPage() {
           </Card>
         </div>
 
-        {/* REPs Pendientes */}
-        <div className="grid grid-cols-1 gap-4">
-          <PendingTodayCard onViewAll={() => setViewMode("vouchers")} />
-        </div>
-
-
         {/* Otras Acciones Rápidas */}
         <div className="flex flex-wrap gap-2">
           <Button
@@ -900,9 +900,15 @@ export default function TreasuryPage() {
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-foreground">
-                    Cuentas por Pagar
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg font-semibold text-foreground">
+                      Cuentas por Pagar
+                    </CardTitle>
+                    <PendingTodayCard 
+                      count={repsPendingCount}
+                      onViewAll={() => setViewMode("vouchers")} 
+                    />
+                  </div>
                   {isKanbanExpanded ? (
                     <ChevronUp className="h-4 w-4 text-muted-foreground" />
                   ) : (
