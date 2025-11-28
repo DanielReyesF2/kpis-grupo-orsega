@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -14,11 +14,29 @@ import {
   Users,
   FileSpreadsheet,
   BarChart3,
-  Package
+  Package,
+  ArrowLeft,
+  Sparkles,
+  Activity
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie
+} from "recharts";
 
 type ViewMode = "overview" | "upload" | "comparison" | "alerts";
 
@@ -76,6 +94,28 @@ export default function SalesPage() {
     refetchInterval: 60000
   });
 
+  // Query para tendencias mensuales (para gráficos)
+  const { data: monthlyTrends, isLoading: isLoadingTrends } = useQuery({
+    queryKey: ['/api/sales-monthly-trends', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&months=12`);
+      return await res.json();
+    },
+    enabled: !!user && viewMode === 'overview',
+    refetchInterval: 60000
+  });
+
+  // Query para top clientes
+  const { data: topClients, isLoading: isLoadingTopClients } = useQuery({
+    queryKey: ['/api/sales-top-clients', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-top-clients?companyId=${selectedCompany}&limit=5`);
+      return await res.json();
+    },
+    enabled: !!user && viewMode === 'overview',
+    refetchInterval: 60000
+  });
+
   return (
     <AppLayout>
       <div className="container mx-auto py-6 px-4 max-w-7xl">
@@ -114,369 +154,882 @@ export default function SalesPage() {
         {/* Vista según modo seleccionado */}
         {viewMode === "overview" && (
           <div className="space-y-6">
-            {/* KPIs Overview */}
+            {/* KPIs Overview - Mejorado con gradientes y animaciones */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 dark:bg-blue-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
                     Clientes Activos
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold">
-                      {isLoadingStats ? '...' : stats?.activeClients || 0}
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-4xl font-bold text-blue-900 dark:text-blue-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-16 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
+                      ) : (
+                        stats?.activeClients || 0
+                      )}
                     </div>
-                    <Users className="h-8 w-8 text-blue-500 opacity-20" />
+                    <div className="p-3 rounded-full bg-blue-200 dark:bg-blue-800">
+                      <Users className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  {monthlyTrends && monthlyTrends.length > 0 && (
+                    <div className="h-16 -mb-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={monthlyTrends.slice(-6)}>
+                          <Line 
+                            type="monotone" 
+                            dataKey="clients" 
+                            stroke="#3b82f6" 
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
                     Con compras este mes
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-green-200 dark:bg-green-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-green-700 dark:text-green-300 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
                     Volumen del Mes
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold">
-                      {isLoadingStats ? '...' : (stats?.currentVolume?.toLocaleString('es-MX') || 0)}
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-3xl font-bold text-green-900 dark:text-green-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-24 bg-green-200 dark:bg-green-800 rounded animate-pulse"></div>
+                      ) : (
+                        (stats?.currentVolume?.toLocaleString('es-MX') || 0)
+                      )}
                     </div>
-                    <Package className="h-8 w-8 text-green-500 opacity-20" />
+                    <div className="p-3 rounded-full bg-green-200 dark:bg-green-800">
+                      <Package className="h-6 w-6 text-green-600 dark:text-green-300" />
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  {monthlyTrends && monthlyTrends.length > 0 && (
+                    <div className="h-16 -mb-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyTrends.slice(-6)}>
+                          <Bar 
+                            dataKey="volume" 
+                            fill="#10b981"
+                            radius={[2, 2, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">
                     {stats?.unit || (selectedCompany === 1 ? 'KG' : 'Unidades')}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Crecimiento vs Año Anterior
+              <Card className={`relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${
+                stats?.growth >= 0 
+                  ? 'bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-950 dark:to-green-900' 
+                  : 'bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950 dark:to-rose-900'
+              }`}>
+                <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 opacity-20 ${
+                  stats?.growth >= 0 
+                    ? 'bg-emerald-200 dark:bg-emerald-800' 
+                    : 'bg-red-200 dark:bg-red-800'
+                }`}></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className={`text-sm font-semibold flex items-center gap-2 ${
+                    stats?.growth >= 0 
+                      ? 'text-emerald-700 dark:text-emerald-300' 
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    <Activity className="h-4 w-4" />
+                    Crecimiento
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`text-2xl font-bold ${
-                        stats?.growth >= 0 ? 'text-green-600' : 'text-red-600'
+                      <div className={`text-4xl font-bold ${
+                        stats?.growth >= 0 
+                          ? 'text-emerald-900 dark:text-emerald-100' 
+                          : 'text-red-900 dark:text-red-100'
                       }`}>
-                        {isLoadingStats ? '...' : `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`}
+                        {isLoadingStats ? (
+                          <div className={`h-10 w-20 rounded animate-pulse ${
+                            stats?.growth >= 0 ? 'bg-emerald-200 dark:bg-emerald-800' : 'bg-red-200 dark:bg-red-800'
+                          }`}></div>
+                        ) : (
+                          `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`
+                        )}
                       </div>
                       {stats?.growth >= 0 ? (
-                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <TrendingDown className="h-4 w-4 text-red-500" />
+                        <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
                       )}
                     </div>
-                    <BarChart3 className="h-8 w-8 text-emerald-500 opacity-20" />
+                    <div className={`p-3 rounded-full ${
+                      stats?.growth >= 0 
+                        ? 'bg-emerald-200 dark:bg-emerald-800' 
+                        : 'bg-red-200 dark:bg-red-800'
+                    }`}>
+                      <BarChart3 className={`h-6 w-6 ${
+                        stats?.growth >= 0 
+                          ? 'text-emerald-600 dark:text-emerald-300' 
+                          : 'text-red-600 dark:text-red-300'
+                      }`} />
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className={`text-xs mt-2 font-medium ${
+                    stats?.growth >= 0 
+                      ? 'text-emerald-600 dark:text-emerald-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
                     Mismo período 2024
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950 dark:to-yellow-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200 dark:bg-amber-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
                     Alertas Activas
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-10">
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold text-amber-600">
-                      {isLoadingStats ? '...' : stats?.activeAlerts || 0}
+                    <div className="text-4xl font-bold text-amber-900 dark:text-amber-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-16 bg-amber-200 dark:bg-amber-800 rounded animate-pulse"></div>
+                      ) : (
+                        stats?.activeAlerts || 0
+                      )}
                     </div>
-                    <AlertTriangle className="h-8 w-8 text-amber-500 opacity-20" />
+                    <div className="p-3 rounded-full bg-amber-200 dark:bg-amber-800 animate-pulse">
+                      <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-300" />
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">
                     Requieren atención
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Sección de acciones rápidas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Sección de acciones rápidas - Mejorada */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card
-                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-blue-200 hover:border-blue-300"
+                className="cursor-pointer group relative overflow-hidden border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-blue-950"
                 onClick={() => setViewMode("comparison")}
               >
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-blue-100">
-                      <TrendingUp className="h-6 w-6 text-blue-600" />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/5 group-hover:to-blue-500/10 transition-all duration-300"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <TrendingUp className="h-7 w-7 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">Análisis Comparativo</CardTitle>
-                      <CardDescription>Año actual vs anterior</CardDescription>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                        Análisis Comparativo
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium">
+                        Año actual vs anterior
+                      </CardDescription>
                     </div>
+                    <Sparkles className="h-5 w-5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="relative z-10">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     Ver diferencial por cliente y detectar oportunidades de crecimiento
                   </p>
                 </CardContent>
               </Card>
 
               <Card
-                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-amber-200 hover:border-amber-300"
+                className="cursor-pointer group relative overflow-hidden border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-amber-50 dark:from-gray-900 dark:to-amber-950"
                 onClick={() => setViewMode("alerts")}
               >
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-amber-100">
-                      <AlertTriangle className="h-6 w-6 text-amber-600" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/0 group-hover:from-amber-500/5 group-hover:to-amber-500/10 transition-all duration-300"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg group-hover:scale-110 transition-transform duration-300 animate-pulse">
+                      <AlertTriangle className="h-7 w-7 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">Alertas y Seguimiento</CardTitle>
-                      <CardDescription>Clientes que requieren atención</CardDescription>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                        Alertas y Seguimiento
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium">
+                        Clientes que requieren atención
+                      </CardDescription>
                     </div>
+                    <Sparkles className="h-5 w-5 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="relative z-10">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     Clientes inactivos y con diferencial negativo significativo
                   </p>
                 </CardContent>
               </Card>
 
               <Card
-                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-green-200 hover:border-green-300"
+                className="cursor-pointer group relative overflow-hidden border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-green-50 dark:from-gray-900 dark:to-green-950"
                 onClick={() => setViewMode("upload")}
               >
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-green-100">
-                      <FileSpreadsheet className="h-6 w-6 text-green-600" />
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-500/0 group-hover:from-green-500/5 group-hover:to-green-500/10 transition-all duration-300"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-green-500 to-green-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <FileSpreadsheet className="h-7 w-7 text-white" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">Cargar Datos</CardTitle>
-                      <CardDescription>Excel semanal de ventas</CardDescription>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                        Cargar Datos
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium">
+                        Excel semanal de ventas
+                      </CardDescription>
                     </div>
+                    <Sparkles className="h-5 w-5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <CardContent className="relative z-10">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     Subir el reporte semanal de Mario para actualizar el análisis
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Placeholder para datos históricos disponibles */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Datos Históricos Disponibles</CardTitle>
-                <CardDescription>
-                  Información de ventas desde enero 2022
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <FileSpreadsheet className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">
-                    Sube tu primer archivo Excel para comenzar
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    El sistema procesará automáticamente los datos y generará alertas
-                  </p>
+            {/* Dashboard Visual - Gráficos y Visualizaciones */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico de Tendencias Mensuales */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                    Tendencias Mensuales
+                  </CardTitle>
+                  <CardDescription>
+                    Evolución del volumen de ventas últimos 12 meses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingTrends ? (
+                    <div className="h-64 flex items-center justify-center">
+                      <div className="animate-pulse text-gray-400">Cargando gráfico...</div>
+                    </div>
+                  ) : !monthlyTrends || monthlyTrends.length === 0 ? (
+                    <div className="h-64 flex flex-col items-center justify-center text-center">
+                      <BarChart3 className="h-12 w-12 text-gray-300 mb-4" />
+                      <p className="text-gray-500">No hay datos disponibles</p>
+                      <Button
+                        onClick={() => setViewMode("upload")}
+                        className="mt-4"
+                        size="sm"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Subir Datos
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={monthlyTrends}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis 
+                            dataKey="month" 
+                            tick={{ fontSize: 11 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px'
+                            }}
+                            formatter={(value: any) => `${value.toLocaleString('es-MX')} ${stats?.unit || ''}`}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="volume" 
+                            stroke="#3b82f6" 
+                            strokeWidth={3}
+                            dot={{ fill: '#3b82f6', r: 4 }}
+                            activeDot={{ r: 6 }}
+                            name="Volumen"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="clients" 
+                            stroke="#10b981" 
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ fill: '#10b981', r: 3 }}
+                            name="Clientes Activos"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Gráfico de Volumen Mensual (Barras) */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-green-500" />
+                    Volumen Mensual
+                  </CardTitle>
+                  <CardDescription>
+                    Comparación de volumen por mes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingTrends ? (
+                    <div className="h-64 flex items-center justify-center">
+                      <div className="animate-pulse text-gray-400">Cargando gráfico...</div>
+                    </div>
+                  ) : !monthlyTrends || monthlyTrends.length === 0 ? (
+                    <div className="h-64 flex flex-col items-center justify-center text-center">
+                      <Package className="h-12 w-12 text-gray-300 mb-4" />
+                      <p className="text-gray-500">No hay datos disponibles</p>
+                    </div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyTrends}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis 
+                            dataKey="month" 
+                            tick={{ fontSize: 11 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px'
+                            }}
+                            formatter={(value: any) => `${value.toLocaleString('es-MX')} ${stats?.unit || ''}`}
+                          />
+                          <Bar 
+                            dataKey="volume" 
+                            fill="#10b981"
+                            radius={[4, 4, 0, 0]}
+                            name="Volumen"
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Top Clientes - Gráfico de Pastel */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-purple-500" />
+                    Top Clientes del Mes
+                  </CardTitle>
+                  <CardDescription>
+                    Distribución de volumen por cliente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingTopClients ? (
+                    <div className="h-64 flex items-center justify-center">
+                      <div className="animate-pulse text-gray-400">Cargando gráfico...</div>
+                    </div>
+                  ) : !topClients || topClients.length === 0 ? (
+                    <div className="h-64 flex flex-col items-center justify-center text-center">
+                      <Users className="h-12 w-12 text-gray-300 mb-4" />
+                      <p className="text-gray-500">No hay datos de clientes disponibles</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={topClients}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name.substring(0, 15)}${name.length > 15 ? '...' : ''} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="volume"
+                            >
+                              {topClients.map((entry: any, index: number) => {
+                                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                                return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                              })}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: any) => `${value.toLocaleString('es-MX')} ${topClients[0]?.unit || ''}`}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="space-y-2">
+                        {topClients.map((client: any, index: number) => {
+                          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                          return (
+                            <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: colors[index % colors.length] }}
+                                ></div>
+                                <span className="text-sm font-medium">{client.name}</span>
+                              </div>
+                              <span className="text-sm font-semibold">
+                                {client.volume.toLocaleString('es-MX')} {client.unit}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Resumen de Actividad */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-amber-500" />
+                    Resumen de Actividad
+                  </CardTitle>
+                  <CardDescription>
+                    Métricas clave del período actual
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingStats || isLoadingTrends ? (
+                    <div className="h-64 flex items-center justify-center">
+                      <div className="animate-pulse text-gray-400">Cargando datos...</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Promedio Mensual</p>
+                          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                            {monthlyTrends && monthlyTrends.length > 0
+                              ? (monthlyTrends.reduce((acc: number, item: any) => acc + item.volume, 0) / monthlyTrends.length).toLocaleString('es-MX', { maximumFractionDigits: 0 })
+                              : '0'}
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{stats?.unit || ''}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                          <p className="text-xs text-green-600 dark:text-green-400 mb-1">Mejor Mes</p>
+                          <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                            {monthlyTrends && monthlyTrends.length > 0
+                              ? Math.max(...monthlyTrends.map((item: any) => item.volume)).toLocaleString('es-MX', { maximumFractionDigits: 0 })
+                              : '0'}
+                          </p>
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">{stats?.unit || ''}</p>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Total de Meses con Datos</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                          {monthlyTrends?.length || 0}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Últimos 12 meses</p>
+                      </div>
+                      <Button
+                        onClick={() => setViewMode("upload")}
+                        className="w-full bg-primary hover:bg-primary/90 text-white"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Subir Nuevos Datos
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {viewMode === "upload" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Upload className="h-6 w-6" />
+                  Subir Excel Semanal
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Arrastra y suelta o haz clic para seleccionar el archivo
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("overview")}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </div>
+
+            <Card className="shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-primary transition-all duration-300">
+              <CardContent className="pt-12 pb-12">
+                <div className="flex flex-col items-center justify-center space-y-6">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-2xl"></div>
+                    <div className="relative p-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/5">
+                      <Upload className="h-20 w-20 text-primary mx-auto" />
+                    </div>
+                  </div>
+                  
+                  <div className="text-center space-y-2">
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Arrastra tu archivo aquí o haz clic para seleccionar
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Formatos soportados: .xlsx, .xls
+                    </p>
+                  </div>
+
+                  <Button 
+                    size="lg" 
+                    className="bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <FileSpreadsheet className="mr-2 h-5 w-5" />
+                    Seleccionar Archivo
+                  </Button>
+
+                  <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 max-w-md">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                      <strong>Nota:</strong> El sistema procesará automáticamente los datos y generará alertas
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {viewMode === "upload" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Subir Excel Semanal</CardTitle>
-              <CardDescription>
-                Arrastra y suelta o haz clic para seleccionar el archivo
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2">
-                  Arrastra tu archivo aquí o haz clic para seleccionar
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Formatos soportados: .xlsx, .xls
-                </p>
-                <Button variant="outline">
-                  Seleccionar Archivo
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {viewMode === "comparison" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Análisis Comparativo</CardTitle>
-              <CardDescription>
-                Comparación año actual vs año anterior por cliente
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingComparison ? (
-                <div className="text-center py-8">
-                  <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Cargando datos comparativos...
-                  </p>
-                </div>
-              ) : !comparison || comparison.length === 0 ? (
-                <div className="text-center py-8">
-                  <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No hay datos disponibles aún
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Sube el primer archivo Excel para comenzar
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                          <th className="px-4 py-3 text-right font-semibold">Año Anterior</th>
-                          <th className="px-4 py-3 text-right font-semibold">Año Actual</th>
-                          <th className="px-4 py-3 text-right font-semibold">Diferencial</th>
-                          <th className="px-4 py-3 text-right font-semibold">% Cambio</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {comparison.map((item: any) => {
-                          const isDanger = item.differential < 0;
-                          const isWarning = item.differential >= 0 && item.differential < (item.previous_year_total * 0.1);
-                          const isSuccess = item.differential > (item.previous_year_total * 0.1);
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="h-6 w-6" />
+                  Análisis Comparativo
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Comparación año actual vs año anterior por cliente
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("overview")}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </div>
 
-                          return (
-                            <tr key={item.client_id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <td className="px-4 py-3 font-medium">{item.client_name}</td>
-                              <td className="px-4 py-3 text-right">
-                                {parseFloat(item.previous_year_total).toLocaleString('es-MX')} {item.unit}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {parseFloat(item.current_year_total).toLocaleString('es-MX')} {item.unit}
-                              </td>
-                              <td className={`px-4 py-3 text-right font-semibold ${
-                                isDanger ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-green-600'
-                              }`}>
-                                {item.differential >= 0 ? '+' : ''}{parseFloat(item.differential).toLocaleString('es-MX')} {item.unit}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {item.percent_change !== null ? (
-                                  <Badge variant={isDanger ? 'destructive' : isSuccess ? 'default' : 'secondary'}>
-                                    {item.percent_change >= 0 ? '+' : ''}{item.percent_change}%
-                                  </Badge>
-                                ) : (
-                                  <span className="text-gray-400">N/A</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+            <Card className="shadow-lg">
+              <CardContent className="pt-6">
+                {isLoadingComparison ? (
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Cargando datos comparativos...
+                    </p>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                ) : !comparison || comparison.length === 0 ? (
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">
+                      No hay datos disponibles aún
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Sube el primer archivo Excel para comenzar
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Gráfico de barras comparativo */}
+                    <div className="h-96">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={comparison.slice(0, 10).map((item: any) => ({
+                            name: item.client_name.length > 15 
+                              ? item.client_name.substring(0, 15) + '...' 
+                              : item.client_name,
+                            'Año Anterior': parseFloat(item.previous_year_total),
+                            'Año Actual': parseFloat(item.current_year_total),
+                            fullName: item.client_name
+                          }))}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis 
+                            dataKey="name" 
+                            angle={-45}
+                            textAnchor="end"
+                            height={100}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px'
+                            }}
+                            formatter={(value: any) => `${value.toLocaleString('es-MX')} ${comparison[0]?.unit || ''}`}
+                            labelFormatter={(label) => `Cliente: ${label}`}
+                          />
+                          <Legend />
+                          <Bar 
+                            dataKey="Año Anterior" 
+                            fill="#94a3b8" 
+                            radius={[4, 4, 0, 0]}
+                          />
+                          <Bar 
+                            dataKey="Año Actual" 
+                            fill="#3b82f6" 
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Tabla detallada */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+                            <tr>
+                              <th className="px-6 py-4 text-left font-bold text-gray-900 dark:text-white">Cliente</th>
+                              <th className="px-6 py-4 text-right font-bold text-gray-900 dark:text-white">Año Anterior</th>
+                              <th className="px-6 py-4 text-right font-bold text-gray-900 dark:text-white">Año Actual</th>
+                              <th className="px-6 py-4 text-right font-bold text-gray-900 dark:text-white">Diferencial</th>
+                              <th className="px-6 py-4 text-right font-bold text-gray-900 dark:text-white">% Cambio</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {comparison.map((item: any, index: number) => {
+                              const isDanger = item.differential < 0;
+                              const isWarning = item.differential >= 0 && item.differential < (item.previous_year_total * 0.1);
+                              const isSuccess = item.differential > (item.previous_year_total * 0.1);
+
+                              return (
+                                <tr 
+                                  key={item.client_id} 
+                                  className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                  style={{ animationDelay: `${index * 50}ms` }}
+                                >
+                                  <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                                    {item.client_name}
+                                  </td>
+                                  <td className="px-6 py-4 text-right text-gray-700 dark:text-gray-300">
+                                    {parseFloat(item.previous_year_total).toLocaleString('es-MX')} {item.unit}
+                                  </td>
+                                  <td className="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">
+                                    {parseFloat(item.current_year_total).toLocaleString('es-MX')} {item.unit}
+                                  </td>
+                                  <td className={`px-6 py-4 text-right font-bold ${
+                                    isDanger ? 'text-red-600 dark:text-red-400' : 
+                                    isWarning ? 'text-amber-600 dark:text-amber-400' : 
+                                    'text-green-600 dark:text-green-400'
+                                  }`}>
+                                    <div className="flex items-center justify-end gap-2">
+                                      {item.differential >= 0 ? (
+                                        <TrendingUp className="h-4 w-4" />
+                                      ) : (
+                                        <TrendingDown className="h-4 w-4" />
+                                      )}
+                                      {item.differential >= 0 ? '+' : ''}{parseFloat(item.differential).toLocaleString('es-MX')} {item.unit}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    {item.percent_change !== null ? (
+                                      <Badge 
+                                        variant={isDanger ? 'destructive' : isSuccess ? 'default' : 'secondary'}
+                                        className="font-semibold"
+                                      >
+                                        {item.percent_change >= 0 ? '+' : ''}{item.percent_change}%
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-gray-400">N/A</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {viewMode === "alerts" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Alertas Activas</CardTitle>
-              <CardDescription>
-                Clientes que requieren seguimiento
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingAlerts ? (
-                <div className="text-center py-8">
-                  <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Cargando alertas...
-                  </p>
-                </div>
-              ) : !alerts || alerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No hay alertas activas
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Las alertas se generan automáticamente al subir datos
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {alerts.map((alert: any) => (
-                    <Card key={alert.id} className={`border-l-4 ${
-                      alert.severity === 'critical' ? 'border-red-500' :
-                      alert.severity === 'warning' ? 'border-amber-500' :
-                      'border-blue-500'
-                    }`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <AlertTriangle className={`h-5 w-5 mt-0.5 ${
-                              alert.severity === 'critical' ? 'text-red-500' :
-                              alert.severity === 'warning' ? 'text-amber-500' :
-                              'text-blue-500'
-                            }`} />
-                            <div>
-                              <CardTitle className="text-base">{alert.title}</CardTitle>
-                              <CardDescription className="mt-1">
-                                {alert.description}
-                              </CardDescription>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <AlertTriangle className="h-6 w-6 text-amber-500" />
+                  Alertas Activas
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Clientes que requieren seguimiento
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("overview")}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </div>
+
+            <Card className="shadow-lg">
+              <CardContent className="pt-6">
+                {isLoadingAlerts ? (
+                  <div className="text-center py-12">
+                    <AlertTriangle className="h-16 w-16 text-gray-300 mx-auto mb-4 animate-pulse" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Cargando alertas...
+                    </p>
+                  </div>
+                ) : !alerts || alerts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+                      <AlertTriangle className="h-10 w-10 text-green-500" />
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      No hay alertas activas
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Las alertas se generan automáticamente al subir datos
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {alerts.map((alert: any, index: number) => {
+                      const severityColors = {
+                        critical: {
+                          border: 'border-red-500',
+                          bg: 'bg-red-50 dark:bg-red-950',
+                          icon: 'text-red-500',
+                          badge: 'destructive'
+                        },
+                        warning: {
+                          border: 'border-amber-500',
+                          bg: 'bg-amber-50 dark:bg-amber-950',
+                          icon: 'text-amber-500',
+                          badge: 'secondary'
+                        },
+                        default: {
+                          border: 'border-blue-500',
+                          bg: 'bg-blue-50 dark:bg-blue-950',
+                          icon: 'text-blue-500',
+                          badge: 'default'
+                        }
+                      };
+
+                      const colors = severityColors[alert.severity as keyof typeof severityColors] || severityColors.default;
+
+                      return (
+                        <Card 
+                          key={alert.id} 
+                          className={`border-l-4 ${colors.border} ${colors.bg} shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02]`}
+                          style={{ animationDelay: `${index * 100}ms` }}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-4">
+                                <div className={`p-3 rounded-lg ${colors.bg} border-2 ${colors.border}`}>
+                                  <AlertTriangle className={`h-6 w-6 ${colors.icon} animate-pulse`} />
+                                </div>
+                                <div className="flex-1">
+                                  <CardTitle className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                    {alert.title}
+                                  </CardTitle>
+                                  <CardDescription className="text-sm text-gray-700 dark:text-gray-300">
+                                    {alert.description}
+                                  </CardDescription>
+                                </div>
+                              </div>
+                              <Badge 
+                                variant={colors.badge as any}
+                                className="font-semibold"
+                              >
+                                {alert.alert_type === 'inactive_client' ? 'Cliente Inactivo' :
+                                 alert.alert_type === 'negative_differential' ? 'Diferencial Negativo' :
+                                 alert.alert_type}
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge variant={
-                            alert.severity === 'critical' ? 'destructive' :
-                            alert.severity === 'warning' ? 'secondary' :
-                            'default'
-                          }>
-                            {alert.alert_type === 'inactive_client' ? 'Cliente Inactivo' :
-                             alert.alert_type === 'negative_differential' ? 'Diferencial Negativo' :
-                             alert.alert_type}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      {alert.client_name && (
-                        <CardContent className="pt-0">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            <span className="font-semibold">Cliente:</span> {alert.client_name}
-                          </p>
-                          {alert.data && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              {JSON.stringify(alert.data)}
-                            </div>
+                          </CardHeader>
+                          {alert.client_name && (
+                            <CardContent className="pt-0">
+                              <div className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <Users className="h-4 w-4 text-gray-500" />
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                  <span className="font-semibold">Cliente:</span> {alert.client_name}
+                                </p>
+                              </div>
+                              {alert.data && (
+                                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                                    {JSON.stringify(alert.data, null, 2)}
+                                  </p>
+                                </div>
+                              )}
+                            </CardContent>
                           )}
-                        </CardContent>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </AppLayout>

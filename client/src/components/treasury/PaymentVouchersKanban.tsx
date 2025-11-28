@@ -36,7 +36,7 @@ interface PaymentVoucher {
   payerCompanyId?: number;
   clientId: number;
   clientName: string;
-  status: "pendiente_validacion" | "validado" | "pendiente_asociacion" | "pendiente_complemento" | "complemento_recibido" | "cerrado" | "cierre_contable";
+  status: "factura_pagada" | "pendiente_complemento" | "complemento_recibido" | "cierre_contable";
   voucherFileUrl: string;
   voucherFileName: string;
   extractedAmount: number | null;
@@ -54,23 +54,11 @@ interface PaymentVoucher {
 }
 
 const STATUS_CONFIG = {
-  pendiente_validacion: {
-    label: "Pendiente Validación",
-    icon: Clock,
-    color: "bg-gray-100 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700",
-    badgeVariant: "secondary" as const,
-  },
-  validado: {
-    label: "Validado",
+  factura_pagada: {
+    label: "Factura Pagada",
     icon: ClipboardCheck,
     color: "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700",
     badgeVariant: "default" as const,
-  },
-  pendiente_asociacion: {
-    label: "Pendiente Asociación",
-    icon: FileText,
-    color: "bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700",
-    badgeVariant: "secondary" as const,
   },
   pendiente_complemento: {
     label: "Pendiente Complemento",
@@ -83,12 +71,6 @@ const STATUS_CONFIG = {
     icon: FileCheck,
     color: "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700",
     badgeVariant: "outline" as const,
-  },
-  cerrado: {
-    label: "Cerrado",
-    icon: CheckCircle,
-    color: "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
-    badgeVariant: "default" as const,
   },
   cierre_contable: {
     label: "Cierre Contable",
@@ -279,10 +261,8 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest(`/api/payment-vouchers/${id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiRequest("PUT", `/api/payment-vouchers/${id}/status`, { status });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
@@ -300,20 +280,18 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
   // Mutación para reenviar comprobante
   const resendReceiptMutation = useMutation({
     mutationFn: async (voucher: PaymentVoucher) => {
-      return await apiRequest("/api/treasury/resend-receipt", {
-        method: "POST",
-        body: JSON.stringify({
-          voucherId: voucher.id,
-          clientId: voucher.clientId,
-          companyId: voucher.companyId,
-        }),
+      const response = await apiRequest("POST", "/api/treasury/resend-receipt", {
+        voucherId: voucher.id,
+        clientId: voucher.clientId,
+        companyId: voucher.companyId,
       });
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
       toast({ 
         title: "✅ Comprobante reenviado", 
-        description: data.message || "El comprobante ha sido enviado nuevamente al proveedor"
+        description: data?.message || "El comprobante ha sido enviado nuevamente al proveedor"
       });
     },
     onError: (error: any) => {
@@ -328,19 +306,17 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
   // Mutación para enviar recordatorio
   const sendReminderMutation = useMutation({
     mutationFn: async (voucher: PaymentVoucher) => {
-      return await apiRequest("/api/treasury/send-reminder", {
-        method: "POST",
-        body: JSON.stringify({
-          voucherId: voucher.id,
-          clientId: voucher.clientId,
-        }),
+      const response = await apiRequest("POST", "/api/treasury/send-reminder", {
+        voucherId: voucher.id,
+        clientId: voucher.clientId,
       });
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
       toast({ 
         title: "📧 Recordatorio enviado", 
-        description: data.message || "Se ha enviado un recordatorio al proveedor"
+        description: data?.message || "Se ha enviado un recordatorio al proveedor"
       });
     },
     onError: (error: any) => {
@@ -394,12 +370,9 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
   };
 
   const groupedVouchers = {
-    pendiente_validacion: vouchers.filter((v) => v.status === "pendiente_validacion"),
-    validado: vouchers.filter((v) => v.status === "validado"),
-    pendiente_asociacion: vouchers.filter((v) => v.status === "pendiente_asociacion"),
+    factura_pagada: vouchers.filter((v) => v.status === "factura_pagada"),
     pendiente_complemento: vouchers.filter((v) => v.status === "pendiente_complemento"),
     complemento_recibido: vouchers.filter((v) => v.status === "complemento_recibido"),
-    cerrado: vouchers.filter((v) => v.status === "cerrado"),
     cierre_contable: vouchers.filter((v) => v.status === "cierre_contable"),
   };
 

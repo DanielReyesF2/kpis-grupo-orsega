@@ -180,3 +180,4 @@ describe('KPI Utils - Funciones Centralizadas', () => {
 
 
 
+

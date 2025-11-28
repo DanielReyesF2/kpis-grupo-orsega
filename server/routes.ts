@@ -4607,32 +4607,83 @@ export function registerRoutes(app: express.Application) {
       next();
     });
   }, async (req, res) => {
+    const uploadedFiles: Express.Multer.File[] = [];
+    
     try {
       const user = getAuthUser(req as AuthRequest);
       const files = req.files as Express.Multer.File[];
       const { companyId } = req.body;
 
+      // Validaciones iniciales
       if (!files || files.length === 0) {
-        return res.status(400).json({ error: 'No se subieron archivos' });
+        return res.status(400).json({ 
+          error: 'No se subieron archivos',
+          details: 'Por favor, selecciona al menos un archivo PDF o ZIP para procesar'
+        });
       }
 
       if (!companyId) {
-        return res.status(400).json({ error: 'companyId es requerido' });
+        return res.status(400).json({ 
+          error: 'companyId es requerido',
+          details: 'Debes seleccionar una empresa antes de subir archivos'
+        });
       }
 
-      console.log(`📦 [Idrall Upload] Procesando ${files.length} archivo(s) para empresa ${companyId}`);
+      // Validar que companyId sea un número válido
+      const parsedCompanyId = parseInt(companyId);
+      if (isNaN(parsedCompanyId) || parsedCompanyId <= 0) {
+        return res.status(400).json({ 
+          error: 'companyId inválido',
+          details: 'El ID de empresa debe ser un número válido'
+        });
+      }
+
+      console.log(`📦 [Idrall Upload] Procesando ${files.length} archivo(s) para empresa ${parsedCompanyId}`);
+
+      // Verificar que los archivos existen y tienen tamaño válido
+      for (const file of files) {
+        if (!file || !file.path) {
+          return res.status(400).json({ 
+            error: 'Archivo inválido',
+            details: `El archivo ${file?.originalname || 'desconocido'} no se subió correctamente`
+          });
+        }
+        
+        try {
+          const fileStats = await fs.promises.stat(file.path);
+          if (fileStats.size === 0) {
+            return res.status(400).json({ 
+              error: 'Archivo vacío',
+              details: `El archivo ${file.originalname} está vacío y no puede ser procesado`
+            });
+          }
+        } catch (statError) {
+          console.error(`❌ [Idrall Upload] Error verificando archivo ${file.originalname}:`, statError);
+          return res.status(400).json({ 
+            error: 'Error accediendo al archivo',
+            details: `No se pudo acceder al archivo ${file.originalname}. Por favor, intenta subirlo nuevamente.`
+          });
+        }
+        
+        uploadedFiles.push(file);
+      }
 
       // Procesar archivos con el analizador de documentos unificado
       const { analyzePaymentDocument } = await import("./document-analyzer");
-      const fs = await import("fs");
       
       const allRecords: any[] = [];
       const processingErrors: string[] = [];
       let processedFiles = 0;
+      const fileRecordsMap = new Map<number, Express.Multer.File>(); // Mapear registros a archivos
 
       // Procesar cada archivo
-      for (const file of files) {
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const file = uploadedFiles[i];
+        let fileProcessed = false;
+        
         try {
+          console.log(`📄 [Idrall Upload] Procesando archivo ${i + 1}/${uploadedFiles.length}: ${file.originalname}`);
+          
           const fileBuffer = await fs.promises.readFile(file.path);
           const fileType = file.mimetype || path.extname(file.originalname).toLowerCase();
           
@@ -4640,11 +4691,19 @@ export function registerRoutes(app: express.Application) {
           
           // Si es CxP y tiene registros, agregarlos
           if (analysisResult.documentType === "cxp" && analysisResult.cxpRecords) {
-            allRecords.push(...analysisResult.cxpRecords);
+            for (const record of analysisResult.cxpRecords) {
+              allRecords.push({
+                ...record,
+                _sourceFileIndex: i // Guardar índice del archivo origen
+              });
+              fileRecordsMap.set(allRecords.length - 1, file);
+            }
             processedFiles++;
+            fileProcessed = true;
           } else if (analysisResult.documentType === "cxp") {
             // Si es CxP pero no tiene registros individuales, crear uno del resultado agregado
             if (analysisResult.extractedSupplierName && analysisResult.extractedAmount) {
+              const recordIndex = allRecords.length;
               allRecords.push({
                 supplierName: analysisResult.extractedSupplierName,
                 amount: analysisResult.extractedAmount,
@@ -4653,24 +4712,63 @@ export function registerRoutes(app: express.Application) {
                 reference: analysisResult.extractedReference,
                 status: null,
                 notes: analysisResult.notes,
+                _sourceFileIndex: i
               });
+              fileRecordsMap.set(recordIndex, file);
               processedFiles++;
+              fileProcessed = true;
             }
           } else {
-            processingErrors.push(`Archivo ${file.originalname} no es un documento CxP válido`);
+            processingErrors.push(`El archivo "${file.originalname}" no es un documento CxP válido. Tipo detectado: ${analysisResult.documentType || 'desconocido'}`);
           }
         } catch (error: any) {
           console.error(`❌ [Idrall Upload] Error procesando ${file.originalname}:`, error);
-          processingErrors.push(`Error procesando ${file.originalname}: ${error.message}`);
+          const errorMessage = error?.message || 'Error desconocido al procesar el archivo';
+          processingErrors.push(`Error procesando "${file.originalname}": ${errorMessage}`);
         }
+      }
+
+      // Si no se procesó ningún archivo exitosamente
+      if (allRecords.length === 0 && processingErrors.length > 0) {
+        // Limpiar archivos antes de retornar error
+        for (const file of uploadedFiles) {
+          try {
+            if (fs.existsSync(file.path)) {
+              await fs.promises.unlink(file.path);
+              console.log(`🗑️ [Idrall Upload] Archivo eliminado: ${file.path}`);
+            }
+          } catch (cleanupError) {
+            console.error(`⚠️ [Idrall Upload] Error al limpiar archivo ${file.originalname}:`, cleanupError);
+          }
+        }
+        
+        return res.status(400).json({
+          success: false,
+          error: 'No se pudo procesar ningún archivo',
+          details: 'Ninguno de los archivos subidos pudo ser procesado como documento CxP válido',
+          processing: {
+            totalRecords: 0,
+            processedFiles: 0,
+            errors: processingErrors
+          }
+        });
       }
 
       // Crear registros de CxP en la base de datos
       const createdPayments = [];
       const errors = [];
 
-      for (const record of allRecords) {
+      for (let i = 0; i < allRecords.length; i++) {
+        const record = allRecords[i];
+        const sourceFile = fileRecordsMap.get(i) || uploadedFiles[0]; // Fallback al primer archivo
+        
         try {
+          // Validar datos del registro antes de insertar
+          if (!record.supplierName || !record.amount) {
+            errors.push(`Registro inválido: falta información del proveedor o monto`);
+            continue;
+          }
+
           // Buscar proveedor por nombre (fuzzy match)
           const supplierResult = await sql(`
             SELECT id FROM suppliers 
@@ -4678,9 +4776,16 @@ export function registerRoutes(app: express.Application) {
             AND company_id = $2 
             AND is_active = true
             LIMIT 1
-          `, [`%${record.supplierName}%`, parseInt(companyId)]);
+          `, [`%${record.supplierName.trim()}%`, parsedCompanyId]);
 
           const supplierId = supplierResult.length > 0 ? supplierResult[0].id : null;
+
+          // Validar monto
+          const amount = parseFloat(record.amount);
+          if (isNaN(amount) || amount <= 0) {
+            errors.push(`Monto inválido para proveedor "${record.supplierName}": ${record.amount}`);
+            continue;
+          }
 
           // Crear registro de scheduled_payment
           const result = await sql(`
@@ -4690,25 +4795,44 @@ export function registerRoutes(app: express.Application) {
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *
           `, [
-            parseInt(companyId),
+            parsedCompanyId,
             supplierId,
-            record.supplierName,
-            record.amount,
+            record.supplierName.trim(),
+            amount,
             record.currency || 'MXN',
-            record.dueDate,
+            record.dueDate || new Date(),
             'idrall_imported', // Estado inicial
-            record.reference,
-            record.notes,
+            record.reference || null,
+            record.notes || null,
             'idrall',
-            files[0].path, // URL del archivo (guardar el primero)
-            files[0].originalname,
+            sourceFile.path, // URL del archivo origen
+            sourceFile.originalname,
             user.id
           ]);
 
           createdPayments.push(result[0]);
         } catch (error: any) {
-          console.error(`❌ [Idrall Upload] Error creando registro:`, error);
-          errors.push(`Error creando CxP para ${record.supplierName}: ${error.message}`);
+          console.error(`❌ [Idrall Upload] Error creando registro para ${record.supplierName}:`, error);
+          const errorDetail = error?.code === '23505' 
+            ? 'Ya existe un registro con estos datos'
+            : error?.message || 'Error desconocido';
+          errors.push(`Error creando CxP para "${record.supplierName}": ${errorDetail}`);
+        }
+      }
+
+      // Limpiar archivos después de procesar (solo si se crearon registros)
+      if (createdPayments.length > 0) {
+        console.log(`🗑️ [Idrall Upload] Limpiando archivos temporales después de procesamiento exitoso`);
+        for (const file of uploadedFiles) {
+          try {
+            if (fs.existsSync(file.path)) {
+              await fs.promises.unlink(file.path);
+              console.log(`🗑️ [Idrall Upload] Archivo eliminado: ${file.path}`);
+            }
+          } catch (cleanupError) {
+            console.error(`⚠️ [Idrall Upload] Error al limpiar archivo ${file.originalname}:`, cleanupError);
+            // No fallar el request por errores de limpieza
+          }
         }
       }
 
@@ -4726,7 +4850,24 @@ export function registerRoutes(app: express.Application) {
       });
     } catch (error: any) {
       console.error('❌ [Idrall Upload] Error procesando archivos Idrall:', error);
-      res.status(500).json({ error: error.message || 'Failed to process Idrall files' });
+      
+      // Limpiar archivos en caso de error
+      for (const file of uploadedFiles) {
+        try {
+          if (fs.existsSync(file.path)) {
+            await fs.promises.unlink(file.path);
+            console.log(`🗑️ [Idrall Upload] Archivo eliminado después de error: ${file.path}`);
+          }
+        } catch (cleanupError) {
+          console.error(`⚠️ [Idrall Upload] Error al limpiar archivo después de error:`, cleanupError);
+        }
+      }
+      
+      const errorMessage = error?.message || 'Error desconocido al procesar los archivos';
+      res.status(500).json({ 
+        error: 'Error al procesar archivos Idrall',
+        details: errorMessage
+      });
     }
   });
 
@@ -5992,17 +6133,21 @@ export function registerRoutes(app: express.Application) {
       
       let initialStatus: string;
       if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
-        initialStatus = 'validado';
+        // Datos completos y confiables -> factura pagada
+        initialStatus = 'factura_pagada';
       } else {
-        initialStatus = 'pendiente_validacion';
+        // Datos incompletos -> pendiente complemento para validar
+        initialStatus = 'pendiente_complemento';
       }
 
       // Verificar si el monto coincide (con tolerancia del 1%)
       const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
       let finalStatus = initialStatus;
       if (amountDiff <= 0.01) {
-        finalStatus = 'cerrado';
+        // Monto coincide -> cerrar contablemente
+        finalStatus = 'cierre_contable';
       } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
+        // Monto menor -> pendiente complemento
         finalStatus = 'pendiente_complemento';
       }
 
@@ -6042,16 +6187,23 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Actualizar scheduled payment con voucherId y estado
-      const newStatus = finalStatus === 'cerrado' ? 'payment_completed' : scheduledPayment.status;
+      // SIEMPRE cambiar el estado basado en si el cliente requiere REP
+      // Si requiere REP → voucher_uploaded (En seguimiento REP)
+      // Si NO requiere REP → payment_completed (Pagada)
+      const requiresREP = client?.requiresPaymentComplement === true;
+      const newStatus = requiresREP ? 'voucher_uploaded' : 'payment_completed';
+      
       await db.update(scheduledPayments)
         .set({
           voucherId: voucher.id,
           status: newStatus,
-          paidAt: finalStatus === 'cerrado' ? new Date() : scheduledPayment.paidAt,
-          paidBy: finalStatus === 'cerrado' ? user.id : scheduledPayment.paidBy,
+          paidAt: new Date(), // Siempre actualizar cuando se sube comprobante
+          paidBy: user.id, // Siempre actualizar cuando se sube comprobante
           updatedAt: new Date(),
         })
         .where(eq(scheduledPayments.id, scheduledPaymentId));
+      
+      console.log(`✅ [Upload Voucher] Scheduled payment ${scheduledPaymentId} actualizado: status=${newStatus} (requiere REP: ${requiresREP})`);
 
       console.log(`✅ [Upload Voucher] Comprobante vinculado a cuenta por pagar ${scheduledPaymentId}, voucher ID: ${voucher.id}`);
 
@@ -6531,9 +6683,11 @@ export function registerRoutes(app: express.Application) {
       
       let initialStatus: string;
       if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
-        initialStatus = 'validado';
+        // Datos completos y confiables -> factura pagada
+        initialStatus = 'factura_pagada';
       } else {
-        initialStatus = 'pendiente_validacion';
+        // Datos incompletos -> pendiente complemento para validar
+        initialStatus = 'pendiente_complemento';
       }
 
       // Guardar archivo en estructura organizada: /uploads/comprobantes/{año}/{mes}/
@@ -6611,8 +6765,8 @@ export function registerRoutes(app: express.Application) {
             // Verificar si el monto coincide (con tolerancia del 1%)
             const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
             if (amountDiff <= 0.01) {
-              // Monto coincide -> CERRADO
-              finalStatus = 'cerrado';
+              // Monto coincide -> CIERRE_CONTABLE
+              finalStatus = 'cierre_contable';
               linkedInvoiceId = scheduledPayment.id;
               console.log(`🔗 [Automation] Vinculado con pago programado ${scheduledPayment.id}`);
             } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
@@ -6620,21 +6774,21 @@ export function registerRoutes(app: express.Application) {
               finalStatus = 'pendiente_complemento';
               console.log(`⚠️ [Automation] Pago parcial detectado`);
             } else {
-              // Monto diferente -> PENDIENTE_ASOCIACIÓN
-              finalStatus = 'pendiente_asociacion';
-              console.log(`❓ [Automation] Monto no coincide, requiere asociación`);
+              // Monto diferente -> FACTURA_PAGADA (requiere revisión manual)
+              finalStatus = 'factura_pagada';
+              console.log(`❓ [Automation] Monto no coincide, requiere revisión`);
             }
           }
         } else if (analysis.extractedAmount && analysis.extractedReference) {
           // Buscar pagos programados por monto o referencia
           // (Nota: Esto requeriría una función de búsqueda en storage)
-          // Por ahora, dejar en PENDIENTE_ASOCIACIÓN
-          finalStatus = 'pendiente_asociacion';
+          // Por ahora, dejar en FACTURA_PAGADA para revisión manual
+          finalStatus = 'factura_pagada';
         }
 
         // 2. Si el cliente requiere complemento y no está cerrado
-        if (client?.requiresPaymentComplement && finalStatus !== 'cerrado') {
-          if (finalStatus === 'validado') {
+        if (client?.requiresPaymentComplement && finalStatus !== 'cierre_contable') {
+          if (finalStatus === 'factura_pagada') {
             finalStatus = 'pendiente_complemento';
           }
         }
@@ -6647,6 +6801,30 @@ export function registerRoutes(app: express.Application) {
             linkedInvoiceUuid,
           });
           voucher.status = finalStatus as any;
+        }
+
+        // 2.5. Actualizar scheduled_payment si está vinculado
+        if (validatedData.scheduledPaymentId && scheduledPaymentForClient) {
+          // Determinar el estado del scheduled_payment basado en si requiere REP
+          const requiresREP = client?.requiresPaymentComplement === true;
+          const scheduledPaymentStatus = requiresREP ? 'voucher_uploaded' : 'payment_completed';
+          
+          // Importar db y scheduledPayments si no están disponibles
+          const { db } = await import('./db');
+          const { scheduledPayments } = await import('../shared/schema');
+          const { eq } = await import('drizzle-orm');
+          
+          await db.update(scheduledPayments)
+            .set({
+              voucherId: voucher.id,
+              status: scheduledPaymentStatus,
+              paidAt: new Date(),
+              paidBy: user.id,
+              updatedAt: new Date(),
+            })
+            .where(eq(scheduledPayments.id, validatedData.scheduledPaymentId));
+          
+          console.log(`✅ [Upload] Scheduled payment ${validatedData.scheduledPaymentId} actualizado: status=${scheduledPaymentStatus} (requiere REP: ${requiresREP})`);
         }
 
         // 3. Enviar correo automáticamente si notify=true
@@ -6829,15 +7007,12 @@ export function registerRoutes(app: express.Application) {
     try {
       const voucherId = parseInt(req.params.id);
 
-      // Validar request body
+      // Validar request body - solo valores válidos del enum en la base de datos
       const statusSchema = z.object({
         status: z.enum([
-          'pendiente_validacion',
-          'validado',
-          'pendiente_asociacion',
+          'factura_pagada',
           'pendiente_complemento',
           'complemento_recibido',
-          'cerrado',
           'cierre_contable'
         ]),
       });
@@ -7242,6 +7417,113 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('[POST /api/sales-alerts/:id/read] Error:', error);
       res.status(500).json({ error: 'Failed to mark alert as read' });
+    }
+  });
+
+  // GET /api/sales-monthly-trends - Datos mensuales para gráficos
+  app.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, months = 12 } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const monthsCount = parseInt(months as string) || 12;
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      // Obtener datos mensuales de los últimos N meses
+      const monthlyData = await sql(`
+        SELECT
+          sale_year,
+          sale_month,
+          SUM(quantity) as total_volume,
+          COUNT(DISTINCT client_id) as active_clients,
+          unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND (
+            (sale_year = $2 AND sale_month <= $3)
+            OR (sale_year = $2 - 1 AND sale_month > $3)
+          )
+        GROUP BY sale_year, sale_month, unit
+        ORDER BY sale_year DESC, sale_month DESC
+        LIMIT $4
+      `, [resolvedCompanyId, currentYear, currentMonth, monthsCount]);
+
+      // Formatear datos para el gráfico
+      const formattedData = monthlyData.map((row: any) => {
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return {
+          month: `${monthNames[row.sale_month - 1]} ${row.sale_year}`,
+          volume: parseFloat(row.total_volume || '0'),
+          clients: parseInt(row.active_clients || '0'),
+          year: row.sale_year,
+          monthNum: row.sale_month
+        };
+      }).reverse(); // Invertir para mostrar cronológicamente
+
+      res.json(formattedData);
+    } catch (error) {
+      console.error('[GET /api/sales-monthly-trends] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch monthly trends' });
+    }
+  });
+
+  // GET /api/sales-top-clients - Top clientes por volumen
+  app.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, limit = 5 } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      const topClients = await sql(`
+        SELECT
+          client_id,
+          client_name,
+          SUM(quantity) as total_volume,
+          COUNT(*) as transactions,
+          unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year = $2
+          AND sale_month = $3
+        GROUP BY client_id, client_name, unit
+        ORDER BY total_volume DESC
+        LIMIT $4
+      `, [resolvedCompanyId, currentYear, currentMonth, parseInt(limit as string) || 5]);
+
+      const formatted = topClients.map((row: any) => ({
+        name: row.client_name,
+        volume: parseFloat(row.total_volume || '0'),
+        transactions: parseInt(row.transactions || '0'),
+        unit: row.unit
+      }));
+
+      res.json(formatted);
+    } catch (error) {
+      console.error('[GET /api/sales-top-clients] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch top clients' });
     }
   });
 

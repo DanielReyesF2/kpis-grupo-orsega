@@ -329,9 +329,8 @@ export default function TreasuryPage() {
     const voucherDate = new Date(v.createdAt);
     voucherDate.setHours(0, 0, 0, 0);
     const isToday = voucherDate.getTime() === today.getTime();
-    const isPending = v.status === "pendiente_validacion" || 
-                     v.status === "pendiente_complemento" ||
-                     v.status === "pendiente_asociacion";
+    const isPending = v.status === "factura_pagada" || 
+                     v.status === "pendiente_complemento";
     return isToday && isPending;
   });
 

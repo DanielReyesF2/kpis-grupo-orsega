@@ -637,13 +637,12 @@ export type Product = typeof products.$inferSelect;
 // ============================================
 
 // Enum para estados del flujo de comprobantes
+// IMPORTANTE: Estos valores deben coincidir exactamente con el enum en la base de datos
+// Ver migraciones/0000_quick_gateway.sql línea 2
 export const voucherStatusEnum = pgEnum('voucher_status', [
-  'pendiente_validacion',    // Esperando validación de datos OCR
-  'validado',                // Datos completos validados
-  'pendiente_asociacion',    // Esperando asociación con factura
+  'factura_pagada',          // Factura pagada (estado inicial después del upload)
   'pendiente_complemento',   // Esperando complemento del proveedor
   'complemento_recibido',    // Complemento ya subido
-  'cerrado',                 // Asociado con factura y cerrado
   'cierre_contable'          // Finalizado contablemente
 ]);
 
@@ -746,7 +745,7 @@ export const paymentVouchers = pgTable("payment_vouchers", {
   scheduledPaymentId: integer("scheduled_payment_id"), // Opcional
   
   // Estado del flujo Kanban
-  status: voucherStatusEnum("status").notNull().default('pendiente_validacion'),
+  status: voucherStatusEnum("status").notNull().default('factura_pagada'),
   
   // Archivos subidos
   voucherFileUrl: text("voucher_file_url").notNull(), // Comprobante bancario (obligatorio)

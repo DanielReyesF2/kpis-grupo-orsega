@@ -37,20 +37,19 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
     voucherDate.setHours(0, 0, 0, 0);
     
     const isToday = voucherDate.getTime() === today.getTime();
-    const isPending = v.status === "pendiente_validacion" || 
-                     v.status === "pendiente_complemento" ||
-                     v.status === "pendiente_asociacion";
+    const isPending = v.status === "factura_pagada" || 
+                     v.status === "pendiente_complemento";
     
     return isToday && isPending;
   });
 
   const getStatusInfo = (status: string) => {
     switch (status) {
-      case "pendiente_validacion":
+      case "factura_pagada":
         return {
-          label: "Validación",
+          label: "Factura Pagada",
           icon: Clock,
-          color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300",
+          color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300",
         };
       case "pendiente_complemento":
         return {
@@ -58,11 +57,17 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
           icon: AlertTriangle,
           color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300",
         };
-      case "pendiente_asociacion":
+      case "complemento_recibido":
         return {
-          label: "Asociación",
+          label: "Complemento Recibido",
           icon: FileText,
-          color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300",
+          color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300",
+        };
+      case "cierre_contable":
+        return {
+          label: "Cierre Contable",
+          icon: CheckCircle,
+          color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300",
         };
       default:
         return {

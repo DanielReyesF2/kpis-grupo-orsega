@@ -206,3 +206,4 @@ El módulo de Tesorería está **85% completo** y ya está siendo utilizado por 
 *Documento preparado para Dirección General*  
 *Última actualización: Noviembre 2025*
 
+

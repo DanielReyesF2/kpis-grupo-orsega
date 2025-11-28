@@ -261,3 +261,4 @@ Este plan garantiza que el módulo de Tesorería esté 100% completo para el 30 
 *Fecha: Noviembre 2025*  
 *Responsable de ejecución: Equipo de Desarrollo*
 
+

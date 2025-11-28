@@ -59,27 +59,24 @@ interface ReceiptsModuleProps {
   onUpload?: () => void;
 }
 
+// Función helper para mapear valores antiguos del enum a los nuevos (compatibilidad hacia atrás)
+const mapOldVoucherStatus = (oldStatus: string): string => {
+  if (oldStatus === "pendiente_validacion" || oldStatus === "validado" || oldStatus === "pendiente_asociacion") {
+    return "factura_pagada";
+  }
+  if (oldStatus === "cerrado") {
+    return "cierre_contable";
+  }
+  return oldStatus;
+};
+
 const BOARD_COLUMNS = [
   {
-    id: "pendiente_validacion",
-    label: "Pendiente validación",
-    accent: "bg-gray-100/25 dark:bg-gray-800/25",
-    badge: "bg-gray-600/80 text-white",
-    icon: Clock,
-  },
-  {
-    id: "validado",
-    label: "Validado",
+    id: "factura_pagada",
+    label: "Factura Pagada",
     accent: "bg-pastel-blue/25",
     badge: "bg-pastel-blue/80 text-white",
     icon: ClipboardCheck,
-  },
-  {
-    id: "pendiente_asociacion",
-    label: "Pendiente asociación",
-    accent: "bg-amber-100/25 dark:bg-amber-900/25",
-    badge: "bg-amber-600/80 text-white",
-    icon: FileText,
   },
   {
     id: "pendiente_complemento",
@@ -94,13 +91,6 @@ const BOARD_COLUMNS = [
     accent: "bg-pastel-teal/25",
     badge: "bg-pastel-teal/80 text-white",
     icon: FileText,
-  },
-  {
-    id: "cerrado",
-    label: "Cerrado",
-    accent: "bg-green-100/25 dark:bg-green-900/25",
-    badge: "bg-green-600/80 text-white",
-    icon: CheckCircle,
   },
   {
     id: "cierre_contable",
@@ -273,7 +263,7 @@ export function ReceiptsModule({
     );
 
     vouchers.forEach((voucher) => {
-      const status = (voucher.status ?? "pendiente_validacion") as (typeof BOARD_COLUMNS)[number]["id"];
+      const status = (mapOldVoucherStatus(voucher.status ?? "factura_pagada")) as (typeof BOARD_COLUMNS)[number]["id"];
       if (counts[status] !== undefined) {
         counts[status] += 1;
       }
@@ -287,7 +277,7 @@ export function ReceiptsModule({
       ...column,
       vouchers: vouchers.filter(
         (voucher) =>
-          (voucher.status ?? "pendiente_validacion") === column.id
+          mapOldVoucherStatus(voucher.status ?? "factura_pagada") === column.id
       ),
     }));
   }, [vouchers]);
@@ -300,10 +290,8 @@ export function ReceiptsModule({
       id: number;
       status: string;
     }) => {
-      return await apiRequest(`/api/payment-vouchers/${id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiRequest("PUT", `/api/payment-vouchers/${id}/status`, { status });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
@@ -345,7 +333,7 @@ export function ReceiptsModule({
     if (!voucher) return;
 
     // Actualizar solo si el estado cambió
-    if ((voucher.status ?? "pendiente_validacion") !== newStatus) {
+    if (mapOldVoucherStatus(voucher.status ?? "factura_pagada") !== newStatus) {
       updateStatusMutation.mutate({ id: voucher.id, status: newStatus });
     }
   };

@@ -49,6 +49,12 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("No se encontró token de autenticación. Por favor, inicia sesión nuevamente.");
+      }
+
+      console.log('📤 [Idrall Upload] Iniciando upload de archivos...');
+      
       const res = await fetch("/api/treasury/idrall/upload", {
         method: "POST",
         headers: {
@@ -57,25 +63,90 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
         body: formData,
       });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Error al procesar archivos Idrall");
+      // Leer el body de la respuesta
+      const contentType = res.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+      
+      let errorData: any;
+      const text = await res.text();
+      
+      if (isJson && text) {
+        try {
+          errorData = JSON.parse(text);
+        } catch (parseError) {
+          console.error('❌ [Idrall Upload] Error parseando JSON de respuesta:', parseError);
+          throw new Error(`Error al procesar respuesta del servidor: ${res.status} ${res.statusText}`);
+        }
+      } else {
+        errorData = text ? { message: text } : { message: res.statusText };
       }
 
-      return res.json();
+      if (!res.ok) {
+        // Extraer mensaje de error más descriptivo
+        let errorMessage = `Error ${res.status}: ${res.statusText}`;
+        
+        if (errorData) {
+          errorMessage = errorData.details || 
+                        errorData.error || 
+                        errorData.message || 
+                        (typeof errorData === 'string' ? errorData : errorMessage);
+          
+          // Si hay errores de procesamiento, incluirlos
+          if (errorData.processing?.errors && errorData.processing.errors.length > 0) {
+            const processingErrors = errorData.processing.errors.slice(0, 3).join(', ');
+            errorMessage += `. Errores: ${processingErrors}`;
+            if (errorData.processing.errors.length > 3) {
+              errorMessage += ` y ${errorData.processing.errors.length - 3} más...`;
+            }
+          }
+        }
+        
+        console.error('❌ [Idrall Upload] Error del servidor:', {
+          status: res.status,
+          statusText: res.statusText,
+          response: errorData
+        });
+        
+        throw new Error(errorMessage);
+      }
+
+      console.log('✅ [Idrall Upload] Upload exitoso');
+      return errorData; // Ya parseado como JSON
     },
     onSuccess: (data: ProcessingResult) => {
       setProcessingResult(data);
+      
+      // Mostrar mensaje más informativo
+      const hasErrors = data.processing?.errors && data.processing.errors.length > 0;
+      const message = data.created > 0
+        ? `Se crearon ${data.created} Cuenta(s) por Pagar exitosamente${hasErrors ? `, pero hubo ${data.processing.errors.length} error(es)` : ''}`
+        : 'No se pudieron crear Cuentas por Pagar';
+      
       toast({
-        title: "✅ Archivos procesados",
-        description: `Se crearon ${data.created} Cuentas por Pagar desde Idrall`,
+        title: data.created > 0 ? "✅ Archivos procesados" : "⚠️ Procesamiento completado con errores",
+        description: message,
+        variant: data.created > 0 ? "default" : "destructive",
       });
     },
     onError: (error: any) => {
+      console.error('❌ [Idrall Upload] Error completo:', error);
+      
+      // Extraer mensaje de error más descriptivo
+      let errorMessage = "No se pudieron procesar los archivos";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.response?.data) {
+        errorMessage = error.response.data.details || error.response.data.error || errorMessage;
+      }
+      
       toast({
-        title: "Error",
-        description: error?.message || "No se pudieron procesar los archivos",
+        title: "Error al procesar archivos",
+        description: errorMessage,
         variant: "destructive",
+        duration: 6000, // Mostrar por más tiempo para errores
       });
     },
   });
@@ -178,7 +249,38 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-primary/30 rounded-lg p-8 text-center bg-primary/5">
+              <div 
+                className="border-2 border-dashed border-primary/30 rounded-lg p-8 text-center bg-primary/5 transition-all hover:border-primary/50 hover:bg-primary/10"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.add('border-primary', 'bg-primary/15');
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/15');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/15');
+                  
+                  const droppedFiles = Array.from(e.dataTransfer.files);
+                  const validFiles = droppedFiles.filter(
+                    (f) =>
+                      f.type === "application/pdf" ||
+                      f.type === "application/zip" ||
+                      f.type === "application/x-zip-compressed" ||
+                      f.name.toLowerCase().endsWith(".pdf") ||
+                      f.name.toLowerCase().endsWith(".zip")
+                  );
+                  
+                  if (validFiles.length > 0) {
+                    setSelectedFiles([...selectedFiles, ...validFiles]);
+                  }
+                }}
+              >
                 <Upload className="h-12 w-12 mx-auto mb-4 text-primary" />
                 <p className="text-lg font-semibold text-foreground mb-2">
                   Arrastra archivos PDF o ZIP aquí
@@ -311,14 +413,41 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-orange-500" />
-                  Errores
+                  Errores y Advertencias ({processingResult.processing.errors.length})
                 </h3>
-                <div className="max-h-48 overflow-y-auto space-y-1">
+                <div className="max-h-64 overflow-y-auto space-y-2 border border-orange-200 dark:border-orange-800 rounded-lg p-3 bg-orange-50/50 dark:bg-orange-950/20">
                   {processingResult.processing.errors.map((error, index) => (
-                    <p key={index} className="text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
-                      {error}
-                    </p>
+                    <div key={index} className="text-sm text-orange-700 dark:text-orange-300 bg-white dark:bg-orange-950/40 p-3 rounded border border-orange-200 dark:border-orange-800">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-500" />
+                        <span className="break-words">{error}</span>
+                      </div>
+                    </div>
                   ))}
+                </div>
+              </div>
+            )}
+            
+            {processingResult.payments && processingResult.payments.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Cuentas por Pagar Creadas ({processingResult.payments.length})
+                </h3>
+                <div className="max-h-64 overflow-y-auto space-y-2 border border-green-200 dark:border-green-800 rounded-lg p-3 bg-green-50/50 dark:bg-green-950/20">
+                  {processingResult.payments.slice(0, 10).map((payment, index) => (
+                    <div key={index} className="text-sm bg-white dark:bg-green-950/40 p-3 rounded border border-green-200 dark:border-green-800">
+                      <div className="font-semibold text-foreground">{payment.supplier_name || payment.supplierName || 'Proveedor desconocido'}</div>
+                      <div className="text-muted-foreground">
+                        ${(payment.amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {payment.currency || 'MXN'}
+                      </div>
+                    </div>
+                  ))}
+                  {processingResult.payments.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      Y {processingResult.payments.length - 10} más...
+                    </p>
+                  )}
                 </div>
               </div>
             )}
