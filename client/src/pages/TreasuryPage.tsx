@@ -432,8 +432,8 @@ export default function TreasuryPage() {
         <div className="p-6 max-w-[1400px] mx-auto space-y-4">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Historial de Pagos</h1>
-              <p className="text-slate-600 dark:text-slate-400">
+              <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2" style={{ color: '#111827', fontSize: '30px', fontWeight: 800 }}>Historial de Pagos</h1>
+              <p className="text-base font-medium text-gray-700 dark:text-gray-300" style={{ color: '#374151' }}>
                 Consulta todos los pagos completados y sus documentos
               </p>
             </div>

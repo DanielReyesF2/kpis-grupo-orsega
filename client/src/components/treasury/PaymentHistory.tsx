@@ -138,24 +138,24 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 truncate">
+                        <h3 className="text-xl font-extrabold text-gray-900 dark:text-white truncate" style={{ color: '#111827', fontSize: '20px', fontWeight: 800 }}>
                           {payment.supplierName || 'Proveedor desconocido'}
                         </h3>
                         {getStatusBadge(payment.status)}
                       </div>
                       
                       {payment.reference && (
-                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                          Factura: <span className="text-slate-900 dark:text-slate-100">{payment.reference}</span>
+                        <p className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-2" style={{ color: '#1f2937' }}>
+                          Factura: <span className="font-bold text-gray-900 dark:text-white" style={{ color: '#111827', fontWeight: 700 }}>{payment.reference}</span>
                         </p>
                       )}
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                          <DollarSign className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                           <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                            <p className="text-base font-bold text-slate-900 dark:text-slate-50">
+                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400" style={{ color: '#4b5563' }}>Monto</p>
+                            <p className="text-lg font-extrabold text-gray-900 dark:text-white" style={{ color: '#111827', fontSize: '18px', fontWeight: 800 }}>
                               {payment.currency} ${payment.amount.toLocaleString()}
                             </p>
                           </div>
@@ -163,10 +163,10 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
 
                         {payment.paymentDate && (
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                            <Calendar className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                             <div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">Fecha de pago</p>
-                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                              <p className="text-xs font-medium text-gray-600 dark:text-gray-400" style={{ color: '#4b5563' }}>Fecha de pago</p>
+                              <p className="text-sm font-bold text-gray-900 dark:text-white" style={{ color: '#111827', fontWeight: 700 }}>
                                 {format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })}
                               </p>
                             </div>
@@ -175,10 +175,10 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
 
                         {payment.dueDate && (
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                            <Calendar className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                             <div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">Fecha de vencimiento</p>
-                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                              <p className="text-xs font-medium text-gray-600 dark:text-gray-400" style={{ color: '#4b5563' }}>Fecha de vencimiento</p>
+                              <p className="text-sm font-bold text-gray-900 dark:text-white" style={{ color: '#111827', fontWeight: 700 }}>
                                 {format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })}
                               </p>
                             </div>
@@ -186,10 +186,10 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
                         )}
 
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                          <Building2 className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                           <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Estado</p>
-                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400" style={{ color: '#4b5563' }}>Estado</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white capitalize" style={{ color: '#111827', fontWeight: 700 }}>
                               {payment.status.replace(/_/g, ' ')}
                             </p>
                           </div>
