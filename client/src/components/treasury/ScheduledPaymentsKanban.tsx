@@ -121,12 +121,12 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
         <CardContent className="p-5 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-slate-900 dark:text-slate-50 leading-tight mb-1.5">
+              <p className="text-lg font-extrabold text-gray-900 dark:text-white leading-tight mb-2" style={{ color: '#111827', fontSize: '18px', fontWeight: 800 }}>
                 {payment.supplierName || 'Proveedor desconocido'}
               </p>
               {payment.reference && (
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Factura: <span className="text-slate-900 dark:text-slate-100">{payment.reference}</span>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200" style={{ color: '#1f2937' }}>
+                  Factura: <span className="font-bold text-gray-900 dark:text-white" style={{ color: '#111827', fontWeight: 700 }}>{payment.reference}</span>
                 </p>
               )}
             </div>
@@ -137,12 +137,12 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
 
           <div className="space-y-1.5 pt-1">
             {payment.paymentDate && (
-              <div className="flex items-center gap-1.5 text-sm text-blue-700 dark:text-blue-300 font-semibold">
+              <div className="flex items-center gap-1.5 text-sm text-blue-700 dark:text-blue-300 font-bold" style={{ color: '#1d4ed8', fontWeight: 700 }}>
                 <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
                 Pago programado: {format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })}
               </div>
             )}
-            <div className={`flex items-center gap-1.5 text-sm font-medium ${isOverdue ? 'text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-300'}`}>
+            <div className={`flex items-center gap-1.5 text-sm font-semibold ${isOverdue ? 'text-red-700 dark:text-red-300' : 'text-gray-800 dark:text-gray-200'}`} style={{ color: isOverdue ? undefined : '#1f2937' }}>
               <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
               Vence: {payment.dueDate ? (
                 format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })
@@ -227,7 +227,7 @@ function KanbanColumn({ columnId, payments, onPaymentClick, onUploadVoucher }: K
         <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2.5">
             <Icon className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-            <h3 className="font-bold text-base text-slate-900 dark:text-slate-50">{config.label}</h3>
+            <h3 className="font-extrabold text-lg text-gray-900 dark:text-white" style={{ color: '#111827', fontSize: '18px', fontWeight: 800 }}>{config.label}</h3>
           </div>
           <Badge variant={config.badgeVariant} className="font-semibold text-sm px-2.5 py-1">
             {payments.length}

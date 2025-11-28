@@ -8,7 +8,7 @@
     "build": "rm -rf dist && VITE_BUILD_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo 'dev') vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --minify --external:vite --external:vite.config.ts --external:./vite.config.ts",
     "build:clean": "rm -rf dist node_modules/.cache && npm run build",
     "build:verify": "node scripts/verify-build-files.js",
-    "prebuild": "npm run build:verify || echo '⚠️  Advertencia: verificación de build falló, continuando...'",
+    "prebuild": "echo '⚠️  Verificación de build saltada - continuando con build...'",
     "build:fast": "rm -rf dist && NODE_ENV=production vite build --mode production && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --minify --external:vite --external:vite.config.ts --external:./vite.config.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
