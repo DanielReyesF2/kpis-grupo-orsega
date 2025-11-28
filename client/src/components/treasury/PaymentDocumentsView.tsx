@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, Download, Receipt, FileCheck } from "lucide-react";
+import { FileText, Download, Receipt, FileCheck, Image as ImageIcon, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { PDFPreview } from "./common/PDFPreview";
+import { useState } from "react";
 
 interface PaymentDocumentsViewProps {
   isOpen: boolean;
@@ -65,14 +65,34 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
     }
   };
 
+  const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
+
   const handleDownload = (url: string, name: string) => {
     // Crear un enlace temporal para descargar
     const link = document.createElement('a');
-    link.href = `/api/files/${encodeURIComponent(url)}`;
+    // Si la URL ya es absoluta o completa, usarla directamente
+    // Si comienza con /uploads, construir la ruta completa
+    const fileUrl = url.startsWith('http') ? url : url.startsWith('/uploads') ? url : `/uploads/${url}`;
+    link.href = fileUrl;
     link.download = name;
+    link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const isImage = (fileName: string) => {
+    return /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName);
+  };
+
+  const isPDF = (fileName: string) => {
+    return /\.pdf$/i.test(fileName);
+  };
+
+  const getDocumentUrl = (url: string) => {
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/uploads')) return url;
+    return `/uploads/${url}`;
   };
 
   return (
@@ -92,22 +112,24 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
             </div>
           </div>
         ) : documentsData?.documents && documentsData.documents.length > 0 ? (
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
             {documentsData.documents.map((doc, index) => {
               const Icon = getDocumentIcon(doc.type);
               return (
-                <Card key={index}>
-                  <CardContent className="p-4">
-                    <div className="space-y-4">
+                <Card key={index} className="overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="space-y-5">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Icon className="h-6 w-6 text-primary" />
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-primary/10">
+                            <Icon className="h-6 w-6 text-primary" />
+                          </div>
                           <div>
-                            <p className="font-semibold text-lg">
+                            <p className="font-bold text-lg text-slate-900 dark:text-slate-50">
                               {getDocumentLabel(doc.type)}
                             </p>
-                            <p className="text-sm text-slate-500">{doc.name}</p>
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-1">{doc.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
                               Subido: {format(new Date(doc.uploadedAt), "dd MMM yyyy 'a las' HH:mm", { locale: es })}
                             </p>
                           </div>
@@ -115,6 +137,7 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
                         <Button
                           size="sm"
                           variant="outline"
+                          className="font-semibold"
                           onClick={() => handleDownload(doc.url, doc.name)}
                         >
                           <Download className="h-4 w-4 mr-2" />
@@ -123,47 +146,120 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
                       </div>
 
                       {/* Información extraída del comprobante */}
-                      {doc.type === 'voucher' && (
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t bg-slate-50 dark:bg-slate-900/50 p-3 rounded">
+                      {doc.type === 'voucher' && (doc.extractedAmount || doc.extractedDate || doc.extractedBank || doc.extractedReference) && (
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg">
                           {doc.extractedAmount && (
                             <div>
-                              <p className="text-xs text-slate-500">Monto</p>
-                              <p className="font-semibold">${doc.extractedAmount.toLocaleString()}</p>
+                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Monto</p>
+                              <p className="font-bold text-base text-slate-900 dark:text-slate-50">${doc.extractedAmount.toLocaleString()}</p>
                             </div>
                           )}
                           {doc.extractedDate && (
                             <div>
-                              <p className="text-xs text-slate-500">Fecha</p>
-                              <p className="font-semibold">
+                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Fecha</p>
+                              <p className="font-bold text-base text-slate-900 dark:text-slate-50">
                                 {format(new Date(doc.extractedDate), "dd MMM yyyy", { locale: es })}
                               </p>
                             </div>
                           )}
                           {doc.extractedBank && (
                             <div>
-                              <p className="text-xs text-slate-500">Banco</p>
-                              <p className="font-semibold">{doc.extractedBank}</p>
+                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Banco</p>
+                              <p className="font-bold text-base text-slate-900 dark:text-slate-50">{doc.extractedBank}</p>
                             </div>
                           )}
                           {doc.extractedReference && (
                             <div>
-                              <p className="text-xs text-slate-500">Referencia</p>
-                              <p className="font-semibold">{doc.extractedReference}</p>
+                              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Referencia</p>
+                              <p className="font-bold text-base text-slate-900 dark:text-slate-50">{doc.extractedReference}</p>
                             </div>
                           )}
                         </div>
                       )}
 
-                      {/* Preview para PDFs */}
-                      {doc.url && doc.url.toLowerCase().endsWith('.pdf') && (
+                      {/* Preview para PDFs e Imágenes */}
+                      {doc.url && (
                         <div className="pt-4 border-t">
-                          <p className="text-sm font-medium mb-2">Vista previa:</p>
-                          <div className="border rounded-lg overflow-hidden">
-                            <iframe
-                              src={`/api/files/${encodeURIComponent(doc.url)}`}
-                              className="w-full h-96"
-                              title={doc.name}
-                            />
+                          <p className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300">Vista previa:</p>
+                          <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/50">
+                            {isImage(doc.name) && !imageErrors[index] ? (
+                              <div className="relative w-full" style={{ minHeight: '400px', maxHeight: '600px' }}>
+                                <img
+                                  src={getDocumentUrl(doc.url)}
+                                  alt={doc.name}
+                                  className="w-full h-auto object-contain"
+                                  style={{ maxHeight: '600px' }}
+                                  onError={() => setImageErrors({ ...imageErrors, [index]: true })}
+                                  onLoad={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    const container = img.parentElement;
+                                    if (container) {
+                                      container.style.height = 'auto';
+                                    }
+                                  }}
+                                />
+                                <div className="absolute top-2 right-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleDownload(doc.url, doc.name)}
+                                    className="shadow-md"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : isPDF(doc.name) ? (
+                              <div className="relative w-full" style={{ height: '600px' }}>
+                                <iframe
+                                  src={getDocumentUrl(doc.url)}
+                                  className="w-full h-full"
+                                  title={doc.name}
+                                  onError={() => {
+                                    setImageErrors({ ...imageErrors, [index]: true });
+                                  }}
+                                />
+                                <div className="absolute top-2 right-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleDownload(doc.url, doc.name)}
+                                    className="shadow-md"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-12 text-center" style={{ minHeight: '300px' }}>
+                                <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
+                                <p className="text-slate-600 dark:text-slate-400 mb-4">
+                                  Vista previa no disponible para este tipo de archivo
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleDownload(doc.url, doc.name)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Descargar archivo
+                                </Button>
+                              </div>
+                            )}
+                            {imageErrors[index] && (
+                              <div className="flex flex-col items-center justify-center p-12 text-center">
+                                <ImageIcon className="h-12 w-12 text-slate-400 mb-4" />
+                                <p className="text-slate-600 dark:text-slate-400 mb-4">
+                                  No se pudo cargar la imagen
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleDownload(doc.url, doc.name)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Descargar archivo
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

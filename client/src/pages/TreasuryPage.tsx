@@ -22,8 +22,9 @@ import { DofChart } from "@/components/dashboard/DofChart";
 import { ExchangeRateCards } from "@/components/dashboard/ExchangeRateCards";
 import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPaymentsKanban";
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
+import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 
-type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers";
+type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
@@ -424,6 +425,32 @@ export default function TreasuryPage() {
     );
   }
 
+  // Vista de Historial de Pagos
+  if (viewMode === "history") {
+    return (
+      <AppLayout title="Tesorería - Historial de Pagos">
+        <div className="p-6 max-w-[1400px] mx-auto space-y-4">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Historial de Pagos</h1>
+              <p className="text-slate-600 dark:text-slate-400">
+                Consulta todos los pagos completados y sus documentos
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setViewMode("vouchers")}
+              className="font-semibold"
+            >
+              Volver a Cuentas por Pagar
+            </Button>
+          </div>
+          <PaymentHistory />
+        </div>
+      </AppLayout>
+    );
+  }
+
   // Si estamos en /treasury o /treasury/vouchers, mostrar vista completa de comprobantes
   if (location === "/treasury" || location === "/treasury/vouchers" || viewMode === "vouchers") {
     return (
@@ -538,7 +565,16 @@ export default function TreasuryPage() {
 
           {/* Kanban de Cuentas por Pagar - ÚNICO KANBAN */}
           <div className="mt-6">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Cuentas por Pagar</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Cuentas por Pagar</h2>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("history")}
+                className="font-semibold"
+              >
+                Ver Historial de Pagos
+              </Button>
+            </div>
             <ScheduledPaymentsKanban />
           </div>
         </div>
