@@ -168,38 +168,38 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
                 return (
                   <div
                     key={payment.id}
-                    className={`p-3 border rounded-lg bg-card hover:border-primary/40 transition-all cursor-pointer ${
-                      overdue ? "border-red-300 dark:border-red-700" : "border-border"
+                    className={`p-4 border rounded-lg bg-card hover:border-primary/50 hover:shadow-md transition-all cursor-pointer border-l-4 ${
+                      overdue ? "border-l-red-500/50 border-red-300 dark:border-red-700" : "border-l-green-500/50 border-border"
                     }`}
                     onClick={onViewAll}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           {overdue ? (
-                            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
                           ) : (
-                            <Calendar className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <Calendar className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                           )}
-                          <p className="text-sm font-semibold text-foreground truncate">
+                          <p className="text-base font-bold text-slate-900 dark:text-slate-50 truncate">
                             {payment.supplier_name || payment.supplierName || "Sin proveedor"}
                           </p>
                         </div>
-                        <p className="text-base font-bold text-green-700 dark:text-green-400">
+                        <p className="text-lg font-bold text-green-700 dark:text-green-400 mb-1">
                           {payment.currency} ${payment.amount.toLocaleString("es-MX", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
                         </p>
                         {(payment.due_date || payment.dueDate) && (
-                          <p className={`text-xs mt-0.5 ${overdue ? "text-red-600 dark:text-red-400 font-semibold" : "text-muted-foreground"}`}>
+                          <p className={`text-sm font-medium mt-1 ${overdue ? "text-red-700 dark:text-red-300" : "text-slate-600 dark:text-slate-400"}`}>
                             Vence: {format(new Date(payment.due_date || payment.dueDate || ""), "dd 'de' MMMM", { locale: es })}
                           </p>
                         )}
                       </div>
                       <Badge
                         variant={overdue ? "destructive" : "outline"}
-                        className="text-xs"
+                        className="text-xs font-semibold flex-shrink-0"
                       >
                         {overdue ? "Vencido" : "Próximo"}
                       </Badge>

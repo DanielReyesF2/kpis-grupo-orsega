@@ -116,67 +116,67 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
       className="touch-none"
     >
       <Card
-        className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow select-none"
+        className="cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 select-none border-l-4 border-l-transparent hover:border-l-primary/50"
       >
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <p className="font-semibold text-slate-800 dark:text-slate-200">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-slate-900 dark:text-slate-50 leading-tight mb-1.5">
                 {payment.supplierName || 'Proveedor desconocido'}
               </p>
               {payment.reference && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Factura: {payment.reference}
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Factura: <span className="text-slate-900 dark:text-slate-100">{payment.reference}</span>
                 </p>
               )}
             </div>
-            <Badge variant={isOverdue ? "destructive" : "outline"} className="ml-2">
+            <Badge variant={isOverdue ? "destructive" : "outline"} className="ml-2 flex-shrink-0 font-semibold text-sm px-3 py-1">
               {payment.currency} ${payment.amount.toLocaleString()}
             </Badge>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5 pt-1">
             {payment.paymentDate && (
-              <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-semibold">
-                <Calendar className="h-3 w-3" />
+              <div className="flex items-center gap-1.5 text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
                 Pago programado: {format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })}
               </div>
             )}
-            <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
-              <Calendar className="h-3 w-3" />
+            <div className={`flex items-center gap-1.5 text-sm font-medium ${isOverdue ? 'text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-300'}`}>
+              <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
               Vence: {payment.dueDate ? (
                 format(new Date(payment.dueDate), "dd MMM yyyy", { locale: es })
               ) : (
                 'Sin fecha'
               )}
-              {isOverdue && <span className="ml-1 font-semibold">(Vencida)</span>}
+              {isOverdue && <span className="ml-1.5 font-bold">(Vencida)</span>}
             </div>
           </div>
 
           {isPorPagar && (
-            <div className="pt-2 border-t space-y-2">
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2.5">
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full text-xs"
+                className="w-full text-sm font-medium h-9 hover:bg-primary/5 hover:border-primary/50 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onUploadVoucher();
                 }}
               >
-                <Upload className="h-3 w-3 mr-1" />
+                <Upload className="h-3.5 w-3.5 mr-2" />
                 Subir comprobante
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                className="w-full text-xs"
+                className="w-full text-sm font-medium h-9 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={(e) => {
                   e.stopPropagation();
                   onViewDocuments();
                 }}
               >
-                <FileText className="h-3 w-3 mr-1" />
+                <FileText className="h-3.5 w-3.5 mr-2" />
                 Ver documentos
               </Button>
             </div>
@@ -186,13 +186,13 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
             <Button
               size="sm"
               variant="ghost"
-              className="w-full text-xs mt-2"
+              className="w-full text-sm font-medium h-9 mt-2 hover:bg-slate-100 dark:hover:bg-slate-800"
               onClick={(e) => {
                 e.stopPropagation();
                 onViewDocuments();
               }}
             >
-              <FileText className="h-3 w-3 mr-1" />
+              <FileText className="h-3.5 w-3.5 mr-2" />
               Ver documentos
             </Button>
           )}
@@ -217,19 +217,21 @@ function KanbanColumn({ columnId, payments, onPaymentClick, onUploadVoucher }: K
   });
 
   return (
-    <div className="flex-1 min-w-[280px]">
+    <div className="flex-1 min-w-[300px]">
       <div 
         ref={setNodeRef}
-        className={`rounded-lg border-2 ${config.color} p-4 h-full min-h-[500px] flex flex-col transition-all ${
-          isOver ? "ring-2 ring-primary ring-offset-2 bg-opacity-90" : ""
+        className={`rounded-xl border-2 ${config.color} p-5 h-full min-h-[500px] flex flex-col transition-all shadow-sm ${
+          isOver ? "ring-2 ring-primary ring-offset-2 bg-opacity-95 scale-[1.02]" : ""
         }`}
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            <h3 className="font-semibold">{config.label}</h3>
+        <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <Icon className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+            <h3 className="font-bold text-base text-slate-900 dark:text-slate-50">{config.label}</h3>
           </div>
-          <Badge variant={config.badgeVariant}>{payments.length}</Badge>
+          <Badge variant={config.badgeVariant} className="font-semibold text-sm px-2.5 py-1">
+            {payments.length}
+          </Badge>
         </div>
 
         <SortableContext
@@ -238,8 +240,8 @@ function KanbanColumn({ columnId, payments, onPaymentClick, onUploadVoucher }: K
         >
           <div className="space-y-3 flex-1 min-h-[400px]">
             {payments.length === 0 ? (
-              <div className="flex items-center justify-center h-full min-h-[400px] border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                <p className="text-sm text-slate-500 text-center">
+              <div className="flex items-center justify-center h-full min-h-[400px] border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50/50 dark:bg-slate-800/30">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
                   {isOver ? "Suelta aquí" : "No hay pagos"}
                 </p>
               </div>

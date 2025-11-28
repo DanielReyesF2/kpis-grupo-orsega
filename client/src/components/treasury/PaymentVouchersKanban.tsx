@@ -118,49 +118,49 @@ function SortableVoucherCard({ voucher, onClick }: VoucherCardProps) {
       className="touch-none" // Mejorar experiencia en móviles
     >
       <Card
-        className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow select-none"
+        className="cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 select-none border-l-4 border-l-transparent hover:border-l-primary/50"
         onClick={onClick}
       >
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <p className="font-semibold text-slate-800 dark:text-slate-200">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-slate-900 dark:text-slate-50 leading-tight mb-1.5">
                 {voucher.clientName}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {voucher.voucherFileName}
               </p>
             </div>
             {voucher.extractedCurrency && voucher.extractedAmount && (
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="outline" className="ml-2 flex-shrink-0 font-semibold text-sm px-3 py-1">
                 {voucher.extractedCurrency} ${voucher.extractedAmount.toLocaleString()}
               </Badge>
             )}
           </div>
 
           {voucher.extractedBank && (
-            <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-              <Building2 className="h-3 w-3" />
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+              <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
               {voucher.extractedBank}
             </div>
           )}
 
           {voucher.extractedReference && (
-            <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-              <FileText className="h-3 w-3" />
-              Ref: {voucher.extractedReference}
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+              <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+              Ref: <span className="text-slate-900 dark:text-slate-100">{voucher.extractedReference}</span>
             </div>
           )}
 
           {voucher.extractedTrackingKey && (
-            <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-              <FileText className="h-3 w-3" />
-              Clave SPEI: {voucher.extractedTrackingKey}
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">
+              <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+              Clave SPEI: <span className="text-slate-900 dark:text-slate-100">{voucher.extractedTrackingKey}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-            <Calendar className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
             {format(new Date(voucher.createdAt), "dd MMM yyyy", { locale: es })}
           </div>
 

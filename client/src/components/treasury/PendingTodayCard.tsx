@@ -115,30 +115,30 @@ export function PendingTodayCard({ onViewAll }: PendingTodayCardProps) {
                 return (
                   <div
                     key={voucher.id}
-                    className="p-3 border rounded-lg bg-card hover:border-primary/40 transition-all cursor-pointer"
+                    className="p-4 border rounded-lg bg-card hover:border-primary/50 hover:shadow-md transition-all cursor-pointer border-l-4 border-l-orange-500/50"
                     onClick={onViewAll}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <StatusIcon className="h-4 w-4 text-orange-600 flex-shrink-0" />
-                          <p className="text-sm font-semibold text-foreground truncate">
+                        <div className="flex items-center gap-2 mb-2">
+                          <StatusIcon className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                          <p className="text-base font-bold text-slate-900 dark:text-slate-50 truncate">
                             {voucher.clientName}
                           </p>
                         </div>
                         {voucher.extractedAmount && (
-                          <p className="text-base font-bold text-orange-700 dark:text-orange-400">
+                          <p className="text-lg font-bold text-orange-700 dark:text-orange-400 mb-1">
                             {voucher.extractedCurrency || "MXN"} ${voucher.extractedAmount.toLocaleString("es-MX", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </p>
                         )}
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-1">
                           {format(new Date(voucher.createdAt), "HH:mm", { locale: es })}
                         </p>
                       </div>
-                      <Badge className={`${statusInfo.color} text-xs`}>
+                      <Badge className={`${statusInfo.color} text-xs font-semibold flex-shrink-0`}>
                         {statusInfo.label}
                       </Badge>
                     </div>
