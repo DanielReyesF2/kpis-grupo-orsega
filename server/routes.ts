@@ -7394,12 +7394,13 @@ export function registerRoutes(app: express.Application) {
       startDate.setMonth(startDate.getMonth() - monthsCount);
       
       // Obtener datos mensuales de los últimos N meses usando sale_date para datos históricos reales
+      // IMPORTANTE: Usar sale_date para capturar datos históricos de cualquier año
       const monthlyData = await sql(`
         SELECT
           sale_year,
           sale_month,
           COALESCE(SUM(quantity), 0) as total_volume,
-          COUNT(DISTINCT client_id) as active_clients,
+          COUNT(DISTINCT client_id) FILTER (WHERE client_id IS NOT NULL) as active_clients,
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
@@ -7445,7 +7446,8 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Buscar top clientes en los últimos 3 meses para mostrar datos históricos reales
-      const topClients = await sql(`
+      // Si no hay datos en últimos 3 meses, buscar en el último año disponible
+      let topClients = await sql(`
         SELECT
           client_id,
           client_name,
@@ -7462,7 +7464,27 @@ export function registerRoutes(app: express.Application) {
         LIMIT $2
       `, [resolvedCompanyId, parseInt(limit as string) || 5]);
 
-      const formatted = topClients.map((row: any) => ({
+      // Si no hay datos en últimos 3 meses, buscar en el último año disponible
+      if (!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) {
+        topClients = await sql(`
+          SELECT
+            client_id,
+            client_name,
+            COALESCE(SUM(quantity), 0) as total_volume,
+            COUNT(*) as transactions,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
+            AND sale_date <= CURRENT_DATE
+            AND client_id IS NOT NULL
+          GROUP BY client_id, client_name
+          ORDER BY total_volume DESC
+          LIMIT $2
+        `, [resolvedCompanyId, parseInt(limit as string) || 5]);
+      }
+
+      const formatted = (topClients || []).map((row: any) => ({
         name: row.client_name,
         volume: parseFloat(row.total_volume || '0'),
         transactions: parseInt(row.transactions || '0'),

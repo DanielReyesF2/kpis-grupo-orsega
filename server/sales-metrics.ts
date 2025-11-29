@@ -102,7 +102,7 @@ export async function getActiveClients(
   let params: any[];
 
   if (period === 'month') {
-    // Buscar en el mes actual, pero si no hay datos, buscar en el último mes con datos
+    // Buscar en el mes actual, pero si no hay datos, buscar en el último mes con datos disponibles
     query = `
       SELECT COUNT(DISTINCT client_id) as count
       FROM sales_data
@@ -116,19 +116,34 @@ export async function getActiveClients(
     const result = await sql(query, params);
     const count = parseInt(result[0]?.count || '0', 10);
     
-    // Si no hay datos en el mes actual, buscar en el último mes con datos
+    // Si no hay datos en el mes actual, buscar en los últimos 30 días históricos
     if (count === 0) {
-      const lastMonthQuery = `
+      const last30DaysQuery = `
         SELECT COUNT(DISTINCT client_id) as count
         FROM sales_data
         WHERE company_id = $1
           AND client_id IS NOT NULL
           AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
-        ORDER BY sale_date DESC
-        LIMIT 1
+          AND sale_date <= CURRENT_DATE
       `;
-      const lastMonthResult = await sql(lastMonthQuery, [companyId]);
-      return parseInt(lastMonthResult[0]?.count || '0', 10);
+      const last30DaysResult = await sql(last30DaysQuery, [companyId]);
+      const last30DaysCount = parseInt(last30DaysResult[0]?.count || '0', 10);
+      
+      // Si aún no hay datos, buscar el último mes con datos disponibles
+      if (last30DaysCount === 0) {
+        const lastMonthWithDataQuery = `
+          SELECT COUNT(DISTINCT client_id) as count
+          FROM sales_data
+          WHERE company_id = $1
+            AND client_id IS NOT NULL
+          ORDER BY sale_date DESC
+          LIMIT 1
+        `;
+        const lastMonthResult = await sql(lastMonthWithDataQuery, [companyId]);
+        return parseInt(lastMonthResult[0]?.count || '0', 10);
+      }
+      
+      return last30DaysCount;
     }
     
     return count;
@@ -470,7 +485,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   // Queries separadas para evitar problemas con CTEs vacíos en CROSS JOIN
   const defaultUnit = companyId === 1 ? 'KG' : 'unidades';
   
-  // Clientes activos este mes
+  // Clientes activos este mes (con fallback a últimos 30 días si no hay datos)
   const currentMonthClientsQuery = `
     SELECT COUNT(DISTINCT client_id) as count
     FROM sales_data
@@ -480,9 +495,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
       AND client_id IS NOT NULL
   `;
   const currentMonthClients = await sql(currentMonthClientsQuery, [companyId, currentYear, currentMonth]);
-  const currentMonthClientsCount = parseInt(currentMonthClients[0]?.count || '0', 10);
+  let currentMonthClientsCount = parseInt(currentMonthClients[0]?.count || '0', 10);
   
-  // Volumen este mes
+  // Volumen este mes (con fallback a últimos 30 días si no hay datos)
   const currentMonthVolumeQuery = `
     SELECT COALESCE(SUM(quantity), 0) as total
     FROM sales_data
@@ -493,17 +508,47 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   const currentMonthVolume = await sql(currentMonthVolumeQuery, [companyId, currentYear, currentMonth]);
   let currentVolume = parseFloat(currentMonthVolume[0]?.total || '0');
   
-  // Si no hay datos en el mes actual, buscar en últimos 30 días
-  if (currentVolume === 0) {
+  // Si no hay datos en el mes actual, buscar en últimos 30 días históricos
+  if (currentVolume === 0 || currentMonthClientsCount === 0) {
     const last30DaysQuery = `
-      SELECT COALESCE(SUM(quantity), 0) as total
+      SELECT 
+        COALESCE(SUM(quantity), 0) as total,
+        COUNT(DISTINCT client_id) as clients
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
         AND sale_date <= CURRENT_DATE
     `;
     const last30Days = await sql(last30DaysQuery, [companyId]);
-    currentVolume = parseFloat(last30Days[0]?.total || '0');
+    if (currentVolume === 0) {
+      currentVolume = parseFloat(last30Days[0]?.total || '0');
+    }
+    if (currentMonthClientsCount === 0) {
+      currentMonthClientsCount = parseInt(last30Days[0]?.clients || '0', 10);
+    }
+  }
+  
+  // Si aún no hay datos, buscar el último mes con datos disponibles (de cualquier año)
+  if (currentVolume === 0) {
+    const lastMonthWithDataQuery = `
+      SELECT 
+        sale_year,
+        sale_month,
+        COALESCE(SUM(quantity), 0) as total,
+        COUNT(DISTINCT client_id) as clients
+      FROM sales_data
+      WHERE company_id = $1
+      GROUP BY sale_year, sale_month
+      ORDER BY sale_year DESC, sale_month DESC
+      LIMIT 1
+    `;
+    const lastMonthData = await sql(lastMonthWithDataQuery, [companyId]);
+    if (lastMonthData.length > 0) {
+      currentVolume = parseFloat(lastMonthData[0]?.total || '0');
+      if (currentMonthClientsCount === 0) {
+        currentMonthClientsCount = parseInt(lastMonthData[0]?.clients || '0', 10);
+      }
+    }
   }
   
   // Clientes activos últimos 3 meses
