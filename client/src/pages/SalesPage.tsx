@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -17,8 +17,16 @@ import {
   Package,
   ArrowLeft,
   Sparkles,
-  Activity
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  UserPlus,
+  UserMinus,
+  DollarSign,
+  RefreshCw
 } from "lucide-react";
+import type { SalesMetrics } from "@/types/sales";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
@@ -44,6 +52,8 @@ export default function SalesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Detectar ruta actual y establecer viewMode inicial
   useEffect(() => {
@@ -56,13 +66,15 @@ export default function SalesPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedCompany, setSelectedCompany] = useState<number>(user?.companyId || 1);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
   const canViewOrsega = user?.role === 'admin' || user?.companyId === 2;
 
-  // Query para estadísticas generales
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  // Query para estadísticas generales (ahora incluye todas las nuevas métricas)
+  const { data: stats, isLoading: isLoadingStats } = useQuery<SalesMetrics>({
     queryKey: ['/api/sales-stats', selectedCompany],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/sales-stats?companyId=${selectedCompany}`);
@@ -115,6 +127,132 @@ export default function SalesPage() {
     enabled: !!user && viewMode === 'overview',
     refetchInterval: 60000
   });
+
+  // Mutación para subir archivo Excel
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', selectedCompany.toString());
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("No se encontró token de autenticación");
+      }
+
+      const res = await fetch("/api/sales/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+        throw new Error(errorData.details || errorData.error || 'Error al subir el archivo');
+      }
+
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "✅ Archivo procesado exitosamente",
+        description: `Se procesaron ${data.recordsProcessed} registros de ventas`,
+        variant: "default",
+      });
+      
+      // Limpiar archivo seleccionado
+      setSelectedFile(null);
+      
+      // Invalidar queries para refrescar datos
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-comparison'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-monthly-trends'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-top-clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-alerts'] });
+      
+      // Volver a overview después de 2 segundos
+      setTimeout(() => {
+        setViewMode("overview");
+      }, 2000);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "❌ Error al subir archivo",
+        description: error.message || "Ocurrió un error al procesar el archivo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handlers para drag & drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        setSelectedFile(file);
+      } else {
+        toast({
+          title: "Formato no válido",
+          description: "Solo se permiten archivos Excel (.xlsx, .xls)",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [toast]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        setSelectedFile(file);
+      } else {
+        toast({
+          title: "Formato no válido",
+          description: "Solo se permiten archivos Excel (.xlsx, .xls)",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [toast]);
+
+  const handleUpload = useCallback(() => {
+    if (!selectedFile) {
+      toast({
+        title: "Error",
+        description: "Selecciona un archivo antes de subirlo",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    uploadMutation.mutate(selectedFile);
+  }, [selectedFile, uploadMutation, toast]);
+
+  const handleRemoveFile = useCallback(() => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
 
   return (
     <AppLayout>
@@ -192,9 +330,14 @@ export default function SalesPage() {
                       </ResponsiveContainer>
                     </div>
                   )}
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
-                    Con compras este mes
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      Este mes: {stats?.activeClientsMetrics?.thisMonth || 0}
+                    </p>
+                    <p className="text-xs text-blue-500 dark:text-blue-500 font-medium">
+                      Últimos 3 meses: {stats?.activeClientsMetrics?.last3Months || 0}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -326,6 +469,131 @@ export default function SalesPage() {
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">
                     Requieren atención
                   </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Nuevas Métricas - Segunda fila */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+              {/* Tasa de Retención */}
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 dark:bg-purple-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Tasa de Retención
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-4xl font-bold text-purple-900 dark:text-purple-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-20 bg-purple-200 dark:bg-purple-800 rounded animate-pulse"></div>
+                      ) : (
+                        `${stats?.retentionRate?.rate.toFixed(1) || 0}%`
+                      )}
+                    </div>
+                    <div className="p-3 rounded-full bg-purple-200 dark:bg-purple-800">
+                      <RefreshCw className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-purple-600 dark:text-purple-400">
+                      Retenidos: {stats?.retentionRate?.retainedClients || 0}
+                    </p>
+                    <p className="text-xs text-purple-500 dark:text-purple-500">
+                      Período actual: {stats?.retentionRate?.currentPeriodClients || 0} clientes
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Nuevos Clientes */}
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950 dark:to-teal-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200 dark:bg-emerald-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Nuevos Clientes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-16 bg-emerald-200 dark:bg-emerald-800 rounded animate-pulse"></div>
+                      ) : (
+                        stats?.newClients?.count || 0
+                      )}
+                    </div>
+                    <div className="p-3 rounded-full bg-emerald-200 dark:bg-emerald-800">
+                      <UserPlus className="h-6 w-6 text-emerald-600 dark:text-emerald-300" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 font-medium">
+                    Primera compra este mes
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Valor Promedio por Orden */}
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-cyan-50 to-blue-100 dark:from-cyan-950 dark:to-blue-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-200 dark:bg-cyan-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-cyan-700 dark:text-cyan-300 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Valor Promedio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-3xl font-bold text-cyan-900 dark:text-cyan-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-24 bg-cyan-200 dark:bg-cyan-800 rounded animate-pulse"></div>
+                      ) : (
+                        `$${stats?.avgOrderValue?.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+                      )}
+                    </div>
+                    <div className="p-3 rounded-full bg-cyan-200 dark:bg-cyan-800">
+                      <DollarSign className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
+                    Por orden/transacción
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Clientes Perdidos (Churn) */}
+              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-rose-50 to-red-100 dark:from-rose-950 dark:to-red-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-200 dark:bg-rose-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-sm font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                    <UserMinus className="h-4 w-4" />
+                    Clientes Perdidos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-4xl font-bold text-rose-900 dark:text-rose-100">
+                      {isLoadingStats ? (
+                        <div className="h-10 w-20 bg-rose-200 dark:bg-rose-800 rounded animate-pulse"></div>
+                      ) : (
+                        `${stats?.clientChurn?.count || 0}`
+                      )}
+                    </div>
+                    <div className="p-3 rounded-full bg-rose-200 dark:bg-rose-800">
+                      <UserMinus className="h-6 w-6 text-rose-600 dark:text-rose-300" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-rose-600 dark:text-rose-400">
+                      Tasa de churn: {stats?.clientChurn?.rate.toFixed(1) || 0}%
+                    </p>
+                    <p className="text-xs text-rose-500 dark:text-rose-500">
+                      Inactivos este mes
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -695,49 +963,144 @@ export default function SalesPage() {
               </div>
               <Button
                 variant="outline"
-                onClick={() => setViewMode("overview")}
+                onClick={() => {
+                  setViewMode("overview");
+                  setSelectedFile(null);
+                }}
                 className="flex items-center gap-2"
+                disabled={uploadMutation.isPending}
               >
                 <ArrowLeft className="h-4 w-4" />
                 Volver
               </Button>
             </div>
 
-            <Card className="shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-primary transition-all duration-300">
-              <CardContent className="pt-12 pb-12">
-                <div className="flex flex-col items-center justify-center space-y-6">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-2xl"></div>
-                    <div className="relative p-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/5">
-                      <Upload className="h-20 w-20 text-primary mx-auto" />
+            {!selectedFile ? (
+              <Card 
+                className={`shadow-lg border-2 border-dashed transition-all duration-300 ${
+                  isDragging 
+                    ? 'border-primary bg-primary/5 dark:bg-primary/10' 
+                    : 'border-gray-300 dark:border-gray-700 hover:border-primary'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <CardContent className="pt-12 pb-12">
+                  <div className="flex flex-col items-center justify-center space-y-6">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-2xl"></div>
+                      <div className="relative p-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/5">
+                        <Upload className="h-20 w-20 text-primary mx-auto" />
+                      </div>
+                    </div>
+                    
+                    <div className="text-center space-y-2">
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Arrastra tu archivo aquí o haz clic para seleccionar
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Formatos soportados: .xlsx, .xls (máximo 20MB)
+                      </p>
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload">
+                      <Button 
+                        size="lg" 
+                        className="bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
+                        asChild
+                      >
+                        <span>
+                          <FileSpreadsheet className="mr-2 h-5 w-5" />
+                          Seleccionar Archivo
+                        </span>
+                      </Button>
+                    </label>
+
+                    <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 max-w-md">
+                      <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                        <strong>Nota:</strong> El sistema procesará automáticamente los datos y generará alertas. 
+                        Asegúrate de que el archivo tenga columnas: Cliente, Producto, Cantidad, Fecha.
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="text-center space-y-2">
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Arrastra tu archivo aquí o haz clic para seleccionar
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Formatos soportados: .xlsx, .xls
-                    </p>
-                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
+                          <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveFile}
+                        disabled={uploadMutation.isPending}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-                  <Button 
-                    size="lg" 
-                    className="bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    <FileSpreadsheet className="mr-2 h-5 w-5" />
-                    Seleccionar Archivo
-                  </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleUpload}
+                        disabled={uploadMutation.isPending}
+                        className="flex-1 bg-primary hover:bg-primary/90 text-white"
+                        size="lg"
+                      >
+                        {uploadMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Subir y Procesar
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleRemoveFile}
+                        disabled={uploadMutation.isPending}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
 
-                  <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 max-w-md">
-                    <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                      <strong>Nota:</strong> El sistema procesará automáticamente los datos y generará alertas
-                    </p>
+                    {uploadMutation.isError && (
+                      <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                        <p className="text-sm text-red-800 dark:text-red-200">
+                          <strong>Error:</strong> {uploadMutation.error?.message || 'Error desconocido'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
