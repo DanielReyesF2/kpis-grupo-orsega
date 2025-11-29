@@ -68,6 +68,7 @@ export default function SalesPage() {
   const [selectedCompany, setSelectedCompany] = useState<number>(user?.companyId || 1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
 
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
@@ -473,8 +474,37 @@ export default function SalesPage() {
               </Card>
             </div>
 
-            {/* Nuevas Métricas - Segunda fila */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            {/* Botón para mostrar/ocultar métricas avanzadas */}
+            {!showAdvancedMetrics && (
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAdvancedMetrics(true)}
+                  className="text-sm"
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Ver métricas avanzadas
+                </Button>
+              </div>
+            )}
+
+            {/* Nuevas Métricas - Segunda fila (colapsable) */}
+            {showAdvancedMetrics && (
+              <>
+                <div className="flex justify-between items-center mt-6 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                    Métricas Avanzadas
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAdvancedMetrics(false)}
+                    className="text-xs"
+                  >
+                    Ocultar
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Tasa de Retención */}
               <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 dark:bg-purple-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
@@ -596,7 +626,9 @@ export default function SalesPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+                </div>
+              </>
+            )}
 
             {/* Sección de acciones rápidas - Mejorada */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -102,6 +102,7 @@ export async function getActiveClients(
   let params: any[];
 
   if (period === 'month') {
+    // Buscar en el mes actual, pero si no hay datos, buscar en el último mes con datos
     query = `
       SELECT COUNT(DISTINCT client_id) as count
       FROM sales_data
@@ -111,8 +112,28 @@ export async function getActiveClients(
         AND client_id IS NOT NULL
     `;
     params = [companyId, currentYear, currentMonth];
+    
+    const result = await sql(query, params);
+    const count = parseInt(result[0]?.count || '0', 10);
+    
+    // Si no hay datos en el mes actual, buscar en el último mes con datos
+    if (count === 0) {
+      const lastMonthQuery = `
+        SELECT COUNT(DISTINCT client_id) as count
+        FROM sales_data
+        WHERE company_id = $1
+          AND client_id IS NOT NULL
+          AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
+        ORDER BY sale_date DESC
+        LIMIT 1
+      `;
+      const lastMonthResult = await sql(lastMonthQuery, [companyId]);
+      return parseInt(lastMonthResult[0]?.count || '0', 10);
+    }
+    
+    return count;
   } else {
-    // Últimos 3 meses (90 días)
+    // Últimos 3 meses (90 días) - usar sale_date para datos históricos
     const threeMonthsAgo = new Date(now);
     threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
     
@@ -125,10 +146,10 @@ export async function getActiveClients(
         AND client_id IS NOT NULL
     `;
     params = [companyId, threeMonthsAgo.toISOString().split('T')[0], now.toISOString().split('T')[0]];
+    
+    const result = await sql(query, params);
+    return parseInt(result[0]?.count || '0', 10);
   }
-
-  const result = await sql(query, params);
-  return parseInt(result[0]?.count || '0', 10);
 }
 
 /**
@@ -447,8 +468,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   const previousPeriod: Period = { type: 'month', year: previousYear, month: previousMonth };
 
   // Query optimizada con CTEs para obtener todas las métricas básicas en una sola query
+  // Usa los últimos 12 meses para mostrar datos históricos reales
   const baseMetricsQuery = `
-    WITH current_month_data AS (
+    WITH last_12_months_data AS (
       SELECT 
         COUNT(DISTINCT client_id) as active_clients,
         SUM(quantity) as total_volume,
@@ -457,11 +479,32 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
         SUM(total_amount) as total_revenue
       FROM sales_data
       WHERE company_id = $1
+        AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
+        AND sale_date <= CURRENT_DATE
+        AND client_id IS NOT NULL
+    ),
+    current_month_data AS (
+      SELECT 
+        COUNT(DISTINCT client_id) as active_clients,
+        SUM(quantity) as total_volume
+      FROM sales_data
+      WHERE company_id = $1
         AND sale_year = $2
         AND sale_month = $3
         AND client_id IS NOT NULL
     ),
-    last_year_month_data AS (
+    last_month_with_data AS (
+      SELECT 
+        COUNT(DISTINCT client_id) as active_clients,
+        SUM(quantity) as total_volume
+      FROM sales_data
+      WHERE company_id = $1
+        AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
+        AND client_id IS NOT NULL
+      ORDER BY sale_date DESC
+      LIMIT 1
+    ),
+    last_year_same_period_data AS (
       SELECT SUM(quantity) as total_volume
       FROM sales_data
       WHERE company_id = $1
@@ -484,29 +527,48 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
         AND is_read = false
     )
     SELECT 
-      cm.active_clients,
-      cm.total_volume,
-      cm.unit,
-      cm.transaction_count,
-      cm.total_revenue,
-      ly.total_volume as last_year_volume,
-      l3m.active_clients as active_clients_3months,
-      aa.count as active_alerts
-    FROM current_month_data cm
-    CROSS JOIN last_year_month_data ly
+      COALESCE(NULLIF(cm.active_clients, 0), lmd.active_clients, 0) as active_clients,
+      COALESCE(NULLIF(cm.total_volume, 0), lmd.total_volume, 0) as total_volume,
+      COALESCE(l12m.unit, $5) as unit,
+      COALESCE(l12m.transaction_count, 0) as transaction_count,
+      COALESCE(l12m.total_revenue, 0) as total_revenue,
+      COALESCE(ly.total_volume, 0) as last_year_volume,
+      COALESCE(l3m.active_clients, 0) as active_clients_3months,
+      COALESCE(aa.count, 0) as active_alerts
+    FROM last_12_months_data l12m
+    CROSS JOIN current_month_data cm
+    CROSS JOIN last_month_with_data lmd
+    CROSS JOIN last_year_same_period_data ly
     CROSS JOIN last_3_months_data l3m
     CROSS JOIN active_alerts_count aa
   `;
 
+  const defaultUnit = companyId === 1 ? 'KG' : 'unidades';
   const baseMetrics = await sql(baseMetricsQuery, [
     companyId,
     currentYear,
     currentMonth,
-    currentYear - 1
+    currentYear - 1,
+    defaultUnit
   ]);
 
   const base = baseMetrics[0];
-  const currentVolume = parseFloat(base?.total_volume || '0');
+  
+  // Si no hay volumen en el mes actual, usar el último mes con datos disponibles
+  let currentVolume = parseFloat(base?.total_volume || '0');
+  if (currentVolume === 0) {
+    const lastMonthVolumeQuery = `
+      SELECT SUM(quantity) as total_volume
+      FROM sales_data
+      WHERE company_id = $1
+        AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
+      ORDER BY sale_date DESC
+      LIMIT 1
+    `;
+    const lastMonthResult = await sql(lastMonthVolumeQuery, [companyId]);
+    currentVolume = parseFloat(lastMonthResult[0]?.total_volume || '0');
+  }
+  
   const lastYearVolume = parseFloat(base?.last_year_volume || '0');
   const growth = lastYearVolume > 0
     ? parseFloat(((currentVolume - lastYearVolume) / lastYearVolume * 100).toFixed(1))
