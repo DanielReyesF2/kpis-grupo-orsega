@@ -2,58 +2,16 @@
 **Fecha:** 2025-11-29
 **Propósito:** Identificar problemas de escalabilidad, código hardcoded y mejoras necesarias
 
+**NOTA IMPORTANTE:**
+- Dura International = SIEMPRE KG (por diseño) ✅
+- Grupo Orsega = SIEMPRE unidades (por diseño) ✅
+- La separación en 2 empresas es justamente para manejar unidades diferentes
+
 ---
 
 ## ❌ PROBLEMAS CRÍTICOS ENCONTRADOS
 
-### 1. **UNIDADES HARDCODED** ⚠️ **ALTA PRIORIDAD**
-**Ubicación:** `server/routes.ts:7298`
-
-```typescript
-GROUP BY unit
-LIMIT 1  // ❌ Solo toma 1 unidad
-```
-
-**Problema:**
-- Asume que cada empresa vende en UNA SOLA unidad (KG o unidades)
-- Si Dura vende productos en KG Y TONELADAS, solo se mostrará una
-- La suma será incorrecta
-
-**Impacto:**
-- Datos de ventas incorrectos cuando hay múltiples unidades
-- Crecimiento del negocio bloqueado
-
-**Solución:**
-```typescript
-// Opción A: Sumar todas las unidades con conversión
-// Opción B: Mostrar desglose por unidad
-// Opción C: Unidad principal configurable por empresa
-```
-
----
-
-### 2. **FALLBACK DE UNIDAD HARDCODED** ⚠️ **ALTA PRIORIDAD**
-**Ubicación:** `server/routes.ts:7328`
-
-```typescript
-unit: currentVolume[0]?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades')
-//                               ↑ Hardcoded: Dura=KG, Orsega=unidades
-```
-
-**Problema:**
-- Asume que Dura siempre vende en KG y Orsega en unidades
-- ¿Qué pasa si Orsega empieza a vender en KG también?
-- No es configurable
-
-**Solución:**
-```typescript
-// Agregar configuración de unidad por empresa en la tabla companies
-ALTER TABLE companies ADD COLUMN default_sales_unit VARCHAR(50) DEFAULT 'KG';
-```
-
----
-
-### 3. **SIN PAGINACIÓN EN /api/sales-comparison** 🚨 **CRÍTICO**
+### 1. **SIN PAGINACIÓN EN /api/sales-comparison** 🚨 **CRÍTICO**
 **Ubicación:** `server/routes.ts:7387-7414`
 
 ```typescript
@@ -96,7 +54,7 @@ res.json({
 
 ---
 
-### 4. **SIN PAGINACIÓN EN /api/sales-data** ⚠️ **ALTA PRIORIDAD**
+### 2. **SIN PAGINACIÓN EN /api/sales-data** ⚠️ **ALTA PRIORIDAD**
 **Ubicación:** `server/routes.ts:7619`
 
 ```typescript
@@ -119,7 +77,7 @@ params.push(parseInt(limit as string), parseInt(offset as string));
 
 ---
 
-### 5. **FECHAS HARDCODED EN MÚLTIPLES ENDPOINTS** ⚠️ **ALTA PRIORIDAD**
+### 3. **FECHAS HARDCODED EN MÚLTIPLES ENDPOINTS** ⚠️ **ALTA PRIORIDAD**
 
 #### `/api/sales-monthly-trends` (línea 7500-7502):
 ```typescript
@@ -161,7 +119,7 @@ if (year && month) {
 
 ---
 
-### 6. **LÍMITES HARDCODED EN FRONTEND** ⚠️ **MEDIA PRIORIDAD**
+### 4. **LÍMITES HARDCODED EN FRONTEND** ⚠️ **MEDIA PRIORIDAD**
 **Ubicación:** `client/src/pages/SalesPage.tsx`
 
 ```typescript
@@ -192,7 +150,7 @@ const [topClientsLimit, setTopClientsLimit] = useState(10);
 
 ---
 
-### 7. **REFETCH INTERVALS HARDCODED** ⚠️ **BAJA PRIORIDAD**
+### 5. **REFETCH INTERVALS HARDCODED** ⚠️ **BAJA PRIORIDAD**
 **Ubicación:** `client/src/pages/SalesPage.tsx`
 
 ```typescript
@@ -218,7 +176,7 @@ refetchInterval: 300000  // 5 minutos
 
 ## 📊 PROBLEMAS DE ESCALABILIDAD
 
-### 8. **FALTA ÍNDICE COMPUESTO EN QUERIES COMPLEJAS**
+### 6. **FALTA ÍNDICE COMPUESTO EN QUERIES COMPLEJAS**
 **Ubicación:** `server/sales-schema.ts`
 
 **Query problemática:**
@@ -250,7 +208,7 @@ CREATE INDEX idx_sales_data_client_comparison
 
 ---
 
-### 9. **SIN LÍMITE EN /api/sales-available-periods**
+### 7. **SIN LÍMITE EN /api/sales-available-periods**
 **Ubicación:** `server/routes.ts:7355-7360`
 
 ```typescript
@@ -280,7 +238,7 @@ LIMIT ${yearsBack * 12}
 
 ## 🗑️ CÓDIGO NO UTILIZADO / INCOMPLETO
 
-### 10. **VISTA DE "UPLOAD" NO FUNCIONAL**
+### 8. **VISTA DE "UPLOAD" NO FUNCIONAL**
 **Ubicación:** `client/src/pages/SalesPage.tsx:744+`
 
 ```typescript
@@ -303,7 +261,7 @@ LIMIT ${yearsBack * 12}
 
 ---
 
-### 11. **TABLA `sales_uploads` SIN USO**
+### 9. **TABLA `sales_uploads` SIN USO**
 **Ubicación:** `server/sales-schema.ts:29-42`
 
 **Problema:**
@@ -324,29 +282,26 @@ LIMIT ${yearsBack * 12}
 1. ✅ **Agregar paginación a `/api/sales-comparison`**
    - Sin esto, el sistema crasheará con 1000+ clientes
 
-2. ✅ **Arreglar problema de múltiples unidades**
-   - Ventas incorrectas = decisiones de negocio incorrectas
-
-3. ✅ **Sincronizar fechas en `/api/sales-top-clients` y `/api/sales-monthly-trends`**
+2. ✅ **Sincronizar fechas en `/api/sales-top-clients` y `/api/sales-monthly-trends`**
    - Actualmente muestran datos diferentes al periodo seleccionado
+
+3. ✅ **Agregar paginación completa a `/api/sales-data`**
 
 ### 🟡 IMPORTANTE (Implementar en próximo mes)
 
-4. ✅ **Agregar paginación completa a `/api/sales-data`**
+4. ✅ **Agregar índices compuestos en PostgreSQL**
 
-5. ✅ **Configurar unidades por empresa (no hardcoded)**
+5. ✅ **Implementar funcionalidad de upload de Excel**
 
-6. ✅ **Agregar índices compuestos en PostgreSQL**
-
-7. ✅ **Implementar funcionalidad de upload de Excel**
+6. ✅ **Optimizar límites en /api/sales-available-periods**
 
 ### 🟢 MEJORAS (Implementar cuando haya tiempo)
 
-8. ✅ **Hacer límites configurables en frontend**
+7. ✅ **Hacer límites configurables en frontend**
 
-9. ✅ **Optimizar refetch intervals**
+8. ✅ **Optimizar refetch intervals**
 
-10. ✅ **Agregar cache layer (Redis)**
+9. ✅ **Agregar cache layer (Redis)**
 
 ---
 
@@ -372,30 +327,29 @@ Para que el módulo soporte crecimiento sostenido:
 ### Fase 1: Fixes Críticos (1 semana)
 ```
 1. Agregar paginación a /api/sales-comparison
-2. Arreglar problema de unidades múltiples
-3. Sincronizar fechas en todos los endpoints
-4. Agregar paginación completa a /api/sales-data
+2. Sincronizar fechas en todos los endpoints
+3. Agregar paginación completa a /api/sales-data
 ```
 
-### Fase 2: Configuración (2 semanas)
+### Fase 2: Optimización (2 semanas)
 ```
-5. Mover unidades a configuración de empresa
-6. Hacer límites configurables en frontend
-7. Agregar índices compuestos
+4. Agregar índices compuestos en PostgreSQL
+5. Hacer límites configurables en frontend
+6. Optimizar /api/sales-available-periods
 ```
 
 ### Fase 3: Funcionalidad Completa (3 semanas)
 ```
-8. Implementar upload de Excel
-9. Sistema de alertas automáticas
-10. Reportes exportables
+7. Implementar upload de Excel
+8. Sistema de alertas automáticas
+9. Reportes exportables
 ```
 
 ### Fase 4: Optimización (ongoing)
 ```
-11. Cache layer
-12. Agregaciones pre-calculadas
-13. Archivado de datos históricos
+10. Cache layer
+11. Agregaciones pre-calculadas
+12. Archivado de datos históricos
 ```
 
 ---
@@ -408,19 +362,20 @@ El módulo funciona **para volúmenes pequeños**, pero tiene **problemas críti
 - Arquitectura base sólida
 - Multi-tenant correcto
 - Queries SQL bien estructuradas
+- **Unidades por empresa correctamente diseñadas (Dura=KG, Orsega=unidades)**
 
 ❌ **Lo que DEBE arreglarse:**
-- Falta de paginación
-- Valores hardcoded
-- Assumptions sobre unidades
+- Falta de paginación en endpoints clave
 - Inconsistencia de fechas entre endpoints
+- Código incompleto (upload de Excel)
+- Límites hardcoded en frontend
 
 ⚠️ **Estimación:** Sin fixes, el sistema fallará cuando:
-- Haya >1,000 clientes
-- Haya >50,000 registros de ventas
-- Se usen múltiples unidades de medida
+- Haya >1,000 clientes (sin paginación)
+- Haya >50,000 registros de ventas (queries lentos)
+- Usuarios esperan más funcionalidad (upload, reportes)
 
-**Tiempo estimado de fixes críticos:** 40-60 horas de desarrollo
+**Tiempo estimado de fixes críticos:** 30-40 horas de desarrollo
 
 ---
 
