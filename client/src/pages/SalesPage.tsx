@@ -116,9 +116,13 @@ export default function SalesPage() {
 
   // Query para tendencias mensuales (para gráficos)
   const { data: monthlyTrends, isLoading: isLoadingTrends } = useQuery({
-    queryKey: ['/api/sales-monthly-trends', selectedCompany],
+    queryKey: ['/api/sales-monthly-trends', selectedCompany, selectedYear, selectedMonth],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&months=12`);
+      let url = `/api/sales-monthly-trends?companyId=${selectedCompany}&months=12`;
+      if (selectedYear && selectedMonth) {
+        url += `&year=${selectedYear}&month=${selectedMonth}`;
+      }
+      const res = await apiRequest('GET', url);
       return await res.json();
     },
     enabled: !!user && viewMode === 'overview',
@@ -127,9 +131,13 @@ export default function SalesPage() {
 
   // Query para top clientes
   const { data: topClients, isLoading: isLoadingTopClients } = useQuery({
-    queryKey: ['/api/sales-top-clients', selectedCompany],
+    queryKey: ['/api/sales-top-clients', selectedCompany, selectedYear, selectedMonth],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-top-clients?companyId=${selectedCompany}&limit=5`);
+      let url = `/api/sales-top-clients?companyId=${selectedCompany}&limit=5`;
+      if (selectedYear && selectedMonth) {
+        url += `&year=${selectedYear}&month=${selectedMonth}`;
+      }
+      const res = await apiRequest('GET', url);
       return await res.json();
     },
     enabled: !!user && viewMode === 'overview',
@@ -832,7 +840,7 @@ export default function SalesPage() {
                       Cargando datos comparativos...
                     </p>
                   </div>
-                ) : !comparison || comparison.length === 0 ? (
+                ) : !comparison?.data || comparison.data.length === 0 ? (
                   <div className="text-center py-12">
                     <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -848,7 +856,7 @@ export default function SalesPage() {
                     <div className="h-96">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                          data={comparison.slice(0, 10).map((item: any) => ({
+                          data={comparison.data.slice(0, 10).map((item: any) => ({
                             name: item.client_name.length > 15 
                               ? item.client_name.substring(0, 15) + '...' 
                               : item.client_name,
@@ -867,13 +875,13 @@ export default function SalesPage() {
                             tick={{ fontSize: 12 }}
                           />
                           <YAxis tick={{ fontSize: 12 }} />
-                          <Tooltip 
-                            contentStyle={{ 
+                          <Tooltip
+                            contentStyle={{
                               backgroundColor: 'rgba(255, 255, 255, 0.95)',
                               border: '1px solid #e5e7eb',
                               borderRadius: '8px'
                             }}
-                            formatter={(value: any) => `${value.toLocaleString('es-MX')} ${comparison[0]?.unit || ''}`}
+                            formatter={(value: any) => `${value.toLocaleString('es-MX')} ${comparison?.data?.[0]?.unit || ''}`}
                             labelFormatter={(label) => `Cliente: ${label}`}
                           />
                           <Legend />
@@ -905,7 +913,7 @@ export default function SalesPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {comparison.map((item: any, index: number) => {
+                            {comparison.data.map((item: any, index: number) => {
                               const isDanger = item.differential < 0;
                               const isWarning = item.differential >= 0 && item.differential < (item.previous_year_total * 0.1);
                               const isSuccess = item.differential > (item.previous_year_total * 0.1);

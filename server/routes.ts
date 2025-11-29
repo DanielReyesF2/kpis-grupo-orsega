@@ -7371,7 +7371,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, year, month } = req.query;
+      const { companyId, year, month, page = '1', limit = '50' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -7384,6 +7384,11 @@ export function registerRoutes(app: express.Application) {
       const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
       const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
 
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+
+      // Query principal con paginación
       const comparison = await sql(`
         SELECT
           current_year.client_id,
@@ -7411,9 +7416,29 @@ export function registerRoutes(app: express.Application) {
           current_year.client_name,
           current_year.unit
         ORDER BY differential ASC
+        LIMIT $4 OFFSET $5
+      `, [resolvedCompanyId, targetYear, targetMonth, limitNum, offset]);
+
+      // Query para contar total de clientes (para paginación)
+      const totalCount = await sql(`
+        SELECT COUNT(DISTINCT current_year.client_id) as total
+        FROM sales_data current_year
+        WHERE current_year.company_id = $1
+          AND current_year.sale_year = $2
+          AND current_year.sale_month = $3
       `, [resolvedCompanyId, targetYear, targetMonth]);
 
-      res.json(comparison);
+      const total = parseInt(totalCount[0]?.total || '0');
+
+      res.json({
+        data: comparison,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: total,
+          pages: Math.ceil(total / limitNum)
+        }
+      });
     } catch (error) {
       console.error('[GET /api/sales-comparison] Error:', error);
       res.status(500).json({ error: 'Failed to fetch sales comparison' });
@@ -7486,7 +7511,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, months = 12 } = req.query;
+      const { companyId, months = 12, year, month } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -7497,11 +7522,33 @@ export function registerRoutes(app: express.Application) {
       }
 
       const monthsCount = parseInt(months as string) || 12;
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
 
-      // Obtener datos mensuales de los últimos N meses
+      let targetYear: number;
+      let targetMonth: number;
+
+      // Si se proveen year/month, usarlos; si no, buscar el mes más reciente con datos
+      if (year && month) {
+        targetYear = parseInt(year as string);
+        targetMonth = parseInt(month as string);
+      } else {
+        // Buscar el mes más reciente con datos para esta company
+        const mostRecent = await sql(`
+          SELECT sale_year, sale_month
+          FROM sales_data
+          WHERE company_id = $1
+          ORDER BY sale_year DESC, sale_month DESC
+          LIMIT 1
+        `, [resolvedCompanyId]);
+
+        if (mostRecent.length === 0) {
+          return res.json([]);
+        }
+
+        targetYear = mostRecent[0].sale_year;
+        targetMonth = mostRecent[0].sale_month;
+      }
+
+      // Obtener datos mensuales de los últimos N meses desde el targetYear/targetMonth
       const monthlyData = await sql(`
         SELECT
           sale_year,
@@ -7518,7 +7565,7 @@ export function registerRoutes(app: express.Application) {
         GROUP BY sale_year, sale_month, unit
         ORDER BY sale_year DESC, sale_month DESC
         LIMIT $4
-      `, [resolvedCompanyId, currentYear, currentMonth, monthsCount]);
+      `, [resolvedCompanyId, targetYear, targetMonth, monthsCount]);
 
       // Formatear datos para el gráfico
       const formattedData = monthlyData.map((row: any) => {
@@ -7544,7 +7591,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5 } = req.query;
+      const { companyId, limit = 5, year, month } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -7554,9 +7601,30 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
+      let targetYear: number;
+      let targetMonth: number;
+
+      // Si se proveen year/month, usarlos; si no, buscar el mes más reciente con datos
+      if (year && month) {
+        targetYear = parseInt(year as string);
+        targetMonth = parseInt(month as string);
+      } else {
+        // Buscar el mes más reciente con datos para esta company
+        const mostRecent = await sql(`
+          SELECT sale_year, sale_month
+          FROM sales_data
+          WHERE company_id = $1
+          ORDER BY sale_year DESC, sale_month DESC
+          LIMIT 1
+        `, [resolvedCompanyId]);
+
+        if (mostRecent.length === 0) {
+          return res.json([]);
+        }
+
+        targetYear = mostRecent[0].sale_year;
+        targetMonth = mostRecent[0].sale_month;
+      }
 
       const topClients = await sql(`
         SELECT
@@ -7572,7 +7640,7 @@ export function registerRoutes(app: express.Application) {
         GROUP BY client_id, client_name, unit
         ORDER BY total_volume DESC
         LIMIT $4
-      `, [resolvedCompanyId, currentYear, currentMonth, parseInt(limit as string) || 5]);
+      `, [resolvedCompanyId, targetYear, targetMonth, parseInt(limit as string) || 5]);
 
       const formatted = topClients.map((row: any) => ({
         name: row.client_name,
@@ -7616,7 +7684,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, clientId, year, month, limit = '100' } = req.query;
+      const { companyId, clientId, year, month, limit = '100', offset = '0' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -7626,6 +7694,30 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
+      // Query para contar total (para paginación)
+      let countQuery = `SELECT COUNT(*) as total FROM sales_data WHERE company_id = $1`;
+      const countParams: any[] = [resolvedCompanyId];
+      let countParamIndex = 2;
+
+      if (clientId) {
+        countQuery += ` AND client_id = $${countParamIndex}`;
+        countParams.push(parseInt(clientId as string));
+        countParamIndex++;
+      }
+
+      if (year) {
+        countQuery += ` AND sale_year = $${countParamIndex}`;
+        countParams.push(parseInt(year as string));
+        countParamIndex++;
+      }
+
+      if (month) {
+        countQuery += ` AND sale_month = $${countParamIndex}`;
+        countParams.push(parseInt(month as string));
+        countParamIndex++;
+      }
+
+      // Query principal con datos
       let query = `
         SELECT
           id, client_id, client_name, product_name, quantity, unit,
@@ -7655,12 +7747,29 @@ export function registerRoutes(app: express.Application) {
         paramIndex++;
       }
 
-      query += ` ORDER BY sale_date DESC LIMIT $${paramIndex}`;
-      params.push(parseInt(limit as string));
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
 
-      const salesData = await sql(query, params);
+      query += ` ORDER BY sale_date DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      params.push(limitNum, offsetNum);
 
-      res.json(salesData);
+      // Ejecutar ambas queries
+      const [salesData, totalCount] = await Promise.all([
+        sql(query, params),
+        sql(countQuery, countParams)
+      ]);
+
+      const total = parseInt(totalCount[0]?.total || '0');
+
+      res.json({
+        data: salesData,
+        pagination: {
+          limit: limitNum,
+          offset: offsetNum,
+          total: total,
+          pages: Math.ceil(total / limitNum)
+        }
+      });
     } catch (error) {
       console.error('[GET /api/sales-data] Error:', error);
       res.status(500).json({ error: 'Failed to fetch sales data' });
