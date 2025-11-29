@@ -7390,27 +7390,25 @@ export function registerRoutes(app: express.Application) {
 
       const monthsCount = parseInt(months as string) || 12;
       const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
-
-      // Obtener datos mensuales de los últimos N meses
+      const startDate = new Date(currentDate);
+      startDate.setMonth(startDate.getMonth() - monthsCount);
+      
+      // Obtener datos mensuales de los últimos N meses usando sale_date para datos históricos reales
       const monthlyData = await sql(`
         SELECT
           sale_year,
           sale_month,
-          SUM(quantity) as total_volume,
+          COALESCE(SUM(quantity), 0) as total_volume,
           COUNT(DISTINCT client_id) as active_clients,
-          unit
+          MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
-          AND (
-            (sale_year = $2 AND sale_month <= $3)
-            OR (sale_year = $2 - 1 AND sale_month > $3)
-          )
-        GROUP BY sale_year, sale_month, unit
+          AND sale_date >= $2
+          AND sale_date <= $3
+        GROUP BY sale_year, sale_month
         ORDER BY sale_year DESC, sale_month DESC
         LIMIT $4
-      `, [resolvedCompanyId, currentYear, currentMonth, monthsCount]);
+      `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
 
       // Formatear datos para el gráfico
       const formattedData = monthlyData.map((row: any) => {
@@ -7446,25 +7444,23 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
-
+      // Buscar top clientes en los últimos 3 meses para mostrar datos históricos reales
       const topClients = await sql(`
         SELECT
           client_id,
           client_name,
-          SUM(quantity) as total_volume,
+          COALESCE(SUM(quantity), 0) as total_volume,
           COUNT(*) as transactions,
-          unit
+          MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
-          AND sale_year = $2
-          AND sale_month = $3
-        GROUP BY client_id, client_name, unit
+          AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
+          AND sale_date <= CURRENT_DATE
+          AND client_id IS NOT NULL
+        GROUP BY client_id, client_name
         ORDER BY total_volume DESC
-        LIMIT $4
-      `, [resolvedCompanyId, currentYear, currentMonth, parseInt(limit as string) || 5]);
+        LIMIT $2
+      `, [resolvedCompanyId, parseInt(limit as string) || 5]);
 
       const formatted = topClients.map((row: any) => ({
         name: row.client_name,
