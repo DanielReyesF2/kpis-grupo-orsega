@@ -7231,7 +7231,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId } = req.query;
+      const { companyId, year, month } = req.query;
 
       // Multi-tenant filtering
       const resolvedCompanyId = user?.role === 'admin' && companyId
@@ -7242,9 +7242,39 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
+      let currentYear: number;
+      let currentMonth: number;
+
+      // Si se proveen year/month, usarlos; si no, buscar el mes más reciente con datos
+      if (year && month) {
+        currentYear = parseInt(year as string);
+        currentMonth = parseInt(month as string);
+      } else {
+        // Buscar el mes más reciente con datos para esta company
+        const mostRecent = await sql(`
+          SELECT sale_year, sale_month
+          FROM sales_data
+          WHERE company_id = $1
+          ORDER BY sale_year DESC, sale_month DESC
+          LIMIT 1
+        `, [resolvedCompanyId]);
+
+        if (mostRecent.length === 0) {
+          // No hay datos, retornar valores vacíos
+          return res.json({
+            activeClients: 0,
+            currentVolume: 0,
+            unit: resolvedCompanyId === 1 ? 'KG' : 'unidades',
+            growth: 0,
+            activeAlerts: 0,
+            year: null,
+            month: null
+          });
+        }
+
+        currentYear = mostRecent[0].sale_year;
+        currentMonth = mostRecent[0].sale_month;
+      }
 
       // Clientes activos este mes
       const activeClients = await sql(`
@@ -7297,11 +7327,42 @@ export function registerRoutes(app: express.Application) {
         currentVolume: currentTotal,
         unit: currentVolume[0]?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades'),
         growth: parseFloat(growth),
-        activeAlerts: parseInt(activeAlerts[0]?.count || '0')
+        activeAlerts: parseInt(activeAlerts[0]?.count || '0'),
+        year: currentYear,
+        month: currentMonth
       });
     } catch (error) {
       console.error('[GET /api/sales-stats] Error:', error);
       res.status(500).json({ error: 'Failed to fetch sales stats' });
+    }
+  });
+
+  // GET /api/sales-available-periods - Obtener periodos (mes/año) disponibles con datos
+  app.get("/api/sales-available-periods", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const periods = await sql(`
+        SELECT DISTINCT sale_year, sale_month
+        FROM sales_data
+        WHERE company_id = $1
+        ORDER BY sale_year DESC, sale_month DESC
+      `, [resolvedCompanyId]);
+
+      res.json(periods);
+    } catch (error) {
+      console.error('[GET /api/sales-available-periods] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch available periods' });
     }
   });
 

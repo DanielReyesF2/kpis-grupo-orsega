@@ -56,16 +56,32 @@ export default function SalesPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedCompany, setSelectedCompany] = useState<number>(user?.companyId || 1);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
   const canViewOrsega = user?.role === 'admin' || user?.companyId === 2;
 
+  // Query para obtener periodos disponibles
+  const { data: availablePeriods } = useQuery({
+    queryKey: ['/api/sales-available-periods', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-available-periods?companyId=${selectedCompany}`);
+      return await res.json();
+    },
+    enabled: !!user
+  });
+
   // Query para estadísticas generales
   const { data: stats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['/api/sales-stats', selectedCompany],
+    queryKey: ['/api/sales-stats', selectedCompany, selectedYear, selectedMonth],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-stats?companyId=${selectedCompany}`);
+      let url = `/api/sales-stats?companyId=${selectedCompany}`;
+      if (selectedYear && selectedMonth) {
+        url += `&year=${selectedYear}&month=${selectedMonth}`;
+      }
+      const res = await apiRequest('GET', url);
       return await res.json();
     },
     enabled: !!user,
@@ -85,9 +101,13 @@ export default function SalesPage() {
 
   // Query para comparativo
   const { data: comparison, isLoading: isLoadingComparison } = useQuery({
-    queryKey: ['/api/sales-comparison', selectedCompany],
+    queryKey: ['/api/sales-comparison', selectedCompany, selectedYear, selectedMonth],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-comparison?companyId=${selectedCompany}`);
+      let url = `/api/sales-comparison?companyId=${selectedCompany}`;
+      if (selectedYear && selectedMonth) {
+        url += `&year=${selectedYear}&month=${selectedMonth}`;
+      }
+      const res = await apiRequest('GET', url);
       return await res.json();
     },
     enabled: !!user && viewMode === 'comparison',
@@ -149,6 +169,46 @@ export default function SalesPage() {
               </TabsList>
             </Tabs>
           )}
+
+          {/* Selector de Periodo */}
+          <div className="mt-4 flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Periodo:
+            </label>
+            <select
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={selectedYear && selectedMonth ? `${selectedYear}-${selectedMonth}` : ""}
+              onChange={(e) => {
+                if (e.target.value === "") {
+                  setSelectedYear(null);
+                  setSelectedMonth(null);
+                } else {
+                  const [year, month] = e.target.value.split('-');
+                  setSelectedYear(parseInt(year));
+                  setSelectedMonth(parseInt(month));
+                }
+              }}
+            >
+              <option value="">Más reciente</option>
+              {availablePeriods?.map((period: any) => {
+                const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                return (
+                  <option key={`${period.sale_year}-${period.sale_month}`} value={`${period.sale_year}-${period.sale_month}`}>
+                    {monthNames[period.sale_month - 1]} {period.sale_year}
+                  </option>
+                );
+              })}
+            </select>
+            {stats?.year && stats?.month && (
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando datos de: <span className="font-semibold">
+                  {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][stats.month - 1]} {stats.year}
+                </span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Vista según modo seleccionado */}
