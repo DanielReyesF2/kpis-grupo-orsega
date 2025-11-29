@@ -7243,13 +7243,25 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
+      console.log(`[GET /api/sales-stats] Solicitando métricas para companyId: ${resolvedCompanyId}`);
+      
       // Calcular todas las métricas usando el módulo optimizado
       const metrics = await getSalesMetrics(resolvedCompanyId);
+      
+      console.log(`[GET /api/sales-stats] Métricas calculadas:`, {
+        activeClients: metrics.activeClients,
+        currentVolume: metrics.currentVolume,
+        unit: metrics.unit,
+        growth: metrics.growth
+      });
 
       // Retornar métricas (incluye backward compatibility + nuevas métricas)
       res.json(metrics);
     } catch (error) {
       console.error('[GET /api/sales-stats] Error:', error);
+      if (error instanceof Error) {
+        console.error('[GET /api/sales-stats] Error stack:', error.stack);
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       res.status(500).json({ 
         error: 'Failed to fetch sales stats',
