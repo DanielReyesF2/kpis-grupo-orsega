@@ -7381,8 +7381,39 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
-      const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
+      let targetYear: number;
+      let targetMonth: number;
+
+      // Si se proveen year/month, usarlos; si no, buscar el mes más reciente con datos
+      if (year && month) {
+        targetYear = parseInt(year as string);
+        targetMonth = parseInt(month as string);
+      } else {
+        // Buscar el mes más reciente con datos para esta company
+        const mostRecent = await sql(`
+          SELECT sale_year, sale_month
+          FROM sales_data
+          WHERE company_id = $1
+          ORDER BY sale_year DESC, sale_month DESC
+          LIMIT 1
+        `, [resolvedCompanyId]);
+
+        if (mostRecent.length === 0) {
+          // No hay datos, retornar respuesta vacía
+          return res.json({
+            data: [],
+            pagination: {
+              page: 1,
+              limit: parseInt(limit as string),
+              total: 0,
+              pages: 0
+            }
+          });
+        }
+
+        targetYear = mostRecent[0].sale_year;
+        targetMonth = mostRecent[0].sale_month;
+      }
 
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
