@@ -154,6 +154,17 @@ export default function TreasuryPage() {
       // Si la factura requiere verificación, abrir el modal
       if (data.requiresVerification && data.documentType === 'invoice') {
         console.log('📋 [Upload] Factura requiere verificación, abriendo modal...');
+        console.log('📋 [Upload] Datos recibidos del servidor:', JSON.stringify({
+          extractedSupplierName: data.analysis?.extractedSupplierName,
+          extractedAmount: data.analysis?.extractedAmount,
+          extractedCurrency: data.analysis?.extractedCurrency,
+          extractedDueDate: data.analysis?.extractedDueDate,
+          extractedDate: data.analysis?.extractedDate,
+          extractedInvoiceNumber: data.analysis?.extractedInvoiceNumber,
+          extractedTaxId: data.analysis?.extractedTaxId,
+          supplierName: data.supplier?.name,
+          supplierId: data.supplier?.id
+        }, null, 2));
         setInvoiceVerificationData(data);
         setShowInvoiceVerificationModal(true);
         setIsUploadingInvoice(false);

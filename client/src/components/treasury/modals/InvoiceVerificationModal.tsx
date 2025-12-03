@@ -49,6 +49,19 @@ export function InvoiceVerificationModal({
 }: InvoiceVerificationModalProps) {
   const { toast } = useToast();
   
+  // Log de datos recibidos para diagnóstico
+  console.log('🔍 [InvoiceVerificationModal] Datos recibidos:', JSON.stringify({
+    extractedSupplierName: invoiceData.analysis.extractedSupplierName,
+    extractedAmount: invoiceData.analysis.extractedAmount,
+    extractedCurrency: invoiceData.analysis.extractedCurrency,
+    extractedDueDate: invoiceData.analysis.extractedDueDate,
+    extractedDate: invoiceData.analysis.extractedDate,
+    extractedInvoiceNumber: invoiceData.analysis.extractedInvoiceNumber,
+    extractedTaxId: invoiceData.analysis.extractedTaxId,
+    supplierName: invoiceData.supplier.name,
+    supplierId: invoiceData.supplier.id
+  }, null, 2));
+  
   // Estados para los datos editables
   const [supplierName, setSupplierName] = useState(invoiceData.analysis.extractedSupplierName || '');
   const [amount, setAmount] = useState(invoiceData.analysis.extractedAmount?.toString() || '');
