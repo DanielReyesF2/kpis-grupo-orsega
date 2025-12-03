@@ -85,7 +85,9 @@ export function InvoiceVerificationModal({
   // Sincronizar estados cuando cambien los datos
   useEffect(() => {
     if (invoiceData) {
-      setSupplierName(invoiceData.analysis.extractedSupplierName || '');
+      // Usar supplier.name del backend si extractedSupplierName está vacío
+      const supplierNameToUse = invoiceData.analysis.extractedSupplierName || invoiceData.supplier.name || '';
+      setSupplierName(supplierNameToUse);
       setAmount(invoiceData.analysis.extractedAmount?.toString() || '');
       setCurrency(invoiceData.analysis.extractedCurrency || 'MXN');
       
