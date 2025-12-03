@@ -6350,12 +6350,18 @@ export function registerRoutes(app: express.Application) {
       
       console.log('📄 [Upload] Buffer leído, tamaño:', fileBuffer.length, 'bytes');
       let analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
-      console.log('✅ [Upload] Análisis completado:', {
+      console.log('✅ [Upload] Análisis completado - DATOS EXTRAÍDOS:', JSON.stringify({
         documentType: analysis?.documentType,
         ocrConfidence: analysis?.ocrConfidence,
         extractedAmount: analysis?.extractedAmount,
-        extractedSupplierName: analysis?.extractedSupplierName
-      });
+        extractedSupplierName: analysis?.extractedSupplierName,
+        extractedDueDate: analysis?.extractedDueDate ? analysis.extractedDueDate.toISOString() : null,
+        extractedDate: analysis?.extractedDate ? analysis.extractedDate.toISOString() : null,
+        extractedInvoiceNumber: analysis?.extractedInvoiceNumber,
+        extractedTaxId: analysis?.extractedTaxId,
+        extractedCurrency: analysis?.extractedCurrency,
+        extractedReference: analysis?.extractedReference
+      }, null, 2));
 
       // 🔍 DEBUG: Log completo del análisis para diagnóstico
       console.log('🔍 [Upload DEBUG] Tipo detectado:', analysis?.documentType);
@@ -6643,7 +6649,8 @@ export function registerRoutes(app: express.Application) {
           // SIEMPRE permitir verificación manual, incluso si faltan todos los campos
           console.log(`✅ [Invoice Detection] Retornando datos para verificación manual (siempre permitido)`);
           
-          return res.status(200).json({
+          // Preparar respuesta con datos extraídos
+          const responseData = {
             requiresVerification: true,
             documentType: 'invoice',
             analysis: {
@@ -6666,7 +6673,23 @@ export function registerRoutes(app: express.Application) {
             },
             payerCompanyId: payerCompanyId,
             message: message
-          });
+          };
+          
+          // Log detallado de lo que se está retornando
+          console.log('📤 [Invoice Detection] Datos que se retornan al frontend:', JSON.stringify({
+            extractedSupplierName: responseData.analysis.extractedSupplierName,
+            extractedAmount: responseData.analysis.extractedAmount,
+            extractedCurrency: responseData.analysis.extractedCurrency,
+            extractedDueDate: responseData.analysis.extractedDueDate,
+            extractedDate: responseData.analysis.extractedDate,
+            extractedInvoiceNumber: responseData.analysis.extractedInvoiceNumber,
+            extractedTaxId: responseData.analysis.extractedTaxId,
+            supplierId: responseData.supplier.id,
+            supplierName: responseData.supplier.name,
+            payerCompanyId: responseData.payerCompanyId
+          }, null, 2));
+          
+          return res.status(200).json(responseData);
           
           // ✅ IMPORTANTE: Retornar aquí para evitar que continúe al bloque de comprobantes
           return;
