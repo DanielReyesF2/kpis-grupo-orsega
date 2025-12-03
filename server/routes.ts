@@ -6349,19 +6349,19 @@ export function registerRoutes(app: express.Application) {
       const fileBuffer = fs.readFileSync(file.path);
       
       console.log('📄 [Upload] Buffer leído, tamaño:', fileBuffer.length, 'bytes');
-      const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+      let analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
       console.log('✅ [Upload] Análisis completado:', {
-        documentType: analysis.documentType,
-        ocrConfidence: analysis.ocrConfidence,
-        extractedAmount: analysis.extractedAmount,
-        extractedSupplierName: analysis.extractedSupplierName
+        documentType: analysis?.documentType,
+        ocrConfidence: analysis?.ocrConfidence,
+        extractedAmount: analysis?.extractedAmount,
+        extractedSupplierName: analysis?.extractedSupplierName
       });
 
       // 🔍 DEBUG: Log completo del análisis para diagnóstico
-      console.log('🔍 [Upload DEBUG] Tipo detectado:', analysis.documentType);
-      console.log('🔍 [Upload DEBUG] ¿Es factura?:', analysis.documentType === 'invoice');
-      console.log('🔍 [Upload DEBUG] ¿Es comprobante?:', analysis.documentType === 'voucher');
-      if (analysis.documentType !== 'invoice' && analysis.documentType !== 'voucher') {
+      console.log('🔍 [Upload DEBUG] Tipo detectado:', analysis?.documentType);
+      console.log('🔍 [Upload DEBUG] ¿Es factura?:', analysis?.documentType === 'invoice');
+      console.log('🔍 [Upload DEBUG] ¿Es comprobante?:', analysis?.documentType === 'voucher');
+      if (analysis?.documentType && analysis.documentType !== 'invoice' && analysis.documentType !== 'voucher') {
         console.warn(`⚠️ [Upload WARNING] Tipo de documento inesperado: ${analysis.documentType}`);
       }
 
@@ -6416,7 +6416,7 @@ export function registerRoutes(app: express.Application) {
       if (!analysis || !analysis.documentType) {
         console.warn('[Upload] ⚠️ Análisis falló o retornó null, usando valores por defecto');
         analysis = {
-          documentType: 'unknown',
+          documentType: 'unknown' as const,
           extractedAmount: null,
           extractedSupplierName: null,
           extractedDueDate: null,
@@ -6424,11 +6424,10 @@ export function registerRoutes(app: express.Application) {
           extractedInvoiceNumber: null,
           extractedReference: null,
           extractedTaxId: null,
-          extractedCurrency: 'MXN',
+          extractedCurrency: 'MXN' as const,
           extractedBank: null,
-          extractedReference: null,
           ocrConfidence: 0,
-          ...analysis // Preservar cualquier campo que sí exista
+          ...(analysis || {}) // Preservar cualquier campo que sí exista
         };
       }
 
