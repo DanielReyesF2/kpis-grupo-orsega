@@ -6532,8 +6532,9 @@ export function registerRoutes(app: express.Application) {
           
           // Buscar proveedor/cliente por nombre o RFC
           let supplierId = null;
-          const supplierName = analysis.extractedSupplierName || '';
-          const taxId = analysis.extractedTaxId || '';
+          // Preservar null si no se extrajo (no convertir a '')
+          const supplierName = analysis.extractedSupplierName ?? null;
+          const taxId = analysis.extractedTaxId ?? null;
           
           // Buscar cliente/proveedor existente con búsqueda mejorada
           if (!validatedData.payerCompanyId) {
@@ -6544,6 +6545,7 @@ export function registerRoutes(app: express.Application) {
           
           // Búsqueda mejorada: normalizar nombres y buscar coincidencias parciales
           const normalizeName = (name: string): string => {
+            if (!name) return '';
             return name
               .toLowerCase()
               .normalize("NFD")
@@ -6553,48 +6555,52 @@ export function registerRoutes(app: express.Application) {
               .trim();
           };
           
-          const normalizedSupplierName = normalizeName(supplierName);
-          
-          // Buscar coincidencias exactas o parciales
-          const matchingClient = allClients.find(client => {
-            const normalizedClientName = normalizeName(client.name);
+          // Solo buscar si tenemos un nombre de proveedor extraído
+          let matchingClient = null;
+          if (supplierName) {
+            const normalizedSupplierName = normalizeName(supplierName);
             
-            // Coincidencia exacta
-            if (normalizedClientName === normalizedSupplierName) {
-              return true;
-            }
-            
-            // Coincidencia parcial (una contiene a la otra)
-            if (normalizedClientName.includes(normalizedSupplierName) || 
-                normalizedSupplierName.includes(normalizedClientName)) {
-              return true;
-            }
-            
-            // Coincidencia de palabras clave (al menos 2 palabras en común)
-            const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
-            const clientWords = normalizedClientName.split(/\s+/).filter(w => w.length > 3);
-            const commonWords = supplierWords.filter(w => clientWords.includes(w));
-            
-            if (commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3)) {
-              return true;
-            }
-            
-            return false;
-          });
-          
-          // También buscar por RFC si está disponible
-          if (!matchingClient && taxId) {
-            const clientByTaxId = allClients.find(client => {
-              // Aquí podrías buscar en una columna de RFC si existe
-              // Por ahora, solo buscamos por nombre
+            // Buscar coincidencias exactas o parciales
+            matchingClient = allClients.find(client => {
+              const normalizedClientName = normalizeName(client.name);
+              
+              // Coincidencia exacta
+              if (normalizedClientName === normalizedSupplierName) {
+                return true;
+              }
+              
+              // Coincidencia parcial (una contiene a la otra)
+              if (normalizedClientName.includes(normalizedSupplierName) || 
+                  normalizedSupplierName.includes(normalizedClientName)) {
+                return true;
+              }
+              
+              // Coincidencia de palabras clave (al menos 2 palabras en común)
+              const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
+              const clientWords = normalizedClientName.split(/\s+/).filter(w => w.length > 3);
+              const commonWords = supplierWords.filter(w => clientWords.includes(w));
+              
+              if (commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3)) {
+                return true;
+              }
+              
               return false;
             });
-            if (clientByTaxId) {
-              supplierId = clientByTaxId.id;
-              console.log(`🔗 [Invoice Detection] Proveedor encontrado por RFC: ${clientByTaxId.name} (ID: ${supplierId})`);
+            
+            // También buscar por RFC si está disponible
+            if (!matchingClient && taxId) {
+              const clientByTaxId = allClients.find(client => {
+                // Aquí podrías buscar en una columna de RFC si existe
+                // Por ahora, solo buscamos por nombre
+                return false;
+              });
+              if (clientByTaxId) {
+                supplierId = clientByTaxId.id;
+                matchingClient = clientByTaxId;
+                console.log(`🔗 [Invoice Detection] Proveedor encontrado por RFC: ${clientByTaxId.name} (ID: ${supplierId})`);
+              }
             }
-          }
-          
+            
             if (matchingClient) {
               supplierId = matchingClient.id;
               console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
@@ -6674,7 +6680,7 @@ export function registerRoutes(app: express.Application) {
             supplier: {
               id: supplierId,
               // Usar supplierName del análisis si existe, sino usar el nombre del cliente encontrado, sino null
-              name: supplierName || (matchingClient ? matchingClient.name : null) || null,
+              name: supplierName ?? (matchingClient ? matchingClient.name : null) ?? null,
             },
             payerCompanyId: payerCompanyId,
             message: message

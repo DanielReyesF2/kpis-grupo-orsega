@@ -125,8 +125,8 @@ export function InvoiceVerificationModal({
       currency: string;
       dueDate: Date;
       paymentDate: Date;
-      reference: string;
-      notes: string;
+      reference: string | null;
+      notes: string | null;
       invoiceFilePath: string;
       invoiceFileName: string;
       extractedInvoiceNumber: string | null;
