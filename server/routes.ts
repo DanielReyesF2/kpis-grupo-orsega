@@ -6465,11 +6465,12 @@ export function registerRoutes(app: express.Application) {
       }
       // PRIORIDAD 3: Fallback a detección de OpenAI solo si no hay intención clara del usuario
       else {
-        shouldCreateInvoice = (
+        const detectedAsInvoice = (
           analysis.documentType === 'invoice' ||
           (analysis.documentType === 'unknown' && hasInvoiceCharacteristics)
         );
-        decisionReason = shouldCreateInvoice ? 'DETECCION_OPENAI' : 'FALLO_DETECCION';
+        shouldCreateInvoice = detectedAsInvoice;
+        decisionReason = detectedAsInvoice ? 'DETECCION_OPENAI' : 'FALLO_DETECCION';
       }
 
       // Logging estructurado con razón de decisión
