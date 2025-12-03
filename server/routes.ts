@@ -6415,19 +6415,26 @@ export function registerRoutes(app: express.Application) {
       // Manejo de errores: Si el análisis falla completamente, crear objeto por defecto
       if (!analysis || !analysis.documentType) {
         console.warn('[Upload] ⚠️ Análisis falló o retornó null, usando valores por defecto');
+        const existingAnalysis = analysis || {};
         analysis = {
-          documentType: 'unknown' as const,
-          extractedAmount: null,
-          extractedSupplierName: null,
-          extractedDueDate: null,
-          extractedDate: null,
-          extractedInvoiceNumber: null,
-          extractedReference: null,
-          extractedTaxId: null,
-          extractedCurrency: 'MXN' as const,
-          extractedBank: null,
-          ocrConfidence: 0,
-          ...(analysis || {}) // Preservar cualquier campo que sí exista
+          documentType: (existingAnalysis.documentType || 'unknown') as "invoice" | "voucher" | "rep" | "unknown",
+          extractedAmount: existingAnalysis.extractedAmount ?? null,
+          extractedSupplierName: existingAnalysis.extractedSupplierName ?? null,
+          extractedDueDate: existingAnalysis.extractedDueDate ?? null,
+          extractedDate: existingAnalysis.extractedDate ?? null,
+          extractedInvoiceNumber: existingAnalysis.extractedInvoiceNumber ?? null,
+          extractedReference: existingAnalysis.extractedReference ?? null,
+          extractedTaxId: existingAnalysis.extractedTaxId ?? null,
+          extractedCurrency: (existingAnalysis.extractedCurrency || 'MXN') as string,
+          extractedBank: existingAnalysis.extractedBank ?? null,
+          extractedOriginAccount: existingAnalysis.extractedOriginAccount ?? null,
+          extractedDestinationAccount: existingAnalysis.extractedDestinationAccount ?? null,
+          extractedTrackingKey: existingAnalysis.extractedTrackingKey ?? null,
+          extractedBeneficiaryName: existingAnalysis.extractedBeneficiaryName ?? null,
+          ocrConfidence: existingAnalysis.ocrConfidence ?? 0,
+          rawResponse: existingAnalysis.rawResponse,
+          relatedInvoiceUUID: existingAnalysis.relatedInvoiceUUID ?? null,
+          paymentMethod: existingAnalysis.paymentMethod ?? null
         };
       }
 
