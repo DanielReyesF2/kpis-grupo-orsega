@@ -6621,6 +6621,9 @@ export function registerRoutes(app: express.Application) {
             message: message
           });
           
+          // ✅ IMPORTANTE: Retornar aquí para evitar que continúe al bloque de comprobantes
+          return;
+          
         } catch (invoiceError) {
           console.error(`❌ [Invoice Detection] Error procesando factura:`, invoiceError);
           return res.status(500).json({ 
@@ -6632,6 +6635,7 @@ export function registerRoutes(app: express.Application) {
 
       // ✅ NOTA: Ya no rechazamos comprobantes sin scheduledPaymentId
       // La lógica inteligente arriba decide si crear tarjeta o comprobante
+      // Si llegamos aquí, es porque NO es una factura, es un comprobante
 
       // Para comprobantes, obtener el cliente desde scheduledPayment o clientId
       let client = null;
