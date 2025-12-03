@@ -6407,32 +6407,73 @@ export function registerRoutes(app: express.Application) {
 
       console.log(`📤 [Upload] Procesando documento: ${file.originalname} (tipo: ${analysis.documentType})`);
 
-      // 🧾 LÓGICA INTELIGENTE: Determinar si debe crear tarjeta de pago
-      // - Si OpenAI detectó 'invoice' → crear tarjeta
-      // - Si el documento tiene características de factura (proveedor o monto) pero tipo es 'unknown' → tratar como factura
-      // - Si NO hay scheduledPaymentId y tenemos payerCompanyId y hay monto → asumir que es factura nueva
-      // - Si hay scheduledPaymentId → es un comprobante para tarjeta existente
+      // 🧾 LÓGICA INTELIGENTE REFACTORIZADA: Priorizar intención del usuario sobre detección automática
+      // PRINCIPIO: Si el usuario seleccionó empresa (payerCompanyId) y NO hay tarjeta existente (scheduledPaymentId),
+      // entonces es factura nueva, independientemente de qué detecte OpenAI.
+      // OpenAI solo sirve para PRELLENAR datos, no para determinar intención.
+      
+      // Manejo de errores: Si el análisis falla completamente, crear objeto por defecto
+      if (!analysis || !analysis.documentType) {
+        console.warn('[Upload] ⚠️ Análisis falló o retornó null, usando valores por defecto');
+        analysis = {
+          documentType: 'unknown',
+          extractedAmount: null,
+          extractedSupplierName: null,
+          extractedDueDate: null,
+          extractedDate: null,
+          extractedInvoiceNumber: null,
+          extractedReference: null,
+          extractedTaxId: null,
+          extractedCurrency: 'MXN',
+          extractedBank: null,
+          extractedReference: null,
+          ocrConfidence: 0,
+          ...analysis // Preservar cualquier campo que sí exista
+        };
+      }
+
       const hasInvoiceCharacteristics = (
         analysis.extractedSupplierName || 
         (analysis.extractedAmount && analysis.documentType !== 'voucher' && analysis.documentType !== 'rep')
       );
       
-      const shouldCreateInvoice = (
-        analysis.documentType === 'invoice' ||
-        (analysis.documentType === 'unknown' && hasInvoiceCharacteristics && validatedData.payerCompanyId) ||
-        (!validatedData.scheduledPaymentId && validatedData.payerCompanyId && analysis.extractedAmount)
-      );
+      // ✅ NUEVA LÓGICA: Priorizar intención del usuario
+      let shouldCreateInvoice: boolean;
+      let decisionReason: string;
+      
+      // PRIORIDAD 1: Si hay scheduledPaymentId → es comprobante para tarjeta existente (intención clara)
+      if (validatedData.scheduledPaymentId) {
+        shouldCreateInvoice = false;
+        decisionReason = 'COMPROBANTE_EXISTENTE';
+      }
+      // PRIORIDAD 2: Si hay payerCompanyId y NO scheduledPaymentId → es factura nueva (intención del usuario)
+      else if (validatedData.payerCompanyId) {
+        shouldCreateInvoice = true;
+        decisionReason = 'FACTURA_NUEVA_INTENCION_USUARIO';
+      }
+      // PRIORIDAD 3: Fallback a detección de OpenAI solo si no hay intención clara del usuario
+      else {
+        shouldCreateInvoice = (
+          analysis.documentType === 'invoice' ||
+          (analysis.documentType === 'unknown' && hasInvoiceCharacteristics)
+        );
+        decisionReason = shouldCreateInvoice ? 'DETECCION_OPENAI' : 'FALLO_DETECCION';
+      }
 
-      console.log('🤖 [Upload] Decisión automática:', {
-        documentType: analysis.documentType,
+      // Logging estructurado con razón de decisión
+      console.log('🤖 [Upload] Decisión automática:', JSON.stringify({
+        documentType: analysis.documentType || 'NULL',
         hasScheduledPaymentId: !!validatedData.scheduledPaymentId,
+        scheduledPaymentId: validatedData.scheduledPaymentId || null,
         hasPayerCompanyId: !!validatedData.payerCompanyId,
+        payerCompanyId: validatedData.payerCompanyId || null,
         hasInvoiceCharacteristics: hasInvoiceCharacteristics,
         extractedSupplierName: analysis.extractedSupplierName ? analysis.extractedSupplierName.substring(0, 50) : "NO ENCONTRADO",
         extractedAmount: analysis.extractedAmount || "NO ENCONTRADO",
         extractedDueDate: analysis.extractedDueDate ? "SÍ" : "NO",
-        shouldCreateInvoice
-      });
+        shouldCreateInvoice: shouldCreateInvoice,
+        decisionReason: decisionReason
+      }, null, 2));
 
       // 🧾 Si debe crear FACTURA/TARJETA DE PAGO, guardar archivo y devolver datos para verificación
       if (shouldCreateInvoice) {
@@ -8143,6 +8184,44 @@ export function registerRoutes(app: express.Application) {
         routes: doublePrefixed.map((layer: any) => layer.route.path)
       });
     }
+  }
+  
+  // Endpoint de diagnóstico para archivos estáticos (solo en desarrollo/staging)
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DEBUG === 'true') {
+    app.get('/api/debug/static-files', jwtAuthMiddleware, async (req, res) => {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        const publicDir = path.join(process.cwd(), 'public');
+        const distPublicDir = path.join(process.cwd(), 'dist', 'public');
+        const serverPublicDir = path.resolve(import.meta.dirname, 'public');
+        
+        const result: any = {
+          cwd: process.cwd(),
+          publicExists: fs.existsSync(publicDir),
+          distPublicExists: fs.existsSync(distPublicDir),
+          serverPublicExists: fs.existsSync(serverPublicDir),
+          filesInPublic: [],
+          filesInDistPublic: [],
+          filesInServerPublic: [],
+        };
+        
+        if (result.publicExists) {
+          result.filesInPublic = fs.readdirSync(publicDir);
+        }
+        if (result.distPublicExists) {
+          result.filesInDistPublic = fs.readdirSync(distPublicDir);
+        }
+        if (result.serverPublicExists) {
+          result.filesInServerPublic = fs.readdirSync(serverPublicDir);
+        }
+        
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: 'Error checking static files', details: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    });
   }
   
   return app;

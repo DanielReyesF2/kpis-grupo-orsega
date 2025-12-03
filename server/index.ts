@@ -327,8 +327,11 @@ app.use('/api/login', loginMonitorMiddleware);
 app.use('/api/upload', uploadMonitorMiddleware);
 app.use('/api', apiAccessMonitorMiddleware);
 
-// Servir específicamente los archivos estáticos de public
-app.use(express.static(path.join(process.cwd(), 'public')));
+// ❌ ELIMINADO: Configuración duplicada de archivos estáticos
+// Esta línea buscaba en process.cwd()/public que no existe después del build
+// Los archivos estáticos se sirven correctamente en server/vite.ts mediante serveStatic()
+// que busca en dist/public o server/public (rutas correctas del build)
+// app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Security helper: Redact sensitive data from logs
 function redactSensitiveData(obj: any): any {
