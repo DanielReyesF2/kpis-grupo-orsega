@@ -6595,13 +6595,14 @@ export function registerRoutes(app: express.Application) {
             }
           }
           
-          if (matchingClient) {
-            supplierId = matchingClient.id;
-            console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
-          } else if (supplierName) {
-            console.log(`⚠️ [Invoice Detection] Proveedor no encontrado en base de datos, se creará con nombre: ${supplierName}`);
+            if (matchingClient) {
+              supplierId = matchingClient.id;
+              console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
+            } else {
+              console.log(`⚠️ [Invoice Detection] Proveedor "${supplierName}" no encontrado en base de datos, se creará con nombre: ${supplierName}`);
+            }
           } else {
-            console.log(`⚠️ [Invoice Detection] Proveedor no especificado en factura, requerirá entrada manual`);
+            console.log(`⚠️ [Invoice Detection] Proveedor no especificado en factura (extractedSupplierName es null), requerirá entrada manual`);
           }
 
           // Guardar el archivo de factura temporalmente para verificación
@@ -6651,18 +6652,20 @@ export function registerRoutes(app: express.Application) {
           console.log(`✅ [Invoice Detection] Retornando datos para verificación manual (siempre permitido)`);
           
           // Preparar respuesta con datos extraídos
+          // IMPORTANTE: Preservar null (no convertir a '') para que el frontend pueda usar fallbacks
           const responseData = {
             requiresVerification: true,
             documentType: 'invoice',
             analysis: {
-              extractedSupplierName: analysis.extractedSupplierName || '', // Permitir vacío para entrada manual
-              extractedAmount: analysis.extractedAmount || null, // Permitir null si no se encontró
-              extractedCurrency: analysis.extractedCurrency || 'MXN',
+              // Preservar null en lugar de convertir a '' - permite que frontend use supplier.name como fallback
+              extractedSupplierName: analysis.extractedSupplierName ?? null, // null si no se encontró (no '')
+              extractedAmount: analysis.extractedAmount ?? null, // null si no se encontró
+              extractedCurrency: analysis.extractedCurrency ?? 'MXN', // Default solo si es null/undefined
               extractedDueDate: analysis.extractedDueDate ? analysis.extractedDueDate.toISOString() : null,
               extractedDate: analysis.extractedDate ? analysis.extractedDate.toISOString() : null, // Incluir fecha de factura
-              extractedInvoiceNumber: analysis.extractedInvoiceNumber || null,
-              extractedReference: analysis.extractedReference || null,
-              extractedTaxId: analysis.extractedTaxId || null,
+              extractedInvoiceNumber: analysis.extractedInvoiceNumber ?? null,
+              extractedReference: analysis.extractedReference ?? null,
+              extractedTaxId: analysis.extractedTaxId ?? null,
             },
             invoiceFile: {
               path: invoiceFilePath,
@@ -6670,7 +6673,8 @@ export function registerRoutes(app: express.Application) {
             },
             supplier: {
               id: supplierId,
-              name: supplierName || '', // Permitir vacío si no se encontró
+              // Usar supplierName del análisis si existe, sino usar el nombre del cliente encontrado, sino null
+              name: supplierName || (matchingClient ? matchingClient.name : null) || null,
             },
             payerCompanyId: payerCompanyId,
             message: message

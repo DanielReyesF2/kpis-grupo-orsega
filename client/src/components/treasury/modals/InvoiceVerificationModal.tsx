@@ -85,8 +85,9 @@ export function InvoiceVerificationModal({
   // Sincronizar estados cuando cambien los datos
   useEffect(() => {
     if (invoiceData) {
-      // Usar supplier.name del backend si extractedSupplierName está vacío
-      const supplierNameToUse = invoiceData.analysis.extractedSupplierName || invoiceData.supplier.name || '';
+      // Usar supplier.name del backend si extractedSupplierName es null o vacío
+      // IMPORTANTE: Usar nullish coalescing (??) para distinguir null de ''
+      const supplierNameToUse = invoiceData.analysis.extractedSupplierName ?? invoiceData.supplier.name ?? '';
       setSupplierName(supplierNameToUse);
       setAmount(invoiceData.analysis.extractedAmount?.toString() || '');
       setCurrency(invoiceData.analysis.extractedCurrency || 'MXN');
