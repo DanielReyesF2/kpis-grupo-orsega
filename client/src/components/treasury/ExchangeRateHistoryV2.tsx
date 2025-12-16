@@ -5,6 +5,7 @@ import { FileText, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-reac
 import { format, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
+import { getRateDisplayConfig } from '@/lib/utils/exchange-rates';
 
 interface RangeDataPoint {
   date: string;
@@ -199,39 +200,46 @@ export function ExchangeRateHistoryV2() {
                             </div>
                             
                             <div className="space-y-1">
-                              {/* Compra */}
-                              {source.buy && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Compra</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="font-semibold text-xs">${source.buy.toFixed(4)}</span>
-                                    {buyTrend && (
-                                      <>
-                                        {buyTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
-                                        {buyTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
-                                        {buyTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
-                                      </>
-                                    )}
+                              {/* Valor único o Compra */}
+                              {source.buy && (() => {
+                                const displayConfig = getRateDisplayConfig(sourceKey);
+                                return (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">{displayConfig.buyLabel}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="font-semibold text-xs">${source.buy.toFixed(4)}</span>
+                                      {buyTrend && (
+                                        <>
+                                          {buyTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
+                                          {buyTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
+                                          {buyTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                               
-                              {/* Venta */}
-                              {source.sell && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Venta</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="font-semibold text-xs">${source.sell.toFixed(4)}</span>
-                                    {sellTrend && (
-                                      <>
-                                        {sellTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
-                                        {sellTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
-                                        {sellTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
-                                      </>
-                                    )}
+                              {/* Venta - solo para fuentes con dos valores */}
+                              {source.sell && (() => {
+                                const displayConfig = getRateDisplayConfig(sourceKey);
+                                if (displayConfig.isSingle) return null;
+                                return (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">{displayConfig.sellLabel}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="font-semibold text-xs">${source.sell.toFixed(4)}</span>
+                                      {sellTrend && (
+                                        <>
+                                          {sellTrend === 'up' && <TrendingUp className="h-2.5 w-2.5 text-green-600" />}
+                                          {sellTrend === 'down' && <TrendingDown className="h-2.5 w-2.5 text-red-600" />}
+                                          {sellTrend === 'stable' && <Minus className="h-2.5 w-2.5 text-gray-500" />}
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           </div>
                         );

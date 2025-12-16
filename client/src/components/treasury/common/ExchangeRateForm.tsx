@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DollarSign, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { isSingleValueSource, getRateDisplayConfig } from "@/lib/utils/exchange-rates";
 
 interface ExchangeRateFormProps {
   isOpen: boolean;
@@ -118,10 +119,12 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
       return;
     }
 
+    const isSingle = isSingleValueSource(finalSource);
     const buy = parseFloat(buyRate.replace(/[^0-9.]/g, ""));
-    const sell = parseFloat(sellRate.replace(/[^0-9.]/g, ""));
+    // Para fuentes de un solo valor (DOF), usar el mismo valor para sellRate
+    const sell = isSingle ? buy : parseFloat(sellRate.replace(/[^0-9.]/g, ""));
 
-    if (isNaN(buy) || isNaN(sell)) {
+    if (isNaN(buy) || (!isSingle && isNaN(sell))) {
       toast({
         title: "Error",
         description: "Los montos deben ser números válidos",
@@ -130,7 +133,7 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
       return;
     }
 
-    if (buy <= 0 || sell <= 0) {
+    if (buy <= 0 || (!isSingle && sell <= 0)) {
       toast({
         title: "Error",
         description: "Los montos deben ser mayores a cero",
@@ -139,7 +142,8 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
       return;
     }
 
-    if (sell <= buy) {
+    // Solo validar que sell > buy para fuentes con dos valores
+    if (!isSingle && sell <= buy) {
       toast({
         title: "Error",
         description: "La tasa de venta debe ser mayor que la de compra",
@@ -161,6 +165,15 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
   }
 
   const displaySource = source || selectedSource;
+  const isSingle = isSingleValueSource(displaySource);
+  const displayConfig = getRateDisplayConfig(displaySource);
+
+  // Auto-completar sellRate cuando es DOF y cambia buyRate
+  useEffect(() => {
+    if (isSingle && buyRate) {
+      setSellRate(buyRate);
+    }
+  }, [buyRate, isSingle]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -172,11 +185,11 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Compra */}
+          <div className={isSingle ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
+            {/* Campo principal (Compra o Tipo de Cambio) */}
             <div className="space-y-2">
               <Label htmlFor="buyRate" className="text-base font-semibold text-foreground">
-                Compra
+                {displayConfig.buyLabel}
               </Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -195,27 +208,29 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
               </div>
             </div>
 
-            {/* Venta */}
-            <div className="space-y-2">
-              <Label htmlFor="sellRate" className="text-base font-semibold text-foreground">
-                Venta
-              </Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="sellRate"
-                  type="text"
-                  value={sellRate}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, "");
-                    setSellRate(value);
-                  }}
-                  placeholder="19.5000"
-                  className="h-12 text-lg pl-10 font-medium"
-                  required
-                />
+            {/* Campo de Venta (solo para fuentes con dos valores) */}
+            {!isSingle && (
+              <div className="space-y-2">
+                <Label htmlFor="sellRate" className="text-base font-semibold text-foreground">
+                  {displayConfig.sellLabel}
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="sellRate"
+                    type="text"
+                    value={sellRate}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, "");
+                      setSellRate(value);
+                    }}
+                    placeholder="19.5000"
+                    className="h-12 text-lg pl-10 font-medium"
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

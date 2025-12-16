@@ -43,7 +43,7 @@ export async function fetchDOFExchangeRate() {
       
       const currentRate = 18.35 + (Math.random() * 0.2 - 0.1);
       const buyRate = Number(currentRate.toFixed(4));
-      const sellRate = Number((currentRate + 0.04).toFixed(4));
+      const sellRate = Number(currentRate.toFixed(4)); // DOF solo tiene un valor único
       
       await db.insert(exchangeRates).values({
         buyRate,
@@ -125,7 +125,7 @@ export async function fetchDOFExchangeRate() {
     
     const fallbackRate = 18.35 + (Math.random() * 0.2 - 0.1);
     const buyRate = Number(fallbackRate.toFixed(4));
-    const sellRate = Number((fallbackRate + 0.04).toFixed(4));
+    const sellRate = Number(fallbackRate.toFixed(4)); // DOF solo tiene un valor único
     
     await db.insert(exchangeRates).values({
       buyRate,

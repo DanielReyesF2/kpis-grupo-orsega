@@ -5604,7 +5604,18 @@ export function registerRoutes(app: express.Application) {
   app.post("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) => {
     try {
       const user = getAuthUser(req as AuthRequest);
-      const { buyRate, sellRate, source, notes } = req.body;
+      let { buyRate, sellRate, source, notes } = req.body;
+
+      // Validar que para DOF, buyRate === sellRate
+      if (source?.toUpperCase() === 'DOF') {
+        if (Math.abs(buyRate - sellRate) > 0.0001) {
+          return res.status(400).json({ 
+            error: 'Para DOF, el tipo de cambio de compra y venta deben ser iguales' 
+          });
+        }
+        // Normalizar: usar el mismo valor para ambos
+        sellRate = buyRate;
+      }
 
       // Usar NOW() con timezone explícito para asegurar que la fecha tenga la hora exacta
       const result = await sql(`

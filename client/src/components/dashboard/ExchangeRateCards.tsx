@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { normalizeExchangeRate, getRateDisplayConfig } from '@/lib/utils/exchange-rates';
 
 // Función auxiliar para formatear fecha en hora de México (CDMX)
 function formatDateInMexicoTime(date: Date | string): string {
@@ -330,7 +331,8 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     interpretation,
     source,
     type,
-    isAnimated 
+    isAnimated,
+    label
   }: { 
     value: number; 
     change: number; 
@@ -339,6 +341,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     source: string;
     type: 'buy' | 'sell';
     isAnimated: boolean;
+    label: string;
   }) => {
     const config = getSourceConfig(source);
     const trendColor = trend === 'up' ? 'text-green-600 dark:text-green-400' : 
@@ -351,7 +354,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       <div className="bg-white dark:bg-gray-800/30 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700 shadow-sm space-y-2">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">
-            {type === 'buy' ? 'Compra' : 'Venta'}
+            {label}
           </span>
           <div className={`flex items-center gap-1 ${trendColor}`}>
             <TrendIcon className="h-4 w-4" />
@@ -386,10 +389,41 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     isLoading: boolean;
   }) => {
     const config = getSourceConfig(source);
+    const displayConfig = getRateDisplayConfig(source);
     const Icon = config.icon;
+    
+    // DEBUG: Verificar qué está pasando
+    if (source === 'DOF' && data.rate) {
+      console.log('[RateCard DOF DEBUG]', {
+        sourceProp: source,
+        rateSource: data.rate.source,
+        displayConfigIsSingle: displayConfig.isSingle,
+        displayConfigBuyLabel: displayConfig.buyLabel,
+        displayConfigShowSpread: displayConfig.showSpread,
+        rateBuy: data.rate.buy_rate,
+        rateSell: data.rate.sell_rate,
+      });
+    }
     
     const buyAnimated = valueAnimations[`${source}-buy`] || false;
     const sellAnimated = valueAnimations[`${source}-sell`] || false;
+    
+    // Normalizar el rate para obtener información de presentación
+    // IMPORTANTE: Usar el source del prop, no del rate, para asegurar consistencia
+    const normalizedRate = data.rate ? normalizeExchangeRate({
+      ...data.rate,
+      source: source // Forzar el source del prop en lugar del que viene de la BD
+    }) : null;
+    
+    // DEBUG: Verificar normalización
+    if (source === 'DOF' && normalizedRate) {
+      console.log('[RateCard DOF DEBUG Normalized]', {
+        isSingleValue: normalizedRate.isSingleValue,
+        displayValue: normalizedRate.displayValue,
+        spread: normalizedRate.spread,
+        displayLabel: normalizedRate.displayLabel,
+      });
+    }
     
     return (
       <Card className={`border ${config.border} shadow-md hover:shadow-lg transition-shadow bg-white dark:bg-gray-800/50 overflow-hidden`}>
@@ -425,39 +459,69 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
             {cardLoading ? (
               <div className="space-y-4">
               <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+              {!displayConfig.isSingle && <Skeleton className="h-20 w-full" />}
             </div>
-          ) : data.rate ? (
+          ) : data.rate && normalizedRate ? (
             <>
-              {/* Valores de Compra y Venta */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Valores - mostrar 1 o 2 según la fuente */}
+              {(() => {
+                // DEBUG: Verificar qué se va a renderizar
+                if (source === 'DOF') {
+                  console.log('[RateCard DOF RENDER]', {
+                    displayConfigIsSingle: displayConfig.isSingle,
+                    willRenderSecondValue: !displayConfig.isSingle,
+                    gridClass: displayConfig.isSingle ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3",
+                    buyLabel: displayConfig.buyLabel,
+                    sellLabel: displayConfig.sellLabel,
+                  });
+                }
+                return null;
+              })()}
+              <div className={displayConfig.isSingle ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
                 <RateValue
-                  value={data.rate.buy_rate}
+                  value={normalizedRate.displayValue}
                   change={data.buyChange}
                   trend={data.buyTrend}
                   interpretation={data.buyInterpretation}
                   source={source}
                   type="buy"
                   isAnimated={buyAnimated}
+                  label={displayConfig.buyLabel}
                 />
-                <RateValue
-                  value={data.rate.sell_rate}
-                  change={data.sellChange}
-                  trend={data.sellTrend}
-                  interpretation={data.sellInterpretation}
-                  source={source}
-                  type="sell"
-                  isAnimated={sellAnimated}
-                />
+                {(() => {
+                  // DEBUG: Verificar condición de renderizado
+                  const shouldRenderSell = !displayConfig.isSingle;
+                  if (source === 'DOF') {
+                    console.log('[RateCard DOF RENDER CHECK]', {
+                      displayConfigIsSingle: displayConfig.isSingle,
+                      shouldRenderSell,
+                      willRender: shouldRenderSell,
+                    });
+                  }
+                  return shouldRenderSell ? (
+                    <RateValue
+                      value={data.rate.sell_rate}
+                      change={data.sellChange}
+                      trend={data.sellTrend}
+                      interpretation={data.sellInterpretation}
+                      source={source}
+                      type="sell"
+                      isAnimated={sellAnimated}
+                      label={displayConfig.sellLabel || 'Venta'}
+                    />
+                  ) : null;
+                })()}
               </div>
                 
-              {/* Spread */}
-              <div className="flex items-center justify-between pt-3 border-t border-border rounded-md px-3 py-2 bg-muted/30">
-                <span className="text-sm font-medium text-muted-foreground">Spread</span>
-                <span className="text-base font-bold text-foreground">
-                  ${(data.rate.sell_rate - data.rate.buy_rate).toFixed(4)}
-                </span>
-              </div>
+              {/* Spread - solo para fuentes con dos valores */}
+              {displayConfig.showSpread && normalizedRate.spread !== undefined && (
+                <div className="flex items-center justify-between pt-3 border-t border-border rounded-md px-3 py-2 bg-muted/30">
+                  <span className="text-sm font-medium text-muted-foreground">Spread</span>
+                  <span className="text-base font-bold text-foreground">
+                    ${normalizedRate.spread.toFixed(4)}
+                  </span>
+                </div>
+              )}
               
               {/* Botones de acción */}
               <div className="space-y-2 pt-1">
@@ -500,12 +564,19 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
                       selectedSource === 'MONEX' ? monexData :
                       selectedSource === 'DOF' ? dofData : null;
 
-  const sparklineData = selectedData?.history24h.map(r => ({
-    time: format(new Date(r.date), 'HH:mm'),
-    buy: r.buy_rate,
-    sell: r.sell_rate,
-    date: new Date(r.date),
-  })) || [];
+  const selectedDisplayConfig = selectedSource ? getRateDisplayConfig(selectedSource) : null;
+  const selectedNormalized = selectedData?.rate ? normalizeExchangeRate(selectedData.rate) : null;
+
+  const sparklineData = selectedData?.history24h.map(r => {
+    const normalized = normalizeExchangeRate(r);
+    return {
+      time: format(new Date(r.date), 'HH:mm'),
+      buy: r.buy_rate,
+      sell: r.sell_rate,
+      value: normalized.displayValue,
+      date: new Date(r.date),
+    };
+  }) || [];
 
   return (
     <div className="space-y-6">
@@ -524,21 +595,27 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
             </DialogTitle>
           </DialogHeader>
           
-          {selectedData && sparklineData.length > 0 ? (
+          {selectedData && sparklineData.length > 0 && selectedNormalized && selectedDisplayConfig ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className={selectedDisplayConfig.isSingle ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
                 <div>
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">Compra</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    {selectedDisplayConfig.buyLabel}
+                  </p>
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    ${selectedData.rate?.buy_rate.toFixed(4) || '0.0000'}
+                    ${selectedNormalized.displayValue.toFixed(4)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">Venta</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    ${selectedData.rate?.sell_rate.toFixed(4) || '0.0000'}
-                  </p>
-                </div>
+                {!selectedDisplayConfig.isSingle && (
+                  <div>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
+                      {selectedDisplayConfig.sellLabel}
+                    </p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      ${selectedData.rate?.sell_rate.toFixed(4) || '0.0000'}
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="h-64">
@@ -558,22 +635,35 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
                       formatter={(value: number) => `$${value.toFixed(4)}`}
                       labelFormatter={(label) => `Hora: ${label}`}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="buy" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      name="Compra"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="sell" 
-                      stroke="#ef4444" 
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      name="Venta"
-                    />
+                    {selectedDisplayConfig.isSingle ? (
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#3b82f6" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        name={selectedDisplayConfig.buyLabel}
+                      />
+                    ) : (
+                      <>
+                        <Line 
+                          type="monotone" 
+                          dataKey="buy" 
+                          stroke="#3b82f6" 
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          name="Compra"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="sell" 
+                          stroke="#ef4444" 
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          name="Venta"
+                        />
+                      </>
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>

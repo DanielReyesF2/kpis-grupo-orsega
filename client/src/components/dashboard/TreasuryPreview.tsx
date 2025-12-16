@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, FileText, TrendingUp, ArrowRight, CheckCircle, Clock, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Skeleton } from '@/components/ui/skeleton';
+import { normalizeExchangeRate, getRateDisplayConfig } from '@/lib/utils/exchange-rates';
 
 interface PaymentVoucher {
   id: number;
@@ -178,29 +179,35 @@ export function TreasuryPreview() {
             </div>
 
             {/* Tipo de Cambio */}
-            {latestRate && (
-              <div className="rounded-xl border border-border/60 bg-card/70 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">Tipo de Cambio</span>
+            {latestRate && (() => {
+              const normalized = normalizeExchangeRate(latestRate);
+              const displayConfig = getRateDisplayConfig(latestRate.source);
+              return (
+                <div className="rounded-xl border border-border/60 bg-card/70 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-foreground">Tipo de Cambio</span>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {latestRate.source || 'DOF'}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {latestRate.source || 'DOF'}
-                  </Badge>
+                  <div className={displayConfig.isSingle ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-1">{displayConfig.buyLabel}</p>
+                      <p className="text-lg font-bold text-foreground">${normalized.displayValue.toFixed(2)}</p>
+                    </div>
+                    {!displayConfig.isSingle && (
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">{displayConfig.sellLabel}</p>
+                        <p className="text-lg font-bold text-foreground">${latestRate.sell_rate.toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Compra</p>
-                    <p className="text-lg font-bold text-foreground">${latestRate.buy_rate.toFixed(2)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Venta</p>
-                    <p className="text-lg font-bold text-foreground">${latestRate.sell_rate.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Comprobantes Recientes */}
             {recentVouchers.length > 0 ? (

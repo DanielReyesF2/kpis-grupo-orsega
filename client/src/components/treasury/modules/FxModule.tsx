@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { normalizeExchangeRate, getRateDisplayConfig } from "@/lib/utils/exchange-rates";
 
 interface ExchangeRate {
   id: number;
@@ -83,6 +84,9 @@ export function FxModule({
   const latest = filtered[0];
   const previous = filtered[1];
 
+  const normalizedLatest = latest ? normalizeExchangeRate(latest) : null;
+  const displayConfig = getRateDisplayConfig(source);
+
   const trend = useMemo(() => {
     if (!latest || !previous) return "stable" as const;
     if (latest.buy_rate > previous.buy_rate) return "up" as const;
@@ -94,10 +98,14 @@ export function FxModule({
     return filtered
       .slice(0, 7)
       .reverse()
-      .map((rate) => ({
-        label: format(new Date(rate.date), "dd MMM HH:mm", { locale: es }),
-        buy: rate.buy_rate,
-      }));
+      .map((rate) => {
+        const normalized = normalizeExchangeRate(rate);
+        return {
+          label: format(new Date(rate.date), "dd MMM HH:mm", { locale: es }),
+          buy: rate.buy_rate,
+          value: normalized.displayValue,
+        };
+      });
   }, [filtered]);
 
   const trendBadge = (() => {
@@ -190,19 +198,21 @@ export function FxModule({
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-6 text-white">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={displayConfig.isSingle ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
             <div className="rounded-xl border border-white/10 bg-gradient-to-br from-pastel-blue/20 via-transparent to-transparent p-5">
-              <p className="text-sm text-white/80">Compra</p>
+              <p className="text-sm text-white/80">{displayConfig.buyLabel}</p>
               <p className="text-4xl font-semibold mt-2 tracking-tight">
-                ${latest.buy_rate.toFixed(4)}
+                ${normalizedLatest?.displayValue.toFixed(4) || latest.buy_rate.toFixed(4)}
               </p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-gradient-to-br from-pastel-green/20 via-transparent to-transparent p-5">
-              <p className="text-sm text-white/80">Venta</p>
-              <p className="text-4xl font-semibold mt-2 tracking-tight">
-                ${latest.sell_rate.toFixed(4)}
-              </p>
-            </div>
+            {!displayConfig.isSingle && (
+              <div className="rounded-xl border border-white/10 bg-gradient-to-br from-pastel-green/20 via-transparent to-transparent p-5">
+                <p className="text-sm text-white/80">{displayConfig.sellLabel}</p>
+                <p className="text-4xl font-semibold mt-2 tracking-tight">
+                  ${latest.sell_rate.toFixed(4)}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-white/10 bg-surface-muted/60 p-4">
@@ -238,11 +248,11 @@ export function FxModule({
                       color: "white",
                       fontSize: 12,
                     }}
-                    formatter={(value: number) => [`$${value.toFixed(4)}`, "Compra"]}
+                    formatter={(value: number) => [`$${value.toFixed(4)}`, displayConfig.buyLabel]}
                   />
                   <Line
                     type="monotone"
-                    dataKey="buy"
+                    dataKey={displayConfig.isSingle ? "value" : "buy"}
                     stroke="url(#fxGradient)"
                     strokeWidth={3}
                     dot={false}
