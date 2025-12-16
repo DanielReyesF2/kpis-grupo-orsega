@@ -105,11 +105,25 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
     },
   });
 
+  // Calcular displaySource e isSingle ANTES del useEffect (siempre, no condicionalmente)
+  const displaySource = source || selectedSource;
+  const isSingle = isSingleValueSource(displaySource);
+  const displayConfig = getRateDisplayConfig(displaySource);
+
+  // Auto-completar sellRate cuando es DOF y cambia buyRate
+  // IMPORTANTE: Este useEffect debe estar ANTES del return null condicional
+  // para no violar las reglas de los hooks de React
+  useEffect(() => {
+    if (isSingle && buyRate) {
+      setSellRate(buyRate);
+    }
+  }, [buyRate, isSingle]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const finalSource = source || selectedSource;
-    
+
     if (!finalSource) {
       toast({
         title: "Error",
@@ -163,17 +177,6 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
   if (!source && !selectedSource) {
     return null;
   }
-
-  const displaySource = source || selectedSource;
-  const isSingle = isSingleValueSource(displaySource);
-  const displayConfig = getRateDisplayConfig(displaySource);
-
-  // Auto-completar sellRate cuando es DOF y cambia buyRate
-  useEffect(() => {
-    if (isSingle && buyRate) {
-      setSellRate(buyRate);
-    }
-  }, [buyRate, isSingle]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
