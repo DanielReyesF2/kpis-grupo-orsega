@@ -53,14 +53,19 @@ const NavItem = ({
     if (onClick) onClick();
   };
   
+  // Si className contiene estilos personalizados (como border-l-4), usarlos en lugar de los estilos por defecto
+  const hasCustomStyles = className?.includes("border-l-4");
+  
   return (
     <div
       onClick={handleClick}
       className={cn(
         "flex items-center px-4 py-3 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 group",
-        active
+        active && !hasCustomStyles
           ? "bg-sidebar-accent text-sidebar-foreground border-l-4 border-sidebar-primary"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          : !active
+          ? "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          : "",
         className
       )}
     >
@@ -260,19 +265,19 @@ function Sidebar() {
               <CollapsibleContent className="ml-4 mt-1 space-y-1">
                 <NavItem
                   href="/sales/dura"
-                  icon={<Building className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  icon={<Building className={`mr-3 h-4 w-4 transition-transform duration-200 ${location === "/sales/dura" ? "text-green-400" : ""}`} />}
                   active={location === "/sales/dura"}
                   onClick={closeMenu}
-                  className="text-sm pl-8"
+                  className={`text-sm pl-8 ${location === "/sales/dura" ? "border-l-4 border-green-500 bg-green-950/30" : ""}`}
                 >
                   Ventas DI
                 </NavItem>
                 <NavItem
                   href="/sales/orsega"
-                  icon={<Building className="mr-3 h-4 w-4 transition-transform duration-200" />}
+                  icon={<Building className={`mr-3 h-4 w-4 transition-transform duration-200 ${location === "/sales/orsega" ? "text-blue-400" : ""}`} />}
                   active={location === "/sales/orsega"}
                   onClick={closeMenu}
-                  className="text-sm pl-8"
+                  className={`text-sm pl-8 ${location === "/sales/orsega" ? "border-l-4 border-blue-500 bg-blue-950/30" : ""}`}
                 >
                   Ventas GO
                 </NavItem>

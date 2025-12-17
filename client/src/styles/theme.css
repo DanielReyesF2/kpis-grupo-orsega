@@ -306,6 +306,15 @@
   }
 }
 
+/* Dark mode specific text colors for Sales Page */
+.dark .text-sales-h3-dark {
+  color: rgba(6, 36, 81, 1) !important;
+}
+
+.dark .text-sales-h1-dark {
+  color: rgba(22, 16, 65, 1) !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .container-modern {

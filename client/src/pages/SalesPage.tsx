@@ -27,7 +27,6 @@ import {
   RefreshCw
 } from "lucide-react";
 import type { SalesMetrics } from "@/types/sales";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -55,7 +54,17 @@ export default function SalesPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Detectar ruta actual y establecer viewMode inicial
+  // Determinar empresa inicial desde la URL como fuente de verdad primaria
+  const getInitialCompany = () => {
+    if (location === "/sales/dura") return 1;
+    if (location === "/sales/orsega") return 2;
+    return user?.companyId || 1;
+  };
+
+  const [viewMode, setViewMode] = useState<ViewMode>("overview");
+  const [selectedCompany, setSelectedCompany] = useState<number>(getInitialCompany());
+
+  // Sincronizar selectedCompany con la URL cuando cambie
   useEffect(() => {
     if (location === "/sales/dura") {
       setSelectedCompany(1);
@@ -63,9 +72,6 @@ export default function SalesPage() {
       setSelectedCompany(2);
     }
   }, [location]);
-
-  const [viewMode, setViewMode] = useState<ViewMode>("overview");
-  const [selectedCompany, setSelectedCompany] = useState<number>(user?.companyId || 1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
@@ -255,219 +261,220 @@ export default function SalesPage() {
     }
   }, []);
 
+  // Colores según empresa - Look and Feel completo (estilo como LogisticsPage)
+  const companyColors = selectedCompany === 1 
+    ? {
+        primary: 'green',
+        border: 'border-green-500',
+        bg: 'bg-green-50 dark:bg-green-950/20',
+        text: 'text-green-700 dark:text-green-400',
+        button: 'bg-green-600 hover:bg-green-700 text-white',
+        accent: 'text-green-600 dark:text-green-400',
+        name: 'Dura International',
+        // Colores para tarjetas (estilo como LogisticsPage)
+        cardBg: 'bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/10 dark:to-green-900/5',
+        cardBorder: 'border-green-200/50 dark:border-green-800/30',
+        titleColor: 'text-green-600 dark:text-green-400',
+        iconBg: 'bg-green-500/15 dark:bg-green-500/20',
+        iconColor: 'text-green-600 dark:text-green-400',
+        valueColor: 'text-green-700 dark:text-green-300'
+      }
+    : {
+        primary: 'blue',
+        border: 'border-blue-500',
+        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        text: 'text-blue-700 dark:text-blue-400',
+        button: 'bg-blue-600 hover:bg-blue-700 text-white',
+        accent: 'text-blue-600 dark:text-blue-400',
+        name: 'Grupo Orsega',
+        // Colores para tarjetas (estilo como LogisticsPage)
+        cardBg: 'bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/10 dark:to-blue-900/5',
+        cardBorder: 'border-blue-200/50 dark:border-blue-800/30',
+        titleColor: 'text-blue-600 dark:text-blue-400',
+        iconBg: 'bg-blue-500/15 dark:bg-blue-500/20',
+        iconColor: 'text-blue-600 dark:text-blue-400',
+        valueColor: 'text-blue-700 dark:text-blue-300'
+      };
+
   return (
-    <AppLayout>
-      <div className="container mx-auto py-6 px-4 max-w-7xl">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Módulo de Ventas
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+    <AppLayout title={`Módulo de Ventas - ${companyColors.name}`}>
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
+        {/* Header - Minimalista */}
+        <div className={`mb-8 ${companyColors.bg} rounded-lg p-6 border-l-4 ${companyColors.border}`}>
+          <div className="flex items-start justify-between mb-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-sales-h1-dark">
+                  Módulo de Ventas
+                </h1>
+                <Badge 
+                  variant="outline" 
+                  className={`${companyColors.border} ${companyColors.text} font-semibold`}
+                >
+                  {companyColors.name}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 Análisis comparativo y seguimiento de clientes
               </p>
             </div>
 
             <Button
               onClick={() => setViewMode("upload")}
-              className="bg-primary text-white hover:bg-primary/90"
+              variant="default"
+              size="sm"
+              className={`shrink-0 ${companyColors.button}`}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Subir Excel Semanal
+              Subir Excel
             </Button>
           </div>
-
-          {/* Tabs de empresa */}
-          {user?.role === 'admin' && (
-            <Tabs value={selectedCompany.toString()} onValueChange={(value) => setSelectedCompany(Number(value))}>
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="1">Dura International</TabsTrigger>
-                <TabsTrigger value="2">Grupo Orsega</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
         </div>
 
         {/* Vista según modo seleccionado */}
         {viewMode === "overview" && (
-          <div className="space-y-6">
-            {/* KPIs Overview - Mejorado con gradientes y animaciones */}
+          <div className="space-y-8">
+            {/* KPIs Overview - Diseño Minimalista */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 dark:bg-blue-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Clientes Activos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-4xl font-bold text-blue-900 dark:text-blue-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-16 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
-                      ) : (
-                        stats?.activeClients || 0
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Clientes Activos</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-20 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          stats?.activeClients || 0
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-blue-200 dark:bg-blue-800">
-                      <Users className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <Users className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
                   {monthlyTrends && monthlyTrends.length > 0 && (
-                    <div className="h-16 -mb-2">
+                    <div className="h-12 mt-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={monthlyTrends.slice(-6)}>
                           <Line 
                             type="monotone" 
                             dataKey="clients" 
-                            stroke="#3b82f6" 
-                            strokeWidth={2}
+                            stroke={selectedCompany === 1 ? "#16a34a" : "#2563eb"} 
+                            strokeWidth={1.5}
                             dot={false}
                           />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   )}
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                      Este mes: {stats?.activeClientsMetrics?.thisMonth || 0}
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-border/30">
+                    <p className="text-xs text-muted-foreground">
+                      Este mes: <span className="font-medium text-foreground">{stats?.activeClientsMetrics?.thisMonth || 0}</span>
                     </p>
-                    <p className="text-xs text-blue-500 dark:text-blue-500 font-medium">
-                      Últimos 3 meses: {stats?.activeClientsMetrics?.last3Months || 0}
+                    <p className="text-xs text-muted-foreground">
+                      3 meses: <span className="font-medium text-foreground">{stats?.activeClientsMetrics?.last3Months || 0}</span>
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-200 dark:bg-green-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-green-700 dark:text-green-300 flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Volumen del Mes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-3xl font-bold text-green-900 dark:text-green-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-24 bg-green-200 dark:bg-green-800 rounded animate-pulse"></div>
-                      ) : (
-                        (stats?.currentVolume?.toLocaleString('es-MX') || 0)
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Volumen del Mes</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          (stats?.currentVolume?.toLocaleString('es-MX') || 0)
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-green-200 dark:bg-green-800">
-                      <Package className="h-6 w-6 text-green-600 dark:text-green-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <Package className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
                   {monthlyTrends && monthlyTrends.length > 0 && (
-                    <div className="h-16 -mb-2">
+                    <div className="h-12 mt-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={monthlyTrends.slice(-6)}>
                           <Bar 
                             dataKey="volume" 
-                            fill="#10b981"
+                            fill={selectedCompany === 1 ? "#16a34a" : "#2563eb"}
                             radius={[2, 2, 0, 0]}
                           />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   )}
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">
+                  <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
                     {stats?.unit || (selectedCompany === 1 ? 'KG' : 'Unidades')}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className={`relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${
+              <Card className={`${
                 stats?.growth >= 0 
-                  ? 'bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-950 dark:to-green-900' 
-                  : 'bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950 dark:to-rose-900'
-              }`}>
-                <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 opacity-20 ${
-                  stats?.growth >= 0 
-                    ? 'bg-emerald-200 dark:bg-emerald-800' 
-                    : 'bg-red-200 dark:bg-red-800'
-                }`}></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className={`text-sm font-semibold flex items-center gap-2 ${
-                    stats?.growth >= 0 
-                      ? 'text-emerald-700 dark:text-emerald-300' 
-                      : 'text-red-700 dark:text-red-300'
-                  }`}>
-                    <Activity className="h-4 w-4" />
-                    Crecimiento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
+                  ? `${companyColors.cardBg} ${companyColors.cardBorder}` 
+                  : 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/10 dark:to-red-900/5 border-red-200/50 dark:border-red-800/30'
+              } border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`text-4xl font-bold ${
-                        stats?.growth >= 0 
-                          ? 'text-emerald-900 dark:text-emerald-100' 
-                          : 'text-red-900 dark:text-red-100'
+                    <div>
+                      <p className={`text-sm font-medium ${
+                        stats?.growth >= 0 ? companyColors.titleColor : 'text-red-600 dark:text-red-400'
+                      } mb-1`}>Crecimiento</p>
+                      <p className={`text-4xl font-bold ${
+                        stats?.growth >= 0 ? companyColors.valueColor : 'text-red-700 dark:text-red-300'
                       }`}>
-                        {isLoadingStats ? (
-                          <div className={`h-10 w-20 rounded animate-pulse ${
-                            stats?.growth >= 0 ? 'bg-emerald-200 dark:bg-emerald-800' : 'bg-red-200 dark:bg-red-800'
-                          }`}></div>
-                        ) : (
-                          `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`
-                        )}
-                      </div>
-                      {stats?.growth >= 0 ? (
-                        <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                      {isLoadingStats ? (
+                        <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
                       ) : (
-                        <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`
+                      )}
+                    </p>
+                    </div>
+                    <div className={`${
+                      stats?.growth >= 0 ? companyColors.iconBg : 'bg-red-500/15 dark:bg-red-500/20'
+                    } p-3 rounded-full`}>
+                      {!isLoadingStats && (
+                        stats?.growth >= 0 ? (
+                          <TrendingUp className={`w-10 h-10 ${companyColors.iconColor}`} />
+                        ) : (
+                          <TrendingDown className="w-10 h-10 text-red-600 dark:text-red-400" />
+                        )
+                      )}
+                      {isLoadingStats && (
+                        <Activity className={`w-10 h-10 ${companyColors.iconColor}`} />
                       )}
                     </div>
-                    <div className={`p-3 rounded-full ${
-                      stats?.growth >= 0 
-                        ? 'bg-emerald-200 dark:bg-emerald-800' 
-                        : 'bg-red-200 dark:bg-red-800'
-                    }`}>
-                      <BarChart3 className={`h-6 w-6 ${
-                        stats?.growth >= 0 
-                          ? 'text-emerald-600 dark:text-emerald-300' 
-                          : 'text-red-600 dark:text-red-300'
-                      }`} />
-                    </div>
                   </div>
-                  <p className={`text-xs mt-2 font-medium ${
-                    stats?.growth >= 0 
-                      ? 'text-emerald-600 dark:text-emerald-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
                     Mismo período 2024
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950 dark:to-yellow-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200 dark:bg-amber-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Alertas Activas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div className="text-4xl font-bold text-amber-900 dark:text-amber-100">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Alertas Activas</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
                       {isLoadingStats ? (
-                        <div className="h-10 w-16 bg-amber-200 dark:bg-amber-800 rounded animate-pulse"></div>
+                        <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
                       ) : (
                         stats?.activeAlerts || 0
                       )}
+                    </p>
                     </div>
-                    <div className="p-3 rounded-full bg-amber-200 dark:bg-amber-800 animate-pulse">
-                      <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <AlertTriangle className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">
+                  <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
                     Requieren atención
                   </p>
                 </CardContent>
@@ -476,13 +483,14 @@ export default function SalesPage() {
 
             {/* Botón para mostrar/ocultar métricas avanzadas */}
             {!showAdvancedMetrics && (
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => setShowAdvancedMetrics(true)}
-                  className="text-sm"
+                  size="sm"
+                  className="text-xs"
                 >
-                  <Activity className="h-4 w-4 mr-2" />
+                  <Activity className="h-3.5 w-3.5 mr-2" />
                   Ver métricas avanzadas
                 </Button>
               </div>
@@ -491,136 +499,120 @@ export default function SalesPage() {
             {/* Nuevas Métricas - Segunda fila (colapsable) */}
             {showAdvancedMetrics && (
               <>
-                <div className="flex justify-between items-center mt-6 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-sales-h3-dark">
                     Métricas Avanzadas
                   </h3>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowAdvancedMetrics(false)}
-                    className="text-xs"
+                    className="text-xs h-7"
                   >
                     Ocultar
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Tasa de Retención */}
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 dark:bg-purple-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4" />
-                    Tasa de Retención
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-4xl font-bold text-purple-900 dark:text-purple-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-20 bg-purple-200 dark:bg-purple-800 rounded animate-pulse"></div>
-                      ) : (
-                        `${stats?.retentionRate?.rate.toFixed(1) || 0}%`
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Tasa de Retención</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          `${stats?.retentionRate?.rate.toFixed(1) || 0}%`
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-purple-200 dark:bg-purple-800">
-                      <RefreshCw className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <RefreshCw className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-purple-600 dark:text-purple-400">
-                      Retenidos: {stats?.retentionRate?.retainedClients || 0}
+                  <div className="space-y-1 pt-3 mt-3 border-t border-border/30">
+                    <p className="text-xs text-muted-foreground">
+                      Retenidos: <span className="font-medium text-foreground">{stats?.retentionRate?.retainedClients || 0}</span>
                     </p>
-                    <p className="text-xs text-purple-500 dark:text-purple-500">
-                      Período actual: {stats?.retentionRate?.currentPeriodClients || 0} clientes
+                    <p className="text-xs text-muted-foreground">
+                      Período: <span className="font-medium text-foreground">{stats?.retentionRate?.currentPeriodClients || 0}</span> clientes
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Nuevos Clientes */}
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950 dark:to-teal-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200 dark:bg-emerald-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    Nuevos Clientes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-16 bg-emerald-200 dark:bg-emerald-800 rounded animate-pulse"></div>
-                      ) : (
-                        stats?.newClients?.count || 0
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Nuevos Clientes</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          stats?.newClients?.count || 0
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-emerald-200 dark:bg-emerald-800">
-                      <UserPlus className="h-6 w-6 text-emerald-600 dark:text-emerald-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <UserPlus className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 font-medium">
+                  <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
                     Primera compra este mes
                   </p>
                 </CardContent>
               </Card>
 
               {/* Valor Promedio por Orden */}
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-cyan-50 to-blue-100 dark:from-cyan-950 dark:to-blue-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-200 dark:bg-cyan-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-cyan-700 dark:text-cyan-300 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Valor Promedio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-3xl font-bold text-cyan-900 dark:text-cyan-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-24 bg-cyan-200 dark:bg-cyan-800 rounded animate-pulse"></div>
-                      ) : (
-                        `$${stats?.avgOrderValue?.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Valor Promedio</p>
+                      <p className={`text-3xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          `$${stats?.avgOrderValue?.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-cyan-200 dark:bg-cyan-800">
-                      <DollarSign className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <DollarSign className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
-                  <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 font-medium">
+                  <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
                     Por orden/transacción
                   </p>
                 </CardContent>
               </Card>
 
               {/* Clientes Perdidos (Churn) */}
-              <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-rose-50 to-red-100 dark:from-rose-950 dark:to-red-900 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-200 dark:bg-rose-800 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <CardHeader className="pb-2 relative z-10">
-                  <CardTitle className="text-sm font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                    <UserMinus className="h-4 w-4" />
-                    Clientes Perdidos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-4xl font-bold text-rose-900 dark:text-rose-100">
-                      {isLoadingStats ? (
-                        <div className="h-10 w-20 bg-rose-200 dark:bg-rose-800 rounded animate-pulse"></div>
-                      ) : (
-                        `${stats?.clientChurn?.count || 0}`
-                      )}
+              <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Clientes Perdidos</p>
+                      <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
+                        {isLoadingStats ? (
+                          <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
+                        ) : (
+                          `${stats?.clientChurn?.count || 0}`
+                        )}
+                      </p>
                     </div>
-                    <div className="p-3 rounded-full bg-rose-200 dark:bg-rose-800">
-                      <UserMinus className="h-6 w-6 text-rose-600 dark:text-rose-300" />
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <UserMinus className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-rose-600 dark:text-rose-400">
-                      Tasa de churn: {stats?.clientChurn?.rate.toFixed(1) || 0}%
+                  <div className="space-y-1 pt-3 mt-3 border-t border-border/30">
+                    <p className="text-xs text-muted-foreground">
+                      Tasa de churn: <span className="font-medium text-foreground">{stats?.clientChurn?.rate.toFixed(1) || 0}%</span>
                     </p>
-                    <p className="text-xs text-rose-500 dark:text-rose-500">
+                    <p className="text-xs text-muted-foreground">
                       Inactivos este mes
                     </p>
                   </div>
@@ -630,88 +622,64 @@ export default function SalesPage() {
               </>
             )}
 
-            {/* Sección de acciones rápidas - Mejorada */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Sección de acciones rápidas - Minimalista */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card
-                className="cursor-pointer group relative overflow-hidden border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-blue-950"
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("comparison")}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/5 group-hover:to-blue-500/10 transition-all duration-300"></div>
-                <CardHeader className="relative z-10">
-                  <div className="flex items-center gap-4">
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <TrendingUp className="h-7 w-7 text-white" />
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Análisis Comparativo</p>
+                      <p className="text-xs text-muted-foreground">Año actual vs anterior</p>
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                        Análisis Comparativo
-                      </CardTitle>
-                      <CardDescription className="text-sm font-medium">
-                        Año actual vs anterior
-                      </CardDescription>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <TrendingUp className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
-                    <Sparkles className="h-5 w-5 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Ver diferencial por cliente y detectar oportunidades de crecimiento
+                  <p className="text-sm text-muted-foreground">
+                    Ver diferencial por cliente y detectar oportunidades
                   </p>
                 </CardContent>
               </Card>
 
               <Card
-                className="cursor-pointer group relative overflow-hidden border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-amber-50 dark:from-gray-900 dark:to-amber-950"
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("alerts")}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/0 group-hover:from-amber-500/5 group-hover:to-amber-500/10 transition-all duration-300"></div>
-                <CardHeader className="relative z-10">
-                  <div className="flex items-center gap-4">
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg group-hover:scale-110 transition-transform duration-300 animate-pulse">
-                      <AlertTriangle className="h-7 w-7 text-white" />
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Alertas y Seguimiento</p>
+                      <p className="text-xs text-muted-foreground">Clientes que requieren atención</p>
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                        Alertas y Seguimiento
-                      </CardTitle>
-                      <CardDescription className="text-sm font-medium">
-                        Clientes que requieren atención
-                      </CardDescription>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <AlertTriangle className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
-                    <Sparkles className="h-5 w-5 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Clientes inactivos y con diferencial negativo significativo
+                  <p className="text-sm text-muted-foreground">
+                    Clientes inactivos y con diferencial negativo
                   </p>
                 </CardContent>
               </Card>
 
               <Card
-                className="cursor-pointer group relative overflow-hidden border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-green-50 dark:from-gray-900 dark:to-green-950"
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("upload")}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-500/0 group-hover:from-green-500/5 group-hover:to-green-500/10 transition-all duration-300"></div>
-                <CardHeader className="relative z-10">
-                  <div className="flex items-center gap-4">
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-green-500 to-green-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <FileSpreadsheet className="h-7 w-7 text-white" />
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Cargar Datos</p>
+                      <p className="text-xs text-muted-foreground">Excel semanal de ventas</p>
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                        Cargar Datos
-                      </CardTitle>
-                      <CardDescription className="text-sm font-medium">
-                        Excel semanal de ventas
-                      </CardDescription>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <FileSpreadsheet className={`w-10 h-10 ${companyColors.iconColor}`} />
                     </div>
-                    <Sparkles className="h-5 w-5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </CardHeader>
-                <CardContent className="relative z-10">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Subir el reporte semanal de Mario para actualizar el análisis
+                  <p className="text-sm text-muted-foreground">
+                    Subir el reporte semanal para actualizar el análisis
                   </p>
                 </CardContent>
               </Card>
@@ -720,13 +688,13 @@ export default function SalesPage() {
             {/* Dashboard Visual - Gráficos y Visualizaciones */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Tendencias Mensuales */}
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-blue-500" />
+              <Card className="border border-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     Tendencias Mensuales
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Evolución del volumen de ventas últimos 12 meses
                   </CardDescription>
                 </CardHeader>
@@ -796,13 +764,13 @@ export default function SalesPage() {
               </Card>
 
               {/* Gráfico de Volumen Mensual (Barras) */}
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-green-500" />
+              <Card className="border border-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     Volumen Mensual
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Comparación de volumen por mes
                   </CardDescription>
                 </CardHeader>
@@ -851,13 +819,13 @@ export default function SalesPage() {
               </Card>
 
               {/* Top Clientes - Gráfico de Pastel */}
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                    <Users className="h-5 w-5 text-purple-500" />
+              <Card className="border border-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                     Top Clientes del Mes
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Distribución de volumen por cliente
                   </CardDescription>
                 </CardHeader>
@@ -899,17 +867,17 @@ export default function SalesPage() {
                       </div>
                       <div className="space-y-2">
                         {topClients.map((client: any, index: number) => {
-                          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                          const colors = ['hsl(var(--primary))', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
                           return (
-                            <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-                              <div className="flex items-center gap-2">
+                            <div key={index} className="flex items-center justify-between p-2.5 rounded-md border border-border/50 bg-muted/30">
+                              <div className="flex items-center gap-2.5">
                                 <div 
-                                  className="w-3 h-3 rounded-full" 
+                                  className="w-2.5 h-2.5 rounded-full shrink-0" 
                                   style={{ backgroundColor: colors[index % colors.length] }}
                                 ></div>
-                                <span className="text-sm font-medium">{client.name}</span>
+                                <span className="text-sm font-medium text-foreground">{client.name}</span>
                               </div>
-                              <span className="text-sm font-semibold">
+                              <span className="text-sm font-semibold text-foreground tabular-nums">
                                 {client.volume.toLocaleString('es-MX')} {client.unit}
                               </span>
                             </div>
@@ -922,13 +890,13 @@ export default function SalesPage() {
               </Card>
 
               {/* Resumen de Actividad */}
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-amber-500" />
+              <Card className="border border-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
                     Resumen de Actividad
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     Métricas clave del período actual
                   </CardDescription>
                 </CardHeader>
@@ -939,36 +907,37 @@ export default function SalesPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Promedio Mensual</p>
-                          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+                          <p className="text-xs text-muted-foreground mb-1">Promedio Mensual</p>
+                          <p className="text-xl font-semibold text-foreground tabular-nums">
                             {monthlyTrends && monthlyTrends.length > 0
                               ? (monthlyTrends.reduce((acc: number, item: any) => acc + item.volume, 0) / monthlyTrends.length).toLocaleString('es-MX', { maximumFractionDigits: 0 })
                               : '0'}
                           </p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{stats?.unit || ''}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stats?.unit || ''}</p>
                         </div>
-                        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-                          <p className="text-xs text-green-600 dark:text-green-400 mb-1">Mejor Mes</p>
-                          <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                        <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+                          <p className="text-xs text-muted-foreground mb-1">Mejor Mes</p>
+                          <p className="text-xl font-semibold text-foreground tabular-nums">
                             {monthlyTrends && monthlyTrends.length > 0
                               ? Math.max(...monthlyTrends.map((item: any) => item.volume)).toLocaleString('es-MX', { maximumFractionDigits: 0 })
                               : '0'}
                           </p>
-                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">{stats?.unit || ''}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stats?.unit || ''}</p>
                         </div>
                       </div>
-                      <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Total de Meses con Datos</p>
-                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                      <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+                        <p className="text-xs text-muted-foreground mb-1">Total de Meses con Datos</p>
+                        <p className="text-2xl font-semibold text-foreground tabular-nums">
                           {monthlyTrends?.length || 0}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Últimos 12 meses</p>
+                        <p className="text-xs text-muted-foreground mt-1">Últimos 12 meses</p>
                       </div>
                       <Button
                         onClick={() => setViewMode("upload")}
-                        className="w-full bg-primary hover:bg-primary/90 text-white"
+                        variant="outline"
+                        className="w-full"
                       >
                         <Upload className="mr-2 h-4 w-4" />
                         Subir Nuevos Datos
