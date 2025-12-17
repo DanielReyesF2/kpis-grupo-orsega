@@ -11,7 +11,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, FileSpreadsheet, Target, Calendar, Award, AlertTriangle, UserMinus, Users } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, FileSpreadsheet, Target, Calendar, Award, AlertTriangle, UserMinus, Users, Lightbulb, Search, ArrowRight, CheckCircle2, XCircle, Zap } from "lucide-react";
 
 interface SalesYearlyComparisonTableProps {
   companyId: number; // 1 = DURA (KG), 2 = ORSEGA (Unidades)
@@ -379,6 +379,157 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
             </div>
           </CardContent>
         </Card>
+
+        {/* SECCIÓN DE ANÁLISIS PROFUNDO - ¿Qué está pasando? */}
+        <Card className="shadow-xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-indigo-950/30 dark:via-gray-900 dark:to-purple-950/30">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+                <Search className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  ¿Qué está pasando? - Análisis Profundo
+                </CardTitle>
+                <CardDescription className="text-base">Diagnóstico de la situación actual de DURA International</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Diagnóstico General */}
+            <div className="p-5 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30 rounded-xl border border-red-200 dark:border-red-800">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-red-800 dark:text-red-300 text-lg mb-2">Diagnóstico General</h4>
+                  <p className="text-red-700 dark:text-red-400 leading-relaxed">
+                    DURA International presenta una <strong>caída del {Math.abs(duraAnalysis.percentChange).toFixed(1)}%</strong> en volumen
+                    comparado con 2024. Esta disminución equivale a <strong>{formatNumber(Math.abs(duraAnalysis.totalChange))} KG menos</strong> vendidos.
+                    Solo <strong>{duraAnalysis.monthsAbove2024} de 12 meses</strong> superan el desempeño del año anterior.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Patrones Identificados */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="h-5 w-5 text-blue-600" />
+                  <h4 className="font-bold text-blue-800 dark:text-blue-300">Patrones Identificados</h4>
+                </div>
+                <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-400">
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span><strong>Segundo semestre débil:</strong> Oct, Nov, Dic muestran caídas consistentes vs 2024</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span><strong>Concentración de riesgo:</strong> 2 clientes (BP Int'l + Ind. Pinturas) = 57,709 kg de pérdida</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span><strong>Churn de clientes nuevos:</strong> DURA CHEMICALS compró 19,000 kg y desapareció</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="p-5 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="h-5 w-5 text-amber-600" />
+                  <h4 className="font-bold text-amber-800 dark:text-amber-300">Causas Probables</h4>
+                </div>
+                <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-400">
+                  <li className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                    <span><strong>Competencia de precios:</strong> Clientes grandes migrando a proveedores más baratos</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                    <span><strong>Falta de seguimiento:</strong> 9 clientes perdidos sin estrategia de retención</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                    <span><strong>Dependencia regional:</strong> Barentz Guatemala y Honduras bajaron significativamente</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Oportunidades de Recuperación */}
+            <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <h4 className="font-bold text-green-800 dark:text-green-300 text-lg">Oportunidades de Recuperación</h4>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                  <div className="text-2xl font-bold text-green-600 mb-1">57,709 KG</div>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Recuperables si se reconquistan BP Int'l e Industrial Pinturas Ecatepec
+                  </p>
+                </div>
+                <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                  <div className="text-2xl font-bold text-green-600 mb-1">33,947 KG</div>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Volumen de clientes churn que podrían reactivarse con campaña directa
+                  </p>
+                </div>
+                <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                  <div className="text-2xl font-bold text-green-600 mb-1">4 meses</div>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Positivos (Ene, Abr, Jun, Ago) - replicar estrategia de estos meses
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Plan de Acción Sugerido */}
+            <div className="p-5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-5 w-5 text-purple-600" />
+                <h4 className="font-bold text-purple-800 dark:text-purple-300 text-lg">Plan de Acción Sugerido</h4>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">1</div>
+                    <div>
+                      <p className="font-semibold text-purple-800 dark:text-purple-300">Reunión urgente con BP International</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Pérdida de 40,226 kg - Cliente prioritario</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">2</div>
+                    <div>
+                      <p className="font-semibold text-purple-800 dark:text-purple-300">Campaña de reactivación de clientes</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">9 clientes perdidos - contacto directo</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">3</div>
+                    <div>
+                      <p className="font-semibold text-purple-800 dark:text-purple-300">Revisión de precios competitivos</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Evaluar posicionamiento vs competencia</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">4</div>
+                    <div>
+                      <p className="font-semibold text-purple-800 dark:text-purple-300">Fortalecer mercado Centroamérica</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Guatemala y Honduras necesitan atención</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -517,6 +668,157 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
           <p className="text-xs text-muted-foreground mt-3 text-center">
             * Datos temporales para presentación - Meta anual: 10,300,476 unidades
           </p>
+        </CardContent>
+      </Card>
+
+      {/* SECCIÓN DE ANÁLISIS PROFUNDO - ORSEGA */}
+      <Card className="shadow-xl border-2 border-teal-200 dark:border-teal-800 bg-gradient-to-br from-teal-50 via-white to-cyan-50 dark:from-teal-950/30 dark:via-gray-900 dark:to-cyan-950/30">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl shadow-lg">
+              <Search className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                ¿Qué está pasando? - Análisis Profundo
+              </CardTitle>
+              <CardDescription className="text-base">Diagnóstico de la situación actual de Grupo ORSEGA</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Diagnóstico General */}
+          <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border border-green-200 dark:border-green-800">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-green-800 dark:text-green-300 text-lg mb-2">Diagnóstico General</h4>
+                <p className="text-green-700 dark:text-green-400 leading-relaxed">
+                  Grupo ORSEGA muestra un <strong>crecimiento del {orsegaAnalysis.percentChange.toFixed(1)}%</strong> vs 2024.
+                  <strong> {orsegaAnalysis.monthsAboveBudget} de 12 meses</strong> cumplen el presupuesto.
+                  Sin embargo, el <strong>segundo semestre presenta desafíos</strong> importantes que requieren atención.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Patrones Identificados */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-5 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30 rounded-xl border border-teal-200 dark:border-teal-800">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="h-5 w-5 text-teal-600" />
+                <h4 className="font-bold text-teal-800 dark:text-teal-300">Patrones Identificados</h4>
+              </div>
+              <ul className="space-y-2 text-sm text-teal-700 dark:text-teal-400">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-green-500" />
+                  <span><strong>Primer semestre excelente:</strong> Ene-Jul superan presupuesto consistentemente</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                  <span><strong>Caída segundo semestre:</strong> Sep-Dic bajo presupuesto significativamente</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <ArrowRight className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span><strong>Julio fue el mejor mes:</strong> 1,169,659 unidades - 60% arriba del objetivo</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-5 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="h-5 w-5 text-amber-600" />
+                <h4 className="font-bold text-amber-800 dark:text-amber-300">Áreas de Oportunidad</h4>
+              </div>
+              <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-400">
+                <li className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+                  <span><strong>Septiembre crítico:</strong> Solo 404,786 uds vs 940,980 presupuesto (-57%)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+                  <span><strong>Noviembre débil:</strong> 425,631 uds vs 1,417,544 presupuesto (-70%)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+                  <span><strong>Estacionalidad:</strong> Posible patrón de baja en temporada alta</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Fortalezas */}
+          <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2 mb-4">
+              <Award className="h-5 w-5 text-green-600" />
+              <h4 className="font-bold text-green-800 dark:text-green-300 text-lg">Fortalezas a Mantener</h4>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                <div className="text-2xl font-bold text-green-600 mb-1">{orsegaAnalysis.monthsAboveBudget}/12</div>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Meses cumpliendo presupuesto - sólido primer semestre
+                </p>
+              </div>
+              <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                <div className="text-2xl font-bold text-green-600 mb-1">+{orsegaAnalysis.percentChange.toFixed(1)}%</div>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Crecimiento anual positivo vs 2024
+                </p>
+              </div>
+              <div className="p-4 bg-white/70 dark:bg-gray-800/50 rounded-lg border border-green-100 dark:border-green-900">
+                <div className="text-2xl font-bold text-green-600 mb-1">Julio</div>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Mes récord - replicar estrategia en Q4
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Plan de Acción */}
+          <div className="p-5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-5 w-5 text-purple-600" />
+              <h4 className="font-bold text-purple-800 dark:text-purple-300 text-lg">Plan de Acción Sugerido</h4>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">1</div>
+                  <div>
+                    <p className="font-semibold text-purple-800 dark:text-purple-300">Análisis de Sep-Nov</p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">Investigar causas de caída en segundo semestre</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">2</div>
+                  <div>
+                    <p className="font-semibold text-purple-800 dark:text-purple-300">Replicar éxito de Julio</p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">Identificar qué funcionó y aplicarlo</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">3</div>
+                  <div>
+                    <p className="font-semibold text-purple-800 dark:text-purple-300">Ajustar presupuesto Q4</p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">Revisar si el presupuesto es realista</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white/70 dark:bg-gray-800/50 rounded-lg">
+                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 font-bold">4</div>
+                  <div>
+                    <p className="font-semibold text-purple-800 dark:text-purple-300">Push comercial Diciembre</p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">Campaña para cerrar año fuerte</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </CardContent>
       </Card>
     </div>
