@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
 import { emailService } from "./email-service";
 import { logger } from "./logger";
+import { validatePassword } from "./password-policy";
 
 // Helper to get authenticated user with proper type narrowing
 function getAuthUser(req: AuthRequest): NonNullable<AuthRequest['user']> {
@@ -613,6 +614,17 @@ export function registerRoutes(app: express.Application) {
       if (!user) {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
+
+      // ✅ SECURITY FIX: Validar política de contraseñas
+      const passwordValidation = validatePassword(password, user.username);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({
+          message: "La contraseña no cumple con los requisitos de seguridad",
+          errors: passwordValidation.errors,
+          suggestions: passwordValidation.suggestions,
+        });
+      }
+
       const hash = await bcryptHash(password, 10);
       const updated = await storage.updateUser(user.id, { password: hash });
       if (!updated) {
@@ -676,11 +688,21 @@ export function registerRoutes(app: express.Application) {
 
       // Hash password (obligatorio para registro público)
       if (!validatedData.password) {
-        return res.status(400).json({ 
-          message: "La contraseña es obligatoria" 
+        return res.status(400).json({
+          message: "La contraseña es obligatoria"
         });
       }
-      
+
+      // ✅ SECURITY FIX: Validar política de contraseñas
+      const passwordValidation = validatePassword(validatedData.password, validatedData.username);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({
+          message: "La contraseña no cumple con los requisitos de seguridad",
+          errors: passwordValidation.errors,
+          suggestions: passwordValidation.suggestions,
+        });
+      }
+
       validatedData.password = await bcryptHash(validatedData.password, 10);
       
       // Asignar role por defecto para usuarios que se registran públicamente
@@ -772,9 +794,18 @@ export function registerRoutes(app: express.Application) {
       
       // Hash password if provided
       if (validatedData.password) {
+        // ✅ SECURITY FIX: Validar política de contraseñas
+        const passwordValidation = validatePassword(validatedData.password, validatedData.username);
+        if (!passwordValidation.isValid) {
+          return res.status(400).json({
+            message: "La contraseña no cumple con los requisitos de seguridad",
+            errors: passwordValidation.errors,
+            suggestions: passwordValidation.suggestions,
+          });
+        }
         validatedData.password = await bcryptHash(validatedData.password, 10);
       }
-      
+
       console.log("[POST /api/users] Datos después del hash:", JSON.stringify({ ...validatedData, password: '[HASHED]' }, null, 2));
       
       const user = await storage.createUser(validatedData);
@@ -803,15 +834,27 @@ export function registerRoutes(app: express.Application) {
     try {
       const id = parseInt(req.params.id);
       console.log("[PUT /api/users/:id] Datos recibidos:", redactSensitiveData(req.body));
-      
+
       // Validar datos con Zod (usando partial para permitir actualizaciones parciales)
       const validatedData = insertUserSchema.partial().parse(req.body);
-      
+
       // Hash password if provided
       if (validatedData.password) {
+        // ✅ SECURITY FIX: Validar política de contraseñas
+        // Obtener usuario existente para validar contra su username
+        const existingUser = await storage.getUser(id);
+        const usernameForValidation = validatedData.username || existingUser?.username;
+        const passwordValidation = validatePassword(validatedData.password, usernameForValidation);
+        if (!passwordValidation.isValid) {
+          return res.status(400).json({
+            message: "La contraseña no cumple con los requisitos de seguridad",
+            errors: passwordValidation.errors,
+            suggestions: passwordValidation.suggestions,
+          });
+        }
         validatedData.password = await bcryptHash(validatedData.password, 10);
       }
-      
+
       console.log("[PUT /api/users/:id] Datos validados:", redactSensitiveData(validatedData));
       
       const user = await storage.updateUser(id, validatedData);

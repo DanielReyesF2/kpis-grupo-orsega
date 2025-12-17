@@ -12,13 +12,24 @@ import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
-import { logger } from "./logger";
+import { logger, initProductionConsole } from "./logger";
+
+// ✅ SECURITY FIX: Inicializar filtrado de logs en producción
+// Esto redacta información sensible y filtra ruido de los console.log
+initProductionConsole();
 
 // Initialize Sentry before anything else
 import * as Sentry from "@sentry/node";
 
 // Initialize Helmet for security headers
 import helmet from "helmet";
+
+// ✅ SECURITY FIX: CORS con whitelist
+import cors from "cors";
+
+// ✅ SECURITY FIX: CSRF Protection
+import cookieParser from "cookie-parser";
+import { csrfTokenGenerator, csrfProtection, getCSRFTokenHandler } from "./csrf-protection";
 
 // Configure Sentry - only if DSN is provided
 if (process.env.SENTRY_DSN) {
@@ -253,6 +264,20 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// ✅ SECURITY FIX: Cookie parser para CSRF
+app.use(cookieParser());
+
+// ✅ SECURITY FIX: CSRF Token Generator (debe estar antes de las rutas)
+app.use(csrfTokenGenerator);
+
+// ✅ SECURITY FIX: Endpoint para obtener el token CSRF
+app.get('/api/csrf-token', getCSRFTokenHandler);
+
+// ✅ SECURITY FIX: CSRF Protection en rutas que modifican estado
+// NOTA: Descomentar la siguiente línea para activar CSRF estricto
+// Por ahora desactivado para no romper clientes existentes
+// app.use('/api', csrfProtection);
+
 // ✅ SECURITY IMPROVEMENT: Headers de seguridad HTTP robustos (nivel Google)
 app.use(helmet({
   contentSecurityPolicy: {
@@ -291,6 +316,51 @@ app.use(helmet({
   // Habilitar Referrer-Policy estricta
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
+
+// ✅ SECURITY FIX: CORS con whitelist de dominios permitidos
+const allowedOrigins = [
+  // Producción - Railway
+  'https://kpis-grupo-orsega-production.up.railway.app',
+  'https://kpis-orsega.railway.app',
+  // Desarrollo local
+  'http://localhost:5000',
+  'http://localhost:3000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:3000',
+  // Agregar dominios adicionales desde env si existen
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : [])
+].filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Permitir requests sin origin (como mobile apps, curl, o mismo origen)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // En desarrollo, permitir todos los orígenes localhost
+    if (process.env.NODE_ENV !== 'production' &&
+        (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      return callback(null, true);
+    }
+
+    // En producción, verificar contra whitelist
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Origen no permitido
+    console.warn(`⚠️ CORS: Origen bloqueado: ${origin}`);
+    return callback(new Error('CORS: Origen no permitido'), false);
+  },
+  credentials: true, // Permitir cookies y headers de auth
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
+  exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page'],
+  maxAge: 86400, // Cache preflight por 24 horas
+};
+
+app.use(cors(corsOptions));
 
 // 🔒 RATE LIMITING - VUL-002: Protección global contra DDOS
 // === RATE LIMITER CONFIGURACIÓN ADAPTATIVA ===
