@@ -8,8 +8,11 @@
 import type { Request, Response } from 'express';
 import type { AuthRequest } from './index';
 import { parseExcelVentas, type SalesTransaction, type SalesResumen } from './sales-excel-parser';
-import { sql } from './db';
+import { neon } from '@neondatabase/serverless';
 import path from 'path';
+
+// Crear cliente SQL para queries directos
+const sql = neon(process.env.DATABASE_URL!);
 
 interface UploadHandlerDependencies {
   getAuthUser: (req: AuthRequest) => any;
