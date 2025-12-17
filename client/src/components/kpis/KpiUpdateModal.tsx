@@ -232,7 +232,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log('[KPI Update] Actualización exitosa, invalidando cachés y actualizando historial');
       
       toast({
