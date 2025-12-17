@@ -11,7 +11,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, FileSpreadsheet } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, FileSpreadsheet, Target, Calendar, Award, AlertTriangle } from "lucide-react";
 
 interface SalesYearlyComparisonTableProps {
   companyId: number; // 1 = DURA (KG), 2 = ORSEGA (Unidades)
@@ -93,22 +93,108 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
     presupuesto2025: ORSEGA_DATA.reduce((sum, row) => sum + row.presupuesto2025, 0),
   };
 
+  // Análisis para DURA
+  const duraAnalysis = {
+    totalChange: duraTotals.kg2025 - duraTotals.kg2024,
+    percentChange: ((duraTotals.kg2025 / duraTotals.kg2024) - 1) * 100,
+    monthsAbove2024: DURA_DATA.filter(row => row.kg2025 >= row.kg2024).length,
+    bestMonth: DURA_DATA.reduce((best, row) => {
+      const currentDiff = row.kg2025 - row.kg2024;
+      const bestDiff = best.kg2025 - best.kg2024;
+      return currentDiff > bestDiff ? row : best;
+    }),
+    worstMonth: DURA_DATA.reduce((worst, row) => {
+      const currentDiff = row.kg2025 - row.kg2024;
+      const worstDiff = worst.kg2025 - worst.kg2024;
+      return currentDiff < worstDiff ? row : worst;
+    }),
+  };
+
+  // Análisis para ORSEGA
+  const orsegaAnalysis = {
+    totalChange: orsegaTotals.unidades2025 - orsegaTotals.unidades2024,
+    percentChange: ((orsegaTotals.unidades2025 / orsegaTotals.unidades2024) - 1) * 100,
+    monthsAboveBudget: ORSEGA_DATA.filter(row => row.unidades2025 >= row.presupuesto2025).length,
+    monthsAboveTarget: ORSEGA_DATA.filter(row => row.unidades2025 >= OBJETIVO_MENSUAL_ORSEGA).length,
+    bestMonth: ORSEGA_DATA.reduce((best, row) => {
+      return row.unidades2025 > best.unidades2025 ? row : best;
+    }),
+    worstMonth: ORSEGA_DATA.reduce((worst, row) => {
+      return row.unidades2025 < worst.unidades2025 ? row : worst;
+    }),
+  };
+
   if (companyId === 1) {
     // TABLA DURA - Kilogramos
     return (
-      <Card className="shadow-lg">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <FileSpreadsheet className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+      <div className="space-y-4">
+        {/* Tarjetas de Análisis DURA */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/20 dark:to-blue-900/10 border-blue-200/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="h-4 w-4 text-blue-600" />
+                <span className="text-xs font-medium text-blue-600">Total 2025</span>
+              </div>
+              <p className="text-xl font-bold text-blue-700">{formatNumber(duraTotals.kg2025)} KG</p>
+              <p className={`text-xs mt-1 ${duraAnalysis.percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {duraAnalysis.percentChange >= 0 ? '↑' : '↓'} {Math.abs(duraAnalysis.percentChange).toFixed(1)}% vs 2024
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/20 dark:to-green-900/10 border-green-200/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4 text-green-600" />
+                <span className="text-xs font-medium text-green-600">Meses Positivos</span>
+              </div>
+              <p className="text-xl font-bold text-green-700">{duraAnalysis.monthsAbove2024}/12</p>
+              <p className="text-xs text-muted-foreground mt-1">Superan a 2024</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10 border-emerald-200/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="h-4 w-4 text-emerald-600" />
+                <span className="text-xs font-medium text-emerald-600">Mejor Mes</span>
+              </div>
+              <p className="text-lg font-bold text-emerald-700">{duraAnalysis.bestMonth.mes}</p>
+              <p className="text-xs text-emerald-600 mt-1">
+                +{formatNumber(duraAnalysis.bestMonth.kg2025 - duraAnalysis.bestMonth.kg2024)} KG
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/20 dark:to-red-900/10 border-red-200/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <span className="text-xs font-medium text-red-600">Mes Crítico</span>
+              </div>
+              <p className="text-lg font-bold text-red-700">{duraAnalysis.worstMonth.mes}</p>
+              <p className="text-xs text-red-600 mt-1">
+                {formatNumber(duraAnalysis.worstMonth.kg2025 - duraAnalysis.worstMonth.kg2024)} KG
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabla DURA */}
+        <Card className="shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <FileSpreadsheet className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Comparativo Anual - DURA International</CardTitle>
+                <CardDescription>Kilogramos totales por mes | 2024 vs 2025</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-xl">Comparativo Anual - DURA International</CardTitle>
-              <CardDescription>Kilogramos totales por mes | 2024 vs 2025</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+          </CardHeader>
+          <CardContent>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -167,29 +253,85 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
               </TableBody>
             </Table>
           </div>
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            * Datos temporales para presentación - Meta anual: 667,449 KG
-          </p>
-        </CardContent>
-      </Card>
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              * Datos temporales para presentación - Meta anual: 667,449 KG
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   // TABLA ORSEGA - Unidades con Presupuesto y Cumplimiento
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <FileSpreadsheet className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+    <div className="space-y-4">
+      {/* Tarjetas de Análisis ORSEGA */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/20 dark:to-purple-900/10 border-purple-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="h-4 w-4 text-purple-600" />
+              <span className="text-xs font-medium text-purple-600">Total 2025</span>
+            </div>
+            <p className="text-lg font-bold text-purple-700">{formatNumber(orsegaTotals.unidades2025)}</p>
+            <p className={`text-xs mt-1 ${orsegaAnalysis.percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {orsegaAnalysis.percentChange >= 0 ? '↑' : '↓'} {Math.abs(orsegaAnalysis.percentChange).toFixed(1)}% vs 2024
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/20 dark:to-green-900/10 border-green-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="h-4 w-4 text-green-600" />
+              <span className="text-xs font-medium text-green-600">Cumplen Presupuesto</span>
+            </div>
+            <p className="text-xl font-bold text-green-700">{orsegaAnalysis.monthsAboveBudget}/12</p>
+            <p className="text-xs text-muted-foreground mt-1">Meses en meta</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10 border-emerald-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs font-medium text-emerald-600">Mejor Mes</span>
+            </div>
+            <p className="text-lg font-bold text-emerald-700">{orsegaAnalysis.bestMonth.mes}</p>
+            <p className="text-xs text-emerald-600 mt-1">
+              {formatNumber(orsegaAnalysis.bestMonth.unidades2025)} uds
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10 border-amber-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="text-xs font-medium text-amber-600">Mes Bajo</span>
+            </div>
+            <p className="text-lg font-bold text-amber-700">{orsegaAnalysis.worstMonth.mes}</p>
+            <p className="text-xs text-amber-600 mt-1">
+              {formatNumber(orsegaAnalysis.worstMonth.unidades2025)} uds
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabla ORSEGA */}
+      <Card className="shadow-lg">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <FileSpreadsheet className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">Comparativo Anual - Grupo ORSEGA</CardTitle>
+              <CardDescription>Unidades por mes | 2024 vs 2025 | Objetivo mensual: {formatNumber(OBJETIVO_MENSUAL_ORSEGA)}</CardDescription>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-xl">Comparativo Anual - Grupo ORSEGA</CardTitle>
-            <CardDescription>Unidades por mes | 2024 vs 2025 | Objetivo mensual: {formatNumber(OBJETIVO_MENSUAL_ORSEGA)}</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
+        </CardHeader>
+        <CardContent>
         <div className="overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
@@ -251,10 +393,11 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
             </TableBody>
           </Table>
         </div>
-        <p className="text-xs text-muted-foreground mt-3 text-center">
-          * Datos temporales para presentación - Meta anual: 10,300,476 unidades
-        </p>
-      </CardContent>
-    </Card>
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            * Datos temporales para presentación - Meta anual: 10,300,476 unidades
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
