@@ -18,6 +18,7 @@ const CREATE_TABLES_QUERIES = [
     product_name VARCHAR(255) NOT NULL,
     category VARCHAR(100),
     unit VARCHAR(50) DEFAULT 'KG',
+    familia_producto VARCHAR(100),
     description TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -45,6 +46,7 @@ const CREATE_TABLES_QUERIES = [
   `CREATE TABLE IF NOT EXISTS sales_data (
     id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL REFERENCES companies(id),
+    submodulo VARCHAR(10),
     client_id INTEGER REFERENCES clients(id),
     client_name VARCHAR(255) NOT NULL,
     product_id INTEGER REFERENCES products(id),
@@ -61,6 +63,8 @@ const CREATE_TABLES_QUERIES = [
     total_amount DECIMAL(15, 2),
     quantity_2024 DECIMAL(15, 2),
     quantity_2025 DECIMAL(15, 2),
+    tipo_cambio DECIMAL(10, 4),
+    importe_mn DECIMAL(15, 2),
     notes TEXT,
     upload_id INTEGER REFERENCES sales_uploads(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,11 +88,70 @@ const CREATE_TABLES_QUERIES = [
     resolved_at TIMESTAMP,
     resolved_by INTEGER REFERENCES users(id)
   );`,
+
+  // Tabla de responsables (catálogo)
+  `CREATE TABLE IF NOT EXISTS sales_responsables (
+    codigo VARCHAR(10) PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    activo BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`,
+
+  // Tabla de acciones/tareas de ventas
+  `CREATE TABLE IF NOT EXISTS sales_acciones (
+    id SERIAL PRIMARY KEY,
+    cliente_id INTEGER REFERENCES clients(id),
+    cliente_nombre VARCHAR(255) NOT NULL,
+    submodulo VARCHAR(10) NOT NULL CHECK (submodulo IN ('DI', 'GO')),
+    descripcion TEXT NOT NULL,
+    prioridad VARCHAR(20) DEFAULT 'MEDIA' CHECK (prioridad IN ('CRITICA', 'ALTA', 'MEDIA', 'BAJA')),
+    estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'EN_PROGRESO', 'COMPLETADO', 'CANCELADO')),
+    responsables VARCHAR(50),
+    diferencial DECIMAL(15, 2),
+    kilos_2024 DECIMAL(15, 2),
+    kilos_2025 DECIMAL(15, 2),
+    usd_2025 DECIMAL(15, 2),
+    utilidad DECIMAL(8, 2),
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_limite DATE,
+    fecha_completado TIMESTAMP,
+    notas TEXT,
+    excel_origen_id INTEGER REFERENCES sales_uploads(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`,
+
+  // Tabla de historial de cambios en acciones
+  `CREATE TABLE IF NOT EXISTS sales_acciones_historial (
+    id SERIAL PRIMARY KEY,
+    accion_id INTEGER NOT NULL REFERENCES sales_acciones(id) ON DELETE CASCADE,
+    campo_modificado VARCHAR(50),
+    valor_anterior TEXT,
+    valor_nuevo TEXT,
+    usuario_id INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`,
+
+  // Tabla de notificaciones
+  `CREATE TABLE IF NOT EXISTS sales_notificaciones (
+    id SERIAL PRIMARY KEY,
+    tipo VARCHAR(50) NOT NULL,
+    destinatario_codigo VARCHAR(10) NOT NULL,
+    titulo VARCHAR(255) NOT NULL,
+    mensaje TEXT,
+    referencia_tipo VARCHAR(50),
+    referencia_id INTEGER,
+    leida BOOLEAN DEFAULT false,
+    enviada_email BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`,
 ];
 
 const CREATE_INDEX_QUERIES = [
   // Índices para sales_data
   `CREATE INDEX IF NOT EXISTS idx_sales_data_company_id ON sales_data(company_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_data_submodulo ON sales_data(submodulo, company_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_data_client_id ON sales_data(client_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_data_product_id ON sales_data(product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_data_sale_date ON sales_data(sale_date DESC);`,
@@ -107,6 +170,20 @@ const CREATE_INDEX_QUERIES = [
   // Índices para products
   `CREATE INDEX IF NOT EXISTS idx_products_company_id ON products(company_id);`,
   `CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active);`,
+
+  // Índices para sales_acciones
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_submodulo ON sales_acciones(submodulo);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_estado ON sales_acciones(estado);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_prioridad ON sales_acciones(prioridad);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_responsables ON sales_acciones(responsables);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_cliente_id ON sales_acciones(cliente_id);`,
+
+  // Índices para sales_acciones_historial
+  `CREATE INDEX IF NOT EXISTS idx_sales_acciones_historial_accion_id ON sales_acciones_historial(accion_id);`,
+
+  // Índices para sales_notificaciones
+  `CREATE INDEX IF NOT EXISTS idx_sales_notificaciones_destinatario ON sales_notificaciones(destinatario_codigo, leida);`,
+  `CREATE INDEX IF NOT EXISTS idx_sales_notificaciones_created_at ON sales_notificaciones(created_at DESC);`,
 ];
 
 const CREATE_VIEWS_QUERIES = [
@@ -179,8 +256,21 @@ export async function ensureSalesSchema(): Promise<void> {
       await client.query(query);
     }
 
+    console.log("👥 [Sales Schema] Insertando responsables iniciales...");
+    await client.query(`
+      INSERT INTO sales_responsables (codigo, nombre, email, activo) VALUES
+        ('ON', 'Omar Navarro', 'omar@orsega.com', true),
+        ('EDV', 'Emilio del Valle', 'emilio@orsega.com', true),
+        ('TR', 'Thalia Rodriguez', 'thalia@orsega.com', true),
+        ('MR', 'Mario Reynoso', 'mario@orsega.com', true),
+        ('AVM', '[Por confirmar]', null, true),
+        ('MDK', '[Por confirmar]', null, true),
+        ('AP', '[Por confirmar]', null, true)
+      ON CONFLICT (codigo) DO NOTHING
+    `);
+
     await client.query("COMMIT");
-    console.log("✅ Sales schema verified (tables/indexes/views created)");
+    console.log("✅ Sales schema verified (tables/indexes/views/responsables created)");
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ Failed to ensure sales schema:", error);
