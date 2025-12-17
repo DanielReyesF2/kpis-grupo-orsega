@@ -186,13 +186,9 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
     const now = new Date();
-    
-    // Calcular la semana del año
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const pastDaysOfYear = (now.getTime() - startOfYear.getTime()) / 86400000;
-    const weekNumber = Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
-    
-    return `Semana ${weekNumber} - ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+    // Formato simple: "Diciembre 2025" para compatibilidad con upsert por mes/año
+    return `${months[now.getMonth()]} ${now.getFullYear()}`;
   }
 
   // Mutación para actualizar KPI

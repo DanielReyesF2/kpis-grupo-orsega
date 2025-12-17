@@ -929,17 +929,40 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (data.period) {
+      // Lista de meses válidos en español
+      const validMonths = [
+        'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+        'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+      ];
+
       const parts = data.period.trim().split(/[\s/-]+/);
       const maybeYear = parseInt(parts[parts.length - 1], 10);
       if (!Number.isFinite(maybeYear)) {
         throw new Error(`No se pudo determinar el año a partir del periodo "${data.period}"`);
       }
-      const monthPart = parts.slice(0, -1).join(" ");
+
+      // Buscar un mes válido en las partes del período
+      // Esto maneja casos como "Semana 51 - Diciembre 2025" → extraer solo "DICIEMBRE"
+      let monthPart = '';
+      for (const part of parts) {
+        const upperPart = part.toUpperCase();
+        if (validMonths.includes(upperPart)) {
+          monthPart = upperPart;
+          break;
+        }
+      }
+
+      // Si no encontramos un mes válido, usar el método anterior como fallback
+      if (!monthPart) {
+        monthPart = parts.slice(0, -1).join(" ").toUpperCase();
+      }
+
       if (!monthPart) {
         throw new Error(`No se pudo determinar el mes a partir del periodo "${data.period}"`);
       }
+
       return {
-        month: monthPart.toUpperCase(),
+        month: monthPart,
         year: maybeYear,
       };
     }
