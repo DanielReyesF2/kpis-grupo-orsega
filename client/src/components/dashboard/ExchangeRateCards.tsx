@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, DollarSign, Building2, FileText, ChevronRight, Sparkles, Plus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Building2, FileText, ChevronRight, Sparkles, Plus, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
@@ -49,6 +49,15 @@ interface ExchangeRate {
   date: string;
 }
 
+interface TodayHistoryEntry {
+  time: string;        // HH:mm
+  date: Date;
+  buy_rate: number;
+  sell_rate: number;
+  buyChange?: number;  // Cambio respecto a la anterior
+  sellChange?: number;
+}
+
 interface RateCardData {
   rate: ExchangeRate | null;
   buyChange: number;
@@ -60,6 +69,7 @@ interface RateCardData {
   updateCount: number;
   lastUpdate: Date | null;
   history24h: ExchangeRate[];
+  historyToday: TodayHistoryEntry[];
 }
 
 function getEmptyRateCardData(): RateCardData {
@@ -73,8 +83,44 @@ function getEmptyRateCardData(): RateCardData {
     sellInterpretation: 'Sin datos disponibles',
     updateCount: 0,
     lastUpdate: null,
-    history24h: []
+    history24h: [],
+    historyToday: []
   };
+}
+
+// Función para filtrar actualizaciones del día actual
+function getTodayHistory(history24h: ExchangeRate[]): TodayHistoryEntry[] {
+  if (!history24h || history24h.length === 0) return [];
+  
+  // Obtener fecha actual en zona horaria de México
+  const now = new Date();
+  const mexicoNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  const mexicoTodayStr = mexicoNow.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+  
+  const todayEntries = history24h
+    .filter(r => {
+      const rateDate = new Date(r.date);
+      // Convertir la fecha del rate a zona horaria de México para comparar
+      const rateDateMexico = new Date(rateDate.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+      const rateDateStr = rateDateMexico.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+      return rateDateStr === mexicoTodayStr;
+    })
+    .map((r, index, array) => {
+      const rateDate = new Date(r.date);
+      const previous = index < array.length - 1 ? array[index + 1] : null;
+      
+      return {
+        time: format(rateDate, 'HH:mm', { locale: es }),
+        date: rateDate,
+        buy_rate: r.buy_rate,
+        sell_rate: r.sell_rate,
+        buyChange: previous ? r.buy_rate - previous.buy_rate : undefined,
+        sellChange: previous ? r.sell_rate - previous.sell_rate : undefined,
+      };
+    })
+    .reverse(); // Más reciente primero
+  
+  return todayEntries;
 }
 
 interface ExchangeRateCardsProps {
@@ -84,8 +130,21 @@ interface ExchangeRateCardsProps {
 export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {}) {
   const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [valueAnimations, setValueAnimations] = useState<Record<string, boolean>>({});
   const previousValuesRef = useRef<Record<string, { buy: number; sell: number }>>({});
+  
+  const toggleCardExpansion = (source: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(source)) {
+        newSet.delete(source);
+      } else {
+        newSet.add(source);
+      }
+      return newSet;
+    });
+  };
 
   const { data: exchangeRates = [], isLoading } = useQuery<ExchangeRate[]>({
     queryKey: ['/api/treasury/exchange-rates'],
@@ -241,6 +300,17 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     yesterday.setHours(yesterday.getHours() - 24);
     const history24h = rates.filter((r: ExchangeRate) => new Date(r.date) >= yesterday);
     
+    // Historial del día actual
+    const history24hReversed = history24h.reverse(); // Más antiguo a más reciente
+    const historyToday = getTodayHistory(history24hReversed);
+    
+    // Debug: Log para verificar datos del día
+    console.log(`[${source}] Histórico del día:`, {
+      total24h: history24hReversed.length,
+      todayCount: historyToday.length,
+      todayEntries: historyToday
+    });
+    
     // Calcular lastUpdate con logging detallado (en hora de México)
     let lastUpdate: Date | null = null;
     if (latest) {
@@ -271,7 +341,8 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       sellInterpretation,
       updateCount,
       lastUpdate,
-      history24h: history24h.reverse(), // Más antiguo a más reciente
+      history24h: history24hReversed,
+      historyToday,
     };
   };
 
@@ -322,6 +393,99 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       accent: 'text-gray-600 dark:text-gray-400',
       gradient: 'from-gray-600 to-gray-700',
     };
+  };
+
+  // Componente para mostrar el histórico del día
+  const TodayHistorySection = ({
+    historyToday,
+    source,
+    displayConfig
+  }: {
+    historyToday: TodayHistoryEntry[];
+    source: string;
+    displayConfig: {
+      isSingle: boolean;
+      buyLabel: string;
+      sellLabel?: string;
+      showSpread: boolean;
+    };
+  }) => {
+    if (historyToday.length === 0) {
+      return (
+        <div className="text-center py-6 text-sm text-muted-foreground">
+          <p>No hay actualizaciones del día actual</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+        {historyToday.map((entry, index) => {
+          const buyTrend = entry.buyChange !== undefined
+            ? (entry.buyChange > 0.001 ? 'up' : entry.buyChange < -0.001 ? 'down' : 'stable')
+            : null;
+          const sellTrend = entry.sellChange !== undefined
+            ? (entry.sellChange > 0.001 ? 'up' : entry.sellChange < -0.001 ? 'down' : 'stable')
+            : null;
+
+          const BuyTrendIcon = buyTrend === 'up' ? TrendingUp : buyTrend === 'down' ? TrendingDown : Minus;
+          const SellTrendIcon = sellTrend === 'up' ? TrendingUp : sellTrend === 'down' ? TrendingDown : Minus;
+          
+          const buyTrendColor = buyTrend === 'up' ? 'text-green-600 dark:text-green-400' : 
+                               buyTrend === 'down' ? 'text-red-600 dark:text-red-400' : 
+                               'text-gray-500 dark:text-gray-400';
+          const sellTrendColor = sellTrend === 'up' ? 'text-green-600 dark:text-green-400' : 
+                                sellTrend === 'down' ? 'text-red-600 dark:text-red-400' : 
+                                'text-gray-500 dark:text-gray-400';
+
+          const normalizedEntry = normalizeExchangeRate({
+            ...entry,
+            source: source,
+            date: entry.date.toISOString(),
+          } as ExchangeRate);
+
+          return (
+            <div
+              key={`${entry.time}-${index}`}
+              className="bg-muted/30 dark:bg-muted/20 rounded-lg p-3 border border-border/50 hover:border-border transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-muted-foreground">{entry.time}</span>
+                {entry.buyChange !== undefined && Math.abs(entry.buyChange) > 0.001 && (
+                  <Badge variant="outline" className="text-xs">
+                    {entry.buyChange > 0 ? '+' : ''}{entry.buyChange.toFixed(4)}
+                  </Badge>
+                )}
+              </div>
+              
+              <div className={displayConfig.isSingle ? "space-y-1" : "grid grid-cols-2 gap-2"}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{displayConfig.buyLabel}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold">${normalizedEntry.displayValue.toFixed(4)}</span>
+                    {buyTrend && (
+                      <BuyTrendIcon className={`h-3.5 w-3.5 ${buyTrendColor}`} />
+                    )}
+                  </div>
+                </div>
+                
+                {!displayConfig.isSingle && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{displayConfig.sellLabel || 'Venta'}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold">${entry.sell_rate.toFixed(4)}</span>
+                      {sellTrend && (
+                        <SellTrendIcon className={`h-3.5 w-3.5 ${sellTrendColor}`} />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const RateValue = ({ 
@@ -391,6 +555,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     const config = getSourceConfig(source);
     const displayConfig = getRateDisplayConfig(source);
     const Icon = config.icon;
+    const isExpanded = expandedCards.has(source);
     
     // DEBUG: Verificar qué está pasando
     if (source === 'DOF' && data.rate) {
@@ -520,6 +685,42 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
                   <span className="text-base font-bold text-foreground">
                     ${normalizedRate.spread.toFixed(4)}
                   </span>
+                </div>
+              )}
+              
+              {/* Botón para expandir/colapsar histórico del día - solo se muestra si hay actualizaciones */}
+              {data.historyToday.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between text-xs"
+                  onClick={() => toggleCardExpansion(source)}
+                  aria-label={isExpanded ? `Ocultar histórico del día para ${source}` : `Mostrar histórico del día para ${source}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Histórico del día ({data.historyToday.length} actualizaciones)
+                  </span>
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+              
+              {/* Sección expandible con histórico del día */}
+              {isExpanded && data.historyToday.length > 0 && (
+                <div className="border-t border-border pt-4 space-y-3 transition-all duration-300 ease-in-out">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <h4 className="text-sm font-semibold text-foreground">Actualizaciones del día</h4>
+                  </div>
+                  <TodayHistorySection
+                    historyToday={data.historyToday}
+                    source={source}
+                    displayConfig={displayConfig}
+                  />
                 </div>
               )}
               
