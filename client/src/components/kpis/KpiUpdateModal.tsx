@@ -241,18 +241,22 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         variant: "default",
       });
       
-      // Invalidar cachés relevantes para actualizar la UI
-      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values', kpiId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
-      
-      // Invalidar la query de colaboradores para actualizar las tarjetas
-      queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
-      
-      // Forzar refetch del historial para ver la actualización inmediatamente
-      queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] });
+      // Invalidar cachés relevantes para actualizar la UI y forzar refetch inmediato
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values', kpiId] }),
+        queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`] }),
+        queryClient.invalidateQueries({ queryKey: [`/api/kpi-history/${kpiId}`] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/kpis'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] }),
+      ]);
+
+      // Forzar refetch inmediato para ver cambios sin esperar staleTime
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['/api/kpi-values'] }),
+        queryClient.refetchQueries({ queryKey: ['/api/kpis'] }),
+        queryClient.refetchQueries({ queryKey: [`/api/kpi-history/${kpiId}`] }),
+      ]);
       
       onClose();
     },
