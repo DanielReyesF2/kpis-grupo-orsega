@@ -11,7 +11,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, FileSpreadsheet, Target, Calendar, Award, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, FileSpreadsheet, Target, Calendar, Award, AlertTriangle, UserMinus, Users } from "lucide-react";
 
 interface SalesYearlyComparisonTableProps {
   companyId: number; // 1 = DURA (KG), 2 = ORSEGA (Unidades)
@@ -50,6 +50,31 @@ const ORSEGA_DATA = [
 ];
 
 const OBJETIVO_MENSUAL_ORSEGA = 858373.02;
+
+// Clientes Perdidos (Churn) - DURA
+const DURA_CHURN_CLIENTS = [
+  { cliente: "DURA CHEMICALS", volumen2024: 19000, ultimaCompra: "Jul 2024", productos: "Meko" },
+  { cliente: "PINTURAS AXEL", volumen2024: 6848, ultimaCompra: "Sep 2024", productos: "Meko, Co 12, Zr 24%" },
+  { cliente: "BARENTZ HONDURAS", volumen2024: 3582, ultimaCompra: "Feb 2024", productos: "Meko, Ca 10%, Zr 24%" },
+  { cliente: "SEGUQUIM", volumen2024: 1300, ultimaCompra: "Jul 2024", productos: "Acetato de Zinc" },
+  { cliente: "CASMAN", volumen2024: 1156, ultimaCompra: "Abr 2024", productos: "Zn 14.5%" },
+  { cliente: "NASEDA", volumen2024: 962, ultimaCompra: "Jul 2024", productos: "Mn 9%" },
+  { cliente: "RAQUEL LOPEZ", volumen2024: 900, ultimaCompra: "Sep 2024", productos: "Co 6%" },
+];
+
+// Clientes con Mayor Caída - DURA
+const DURA_DECLINING_CLIENTS = [
+  { cliente: "BP INTERNATIONAL TRADING", kg2024: 66513, kg2025: 15202, perdida: -40226 },
+  { cliente: "INDUSTRIAL DE PINTURAS ECATEPEC", kg2024: 35472, kg2025: 12076, perdida: -17483 },
+  { cliente: "DURA CHEMICALS", kg2024: 19000, kg2025: 0, perdida: -15833 },
+  { cliente: "PINTURAS BEREL", kg2024: 61524, kg2025: 43500, perdida: -7770 },
+  { cliente: "PINTURAS AXEL", kg2024: 6848, kg2025: 0, perdida: -5707 },
+  { cliente: "PLACOSA", kg2024: 36720, kg2025: 25501, perdida: -5099 },
+  { cliente: "BARENTZ GUATEMALA", kg2024: 5130, kg2025: 1078, perdida: -3198 },
+  { cliente: "BARENTZ HONDURAS", kg2024: 3582, kg2025: 0, perdida: -2985 },
+  { cliente: "INDUSTRIAL TECNICA", kg2024: 55284, kg2025: 43650, perdida: -2421 },
+  { cliente: "SANCHEZ", kg2024: 2326, kg2025: 16, perdida: -1922 },
+];
 
 export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonTableProps) {
   const formatNumber = (num: number) => new Intl.NumberFormat('es-MX', {
@@ -256,6 +281,102 @@ export function SalesYearlyComparisonTable({ companyId }: SalesYearlyComparisonT
             <p className="text-xs text-muted-foreground mt-3 text-center">
               * Datos temporales para presentación - Meta anual: 667,449 KG
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Tabla Clientes con Mayor Caída - DURA */}
+        <Card className="shadow-lg border-l-4 border-l-red-500">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Clientes con Mayor Caída - DI</CardTitle>
+                <CardDescription>Los 10 clientes que más volumen perdieron</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20">
+                    <TableHead className="font-bold">Cliente</TableHead>
+                    <TableHead className="font-bold text-right">2024 (kg)</TableHead>
+                    <TableHead className="font-bold text-right">2025 (kg)</TableHead>
+                    <TableHead className="font-bold text-right">Pérdida</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {DURA_DECLINING_CLIENTS.map((row, index) => (
+                    <TableRow key={index} className="hover:bg-red-50/50 dark:hover:bg-red-900/10">
+                      <TableCell className="font-semibold">{row.cliente}</TableCell>
+                      <TableCell className="text-right font-mono">{row.kg2024.toLocaleString('es-MX')}</TableCell>
+                      <TableCell className="text-right font-mono">{row.kg2025.toLocaleString('es-MX')}</TableCell>
+                      <TableCell className="text-right font-mono text-red-600 font-bold">
+                        {row.perdida.toLocaleString('es-MX')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>📊 Análisis:</strong> Solo estos 10 clientes representan <strong>102,644 kg de pérdida</strong>.
+                BP International y Industrial de Pinturas Ecatepec juntos suman casi 60,000 kg de caída.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabla Clientes Perdidos (Churn) - DURA */}
+        <Card className="shadow-lg border-l-4 border-l-amber-500">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <UserMinus className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Clientes Perdidos (Churn)</CardTitle>
+                <CardDescription>9 clientes que compraron en 2024 y no han comprado nada en 2025</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
+                    <TableHead className="font-bold">Cliente</TableHead>
+                    <TableHead className="font-bold text-right">Volumen 2024</TableHead>
+                    <TableHead className="font-bold text-center">Última compra</TableHead>
+                    <TableHead className="font-bold">Productos</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {DURA_CHURN_CLIENTS.map((row, index) => (
+                    <TableRow key={index} className="hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                      <TableCell className="font-semibold">{row.cliente}</TableCell>
+                      <TableCell className="text-right font-mono">{row.volumen2024.toLocaleString('es-MX')} kg</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          {row.ultimaCompra}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.productos}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-800 dark:text-red-300">
+                <strong>⚠️ Alerta:</strong> Volumen total perdido por churn: <strong>33,947 kg</strong>.
+                DURA CHEMICALS era cliente nuevo, compró fuerte y desapareció. CASMAN era cliente de 3 años.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
