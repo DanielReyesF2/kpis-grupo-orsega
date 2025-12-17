@@ -688,6 +688,11 @@ export default function SalesPage() {
               </Card>
             </div>
 
+            {/* TABLA COMPARATIVA ANUAL - Visible en vista principal */}
+            <div className="mt-2">
+              <SalesYearlyComparisonTable companyId={selectedCompany} />
+            </div>
+
             {/* Dashboard Visual - Gráficos y Visualizaciones */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Gráfico de Tendencias Mensuales */}
