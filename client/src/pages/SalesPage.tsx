@@ -30,6 +30,7 @@ import type { SalesMetrics } from "@/types/sales";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { AccionesTable } from "@/components/sales/AccionesTable";
 import {
   BarChart,
   Bar,
@@ -46,7 +47,7 @@ import {
   Pie
 } from "recharts";
 
-type ViewMode = "overview" | "upload" | "comparison" | "alerts";
+type ViewMode = "overview" | "upload" | "comparison" | "alerts" | "acciones";
 
 export default function SalesPage() {
   const { user } = useAuth();
@@ -159,20 +160,21 @@ export default function SalesPage() {
     onSuccess: (data) => {
       toast({
         title: "✅ Archivo procesado exitosamente",
-        description: `Se procesaron ${data.recordsProcessed} registros de ventas`,
+        description: `Se procesaron ${data.recordsProcessed} registros y se crearon ${data.accionesCreadas || 0} acciones`,
         variant: "default",
       });
-      
+
       // Limpiar archivo seleccionado
       setSelectedFile(null);
-      
+
       // Invalidar queries para refrescar datos
       queryClient.invalidateQueries({ queryKey: ['/api/sales-stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-comparison'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-monthly-trends'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-top-clients'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-alerts'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['/api/sales/acciones'] });
+
       // Volver a overview después de 2 segundos
       setTimeout(() => {
         setViewMode("overview");
@@ -631,7 +633,7 @@ export default function SalesPage() {
             )}
 
             {/* Sección de acciones rápidas - Mejorada */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card
                 className="cursor-pointer group relative overflow-hidden border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-blue-950"
                 onClick={() => setViewMode("comparison")}
@@ -712,6 +714,34 @@ export default function SalesPage() {
                 <CardContent className="relative z-10">
                   <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                     Subir el reporte semanal de Mario para actualizar el análisis
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer group relative overflow-hidden border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-white to-purple-50 dark:from-gray-900 dark:to-purple-950"
+                onClick={() => setViewMode("acciones")}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/0 group-hover:from-purple-500/5 group-hover:to-purple-500/10 transition-all duration-300"></div>
+                <CardHeader className="relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <CheckCircle2 className="h-7 w-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                        Acciones Estratégicas
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium">
+                        Gestión de tareas de ventas
+                      </CardDescription>
+                    </div>
+                    <Sparkles className="h-5 w-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                    Ver y gestionar acciones estratégicas por cliente y responsable
                   </p>
                 </CardContent>
               </Card>
@@ -1424,6 +1454,32 @@ export default function SalesPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {viewMode === "acciones" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <CheckCircle2 className="h-6 w-6 text-purple-500" />
+                  Acciones Estratégicas
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Gestión de acciones por cliente y responsable
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("overview")}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </div>
+
+            <AccionesTable companyId={selectedCompany} />
           </div>
         )}
       </div>
