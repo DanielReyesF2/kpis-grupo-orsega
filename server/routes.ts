@@ -3557,10 +3557,86 @@ export function registerRoutes(app: express.Application) {
       const months = parseInt(req.query.months as string) || 12;
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
 
+      // ========================================================================
+      // DATOS HARDCODEADOS TEMPORALES - PARA PRESENTACIÓN
+      // TODO: ELIMINAR ESTE BLOQUE CUANDO SE ARREGLE LA FUNCIÓN DE ACTUALIZAR VENTAS
+      // ========================================================================
+      const HARDCODED_SALES_DATA_ENABLED = true; // Cambiar a false para desactivar
+
+      if (HARDCODED_SALES_DATA_ENABLED && (companyId === 1 || companyId === 2)) {
+        console.log(`[GET /api/kpi-history/:kpiId] ⚠️ USANDO DATOS HARDCODEADOS para companyId=${companyId}`);
+
+        // DURA (companyId=1) - Kilogramos 2024 y 2025
+        const duraHardcodedData = [
+          // 2024
+          { period: "Enero 2024", value: "46407.17", date: "2024-01-15", year: 2024 },
+          { period: "Febrero 2024", value: "54955.17", date: "2024-02-15", year: 2024 },
+          { period: "Marzo 2024", value: "58170.41", date: "2024-03-15", year: 2024 },
+          { period: "Abril 2024", value: "51814.50", date: "2024-04-15", year: 2024 },
+          { period: "Mayo 2024", value: "56757.88", date: "2024-05-15", year: 2024 },
+          { period: "Junio 2024", value: "45015.50", date: "2024-06-15", year: 2024 },
+          { period: "Julio 2024", value: "67090.00", date: "2024-07-15", year: 2024 },
+          { period: "Agosto 2024", value: "36533.20", date: "2024-08-15", year: 2024 },
+          { period: "Septiembre 2024", value: "57676.50", date: "2024-09-15", year: 2024 },
+          { period: "Octubre 2024", value: "70538.00", date: "2024-10-15", year: 2024 },
+          { period: "Noviembre 2024", value: "40676.04", date: "2024-11-15", year: 2024 },
+          { period: "Diciembre 2024", value: "54120.30", date: "2024-12-15", year: 2024 },
+          // 2025
+          { period: "Enero 2025", value: "59453.54", date: "2025-01-15", year: 2025 },
+          { period: "Febrero 2025", value: "46450.80", date: "2025-02-15", year: 2025 },
+          { period: "Marzo 2025", value: "43602.24", date: "2025-03-15", year: 2025 },
+          { period: "Abril 2025", value: "55972.80", date: "2025-04-15", year: 2025 },
+          { period: "Mayo 2025", value: "36358.64", date: "2025-05-15", year: 2025 },
+          { period: "Junio 2025", value: "51156.50", date: "2025-06-15", year: 2025 },
+          { period: "Julio 2025", value: "52999.54", date: "2025-07-15", year: 2025 },
+          { period: "Agosto 2025", value: "44381.30", date: "2025-08-15", year: 2025 },
+          { period: "Septiembre 2025", value: "56763.54", date: "2025-09-15", year: 2025 },
+          { period: "Octubre 2025", value: "42939.20", date: "2025-10-15", year: 2025 },
+          { period: "Noviembre 2025", value: "44222.00", date: "2025-11-15", year: 2025 },
+          { period: "Diciembre 2025", value: "34645.00", date: "2025-12-15", year: 2025 },
+        ];
+
+        // ORSEGA (companyId=2) - Unidades 2024 y 2025
+        const orsegaHardcodedData = [
+          // 2024
+          { period: "Enero 2024", value: "871883.98", date: "2024-01-15", year: 2024 },
+          { period: "Febrero 2024", value: "471429.00", date: "2024-02-15", year: 2024 },
+          { period: "Marzo 2024", value: "983893.00", date: "2024-03-15", year: 2024 },
+          { period: "Abril 2024", value: "659319.00", date: "2024-04-15", year: 2024 },
+          { period: "Mayo 2024", value: "983283.00", date: "2024-05-15", year: 2024 },
+          { period: "Junio 2024", value: "702502.00", date: "2024-06-15", year: 2024 },
+          { period: "Julio 2024", value: "674186.00", date: "2024-07-15", year: 2024 },
+          { period: "Agosto 2024", value: "528870.00", date: "2024-08-15", year: 2024 },
+          { period: "Septiembre 2024", value: "871278.00", date: "2024-09-15", year: 2024 },
+          { period: "Octubre 2024", value: "727375.00", date: "2024-10-15", year: 2024 },
+          { period: "Noviembre 2024", value: "1312541.00", date: "2024-11-15", year: 2024 },
+          { period: "Diciembre 2024", value: "750918.00", date: "2024-12-15", year: 2024 },
+          // 2025
+          { period: "Enero 2025", value: "1056748.00", date: "2025-01-15", year: 2025 },
+          { period: "Febrero 2025", value: "986581.00", date: "2025-02-15", year: 2025 },
+          { period: "Marzo 2025", value: "1319150.00", date: "2025-03-15", year: 2025 },
+          { period: "Abril 2025", value: "555894.00", date: "2025-04-15", year: 2025 },
+          { period: "Mayo 2025", value: "1062785.00", date: "2025-05-15", year: 2025 },
+          { period: "Junio 2025", value: "1084950.00", date: "2025-06-15", year: 2025 },
+          { period: "Julio 2025", value: "1169659.00", date: "2025-07-15", year: 2025 },
+          { period: "Agosto 2025", value: "558525.00", date: "2025-08-15", year: 2025 },
+          { period: "Septiembre 2025", value: "404786.00", date: "2025-09-15", year: 2025 },
+          { period: "Octubre 2025", value: "583234.00", date: "2025-10-15", year: 2025 },
+          { period: "Noviembre 2025", value: "425631.00", date: "2025-11-15", year: 2025 },
+          { period: "Diciembre 2025", value: "480458.00", date: "2025-12-15", year: 2025 },
+        ];
+
+        const hardcodedData = companyId === 1 ? duraHardcodedData : orsegaHardcodedData;
+        return res.json(hardcodedData);
+      }
+      // ========================================================================
+      // FIN DATOS HARDCODEADOS TEMPORALES
+      // ========================================================================
+
       // getKPIHistory puede resolver automáticamente el companyId si no se proporciona
       // usando findCompanyForKpiId internamente
       const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
-      
+
       res.json(kpiHistory);
     } catch (error) {
       console.error("[GET /api/kpi-history/:kpiId] Error:", error);
@@ -7381,6 +7457,54 @@ export function registerRoutes(app: express.Application) {
       if (!resolvedCompanyId) {
         return res.status(403).json({ error: 'No company access' });
       }
+
+      // ========================================================================
+      // DATOS HARDCODEADOS TEMPORALES - PARA PRESENTACIÓN
+      // TODO: ELIMINAR ESTE BLOQUE CUANDO SE ARREGLE LA FUNCIÓN DE ACTUALIZAR VENTAS
+      // ========================================================================
+      const HARDCODED_COMPARISON_ENABLED = true;
+
+      if (HARDCODED_COMPARISON_ENABLED && (resolvedCompanyId === 1 || resolvedCompanyId === 2)) {
+        console.log(`[GET /api/sales-comparison] ⚠️ USANDO DATOS HARDCODEADOS para companyId=${resolvedCompanyId}`);
+
+        // DURA (companyId=1) - Comparativo mensual KG
+        const duraComparisonData = [
+          { client_id: 1, client_name: "Enero", previous_year_total: "46407.17", current_year_total: "59453.54", differential: "13046.37", percent_change: "28.11", unit: "KG" },
+          { client_id: 2, client_name: "Febrero", previous_year_total: "54955.17", current_year_total: "46450.80", differential: "-8504.37", percent_change: "-15.48", unit: "KG" },
+          { client_id: 3, client_name: "Marzo", previous_year_total: "58170.41", current_year_total: "43602.24", differential: "-14568.17", percent_change: "-25.04", unit: "KG" },
+          { client_id: 4, client_name: "Abril", previous_year_total: "51814.50", current_year_total: "55972.80", differential: "4158.30", percent_change: "8.03", unit: "KG" },
+          { client_id: 5, client_name: "Mayo", previous_year_total: "56757.88", current_year_total: "36358.64", differential: "-20399.24", percent_change: "-35.94", unit: "KG" },
+          { client_id: 6, client_name: "Junio", previous_year_total: "45015.50", current_year_total: "51156.50", differential: "6141.00", percent_change: "13.64", unit: "KG" },
+          { client_id: 7, client_name: "Julio", previous_year_total: "67090.00", current_year_total: "52999.54", differential: "-14090.46", percent_change: "-21.00", unit: "KG" },
+          { client_id: 8, client_name: "Agosto", previous_year_total: "36533.20", current_year_total: "44381.30", differential: "7848.10", percent_change: "21.48", unit: "KG" },
+          { client_id: 9, client_name: "Septiembre", previous_year_total: "57676.50", current_year_total: "56763.54", differential: "-912.96", percent_change: "-1.58", unit: "KG" },
+          { client_id: 10, client_name: "Octubre", previous_year_total: "70538.00", current_year_total: "42939.20", differential: "-27598.80", percent_change: "-39.13", unit: "KG" },
+          { client_id: 11, client_name: "Noviembre", previous_year_total: "40676.04", current_year_total: "44222.00", differential: "3545.96", percent_change: "8.72", unit: "KG" },
+          { client_id: 12, client_name: "Diciembre", previous_year_total: "54120.30", current_year_total: "34645.00", differential: "-19475.30", percent_change: "-35.99", unit: "KG" },
+        ];
+
+        // ORSEGA (companyId=2) - Comparativo mensual Unidades
+        const orsegaComparisonData = [
+          { client_id: 1, client_name: "Enero", previous_year_total: "871883.98", current_year_total: "1056748.00", differential: "184864.02", percent_change: "21.20", unit: "unidades" },
+          { client_id: 2, client_name: "Febrero", previous_year_total: "471429.00", current_year_total: "986581.00", differential: "515152.00", percent_change: "109.27", unit: "unidades" },
+          { client_id: 3, client_name: "Marzo", previous_year_total: "983893.00", current_year_total: "1319150.00", differential: "335257.00", percent_change: "34.08", unit: "unidades" },
+          { client_id: 4, client_name: "Abril", previous_year_total: "659319.00", current_year_total: "555894.00", differential: "-103425.00", percent_change: "-15.69", unit: "unidades" },
+          { client_id: 5, client_name: "Mayo", previous_year_total: "983283.00", current_year_total: "1062785.00", differential: "79502.00", percent_change: "8.09", unit: "unidades" },
+          { client_id: 6, client_name: "Junio", previous_year_total: "702502.00", current_year_total: "1084950.00", differential: "382448.00", percent_change: "54.45", unit: "unidades" },
+          { client_id: 7, client_name: "Julio", previous_year_total: "674186.00", current_year_total: "1169659.00", differential: "495473.00", percent_change: "73.49", unit: "unidades" },
+          { client_id: 8, client_name: "Agosto", previous_year_total: "528870.00", current_year_total: "558525.00", differential: "29655.00", percent_change: "5.61", unit: "unidades" },
+          { client_id: 9, client_name: "Septiembre", previous_year_total: "871278.00", current_year_total: "404786.00", differential: "-466492.00", percent_change: "-53.54", unit: "unidades" },
+          { client_id: 10, client_name: "Octubre", previous_year_total: "727375.00", current_year_total: "583234.00", differential: "-144141.00", percent_change: "-19.82", unit: "unidades" },
+          { client_id: 11, client_name: "Noviembre", previous_year_total: "1312541.00", current_year_total: "425631.00", differential: "-886910.00", percent_change: "-67.57", unit: "unidades" },
+          { client_id: 12, client_name: "Diciembre", previous_year_total: "750918.00", current_year_total: "480458.00", differential: "-270460.00", percent_change: "-36.02", unit: "unidades" },
+        ];
+
+        const comparisonData = resolvedCompanyId === 1 ? duraComparisonData : orsegaComparisonData;
+        return res.json(comparisonData);
+      }
+      // ========================================================================
+      // FIN DATOS HARDCODEADOS TEMPORALES
+      // ========================================================================
 
       const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
       const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
