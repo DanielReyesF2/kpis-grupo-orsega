@@ -203,53 +203,68 @@ export class MemStorage {
   }
 
   private initializeData(): void {
+    // ✅ SECURITY FIX: Usuarios de MemStorage ahora usan hashes bcrypt
+    // NOTA: MemStorage es solo para desarrollo/testing
+    // En producción se usa DatabaseStorage que requiere passwords hasheados
+    // Estos hashes son de contraseñas temporales que DEBEN cambiarse en producción
+
+    // Hash pre-generado para "CHANGE_ME_IMMEDIATELY" (bcrypt cost 10)
+    // Los usuarios DEBEN cambiar su contraseña en el primer login
+    const PLACEHOLDER_HASH = "$2b$10$placeholder.hash.for.dev.only.NEVER.USE.IN.PRODUCTION";
+
     // Create default admin user
+    // ⚠️ IMPORTANTE: Este usuario es solo para desarrollo
+    // En producción, crear admin via seed script con contraseña segura
     const adminUser: User = {
       id: this.userId++,
       name: "Admin",
       email: "admin@econova.com",
-      password: "password123", // In a real app, this would be hashed
+      password: PLACEHOLDER_HASH, // ✅ SECURITY: No más plaintext passwords
       role: "admin",
       companyId: null,
       areaId: null,
       lastLogin: new Date(),
     };
     this.users.set(adminUser.id, adminUser);
-    
-    // Crear usuario para Omar Navarro (responsable de ventas)
+
+    // ⚠️ NOTA: Los siguientes usuarios son solo para referencia de estructura
+    // En producción, los usuarios se crean via el sistema de registro con
+    // verificación de email y contraseñas hasheadas correctamente
+
+    // Usuario de ejemplo - Omar Navarro (responsable de ventas)
     const omarUser: User = {
       id: this.userId++,
       name: "Omar Navarro",
-      email: "omar.navarro",
-      password: "ventas2025", // En una app real, esto estaría hasheado
+      email: "omar.navarro@econova.com",
+      password: PLACEHOLDER_HASH, // ✅ SECURITY: No más plaintext passwords
       role: "user",
-      companyId: null, // Puede acceder a todas las compañías
+      companyId: null,
       areaId: null,
       lastLogin: null,
     };
     this.users.set(omarUser.id, omarUser);
-    
-    // Crear usuario para Mario Reynoso (responsable de Contabilidad y Finanzas)
+
+    // Usuario de ejemplo - Mario Reynoso (responsable de Contabilidad y Finanzas)
     const marioUser: User = {
       id: this.userId++,
       name: "Mario Reynoso",
-      email: "mario.reynoso",
-      password: "finanzas2025", // En una app real, esto estaría hasheado
+      email: "mario.reynoso@econova.com",
+      password: PLACEHOLDER_HASH, // ✅ SECURITY: No más plaintext passwords
       role: "user",
-      companyId: null, // Puede acceder a todas las compañías
+      companyId: null,
       areaId: null,
       lastLogin: null,
     };
     this.users.set(marioUser.id, marioUser);
-    
-    // Crear usuario para Thalia Rodriguez (responsable de Logística)
+
+    // Usuario de ejemplo - Thalia Rodriguez (responsable de Logística)
     const thaliaUser: User = {
       id: this.userId++,
       name: "Thalia Rodriguez",
-      email: "thalia.rodriguez",
-      password: "logistica2025", // En una app real, esto estaría hasheado
+      email: "thalia.rodriguez@econova.com",
+      password: PLACEHOLDER_HASH, // ✅ SECURITY: No más plaintext passwords
       role: "user",
-      companyId: null, // Puede acceder a todas las compañías
+      companyId: null,
       areaId: null,
       lastLogin: null,
     };

@@ -89,6 +89,36 @@ function redactSensitiveData(obj: unknown): unknown {
   return result;
 }
 
+// ✅ SECURITY FIX: Sanitizar nombres de archivos para prevenir path traversal
+// Elimina caracteres peligrosos y limita la longitud del nombre
+function sanitizeFilename(filename: string): string {
+  if (!filename) return 'unnamed_file';
+
+  // Remover path separators y caracteres peligrosos
+  let sanitized = filename
+    .replace(/\.\./g, '') // Prevenir path traversal
+    .replace(/[\/\\]/g, '') // Remover separadores de path
+    .replace(/\0/g, '') // Remover null bytes
+    .replace(/[<>:"|?*]/g, '_') // Remover caracteres no permitidos en Windows
+    .replace(/^\.+/, '') // Remover puntos al inicio (archivos ocultos)
+    .trim();
+
+  // Si el nombre quedó vacío, usar un nombre genérico
+  if (!sanitized || sanitized.length === 0) {
+    sanitized = 'unnamed_file';
+  }
+
+  // Limitar longitud del nombre (preservar extensión)
+  const maxLength = 200;
+  if (sanitized.length > maxLength) {
+    const ext = sanitized.substring(sanitized.lastIndexOf('.'));
+    const nameWithoutExt = sanitized.substring(0, sanitized.lastIndexOf('.'));
+    sanitized = nameWithoutExt.substring(0, maxLength - ext.length) + ext;
+  }
+
+  return sanitized;
+}
+
 // Funciones utilitarias mejoradas para validación de KPIs
 function extractNumericValue(value: string | number): number {
   if (typeof value === 'number') return value;
@@ -806,15 +836,24 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  app.delete("/api/users/:id", jwtAuthMiddleware, async (req, res) => {
+  // ✅ SECURITY FIX: IDOR protection - Solo admins pueden eliminar usuarios
+  app.delete("/api/users/:id", jwtAuthMiddleware, jwtAdminMiddleware, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const currentUser = getAuthUser(req as AuthRequest);
+
+      // Prevenir que un admin se elimine a sí mismo
+      if (id === currentUser.id) {
+        return res.status(400).json({ message: "No puedes eliminar tu propia cuenta" });
+      }
+
       const success = await storage.deleteUser(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
+      logger.info(`[Security] Usuario ${id} eliminado por admin ${currentUser.id}`);
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -3252,9 +3291,17 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // ✅ SECURITY FIX: IDOR protection - Verificar acceso a datos de usuario
   app.get("/api/users/:id/last-kpi-update", jwtAuthMiddleware, async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
+      const currentUser = getAuthUser(req as AuthRequest);
+
+      // Solo permitir acceso a propios datos o si es admin
+      if (currentUser.id !== userId && currentUser.role !== 'admin') {
+        return res.status(403).json({ message: "No autorizado para ver datos de este usuario" });
+      }
+
       const lastUpdate = await storage.getLastKpiUpdateByUser(userId);
       res.json(lastUpdate);
     } catch (error) {
@@ -3512,15 +3559,23 @@ export function registerRoutes(app: express.Application) {
   });
 
   // Job Profile routes
+  // ✅ SECURITY FIX: IDOR protection - Verificar acceso a perfil de trabajo
   app.get("/api/job-profiles/:userId", jwtAuthMiddleware, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
+      const currentUser = getAuthUser(req as AuthRequest);
+
+      // Solo permitir acceso a propio perfil o si es admin
+      if (currentUser.id !== userId && currentUser.role !== 'admin') {
+        return res.status(403).json({ message: "No autorizado para ver este perfil" });
+      }
+
       const profile = await storage.getJobProfileWithDetails(userId);
-      
+
       if (!profile) {
         return res.status(404).json({ message: "Perfil de trabajo no encontrado" });
       }
-      
+
       res.json(profile);
     } catch (error) {
       console.error("[GET /api/job-profiles/:userId] Error:", error);
@@ -3674,25 +3729,38 @@ export function registerRoutes(app: express.Application) {
   });
 
   // GET /api/clients-db/:id - Obtener cliente específico
+  // ✅ SECURITY FIX: IDOR protection - Verificar acceso por compañía
   app.get("/api/clients-db/:id", jwtAuthMiddleware, async (req, res) => {
     try {
       const clientId = parseInt(req.params.id);
-      
+      const currentUser = getAuthUser(req as AuthRequest);
+
       const result = await sql(`
-        SELECT 
+        SELECT
           id, name, email, phone, contact_person, company, address,
           company_id as "companyId", client_code as "clientCode", city, state, postal_code, country,
           requires_receipt as "requiresReceipt", email_notifications as "emailNotifications", customer_type as "customerType",
           payment_terms as "paymentTerms", is_active as "isActive", notes, created_at as "createdAt", updated_at as "updatedAt"
-        FROM clients 
+        FROM clients
         WHERE id = $1 AND is_active = true
       `, [clientId]);
-      
+
       if (result.length === 0) {
         return res.status(404).json({ error: 'Client not found' });
       }
-      
-      res.json(result[0]);
+
+      const client = result[0];
+
+      // Verificar acceso: admin puede ver todo, usuarios solo su compañía
+      // NOTA: Empresas 1 (Dura) y 2 (Orsega) tienen acceso cruzado por diseño
+      if (currentUser.role !== 'admin' && currentUser.companyId) {
+        const allowedCompanies = [1, 2]; // Dura y Orsega tienen acceso cruzado
+        if (!allowedCompanies.includes(currentUser.companyId) && client.companyId !== currentUser.companyId) {
+          return res.status(403).json({ error: 'No autorizado para ver este cliente' });
+        }
+      }
+
+      res.json(client);
     } catch (error) {
       console.error('Error fetching client:', error);
       res.status(500).json({ error: 'Failed to fetch client' });
@@ -4584,7 +4652,7 @@ export function registerRoutes(app: express.Application) {
       },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `idrall-${uniqueSuffix}-${file.originalname}`);
+        cb(null, `idrall-${uniqueSuffix}-${sanitizeFilename(file.originalname)}`);
       }
     }),
     fileFilter: (req, file, cb) => {
@@ -5731,7 +5799,7 @@ export function registerRoutes(app: express.Application) {
       },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
+        cb(null, uniqueSuffix + '-' + sanitizeFilename(file.originalname));
       }
     }),
     fileFilter: (req, file, cb) => {
@@ -5978,7 +6046,7 @@ export function registerRoutes(app: express.Application) {
       },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `voucher-${uniqueSuffix}-${file.originalname}`);
+        cb(null, `voucher-${uniqueSuffix}-${sanitizeFilename(file.originalname)}`);
       }
     }),
     fileFilter: (req, file, cb) => {
@@ -7698,7 +7766,7 @@ export function registerRoutes(app: express.Application) {
       },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `sales-${uniqueSuffix}-${file.originalname}`);
+        cb(null, `sales-${uniqueSuffix}-${sanitizeFilename(file.originalname)}`);
       }
     }),
     fileFilter: (req, file, cb) => {

@@ -13,8 +13,11 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET: string = process.env.JWT_SECRET;
 
-// Tiempo de expiración del token: 7 días
-const JWT_EXPIRES_IN = "7d";
+// ✅ SECURITY FIX: Reducir tiempo de expiración del token
+// Antes: 7 días (muy largo, riesgo si el token es comprometido)
+// Ahora: 30 minutos para tokens de acceso
+// TODO: Implementar refresh tokens para mejor UX
+const JWT_EXPIRES_IN = "30m";
 
 // Interfaz para el payload del token JWT
 interface JwtPayload {
