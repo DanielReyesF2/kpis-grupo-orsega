@@ -289,7 +289,7 @@ async function updateLogisticsKPIs(companyId: number) {
           ${kpi.id},
           ${companyId},
           ${kpiUpdate.value},
-          ${compliancePercentage.toFixed(2) + '%'},
+          ${compliancePercentage.toFixed(2)},
           ${now},
           ${now},
           ${now}
@@ -1988,7 +1988,7 @@ export function registerRoutes(app: express.Application) {
           }
 
           const formattedPercentage = percentage.toFixed(1);
-          compliancePercentage = `${formattedPercentage}%`;
+          compliancePercentage = formattedPercentage;
           
           console.log(`[KPI Update] Estado calculado: ${status}, Compliance: ${compliancePercentage}`);
         } else {
@@ -1996,7 +1996,7 @@ export function registerRoutes(app: express.Application) {
           // Si no se puede calcular, asignar estado por defecto
           if (!status) {
             status = "alert";
-            compliancePercentage = "0.0%";
+            compliancePercentage = "0.0";
           }
         }
       } else {
@@ -2004,7 +2004,7 @@ export function registerRoutes(app: express.Application) {
         // Si no hay target/goal, asignar estado por defecto
         if (!status) {
           status = "alert";
-          compliancePercentage = "0.0%";
+          compliancePercentage = "0.0";
         }
       }
       
@@ -2015,7 +2015,7 @@ export function registerRoutes(app: express.Application) {
       }
       
       if (!compliancePercentage) {
-        compliancePercentage = "0.0%";
+        compliancePercentage = "0.0";
       }
 
       const payload = {
@@ -2166,21 +2166,21 @@ export function registerRoutes(app: express.Application) {
                 }
               }
 
-              compliancePercentage = `${percentage.toFixed(1)}%`;
+              compliancePercentage = percentage.toFixed(1);
             } else {
               console.warn(`[PUT /api/kpi-values/bulk] ⚠️ No se pudieron convertir valores a números para ${month} ${year}: value=${numericCurrentValue}, target=${numericTarget}`);
               status = "alert";
-              compliancePercentage = "0.0%";
+              compliancePercentage = "0.0";
             }
           } catch (calcError: any) {
             console.error(`[PUT /api/kpi-values/bulk] ❌ Error calculando status para ${month} ${year}:`, calcError);
             status = "alert";
-            compliancePercentage = "0.0%";
+            compliancePercentage = "0.0";
           }
         } else {
           console.warn(`[PUT /api/kpi-values/bulk] ⚠️ KPI ${kpiId} no tiene target/goal definido`);
           status = "alert";
-          compliancePercentage = "0.0%";
+          compliancePercentage = "0.0";
         }
 
         // Guardar valor
