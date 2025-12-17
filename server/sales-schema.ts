@@ -225,7 +225,11 @@ const CREATE_VIEWS_QUERIES = [
      c.name as client_name,
      c.company_id,
      MAX(sd.sale_date) as last_sale_date,
-     DATE_PART('day', CURRENT_DATE - MAX(sd.sale_date)) as days_since_last_sale,
+     CASE
+       WHEN MAX(sd.sale_date) IS NOT NULL
+       THEN EXTRACT(DAY FROM (CURRENT_DATE - MAX(sd.sale_date)))
+       ELSE NULL
+     END as days_since_last_sale,
      COUNT(sd.id) as total_sales_count,
      SUM(sd.quantity) as total_quantity
    FROM clients c
