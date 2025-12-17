@@ -52,7 +52,35 @@ export async function analyzePaymentDocument(
   fileType: string
 ): Promise<DocumentAnalysisResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("❌ OPENAI_API_KEY no está configurado");
+
+  // Si no hay API key, devolver resultado vacío para verificación manual
+  if (!apiKey) {
+    console.warn("⚠️ [Document Analyzer] OPENAI_API_KEY no está configurado.");
+    console.warn("⚠️ [Document Analyzer] El documento se procesará sin análisis automático.");
+    console.warn("⚠️ [Document Analyzer] El usuario deberá completar todos los campos manualmente.");
+
+    return {
+      extractedAmount: null,
+      extractedDate: null,
+      extractedBank: null,
+      extractedReference: null,
+      extractedCurrency: 'MXN',
+      extractedOriginAccount: null,
+      extractedDestinationAccount: null,
+      extractedTrackingKey: null,
+      extractedBeneficiaryName: null,
+      ocrConfidence: 0,
+      rawResponse: 'OpenAI API key no configurada. Verificación manual requerida.',
+      documentType: 'unknown',
+      extractedSupplierName: null,
+      extractedDueDate: null,
+      extractedInvoiceNumber: null,
+      extractedTaxId: null,
+      relatedInvoiceUUID: null,
+      paymentMethod: null,
+    };
+  }
+
   const openai = new OpenAI({ apiKey });
 
   console.log(`🔍 Analizando documento tipo: ${fileType}`);
@@ -719,7 +747,41 @@ Now analyze the following document carefully and extract ALL available informati
     return result;
   } catch (error) {
     console.error("❌ Error durante el análisis:", error);
-    throw new Error(`Error al analizar documento: ${error}`);
+
+    // En lugar de fallar completamente, devolvemos un resultado por defecto
+    // Esto permite al usuario continuar con verificación manual
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isOpenAIError = errorMessage.includes('API key') ||
+                          errorMessage.includes('401') ||
+                          errorMessage.includes('OpenAI') ||
+                          errorMessage.includes('OPENAI');
+
+    if (isOpenAIError) {
+      console.warn('⚠️ [Document Analyzer] OpenAI no disponible. Continuando sin análisis automático.');
+      console.warn('⚠️ [Document Analyzer] El usuario deberá verificar los datos manualmente.');
+    }
+
+    // Devolver resultado por defecto para permitir verificación manual
+    return {
+      extractedAmount: null,
+      extractedDate: null,
+      extractedBank: null,
+      extractedReference: null,
+      extractedCurrency: 'MXN',
+      extractedOriginAccount: null,
+      extractedDestinationAccount: null,
+      extractedTrackingKey: null,
+      extractedBeneficiaryName: null,
+      ocrConfidence: 0, // 0% confianza = requiere verificación manual
+      rawResponse: `Error en análisis: ${errorMessage}`,
+      documentType: 'unknown' as const, // El usuario deberá especificar el tipo
+      extractedSupplierName: null,
+      extractedDueDate: null,
+      extractedInvoiceNumber: null,
+      extractedTaxId: null,
+      relatedInvoiceUUID: null,
+      paymentMethod: null,
+    };
   }
 }
 
