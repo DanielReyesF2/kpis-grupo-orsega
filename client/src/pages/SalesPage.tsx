@@ -24,7 +24,8 @@ import {
   UserPlus,
   UserMinus,
   DollarSign,
-  RefreshCw
+  RefreshCw,
+  TableIcon
 } from "lucide-react";
 import type { SalesMetrics } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,8 @@ import {
   PieChart,
   Pie
 } from "recharts";
+// TEMPORAL: Importar tabla comparativa hardcodeada
+import { SalesYearlyComparisonTable } from "@/components/dashboard/SalesYearlyComparisonTable";
 
 type ViewMode = "overview" | "upload" | "comparison" | "alerts";
 
@@ -1137,14 +1140,17 @@ export default function SalesPage() {
                     </p>
                   </div>
                 ) : !comparison || comparison.length === 0 ? (
-                  <div className="text-center py-12">
-                    <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">
-                      No hay datos disponibles aún
-                    </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Sube el primer archivo Excel para comenzar
-                    </p>
+                  <div className="space-y-6">
+                    <div className="text-center py-6">
+                      <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-600 dark:text-gray-400">
+                        No hay datos de comparativo por cliente aún
+                      </p>
+                    </div>
+                    {/* TEMPORAL: Tabla comparativa anual tipo Excel (siempre visible) */}
+                    <div className="pt-4 border-t">
+                      <SalesYearlyComparisonTable companyId={selectedCompany} />
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -1261,6 +1267,11 @@ export default function SalesPage() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+
+                    {/* TEMPORAL: Tabla comparativa anual tipo Excel */}
+                    <div className="mt-8 pt-6 border-t">
+                      <SalesYearlyComparisonTable companyId={selectedCompany} />
                     </div>
                   </div>
                 )}
