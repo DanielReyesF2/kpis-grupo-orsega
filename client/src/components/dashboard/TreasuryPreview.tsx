@@ -47,10 +47,10 @@ export function TreasuryPreview() {
   // Calcular estadísticas de comprobantes
   const voucherStats = vouchers ? {
     total: vouchers.length,
-    validado: vouchers.filter(v => v.status === 'factura_pagada').length,
-    pendienteComplemento: vouchers.filter(v => v.status === 'pendiente_complemento').length,
-    complementoRecibido: vouchers.filter(v => v.status === 'complemento_recibido').length,
-    cierreContable: vouchers.filter(v => v.status === 'cierre_contable').length,
+    validado: vouchers.filter((v: PaymentVoucher) => v.status === 'factura_pagada').length,
+    pendienteComplemento: vouchers.filter((v: PaymentVoucher) => v.status === 'pendiente_complemento').length,
+    complementoRecibido: vouchers.filter((v: PaymentVoucher) => v.status === 'complemento_recibido').length,
+    cierreContable: vouchers.filter((v: PaymentVoucher) => v.status === 'cierre_contable').length,
   } : {
     total: 0,
     validado: 0,
@@ -66,8 +66,8 @@ export function TreasuryPreview() {
 
   // Obtener comprobantes recientes (últimos 3)
   const recentVouchers = vouchers
-    ? vouchers
-        .sort((a, b) => {
+    ? [...vouchers]
+        .sort((a: PaymentVoucher, b: PaymentVoucher) => {
           const dateA = new Date(a.createdAt || '').getTime();
           const dateB = new Date(b.createdAt || '').getTime();
           return dateB - dateA;
@@ -215,7 +215,7 @@ export function TreasuryPreview() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   Comprobantes Recientes
                 </p>
-                {recentVouchers.map((voucher) => {
+                {recentVouchers.map((voucher: PaymentVoucher) => {
                   const statusInfo = getStatusInfo(voucher.status);
                   const StatusIcon = statusInfo.icon;
                   return (

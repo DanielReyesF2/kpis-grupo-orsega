@@ -4,8 +4,13 @@ import { z } from 'zod'
 import { sql } from './db-logistics.js'
 import { createShipmentSchema, updateShipmentSchema, createShipmentEventSchema, createShipmentDocSchema } from '../shared/logistics-schema.js'
 import { sendTransportRequest } from './email-logistics.js'
+import { jwtAuthMiddleware } from './auth.js'
 
 export const logisticsRouter = Router()
+
+// ✅ SECURITY FIX: Aplicar autenticación JWT a todas las rutas de logística
+// Antes estas rutas estaban expuestas sin autenticación
+logisticsRouter.use(jwtAuthMiddleware)
 
 // GET /api/shipments with filters
 logisticsRouter.get('/shipments', async (req, res) => {
