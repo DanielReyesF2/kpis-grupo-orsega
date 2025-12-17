@@ -16,6 +16,7 @@ import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // TEMPORAL: Tabla comparativa anual para presentación
 import { SalesYearlyComparisonTable } from '@/components/dashboard/SalesYearlyComparisonTable';
+import { SalesExecutiveSummary } from '@/components/dashboard/SalesExecutiveSummary';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
 import { Skeleton } from '@/components/ui/skeleton';
@@ -329,8 +330,13 @@ export default function Dashboard() {
             </Tabs>
           </div>
 
-          {/* TABLA COMPARATIVA ANUAL - Visible en Dashboard principal */}
-          <div className="mt-8" data-onboarding="sales-comparison-table">
+          {/* RESUMEN EJECUTIVO - Análisis rápido antes del detalle */}
+          <div className="mt-8" data-onboarding="executive-summary">
+            <SalesExecutiveSummary companyId={selectedChartCompany} />
+          </div>
+
+          {/* TABLA COMPARATIVA ANUAL - Detalle completo */}
+          <div className="mt-6" data-onboarding="sales-comparison-table">
             <SalesYearlyComparisonTable companyId={selectedChartCompany} />
           </div>
         </div>
