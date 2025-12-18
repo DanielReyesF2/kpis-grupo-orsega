@@ -75,25 +75,31 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
     },
     onSuccess: async (data) => {
       console.log('[ExchangeRateForm] Registro exitoso:', data);
-      
-      // Invalidar todas las queries relacionadas con tipos de cambio (más agresivo)
-      await queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["/api/fx/source-series"], exact: false });
-      await queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates/range"], exact: false });
-      
-      // Forzar refetch inmediato con un pequeño delay para asegurar que el backend procesó
-      setTimeout(async () => {
-        await queryClient.refetchQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false });
-        await queryClient.refetchQueries({ queryKey: ["/api/fx/source-series"], exact: false });
-        await queryClient.refetchQueries({ queryKey: ["/api/treasury/exchange-rates/range"], exact: false });
-        console.log('[ExchangeRateForm] Queries refetched después de guardar');
-      }, 500);
-      
+
+      // Invalidar todas las queries relacionadas con tipos de cambio
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ["/api/fx/source-series"], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates/range"], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates/daily"], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates/monthly"], exact: false }),
+      ]);
+
+      // Forzar refetch inmediato ANTES de cerrar el modal
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["/api/treasury/exchange-rates"], exact: false }),
+        queryClient.refetchQueries({ queryKey: ["/api/fx/source-series"], exact: false }),
+      ]);
+
+      console.log('[ExchangeRateForm] ✅ Queries invalidadas y refetched');
+
       const sourceName = source || selectedSource;
       toast({
         title: "✅ Tipo de cambio registrado",
         description: `El tipo de cambio de ${sourceName} ha sido actualizado correctamente`,
       });
+
+      // Cerrar modal DESPUÉS de que los datos se hayan actualizado
       onClose();
     },
     onError: (error: any) => {
