@@ -146,20 +146,24 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     });
   };
 
-  const { data: exchangeRates = [], isLoading } = useQuery<ExchangeRate[]>({
+  const { data: exchangeRates = [], isLoading, dataUpdatedAt } = useQuery<ExchangeRate[]>({
     queryKey: ['/api/treasury/exchange-rates'],
     staleTime: 0, // No cachear para que siempre obtenga los datos más recientes
     refetchInterval: 30000, // Refrescar cada 30 segundos
     refetchOnWindowFocus: true, // Refrescar cuando la ventana recupera el foco
-    gcTime: 0, // No cachear para asegurar datos frescos (gcTime reemplaza a cacheTime en v5)
+    gcTime: 0, // No cachear para asegurar datos frescos
+    structuralSharing: false, // Desactivar structural sharing para forzar nueva referencia
   });
 
   // Efecto para logging cuando los datos cambian
   useEffect(() => {
     let isMounted = true;
-    
+
     if (isMounted && exchangeRates && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
-      console.log('[ExchangeRateCards] Datos recibidos:', exchangeRates.length, 'registros');
+      console.log('[ExchangeRateCards] 🔄 Datos actualizados:', {
+        totalRegistros: exchangeRates.length,
+        dataUpdatedAt: dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : 'N/A'
+      });
       const santander = exchangeRates.filter((r: ExchangeRate) => r.source === 'Santander').sort((a: ExchangeRate, b: ExchangeRate) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       if (santander && isMounted) {
         console.log('[ExchangeRateCards] Último Santander:', {
@@ -174,7 +178,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     return () => {
       isMounted = false;
     };
-  }, [exchangeRates]);
+  }, [exchangeRates, dataUpdatedAt]);
 
   // Detectar cambios y activar animaciones
   useEffect(() => {
@@ -228,7 +232,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       isMounted = false;
       timeouts.forEach(timeout => clearTimeout(timeout));
     };
-  }, [exchangeRates]);
+  }, [exchangeRates, dataUpdatedAt]);
 
   // Procesar datos para cada fuente
   const processSourceData = (source: string): RateCardData => {
@@ -346,9 +350,10 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     };
   };
 
-  const santanderData = useMemo(() => processSourceData('Santander'), [exchangeRates]);
-  const monexData = useMemo(() => processSourceData('MONEX'), [exchangeRates]);
-  const dofData = useMemo(() => processSourceData('DOF'), [exchangeRates]);
+  // Usar dataUpdatedAt como dependencia adicional para forzar recálculo cuando hay nuevos datos
+  const santanderData = useMemo(() => processSourceData('Santander'), [exchangeRates, dataUpdatedAt]);
+  const monexData = useMemo(() => processSourceData('MONEX'), [exchangeRates, dataUpdatedAt]);
+  const dofData = useMemo(() => processSourceData('DOF'), [exchangeRates, dataUpdatedAt]);
 
   // Configuración de colores más limpia y profesional
   const getSourceConfig = (source: string) => {
