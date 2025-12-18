@@ -22,6 +22,7 @@ import { DofChart } from "@/components/dashboard/DofChart";
 import { ExchangeRateCards } from "@/components/dashboard/ExchangeRateCards";
 import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPaymentsKanban";
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
+import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
@@ -61,6 +62,7 @@ export default function TreasuryPage() {
   const [invoiceVerificationData, setInvoiceVerificationData] = useState<any>(null);
   const [isKanbanExpanded, setIsKanbanExpanded] = useState(true);
   const [formSource, setFormSource] = useState<string | undefined>(undefined); // Para pre-seleccionar fuente desde tarjetas
+  const [showInvoiceWizard, setShowInvoiceWizard] = useState(false); // Wizard de subida de facturas con selección de proveedor
 
   // Mutación para subir factura directamente
   const uploadInvoiceMutation = useMutation({
@@ -489,9 +491,9 @@ export default function TreasuryPage() {
               e.preventDefault();
               e.stopPropagation();
               setDragOverUpload(false);
-              setShowUploadModal(true);
+              setShowInvoiceWizard(true); // Abrir wizard en lugar de modal directo
             }}
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => setShowInvoiceWizard(true)}
             className={`relative border-2 border-dashed transition-all cursor-pointer ${
               dragOverUpload 
                 ? "border-primary bg-primary/10 scale-[1.002] shadow-lg" 
@@ -786,6 +788,18 @@ export default function TreasuryPage() {
             invoiceData={invoiceVerificationData}
           />
         )}
+
+        {/* Wizard de Subida de Facturas con selección de proveedor */}
+        <InvoiceUploadWizard
+          isOpen={showInvoiceWizard}
+          onClose={() => setShowInvoiceWizard(false)}
+          onUploadComplete={(data) => {
+            if (data.requiresVerification) {
+              setInvoiceVerificationData(data);
+              setShowInvoiceVerificationModal(true);
+            }
+          }}
+        />
       </AppLayout>
     );
   }
@@ -811,12 +825,12 @@ export default function TreasuryPage() {
             e.preventDefault();
             e.stopPropagation();
             setDragOverUpload(false);
-            setShowUploadModal(true);
+            setShowInvoiceWizard(true); // Abrir wizard en lugar de modal directo
           }}
-          onClick={() => setShowUploadModal(true)}
+          onClick={() => setShowInvoiceWizard(true)}
           className={`relative border-2 border-dashed transition-all cursor-pointer ${
-            dragOverUpload 
-              ? "border-primary bg-primary/10 scale-[1.002] shadow-lg" 
+            dragOverUpload
+              ? "border-primary bg-primary/10 scale-[1.002] shadow-lg"
               : "border-primary/30 hover:border-primary/50 hover:bg-primary/5"
           }`}
         >
@@ -1149,6 +1163,17 @@ export default function TreasuryPage() {
               </DialogContent>
             </Dialog>
 
+      {/* Wizard de Subida de Facturas con selección de proveedor */}
+      <InvoiceUploadWizard
+        isOpen={showInvoiceWizard}
+        onClose={() => setShowInvoiceWizard(false)}
+        onUploadComplete={(data) => {
+          if (data.requiresVerification) {
+            setInvoiceVerificationData(data);
+            setShowInvoiceVerificationModal(true);
+          }
+        }}
+      />
     </AppLayout>
   );
 }
