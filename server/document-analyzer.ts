@@ -23,6 +23,16 @@ async function loadPdfjs() {
 // -----------------------------
 // Interfaces
 // -----------------------------
+export interface CxpRecord {
+  supplierName: string;
+  amount: number;
+  currency: string;
+  dueDate: Date;
+  reference?: string | null;
+  status?: string | null;
+  notes?: string | null;
+}
+
 export interface DocumentAnalysisResult {
   extractedAmount: number | null;
   extractedDate: Date | null;
@@ -35,13 +45,15 @@ export interface DocumentAnalysisResult {
   extractedBeneficiaryName: string | null;
   ocrConfidence: number;
   rawResponse?: string;
-  documentType?: "invoice" | "voucher" | "rep" | "unknown";
+  documentType?: "invoice" | "voucher" | "rep" | "cxp" | "unknown";
   extractedSupplierName?: string | null;
   extractedDueDate?: Date | null;
   extractedInvoiceNumber?: string | null;
   extractedTaxId?: string | null;
   relatedInvoiceUUID?: string | null;
   paymentMethod?: string | null;
+  cxpRecords?: CxpRecord[];
+  notes?: string | null;
 }
 
 // -----------------------------

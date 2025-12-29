@@ -17,7 +17,7 @@ interface AuthRequest extends Request {
 }
 import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi, type Shipment } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
@@ -1066,14 +1066,15 @@ export function registerRoutes(app: express.Application) {
   });
 
   app.put("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
+    const kpiId = req.params.id;
     try {
       const authReq = req as AuthRequest;
       // 🔒 SEGURO: Solo administradores y gerentes pueden actualizar KPIs
       if (authReq.user?.role !== 'admin' && authReq.user?.role !== 'manager') {
         return res.status(403).json({ message: "No tienes permisos para actualizar KPIs" });
       }
-      
-      const id = parseInt(req.params.id, 10);
+
+      const id = parseInt(kpiId, 10);
       if (isNaN(id)) {
         return res.status(400).json({ message: "ID de KPI inválido" });
       }
@@ -1134,20 +1135,20 @@ export function registerRoutes(app: express.Application) {
       res.json(kpi);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error(`[PUT /api/kpis/${id}] Error de validación:`, error.errors);
+        console.error(`[PUT /api/kpis/${kpiId}] Error de validación:`, error.errors);
         return res.status(400).json({ message: "Error de validación", errors: error.errors });
       }
       if (error instanceof Error && (error.message.includes('Forbidden') || error.message.includes('Access denied'))) {
-        console.error(`[PUT /api/kpis/${id}] Error de acceso:`, error.message);
+        console.error(`[PUT /api/kpis/${kpiId}] Error de acceso:`, error.message);
         return res.status(403).json({ message: error.message });
       }
       // Capturar errores de DatabaseStorage que pueden lanzarse
       if (error instanceof Error && (error.message.includes('No se pudo determinar') || error.message.includes('no encontrado'))) {
-        console.error(`[PUT /api/kpis/${id}] Error al encontrar KPI:`, error.message);
+        console.error(`[PUT /api/kpis/${kpiId}] Error al encontrar KPI:`, error.message);
         return res.status(404).json({ message: error.message });
       }
-      console.error(`[PUT /api/kpis/${id}] Error interno:`, error);
-      console.error(`[PUT /api/kpis/${id}] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+      console.error(`[PUT /api/kpis/${kpiId}] Error interno:`, error);
+      console.error(`[PUT /api/kpis/${kpiId}] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({ 
         message: "Internal server error",
         error: error instanceof Error ? error.message : String(error)
@@ -2664,12 +2665,13 @@ export function registerRoutes(app: express.Application) {
         volumeKpi.id,
         volumeKpi.companyId ?? parseInt(companyId as string)
       );
-      const monthlyRecord = kpiValues.find(value => 
-        value.period === targetPeriod && !value.period.includes('Semana')
+      const monthlyRecord = kpiValues.find(value =>
+        value.period === targetPeriod && value.period && !value.period.includes('Semana')
       );
-      
-      const weeklyRecords = kpiValues.filter(value => 
-        value.period.includes(month as string) && 
+
+      const weeklyRecords = kpiValues.filter(value =>
+        value.period &&
+        value.period.includes(month as string) &&
         value.period.includes(year as string) &&
         value.period.includes("Semana")
       );
@@ -5201,15 +5203,15 @@ export function registerRoutes(app: express.Application) {
         const dayData = dayMap.get(day)!;
         if (source === 'santander') {
           if (!dayData.santander) dayData.santander = { sum: 0, count: 0 };
-          dayData.santander.sum += parseFloat(rateValue);
+          dayData.santander.sum += rateValue;
           dayData.santander.count += 1;
         } else if (source === 'monex') {
           if (!dayData.monex) dayData.monex = { sum: 0, count: 0 };
-          dayData.monex.sum += parseFloat(rateValue);
+          dayData.monex.sum += rateValue;
           dayData.monex.count += 1;
         } else if (source === 'dof') {
           if (!dayData.dof) dayData.dof = { sum: 0, count: 0 };
-          dayData.dof.sum += parseFloat(rateValue);
+          dayData.dof.sum += rateValue;
           dayData.dof.count += 1;
         }
       });
@@ -6532,8 +6534,8 @@ export function registerRoutes(app: express.Application) {
         };
       }
 
-      const hasInvoiceCharacteristics = (
-        analysis.extractedSupplierName || 
+      const hasInvoiceCharacteristics = !!(
+        analysis.extractedSupplierName ||
         (analysis.extractedAmount && analysis.documentType !== 'voucher' && analysis.documentType !== 'rep')
       );
       
