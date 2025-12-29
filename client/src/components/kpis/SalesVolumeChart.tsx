@@ -112,7 +112,7 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
     const volumeValue = volumeEntry?.value || dataPoint?.value || 0;
     const targetValue = targetEntry?.value || dataPoint?.target || 0;
     const diferencia = volumeValue - targetValue;
-    const cumplimiento = targetValue > 0 ? ((volumeValue / targetValue) * 100).toFixed(1) : 0;
+    const cumplimiento = targetValue > 0 ? ((volumeValue / targetValue) * 100).toFixed(1) : '0';
     
     const unit = volumeEntry?.payload?.unit || 'KG';
     const formatNumber = (num: number) => new Intl.NumberFormat('es-MX').format(num);
@@ -271,8 +271,8 @@ export function SalesVolumeChart({
           unit: companyId === 1 ? 'KG' : 'unidades'
         };
       })
-      .filter((item: any) => item.monthOrder > 0) // Filtrar items con meses válidos
-      .sort((a, b) => {
+      .filter((item: { monthOrder: number }) => item.monthOrder > 0) // Filtrar items con meses válidos
+      .sort((a: { year: number; monthOrder: number }, b: { year: number; monthOrder: number }) => {
         // Ordenar por año, luego por mes
         if (a.year !== b.year) {
           return a.year - b.year;
@@ -567,13 +567,13 @@ export function SalesVolumeChart({
                     dataKey="value"
                     stroke="#195891"
                     strokeWidth={0.5}
-                    dot={(props: any) => {
-                      const { cx, cy, payload, index } = props;
-                      if (!cx || !cy) return null;
-                      
+                    dot={(props) => {
+                      const { cx, cy, payload, index } = props as { cx: number; cy: number; payload: { value: number }; index: number };
+                      if (!cx || !cy) return <></>;
+
                       // Calcular tamaño del punto basado en el volumen de ventas
-                      const normalizedValue = valueRange.range > 0 
-                        ? (payload.value - valueRange.minValue) / valueRange.range 
+                      const normalizedValue = valueRange.range > 0
+                        ? (payload.value - valueRange.minValue) / valueRange.range
                         : 0.5;
                       
                       // Tamaño base pequeño, más grande para valores altos
@@ -678,10 +678,10 @@ export function SalesVolumeChart({
                     dataKey="value"
                     stroke="#195891"
                     strokeWidth={0.5}
-                    dot={(props: any) => {
-                      const { cx, cy, payload, index } = props;
-                      if (!cx || !cy) return null;
-                      
+                    dot={(props) => {
+                      const { cx, cy, payload, index } = props as { cx: number; cy: number; payload: { valor: number }; index: number };
+                      if (!cx || !cy) return <></>;
+
                       const weeklyData = generateWeeklyData();
                       const values = weeklyData.map((d: any) => d.valor);
                       const minValue = Math.min(...values);
