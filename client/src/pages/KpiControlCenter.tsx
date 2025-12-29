@@ -48,11 +48,11 @@ import {
   FolderTree,
   Search
 } from 'lucide-react';
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  ResponsiveContainer, 
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
   Tooltip,
   BarChart,
   Bar,
@@ -64,11 +64,42 @@ import {
   Line
 } from 'recharts';
 
+// Types for KPI history data
+interface UserKpiHistoryRecord {
+  kpiId: number;
+  kpiName: string;
+  kpiTarget: string;
+  kpiUnit: string;
+  companyName: string;
+  areaName: string;
+  value: string;
+  status: string;
+  compliancePercentage: string | null;
+  date: string;
+  period: string;
+}
+
+interface KpiGroup {
+  kpiId: number;
+  kpiName: string;
+  kpiTarget: string;
+  kpiUnit: string;
+  companyName: string;
+  areaName: string;
+  values: UserKpiHistoryRecord[];
+}
+
+interface KpiWithCompliance {
+  name: string;
+  compliance: number;
+  status: string;
+}
+
 // Componente para mostrar el historial de KPIs de un usuario
 function UserHistoryView({ userId, months, users }: { userId: number; months: number; users: UserType[] }) {
   const [showAllKpis, setShowAllKpis] = useState(false);
   
-  const { data: userHistory, isLoading } = useQuery<any[]>({
+  const { data: userHistory, isLoading } = useQuery<UserKpiHistoryRecord[]>({
     queryKey: [`/api/user-kpi-history/${userId}`, { months }],
     enabled: !!userId,
   });
@@ -94,7 +125,7 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
   const selectedUser = users.find(u => u.id === userId);
   
   // Agrupar datos por KPI
-  const kpiGroups = userHistory.reduce((acc, record) => {
+  const kpiGroups = userHistory.reduce((acc: Record<number, KpiGroup>, record: UserKpiHistoryRecord) => {
     if (!acc[record.kpiId]) {
       acc[record.kpiId] = {
         kpiId: record.kpiId,
@@ -108,9 +139,9 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
     }
     acc[record.kpiId].values.push(record);
     return acc;
-  }, {} as Record<number, any>);
+  }, {} as Record<number, KpiGroup>);
 
-  const kpiList = Object.values(kpiGroups);
+  const kpiList: KpiGroup[] = Object.values(kpiGroups);
   
   // KPIs principales que se muestran automáticamente
   const primaryKpiNames = [
@@ -120,32 +151,32 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
   ];
   
   // Construir lista de KPIs principales garantizando exactamente 3 (o menos si no hay suficientes)
-  let primaryKpis: any[] = [];
-  
+  let primaryKpis: KpiGroup[] = [];
+
   // Primero intentar encontrar KPIs que coincidan con los nombres principales (máximo 1 de cada)
   primaryKpiNames.forEach(primaryName => {
     if (primaryKpis.length < 3) {
-      const match = kpiList.find((kpi: any) => 
+      const match = kpiList.find((kpi: KpiGroup) =>
         kpi.kpiName.toLowerCase().includes(primaryName.toLowerCase()) &&
-        !primaryKpis.some((p: any) => p.kpiId === kpi.kpiId)
+        !primaryKpis.some((p: KpiGroup) => p.kpiId === kpi.kpiId)
       );
       if (match) {
         primaryKpis.push(match);
       }
     }
   });
-  
+
   // Si tenemos menos de 3, rellenar con otros KPIs disponibles
   if (primaryKpis.length < 3) {
-    const remainingKpis = kpiList.filter((kpi: any) => 
-      !primaryKpis.some((p: any) => p.kpiId === kpi.kpiId)
+    const remainingKpis = kpiList.filter((kpi: KpiGroup) =>
+      !primaryKpis.some((p: KpiGroup) => p.kpiId === kpi.kpiId)
     );
     const needed = 3 - primaryKpis.length;
     primaryKpis = [...primaryKpis, ...remainingKpis.slice(0, needed)];
   }
-  
-  const secondaryKpis = kpiList.filter((kpi: any) => 
-    !primaryKpis.some((pKpi: any) => pKpi.kpiId === kpi.kpiId)
+
+  const secondaryKpis = kpiList.filter((kpi: KpiGroup) =>
+    !primaryKpis.some((pKpi: KpiGroup) => pKpi.kpiId === kpi.kpiId)
   );
   
   // KPIs a mostrar según el estado
@@ -154,24 +185,24 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
   // Calcular métricas de resumen
   const totalKpis = kpiList.length;
   const totalRecords = userHistory.length;
-  const compliantRecords = userHistory.filter(r => r.status === 'complies').length;
-  const avgCompliance = totalRecords > 0 
+  const compliantRecords = userHistory.filter((r: UserKpiHistoryRecord) => r.status === 'complies').length;
+  const avgCompliance = totalRecords > 0
     ? (compliantRecords / totalRecords * 100).toFixed(1)
     : '0';
 
   // Mejor y peor KPI (basado en último valor de compliance)
-  const kpisWithLatestCompliance = kpiList.map((kpi: any) => {
+  const kpisWithLatestCompliance: KpiWithCompliance[] = kpiList.map((kpi: KpiGroup) => {
     // Ordenar valores por fecha ascendente y tomar el último (más reciente)
-    const sortedValues = [...kpi.values].sort((a: any, b: any) => 
+    const sortedValues = [...kpi.values].sort((a: UserKpiHistoryRecord, b: UserKpiHistoryRecord) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
     const latestValue = sortedValues[sortedValues.length - 1];
     return {
       name: kpi.kpiName,
-      compliance: latestValue.compliancePercentage ? parseFloat(latestValue.compliancePercentage) : 0,
-      status: latestValue.status
+      compliance: latestValue?.compliancePercentage ? parseFloat(latestValue.compliancePercentage) : 0,
+      status: latestValue?.status || ''
     };
-  }).filter((k: any) => k.compliance > 0);
+  }).filter((k: KpiWithCompliance) => k.compliance > 0);
 
   const bestKpi = kpisWithLatestCompliance.length > 0
     ? kpisWithLatestCompliance.reduce((max, kpi) => kpi.compliance > max.compliance ? kpi : max)
@@ -262,16 +293,16 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {displayKpis.map((kpi) => {
+          {displayKpis.map((kpi: KpiGroup) => {
             // Ordenar por fecha ascendente para gráficas correctas
-            const sortedValues = [...kpi.values].sort((a: any, b: any) => 
+            const sortedValues = [...kpi.values].sort((a: UserKpiHistoryRecord, b: UserKpiHistoryRecord) =>
               new Date(a.date).getTime() - new Date(b.date).getTime()
             );
-            
-            const chartData = sortedValues.map((v: any) => ({
+
+            const chartData = sortedValues.map((v: UserKpiHistoryRecord) => ({
               period: v.period,
               value: parseFloat(v.value) || 0,
-              compliance: parseFloat(v.compliancePercentage) || 0,
+              compliance: parseFloat(v.compliancePercentage || '0') || 0,
             }));
 
             // Si el KPI tiene 2 o menos puntos de datos, mostrar como número simple
@@ -527,10 +558,7 @@ export default function KpiControlCenter() {
   const { data: collaboratorsData, isLoading: collaboratorsLoading, error: collaboratorsError } = useQuery<CollaboratorsResponse>({
     queryKey: ['/api/collaborators-performance', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
-    refetchInterval: (data) => {
-      // Solo refetch si estamos en vista de colaboradores y hay datos
-      return viewType === 'collaborators' ? 30000 : false;
-    },
+    refetchInterval: viewType === 'collaborators' ? 30000 : false,
     enabled: !!user && viewType === 'collaborators' && !!selectedCompanyId,
     retry: 1, // Solo 1 reintento
     retryDelay: 1000,
@@ -562,7 +590,7 @@ export default function KpiControlCenter() {
       return;
     }
     
-    console.log('🚨 Companies encontradas:', companies.map(c => `${c.id}:${c.name}`));
+    console.log('🚨 Companies encontradas:', companies.map((c: Company) => `${c.id}:${c.name}`));
     
     // Limpiar localStorage anterior y forzar Grupo Orsega (ID=2) 
     localStorage.removeItem('selectedCompanyId');
@@ -672,21 +700,21 @@ export default function KpiControlCenter() {
   }, [kpis, kpiValues, areas, selectedCompanyId]);
 
   // Extraer responsables únicos de los KPIs
-  const uniqueResponsibles = useMemo(() => {
+  const uniqueResponsibles = useMemo((): string[] => {
     if (!processedKpis) return [];
     const responsibles = processedKpis
       .map((kpi: any) => kpi.responsible)
       .filter((r: string | undefined): r is string => !!r && r.trim() !== '');
-    return Array.from(new Set(responsibles)).sort();
+    return Array.from(new Set(responsibles)).sort() as string[];
   }, [processedKpis]);
 
   // Extraer empresas únicas de los KPIs
-  const uniqueCompanies = useMemo(() => {
+  const uniqueCompanies = useMemo((): string[] => {
     if (!processedKpis) return [];
     const companiesList = processedKpis
       .map((kpi: any) => kpi.company)
       .filter((c: string | undefined): c is string => !!c && c.trim() !== '');
-    return Array.from(new Set(companiesList)).sort();
+    return Array.from(new Set(companiesList)).sort() as string[];
   }, [processedKpis]);
 
   // Filtrar KPIs por estado, responsable y empresa
@@ -732,14 +760,14 @@ export default function KpiControlCenter() {
   // Calculate top performers from available data
   const topPerformers = useMemo(() => {
     if (!areas || !filteredKpis || areas.length === 0 || filteredKpis.length === 0) return [];
-    
+
     // Calculate performance by area
-    const areaPerformance = areas.map(area => {
-      const areaKpis = filteredKpis.filter(kpi => kpi.areaId === area.id);
-      const compliantKpis = areaKpis.filter(kpi => kpi.status === 'complies').length;
+    const areaPerformance = areas.map((area: Area) => {
+      const areaKpis = filteredKpis.filter((kpi: any) => kpi.areaId === area.id);
+      const compliantKpis = areaKpis.filter((kpi: any) => kpi.status === 'complies').length;
       const totalKpis = areaKpis.length;
       const compliancePercentage = totalKpis > 0 ? Math.round((compliantKpis / totalKpis) * 100) : 0;
-      
+
       return {
         area_id: area.id,
         area_name: area.name,
@@ -747,9 +775,9 @@ export default function KpiControlCenter() {
         total_kpis: totalKpis,
         compliance_percentage: compliancePercentage
       };
-    }).filter(area => area.total_kpis > 0) // Solo áreas con KPIs
-      .sort((a, b) => b.compliance_percentage - a.compliance_percentage); // Ordenar por mayor compliance
-    
+    }).filter((area: { total_kpis: number }) => area.total_kpis > 0) // Solo áreas con KPIs
+      .sort((a: { compliance_percentage: number }, b: { compliance_percentage: number }) => b.compliance_percentage - a.compliance_percentage); // Ordenar por mayor compliance
+
     return areaPerformance;
   }, [areas, filteredKpis]);
   
@@ -1057,7 +1085,7 @@ export default function KpiControlCenter() {
                     )}
                     {!collaboratorsLoading && !collaboratorsError && collaborators && collaborators.length > 0 && (
                       <div className="space-y-0 max-w-full px-2 md:px-4">
-                        {collaborators.map((collaborator, index) => (
+                        {collaborators.map((collaborator: CollaboratorScore, index: number) => (
                           <CollaboratorCard
                             key={collaborator.name}
                             collaborator={collaborator}
