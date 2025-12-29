@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,13 +161,13 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     let isMounted = true;
 
     if (isMounted && exchangeRates && Array.isArray(exchangeRates) && exchangeRates.length > 0) {
-      console.log('[ExchangeRateCards] 🔄 Datos actualizados:', {
+      devLog.log('[ExchangeRateCards] 🔄 Datos actualizados:', {
         totalRegistros: exchangeRates.length,
         dataUpdatedAt: dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : 'N/A'
       });
       const santander = exchangeRates.filter((r: ExchangeRate) => r.source === 'Santander').sort((a: ExchangeRate, b: ExchangeRate) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       if (santander && isMounted) {
-        console.log('[ExchangeRateCards] Último Santander:', {
+        devLog.log('[ExchangeRateCards] Último Santander:', {
           id: santander.id,
           date: santander.date,
           parsed: new Date(santander.date).toISOString(),
@@ -252,7 +253,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       const parsedDate = new Date(dateStr);
       const isValidDate = !isNaN(parsedDate.getTime());
       
-      console.log(`[ExchangeRateCards] ${source}:`, {
+      devLog.log(`[ExchangeRateCards] ${source}:`, {
         totalRates: rates.length,
         latestId: latest.id,
         latestBuyRate: latest.buy_rate,
@@ -264,7 +265,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
         lastUpdate: isValidDate ? parsedDate : null
       });
     } else {
-      console.log(`[ExchangeRateCards] ${source}: NO HAY DATOS`);
+      devLog.log(`[ExchangeRateCards] ${source}: NO HAY DATOS`);
     }
     
     // Calcular cambios
@@ -309,7 +310,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     const historyToday = getTodayHistory(history24hReversed);
     
     // Debug: Log para verificar datos del día
-    console.log(`[${source}] Histórico del día:`, {
+    devLog.log(`[${source}] Histórico del día:`, {
       total24h: history24hReversed.length,
       todayCount: historyToday.length,
       todayEntries: historyToday
@@ -321,12 +322,12 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
       const dateStr = latest.date;
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) {
-        console.error(`[ExchangeRateCards] ${source} - Invalid date:`, dateStr);
+        devLog.error(`[ExchangeRateCards] ${source} - Invalid date:`, dateStr);
         lastUpdate = null;
       } else {
         lastUpdate = date;
         const formatted = formatDateInMexicoTime(date);
-        console.log(`[ExchangeRateCards] ${source} - lastUpdate final:`, {
+        devLog.log(`[ExchangeRateCards] ${source} - lastUpdate final:`, {
           input: dateStr,
           parsed: date.toISOString(),
           formattedMexico: formatted,
@@ -444,10 +445,11 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
                                 'text-gray-500 dark:text-gray-400';
 
           const normalizedEntry = normalizeExchangeRate({
-            ...entry,
             source: source,
+            buy_rate: entry.buy_rate,
+            sell_rate: entry.sell_rate,
             date: entry.date.toISOString(),
-          } as ExchangeRate);
+          });
 
           return (
             <div
@@ -564,7 +566,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     
     // DEBUG: Verificar qué está pasando
     if (source === 'DOF' && data.rate) {
-      console.log('[RateCard DOF DEBUG]', {
+      devLog.log('[RateCard DOF DEBUG]', {
         sourceProp: source,
         rateSource: data.rate.source,
         displayConfigIsSingle: displayConfig.isSingle,
@@ -587,7 +589,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
     
     // DEBUG: Verificar normalización
     if (source === 'DOF' && normalizedRate) {
-      console.log('[RateCard DOF DEBUG Normalized]', {
+      devLog.log('[RateCard DOF DEBUG Normalized]', {
         isSingleValue: normalizedRate.isSingleValue,
         displayValue: normalizedRate.displayValue,
         spread: normalizedRate.spread,
@@ -637,7 +639,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
               {(() => {
                 // DEBUG: Verificar qué se va a renderizar
                 if (source === 'DOF') {
-                  console.log('[RateCard DOF RENDER]', {
+                  devLog.log('[RateCard DOF RENDER]', {
                     displayConfigIsSingle: displayConfig.isSingle,
                     willRenderSecondValue: !displayConfig.isSingle,
                     gridClass: displayConfig.isSingle ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3",
@@ -662,7 +664,7 @@ export function ExchangeRateCards({ onUpdateRate }: ExchangeRateCardsProps = {})
                   // DEBUG: Verificar condición de renderizado
                   const shouldRenderSell = !displayConfig.isSingle;
                   if (source === 'DOF') {
-                    console.log('[RateCard DOF RENDER CHECK]', {
+                    devLog.log('[RateCard DOF RENDER CHECK]', {
                       displayConfigIsSingle: displayConfig.isSingle,
                       shouldRenderSell,
                       willRender: shouldRenderSell,

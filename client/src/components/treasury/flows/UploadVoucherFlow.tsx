@@ -55,7 +55,7 @@ export function UploadVoucherFlow({ onBack, preselectedCompanyId }: UploadVouche
       }
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
       toast({
         title: "✅ Comprobante enviado correctamente",

@@ -21,9 +21,9 @@ interface RateHistoryEntry {
   hour?: string;
   timestamp?: string;
   sources: {
-    santander?: { buy: number; sell: number };
-    monex?: { buy: number; sell: number };
-    dof?: { buy: number; sell: number };
+    santander?: { buy?: number; sell?: number };
+    monex?: { buy?: number; sell?: number };
+    dof?: { buy?: number; sell?: number };
   };
 }
 
@@ -75,7 +75,7 @@ export function ExchangeRateHistoryV2() {
     const entryMap = new Map<string, RateHistoryEntry>();
 
     // Procesar datos de compra
-    buyData.forEach(point => {
+    buyData.forEach((point: RangeDataPoint) => {
       const key = point.timestamp || point.date;
       if (!entryMap.has(key)) {
         entryMap.set(key, {
@@ -98,7 +98,7 @@ export function ExchangeRateHistoryV2() {
     });
 
     // Procesar datos de venta
-    sellData.forEach(point => {
+    sellData.forEach((point: RangeDataPoint) => {
       const key = point.timestamp || point.date;
       if (!entryMap.has(key)) {
         entryMap.set(key, {
@@ -171,17 +171,18 @@ export function ExchangeRateHistoryV2() {
                     {/* Fuentes - diseño más compacto */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {selectedSources.map(sourceKey => {
-                        const source = entry.sources[sourceKey];
+                        const typedSourceKey = sourceKey as keyof typeof entry.sources;
+                        const source = entry.sources[typedSourceKey];
                         if (!source || (!source.buy && !source.sell)) return null;
 
-                        const config = sourceConfig[sourceKey];
-                        const prevSource = previousEntry?.sources[sourceKey];
+                        const config = sourceConfig[sourceKey as keyof typeof sourceConfig];
+                        const prevSource = previousEntry?.sources[typedSourceKey];
 
                         // Calcular tendencias
-                        const buyTrend = prevSource?.buy 
+                        const buyTrend = prevSource?.buy && source.buy
                           ? (source.buy > prevSource.buy ? 'up' : source.buy < prevSource.buy ? 'down' : 'stable')
                           : null;
-                        const sellTrend = prevSource?.sell
+                        const sellTrend = prevSource?.sell && source.sell
                           ? (source.sell > prevSource.sell ? 'up' : source.sell < prevSource.sell ? 'down' : 'stable')
                           : null;
 

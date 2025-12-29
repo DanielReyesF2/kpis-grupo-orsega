@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -106,14 +107,14 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
       const url = kpi.companyId 
         ? `/api/kpi-history/${kpi.id}?months=12&companyId=${kpi.companyId}`
         : `/api/kpi-history/${kpi.id}?months=12`;
-      console.log(`[EnhancedKpiCard] Cargando historial para KPI ${kpi.id}, companyId: ${kpi.companyId}, url: ${url}`);
+      devLog.log(`[EnhancedKpiCard] Cargando historial para KPI ${kpi.id}, companyId: ${kpi.companyId}, url: ${url}`);
       const response = await apiRequest('GET', url);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Error al cargar historial: ${response.status} ${errorText}`);
       }
       const data = await response.json();
-      console.log(`[EnhancedKpiCard] Historial cargado: ${data.length} registros`);
+      devLog.log(`[EnhancedKpiCard] Historial cargado: ${data.length} registros`);
       return data;
     },
     enabled: (isExpanded || expandedLayout) && !!kpi.id, // Cargar siempre si está en expandedLayout

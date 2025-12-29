@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -213,7 +214,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     const kpiName = kpi?.name || '';
     
     // Para debugging
-    console.log(`KPI ${kpiName} - Valor actual: ${value}, Objetivo: ${target}`);
+    devLog.log(`KPI ${kpiName} - Valor actual: ${value}, Objetivo: ${target}`);
     
     // Calcular el porcentaje usando nuestra función centralizada
     const compliancePercentage = calculateCompliance(value, target, kpiName);
@@ -221,7 +222,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     // Obtener el estado usando nuestra función centralizada
     const status = calculateKpiStatus(value, target, kpiName);
     
-    console.log(`Porcentaje calculado: ${compliancePercentage}, Estado: ${status}`);
+    devLog.log(`Porcentaje calculado: ${compliancePercentage}, Estado: ${status}`);
     
     return {
       compliancePercentage,
@@ -240,7 +241,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     // Calcular automáticamente el porcentaje de cumplimiento y el estado
     const { compliancePercentage, status } = calculateComplianceAndStatus(newUpdate.value, target);
     
-    console.log(`Enviando actualización de KPI ${kpiId}: valor=${newUpdate.value}, porcentaje=${compliancePercentage}, estado=${status}`);
+    devLog.log(`Enviando actualización de KPI ${kpiId}: valor=${newUpdate.value}, porcentaje=${compliancePercentage}, estado=${status}`);
     
     // Actualizar con los valores calculados
     updateMutation.mutate({
@@ -251,7 +252,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
     }, {
       onSuccess: () => {
         // Invalidar explícitamente todas las consultas relacionadas con KPIs para forzar su recarga en todos los componentes
-        console.log("Actualizando todas las consultas de KPIs para refrescar datos en tiempo real");
+        devLog.log("Actualizando todas las consultas de KPIs para refrescar datos en tiempo real");
         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
         queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });

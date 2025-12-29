@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -41,7 +42,7 @@ export function ValueDashboard() {
       const data = await response.json();
       setMetrics(data);
     } catch (error) {
-      console.error('Error fetching value metrics:', error);
+      devLog.error('Error fetching value metrics:', error);
     } finally {
       setLoading(false);
     }

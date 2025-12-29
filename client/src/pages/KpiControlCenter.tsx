@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -584,23 +585,23 @@ export default function KpiControlCenter() {
 
   // 🔧 SIMPLIFIED: Siempre mostrar datos, empresa es solo visual
   useEffect(() => {
-    console.log('🚨 DEBUG useEffect ejecutándose, companies:', companies?.length);
+    devLog.log('🚨 DEBUG useEffect ejecutándose, companies:', companies?.length);
     if (!companies || companies.length === 0) {
-      console.log('🚨 No hay companies, saliendo...');
+      devLog.log('🚨 No hay companies, saliendo...');
       return;
     }
     
-    console.log('🚨 Companies encontradas:', companies.map((c: Company) => `${c.id}:${c.name}`));
+    devLog.log('🚨 Companies encontradas:', companies.map((c: Company) => `${c.id}:${c.name}`));
     
     // Limpiar localStorage anterior y forzar Grupo Orsega (ID=2) 
     localStorage.removeItem('selectedCompanyId');
     const orsega = companies.find((c: Company) => c.id === 2);
     if (orsega) {
-      console.log('✅ ENCONTRÉ Grupo Orsega:', orsega.name);
+      devLog.log('✅ ENCONTRÉ Grupo Orsega:', orsega.name);
       setSelectedCompanyId(2);
       localStorage.setItem('selectedCompanyId', '2');
     } else {
-      console.log('🚨 No se encontró Grupo Orsega, usando:', companies[0]?.name);
+      devLog.log('🚨 No se encontró Grupo Orsega, usando:', companies[0]?.name);
       setSelectedCompanyId(companies[0]?.id || 1);
     }
   }, [companies]);

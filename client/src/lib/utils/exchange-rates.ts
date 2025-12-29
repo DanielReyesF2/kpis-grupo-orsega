@@ -1,6 +1,8 @@
 // Funciones centralizadas para manejar tipos de cambio
 // DOF solo tiene un valor único, mientras que otras fuentes (MONEX, Santander) tienen compra/venta separadas
 
+import { devLog } from '../logger';
+
 export const SINGLE_VALUE_SOURCES = ['DOF'] as const;
 export type SingleValueSource = typeof SINGLE_VALUE_SOURCES[number];
 
@@ -14,7 +16,7 @@ export function isSingleValueSource(source: string | null | undefined): boolean 
   const result = SINGLE_VALUE_SOURCES.includes(upperSource as SingleValueSource);
   // Debug log para verificar
   if (upperSource === 'DOF') {
-    console.log('[isSingleValueSource] DOF detected:', { source, upperSource, result, SINGLE_VALUE_SOURCES });
+    devLog.log('[isSingleValueSource] DOF detected:', { source, upperSource, result, SINGLE_VALUE_SOURCES });
   }
   return result;
 }

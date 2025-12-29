@@ -1,11 +1,12 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { devLog } from "./logger";
 
 // Obtener el token JWT con validación y manejo seguro de errores
 export function getAuthToken(): string | null {
   try {
     return localStorage.getItem('authToken');
   } catch (error) {
-    console.warn('[Auth] Error accediendo localStorage para leer token:', error);
+    devLog.warn('[Auth] Error accediendo localStorage para leer token:', error);
     return null;
   }
 }
@@ -15,7 +16,7 @@ export function setAuthToken(token: string): void {
   try {
     localStorage.setItem('authToken', token);
   } catch (error) {
-    console.error('[Auth] Error guardando token en localStorage:', error);
+    devLog.error('[Auth] Error guardando token en localStorage:', error);
     throw new Error('No se pudo guardar el token de autenticación');
   }
 }
@@ -25,7 +26,7 @@ export function removeAuthToken(): void {
   try {
     localStorage.removeItem('authToken');
   } catch (error) {
-    console.warn('[Auth] Error eliminando token de localStorage:', error);
+    devLog.warn('[Auth] Error eliminando token de localStorage:', error);
   }
 }
 
@@ -38,11 +39,11 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     // Si el error es 401, solo limpiar el token, no redirigir automáticamente
     if (res.status === 401) {
-      console.log('[API] Error 401 detectado, limpiando token...');
+      devLog.log('[API] Error 401 detectado, limpiando token...');
       removeAuthToken();
       // Solo redirigir si no estamos ya en la página de login
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        console.log('[API] Guardando ruta actual para después del login');
+        devLog.log('[API] Guardando ruta actual para después del login');
         sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
       }
     }
@@ -61,7 +62,7 @@ async function throwIfResNotOk(res: Response) {
         }
       } catch (e) {
         // Si no se puede parsear, usar el mensaje por defecto
-        console.warn('[API] No se pudo parsear el mensaje de error 429:', e);
+        devLog.warn('[API] No se pudo parsear el mensaje de error 429:', e);
       }
       throw new Error(`429: ${errorMessage}`);
     }
@@ -88,7 +89,7 @@ export async function apiRequest(
   // Asegurar que la URL sea absoluta si no lo es
   const absoluteUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
   
-  console.log(`🔵 [apiRequest] ${method} ${absoluteUrl}`);
+  devLog.log(`🔵 [apiRequest] ${method} ${absoluteUrl}`);
   
   const res = await fetch(absoluteUrl, {
     method,
@@ -106,7 +107,7 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+  async ({ queryKey }: { queryKey: readonly unknown[] }) => {
     let finalRequestUrl = '';
     try {
       const baseUrl = queryKey[0] as string;
@@ -153,7 +154,7 @@ export const getQueryFn: <T>(options: {
       }
       
       finalRequestUrl = requestUrl;
-      console.log(`🔵 [QueryClient] Requesting: ${finalRequestUrl}`);
+      devLog.log(`🔵 [QueryClient] Requesting: ${finalRequestUrl}`);
       
       const res = await apiRequest('GET', finalRequestUrl);
       
@@ -165,16 +166,16 @@ export const getQueryFn: <T>(options: {
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
-        console.error(`❌ [QueryClient] Non-JSON response for ${finalRequestUrl}:`, text.substring(0, 200));
+        devLog.error(`❌ [QueryClient] Non-JSON response for ${finalRequestUrl}:`, text.substring(0, 200));
         throw new Error(`Expected JSON but received ${contentType}`);
       }
       
       const jsonData = await res.json();
-      console.log(`✅ [QueryClient] Respuesta recibida para ${finalRequestUrl}:`, jsonData);
-      console.log(`✅ [QueryClient] Tipo de dato:`, Array.isArray(jsonData) ? 'Array' : typeof jsonData, 'Longitud:', Array.isArray(jsonData) ? jsonData.length : 'N/A');
+      devLog.log(`✅ [QueryClient] Respuesta recibida para ${finalRequestUrl}:`, jsonData);
+      devLog.log(`✅ [QueryClient] Tipo de dato:`, Array.isArray(jsonData) ? 'Array' : typeof jsonData, 'Longitud:', Array.isArray(jsonData) ? jsonData.length : 'N/A');
       return jsonData;
     } catch (error) {
-      console.error(`❌ [QueryClient] Error en ${finalRequestUrl || 'unknown URL'}:`, error);
+      devLog.error(`❌ [QueryClient] Error en ${finalRequestUrl || 'unknown URL'}:`, error);
       // Si hay un error 401, manejarlo según la configuración
       if (error instanceof Error && error.message.includes('401')) {
         if (unauthorizedBehavior === "returnNull") {
@@ -205,7 +206,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchOnWindowFocus: false,
       staleTime: 30000, // 30 segundos
-      retry: (failureCount, error) => {
+      retry: (failureCount: number, error: Error) => {
         // No reintentar en errores 401 (no autorizado)
         if (error instanceof Error && error.message.includes('401')) {
           return false;
@@ -220,7 +221,7 @@ export const queryClient = new QueryClient({
       retry: 1,
       retryDelay: 1000,
       onSuccess: () => {
-        console.log('[QueryClient] Mutación exitosa, invalidando queries');
+        devLog.log('[QueryClient] Mutación exitosa, invalidando queries');
         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
         queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
       },

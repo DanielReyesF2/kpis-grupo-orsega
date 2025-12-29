@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 interface LogoOrsegaProps {
   className?: string;
   height?: number;
@@ -19,7 +20,7 @@ export function LogoOrsega({ className = "", height = 100, showText = false }: L
             width: 'auto'
           }} 
           onError={(e) => {
-            console.error('Error loading Grupo Orsega logo:', e);
+            devLog.error('Error loading Grupo Orsega logo:', e);
             // Fallback: mostrar texto si la imagen no carga
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';

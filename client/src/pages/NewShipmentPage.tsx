@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -211,8 +212,8 @@ export default function NewShipmentPage() {
       // La huella de carbono ya está como número, simplemente usar el valor
       let carbonFootprintNumber = calculatedCarbonFootprint || 0;
       
-      console.log(`[Nuevo envío] Huella de carbono calculada: ${carbonFootprintNumber} kg CO2e`);
-      console.log(`[Nuevo envío] Productos: ${validItems.length}`);
+      devLog.log(`[Nuevo envío] Huella de carbono calculada: ${carbonFootprintNumber} kg CO2e`);
+      devLog.log(`[Nuevo envío] Productos: ${validItems.length}`);
       
       // Convertir fechas de string a formato ISO
       const formattedValues = {
@@ -238,7 +239,7 @@ export default function NewShipmentPage() {
       navigate("/shipments");
     },
     onError: (error: any) => {
-      console.error("Error al crear envío:", error);
+      devLog.error("Error al crear envío:", error);
       toast({
         title: "Error",
         description: error.message || "No se pudo crear el envío. Verifica todos los campos.",
@@ -860,8 +861,9 @@ export default function NewShipmentPage() {
                             ) : (
                               <div className="space-y-2">
                                 <FormControl>
-                                  <Input 
-                                    {...field} 
+                                  <Input
+                                    {...field}
+                                    value={field.value ?? ''}
                                     placeholder="Escriba el nombre del transportista (no hay proveedores registrados)"
                                   />
                                 </FormControl>

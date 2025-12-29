@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -65,13 +66,13 @@ export function KpiHistoryBulkEditModal({
   const { data: history, isLoading, refetch: refetchHistory } = useQuery({
     queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
     queryFn: async () => {
-      console.log(`[KpiHistoryBulkEditModal] Obteniendo historial para KPI ${kpiId}, companyId ${companyId}`);
+      devLog.log(`[KpiHistoryBulkEditModal] Obteniendo historial para KPI ${kpiId}, companyId ${companyId}`);
       const response = await apiRequest('GET', `/api/kpi-history/${kpiId}?months=12&companyId=${companyId}`);
       if (!response.ok) {
         throw new Error(`Error al obtener historial: ${response.status}`);
       }
       const data = await response.json();
-      console.log(`[KpiHistoryBulkEditModal] Historial obtenido:`, data?.length || 0, 'registros');
+      devLog.log(`[KpiHistoryBulkEditModal] Historial obtenido:`, data?.length || 0, 'registros');
       return data;
     },
     enabled: isOpen && !!kpiId && !!companyId,
@@ -139,7 +140,7 @@ export function KpiHistoryBulkEditModal({
   // Mutación para guardar cambios
   const saveMutation = useMutation({
     mutationFn: async (values: Array<{ month: string; year: number; value: string }>) => {
-      console.log('[KpiHistoryBulkEditModal] Enviando bulk update:', {
+      devLog.log('[KpiHistoryBulkEditModal] Enviando bulk update:', {
         kpiId,
         companyId,
         valuesCount: values.length
@@ -158,23 +159,23 @@ export function KpiHistoryBulkEditModal({
         }
 
         const data = await response.json();
-        console.log('[KpiHistoryBulkEditModal] Respuesta exitosa:', data);
+        devLog.log('[KpiHistoryBulkEditModal] Respuesta exitosa:', data);
         return data;
       } catch (error: any) {
-        console.error('[KpiHistoryBulkEditModal] Error en la petición:', error);
+        devLog.error('[KpiHistoryBulkEditModal] Error en la petición:', error);
         throw error;
       }
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: { successful?: number; failed?: number; total?: number; message?: string; results?: Array<{ success: boolean }> }) => {
       setSaveError(null);
       setSaveResults({
-        successful: data.successful || data.results?.filter((r: any) => r.success).length || 0,
-        failed: data.failed || data.results?.filter((r: any) => !r.success).length || 0
+        successful: data.successful || data.results?.filter((r) => r.success).length || 0,
+        failed: data.failed || data.results?.filter((r) => !r.success).length || 0
       });
 
-      const successCount = data.successful || data.results?.filter((r: any) => r.success).length || 0;
+      const successCount = data.successful || data.results?.filter((r) => r.success).length || 0;
       const totalCount = data.total || data.results?.length || 0;
-      const failedCount = data.failed || data.results?.filter((r: any) => !r.success).length || 0;
+      const failedCount = data.failed || data.results?.filter((r) => !r.success).length || 0;
 
       if (failedCount > 0) {
         toast({
@@ -189,14 +190,14 @@ export function KpiHistoryBulkEditModal({
         });
       }
       
-      console.log('[KpiHistoryBulkEditModal] ✅ Actualización exitosa, invalidando queries...');
+      devLog.log('[KpiHistoryBulkEditModal] ✅ Actualización exitosa, invalidando queries...');
 
       // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
-      console.log('[KpiHistoryBulkEditModal] Paso 1: Invalidando todas las queries...');
+      devLog.log('[KpiHistoryBulkEditModal] Paso 1: Invalidando todas las queries...');
 
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({
-        predicate: (query) => {
+        predicate: (query: { queryKey: unknown[] }) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
             return queryKey.includes('/api/kpi') ||
@@ -218,36 +219,36 @@ export function KpiHistoryBulkEditModal({
         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
       ]);
 
-      console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries invalidadas');
+      devLog.log('[KpiHistoryBulkEditModal] ✅ Todas las queries invalidadas');
 
       // PASO 2: Refetch inmediato y forzado del historial
-      console.log('[KpiHistoryBulkEditModal] Paso 2: Refetch del historial...');
+      devLog.log('[KpiHistoryBulkEditModal] Paso 2: Refetch del historial...');
       try {
         // Refetch forzado usando el método del hook
         await refetchHistory();
-        console.log('[KpiHistoryBulkEditModal] ✅ Historial refrescado desde servidor');
+        devLog.log('[KpiHistoryBulkEditModal] ✅ Historial refrescado desde servidor');
 
         // También refetch todas las queries relacionadas con historial
         await queryClient.refetchQueries({
           queryKey: [`/api/kpi-history/${kpiId}`],
           exact: false
         });
-        console.log('[KpiHistoryBulkEditModal] ✅ Todas las queries de historial refrescadas');
+        devLog.log('[KpiHistoryBulkEditModal] ✅ Todas las queries de historial refrescadas');
       } catch (error) {
-        console.error('[KpiHistoryBulkEditModal] ❌ Error al refrescar historial:', error);
+        devLog.error('[KpiHistoryBulkEditModal] ❌ Error al refrescar historial:', error);
       }
 
       // PASO 3: Esperar un momento breve para asegurar que React Query procese el refetch
-      console.log('[KpiHistoryBulkEditModal] Paso 3: Esperando procesamiento...');
+      devLog.log('[KpiHistoryBulkEditModal] Paso 3: Esperando procesamiento...');
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Cerrar después de mostrar el resultado
-      console.log('[KpiHistoryBulkEditModal] Cerrando modal...');
+      devLog.log('[KpiHistoryBulkEditModal] Cerrando modal...');
       onClose();
       setSaveResults(null);
     },
     onError: (error: any) => {
-      console.error('[KpiHistoryBulkEditModal] Error al guardar:', error);
+      devLog.error('[KpiHistoryBulkEditModal] Error al guardar:', error);
       const errorMessage = error.message || error.error || "No se pudieron guardar los cambios.";
       setSaveError(errorMessage);
       setSaveResults(null);
@@ -268,11 +269,11 @@ export function KpiHistoryBulkEditModal({
   };
 
   const handleSave = () => {
-    console.log('[KpiHistoryBulkEditModal] ====== INICIO handleSave ======');
-    console.log('[KpiHistoryBulkEditModal] kpiId:', kpiId);
-    console.log('[KpiHistoryBulkEditModal] companyId:', companyId);
-    console.log('[KpiHistoryBulkEditModal] selectedYear:', selectedYear);
-    console.log('[KpiHistoryBulkEditModal] editedValues:', editedValues);
+    devLog.log('[KpiHistoryBulkEditModal] ====== INICIO handleSave ======');
+    devLog.log('[KpiHistoryBulkEditModal] kpiId:', kpiId);
+    devLog.log('[KpiHistoryBulkEditModal] companyId:', companyId);
+    devLog.log('[KpiHistoryBulkEditModal] selectedYear:', selectedYear);
+    devLog.log('[KpiHistoryBulkEditModal] editedValues:', editedValues);
 
     setSaveError(null);
     setSaveResults(null);
@@ -281,11 +282,11 @@ export function KpiHistoryBulkEditModal({
     const valuesToSave = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const value = editedValues[key] || '0';
-      console.log(`[KpiHistoryBulkEditModal] Procesando ${month}: raw="${value}"`);
+      devLog.log(`[KpiHistoryBulkEditModal] Procesando ${month}: raw="${value}"`);
 
       // Limpiar el valor: remover caracteres no numéricos excepto punto decimal
       const cleanedValue = value.toString().replace(/[^0-9.]/g, '') || '0';
-      console.log(`[KpiHistoryBulkEditModal]   → cleaned="${cleanedValue}"`);
+      devLog.log(`[KpiHistoryBulkEditModal]   → cleaned="${cleanedValue}"`);
 
       return {
         month,
@@ -294,32 +295,32 @@ export function KpiHistoryBulkEditModal({
       };
     });
 
-    console.log('[KpiHistoryBulkEditModal] ====== VALORES A GUARDAR ======');
-    console.log('[KpiHistoryBulkEditModal] Total de valores:', valuesToSave.length);
-    console.log('[KpiHistoryBulkEditModal] Primeros 3 valores:', valuesToSave.slice(0, 3));
+    devLog.log('[KpiHistoryBulkEditModal] ====== VALORES A GUARDAR ======');
+    devLog.log('[KpiHistoryBulkEditModal] Total de valores:', valuesToSave.length);
+    devLog.log('[KpiHistoryBulkEditModal] Primeros 3 valores:', valuesToSave.slice(0, 3));
 
     // Validar que hay valores para guardar
     if (valuesToSave.length === 0) {
-      console.error('[KpiHistoryBulkEditModal] ❌ ERROR: No hay valores para guardar');
+      devLog.error('[KpiHistoryBulkEditModal] ❌ ERROR: No hay valores para guardar');
       setIsSaving(false);
       setSaveError('No hay valores para guardar');
       return;
     }
 
-    console.log('[KpiHistoryBulkEditModal] ====== LLAMANDO saveMutation.mutate ======');
+    devLog.log('[KpiHistoryBulkEditModal] ====== LLAMANDO saveMutation.mutate ======');
 
     saveMutation.mutate(valuesToSave, {
       onSettled: () => {
-        console.log('[KpiHistoryBulkEditModal] ====== saveMutation SETTLED ======');
+        devLog.log('[KpiHistoryBulkEditModal] ====== saveMutation SETTLED ======');
         setIsSaving(false);
       },
-      onError: (error) => {
-        console.error('[KpiHistoryBulkEditModal] ====== saveMutation ERROR ======');
-        console.error('[KpiHistoryBulkEditModal] Error:', error);
+      onError: (error: Error) => {
+        devLog.error('[KpiHistoryBulkEditModal] ====== saveMutation ERROR ======');
+        devLog.error('[KpiHistoryBulkEditModal] Error:', error);
       },
-      onSuccess: (data) => {
-        console.log('[KpiHistoryBulkEditModal] ====== saveMutation SUCCESS ======');
-        console.log('[KpiHistoryBulkEditModal] Data:', data);
+      onSuccess: (data: { successful?: number; failed?: number; total?: number; message?: string; results?: Array<{ success: boolean }> }) => {
+        devLog.log('[KpiHistoryBulkEditModal] ====== saveMutation SUCCESS ======');
+        devLog.log('[KpiHistoryBulkEditModal] Data:', data);
       }
     });
   };

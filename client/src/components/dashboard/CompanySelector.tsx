@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2 } from 'lucide-react';
@@ -12,7 +13,7 @@ export function CompanySelector({ companies, selectedCompanyId, onCompanyChange 
   // Manejar el cambio de empresa
   const handleChange = (value: string) => {
     const newCompanyId = Number(value);
-    console.log('CompanySelector: Cambiando a compañía ID:', newCompanyId);
+    devLog.log('CompanySelector: Cambiando a compañía ID:', newCompanyId);
     // Forzar el cambio de compañía incluso si es la misma (para actualizar el componente)
     onCompanyChange(newCompanyId);
   };

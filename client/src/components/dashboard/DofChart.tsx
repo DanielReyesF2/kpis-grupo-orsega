@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +18,7 @@ import { es } from 'date-fns/locale';
 import { ExchangeRateHistory } from '@/components/treasury/ExchangeRateHistory';
 
 export function DofChart() {
-  console.log('[DofChart] �� COMPONENTE MONTADO - Iniciando DofChart');
+  devLog.log('[DofChart] �� COMPONENTE MONTADO - Iniciando DofChart');
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -28,7 +29,7 @@ export function DofChart() {
   useEffect(() => {
     let isMounted = true;
     if (isMounted) {
-      console.log('[DofChart] ✅ useEffect ejecutado - Componente está vivo');
+      devLog.log('[DofChart] ✅ useEffect ejecutado - Componente está vivo');
     }
     return () => {
       isMounted = false;
@@ -145,7 +146,7 @@ export function DofChart() {
     
     // Log para debug
     const dateObj = new Date(latest.date);
-    console.log(`[DofChart] ${sourceName}:`, {
+    devLog.log(`[DofChart] ${sourceName}:`, {
       totalSeries: series.series.length,
       rawDate: latest.date,
       dateType: typeof latest.date,

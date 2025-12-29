@@ -669,6 +669,9 @@ export class DatabaseStorage implements IStorage {
 
   async createKpi(kpi: InsertKpi): Promise<Kpi> {
     try {
+      if (kpi.companyId === undefined || kpi.companyId === null) {
+        throw new Error("companyId is required to create a KPI");
+      }
       const resolved = this.resolveCompany(kpi.companyId);
       const table = this.getKpiTable(resolved);
 

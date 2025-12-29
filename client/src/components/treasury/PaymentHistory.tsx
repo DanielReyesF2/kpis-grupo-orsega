@@ -123,7 +123,7 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
   return (
     <>
       <div className="space-y-4">
-        {payments.map((payment) => (
+        {payments.map((payment: Payment) => (
           <Card 
             key={payment.id} 
             className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-green-500/50"

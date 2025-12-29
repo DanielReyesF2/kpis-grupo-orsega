@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -54,6 +55,15 @@ interface KpiUpdateModalProps {
   onClose: () => void;
 }
 
+interface KpiResponse {
+  id?: number;
+  name?: string;
+  goal?: string | number | null;
+  target?: string | number | null;
+  annualGoal?: string | number | null;
+  companyId?: number;
+}
+
 export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
@@ -71,16 +81,16 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     queryKey: [`/api/kpis/${kpiId}`],
     queryFn: async () => {
       if (!kpiId) return null;
-      console.log(`[KpiUpdateModal] Obteniendo datos del KPI ${kpiId}`);
+      devLog.log(`[KpiUpdateModal] Obteniendo datos del KPI ${kpiId}`);
       const response = await apiRequest('GET', `/api/kpis/${kpiId}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Error al obtener KPI: ${response.status} ${errorText}`);
       }
       const kpiData = await response.json();
-      console.log(`[KpiUpdateModal] KPI obtenido:`, kpiData);
+      devLog.log(`[KpiUpdateModal] KPI obtenido:`, kpiData);
       // Log detallado para debugging
-      console.log(`[KpiUpdateModal] KPI datos completos:`, {
+      devLog.log(`[KpiUpdateModal] KPI datos completos:`, {
         id: kpiData.id,
         name: kpiData.name,
         goal: kpiData.goal,
@@ -103,13 +113,13 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     queryKey: ['/api/kpi-values', { kpiId: kpiId }],
     queryFn: async () => {
       if (!kpiId) return [];
-      console.log(`[KpiUpdateModal] Obteniendo valores para KPI ${kpiId}`);
+      devLog.log(`[KpiUpdateModal] Obteniendo valores para KPI ${kpiId}`);
       const response = await apiRequest('GET', `/api/kpi-values?kpiId=${kpiId}`);
       if (!response.ok) {
         throw new Error('Error al obtener valores del KPI');
       }
       const values = await response.json();
-      console.log(`[KpiUpdateModal] Valores obtenidos para KPI ${kpiId}:`, values.length);
+      devLog.log(`[KpiUpdateModal] Valores obtenidos para KPI ${kpiId}:`, values.length);
       return values;
     },
     enabled: isOpen && !!kpiId,
@@ -127,7 +137,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     });
     
     if (filtered.length === 0) {
-      console.log(`[KpiUpdateModal] No se encontraron valores para KPI ${kpiId}`);
+      devLog.log(`[KpiUpdateModal] No se encontraron valores para KPI ${kpiId}`);
       return undefined;
     }
     
@@ -137,7 +147,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       return dateB - dateA; // Más reciente primero
     });
     
-    console.log(`[KpiUpdateModal] Valor más reciente para KPI ${kpiId}:`, sorted[0]);
+    devLog.log(`[KpiUpdateModal] Valor más reciente para KPI ${kpiId}:`, sorted[0]);
     return sorted[0];
   }, [kpiValues, kpiId]);
 
@@ -148,7 +158,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   // Log para debugging y asegurar que companyId esté disponible
   useEffect(() => {
     if (kpi && isOpen && typeof kpi === 'object' && kpi !== null && 'id' in kpi && 'name' in kpi) {
-      console.log('[KpiUpdateModal] KPI detectado:', {
+      devLog.log('[KpiUpdateModal] KPI detectado:', {
         id: (kpi as any).id,
         name: (kpi as any).name,
         companyId: (kpi as any).companyId,
@@ -194,7 +204,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
   // Mutación para actualizar KPI
   const updateMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      console.log('[KPI Update] Enviando datos:', {
+      devLog.log('[KPI Update] Enviando datos:', {
         kpiId: kpiId,
         kpiName: (kpi && typeof kpi === 'object' && kpi !== null && 'name' in kpi) ? (kpi as any).name : 'N/A',
         value: data.value,
@@ -221,15 +231,15 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         }
         
         const result = await response.json();
-        console.log('[KPI Update] Respuesta exitosa:', result);
+        devLog.log('[KPI Update] Respuesta exitosa:', result);
         return result;
       } catch (error) {
-        console.error('[KPI Update] Error en la petición:', error);
+        devLog.error('[KPI Update] Error en la petición:', error);
         throw error;
       }
     },
     onSuccess: async (data: unknown) => {
-      console.log('[KPI Update] Actualización exitosa, invalidando cachés y actualizando historial');
+      devLog.log('[KPI Update] Actualización exitosa, invalidando cachés y actualizando historial');
       
       toast({
         title: "✅ KPI actualizado exitosamente",
@@ -291,11 +301,11 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       // Solo actualizar si los valores han cambiado y NO estamos editando
       if (newGoalStr !== currentGoalStr) {
         setNewGoal(newGoalStr);
-        console.log(`[KpiUpdateModal] ✅ Goal sincronizado desde servidor: ${newGoalStr}`);
+        devLog.log(`[KpiUpdateModal] ✅ Goal sincronizado desde servidor: ${newGoalStr}`);
       }
       if (newAnnualGoalStr !== currentAnnualGoalStr) {
         setNewAnnualGoal(newAnnualGoalStr);
-        console.log(`[KpiUpdateModal] ✅ AnnualGoal sincronizado desde servidor: ${newAnnualGoalStr}`);
+        devLog.log(`[KpiUpdateModal] ✅ AnnualGoal sincronizado desde servidor: ${newAnnualGoalStr}`);
       }
     }
   }, [kpi, isEditingGoal, isEditingAnnualGoal]); // Incluir flags de edición para evitar conflictos
@@ -313,12 +323,12 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       // Primero intentar obtenerlo del KPI cargado
       if (kpi && typeof kpi === 'object' && kpi !== null && 'companyId' in kpi) {
         companyId = (kpi as any).companyId;
-        console.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
+        devLog.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
       }
       
       // Si no está disponible, cargar el KPI desde el servidor
       if (!companyId) {
-        console.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
+        devLog.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
         try {
           const kpiResponse = await apiRequest('GET', `/api/kpis/${kpiId}`);
           if (!kpiResponse.ok) {
@@ -327,9 +337,9 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           }
           const kpiData = await kpiResponse.json();
           companyId = kpiData.companyId;
-          console.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
+          devLog.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
         } catch (error) {
-          console.error('[KpiUpdateModal] Error al cargar KPI:', error);
+          devLog.error('[KpiUpdateModal] Error al cargar KPI:', error);
           throw new Error('No se pudo cargar el KPI para determinar la compañía');
         }
       }
@@ -338,7 +348,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         throw new Error(`No se pudo determinar la compañía del KPI. companyId: ${companyId}`);
       }
       
-      console.log(`[KpiUpdateModal] Actualizando meta del KPI ${kpiId} para companyId ${companyId}`, {
+      devLog.log(`[KpiUpdateModal] Actualizando meta del KPI ${kpiId} para companyId ${companyId}`, {
         goal: goal
       });
       
@@ -350,20 +360,20 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
+        devLog.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
         throw new Error(`Error al actualizar meta: ${response.status} ${errorText}`);
       }
       
       const updatedKpi = await response.json();
-      console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
+      devLog.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
       return updatedKpi;
     },
-    onSuccess: async (updatedKpi: unknown) => {
-      console.log('[KpiUpdateModal] ✅ Actualización de meta exitosa, invalidando queries...');
-      console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
+    onSuccess: async (updatedKpi: KpiResponse) => {
+      devLog.log('[KpiUpdateModal] ✅ Actualización de meta exitosa, invalidando queries...');
+      devLog.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
 
       // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
-      console.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
+      devLog.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
 
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({
@@ -388,30 +398,30 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'], exact: false }),
       ]);
       
-      console.log('[KpiUpdateModal] Paso 2: Forzando refetch inmediato...');
+      devLog.log('[KpiUpdateModal] Paso 2: Forzando refetch inmediato...');
       
       // PASO 2: Forzar refetch inmediato del KPI para ver los cambios
       try {
         const refetchedData = await refetchKpi();
-        console.log('[KpiUpdateModal] ✅ Refetch completado:', refetchedData.data);
+        devLog.log('[KpiUpdateModal] ✅ Refetch completado:', refetchedData.data);
       } catch (error) {
-        console.error('[KpiUpdateModal] ❌ Error en refetch:', error);
+        devLog.error('[KpiUpdateModal] ❌ Error en refetch:', error);
       }
       
       // PASO 3: Esperar un momento para que las queries se invaliden completamente
-      console.log('[KpiUpdateModal] Paso 3: Esperando invalidación de queries...');
+      devLog.log('[KpiUpdateModal] Paso 3: Esperando invalidación de queries...');
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // PASO 4: Forzar refetch de nuevo después de la invalidación
-      console.log('[KpiUpdateModal] Paso 4: Refetch después de invalidación...');
+      devLog.log('[KpiUpdateModal] Paso 4: Refetch después de invalidación...');
       try {
         const refetchedDataAfterInvalidation = await refetchKpi();
-        console.log('[KpiUpdateModal] ✅ Refetch después de invalidación completado:', refetchedDataAfterInvalidation.data);
+        devLog.log('[KpiUpdateModal] ✅ Refetch después de invalidación completado:', refetchedDataAfterInvalidation.data);
         
         // Actualizar estado local con los datos recién obtenidos del servidor
         if (refetchedDataAfterInvalidation.data) {
           const freshKpi = refetchedDataAfterInvalidation.data;
-          console.log('[KpiUpdateModal] Datos frescos del servidor:', {
+          devLog.log('[KpiUpdateModal] Datos frescos del servidor:', {
             annualGoal: freshKpi.annualGoal,
             goal: freshKpi.goal,
             target: freshKpi.target
@@ -420,18 +430,18 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           if (freshKpi.goal !== undefined || freshKpi.target !== undefined) {
             const goalStr = String(freshKpi.goal || freshKpi.target || '');
             setNewGoal(goalStr);
-            console.log('[KpiUpdateModal] ✅ Goal actualizado en estado desde servidor:', goalStr);
+            devLog.log('[KpiUpdateModal] ✅ Goal actualizado en estado desde servidor:', goalStr);
           }
           
           // Si también se actualizó el objetivo anual, actualizar el estado
           if (freshKpi.annualGoal !== undefined) {
             const annualGoalStr = String(freshKpi.annualGoal || '');
             setNewAnnualGoal(annualGoalStr);
-            console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado desde servidor:', annualGoalStr);
+            devLog.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado desde servidor:', annualGoalStr);
           }
         }
       } catch (error) {
-        console.error('[KpiUpdateModal] ❌ Error en segundo refetch:', error);
+        devLog.error('[KpiUpdateModal] ❌ Error en segundo refetch:', error);
         // Si el refetch falla, usar los datos de la respuesta original
         if (updatedKpi) {
           if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
@@ -444,7 +454,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       }
       
       // PASO 5: Forzar re-render del componente
-      console.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
+      devLog.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
       setIsEditingGoal(false);
       
       // PASO 6: Mostrar toast de éxito
@@ -453,10 +463,10 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         description: 'La meta del KPI se ha actualizado correctamente.'
       });
       
-      console.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
+      devLog.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
     },
     onError: (error: any) => {
-      console.error('[KpiUpdateModal] Error al actualizar meta:', error);
+      devLog.error('[KpiUpdateModal] Error al actualizar meta:', error);
       toast({
         title: 'Error al actualizar meta',
         description: error.message || 'No se pudo actualizar la meta. Verifica que tengas permisos de administrador.',
@@ -493,12 +503,12 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       // Primero intentar obtenerlo del KPI cargado
       if (kpi && typeof kpi === 'object' && kpi !== null && 'companyId' in kpi) {
         companyId = (kpi as any).companyId;
-        console.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
+        devLog.log(`[KpiUpdateModal] companyId obtenido del KPI cargado: ${companyId}`);
       }
       
       // Si no está disponible, cargar el KPI desde el servidor
       if (!companyId) {
-        console.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
+        devLog.log(`[KpiUpdateModal] companyId no disponible, cargando KPI ${kpiId}...`);
         try {
           const kpiResponse = await apiRequest('GET', `/api/kpis/${kpiId}`);
           if (!kpiResponse.ok) {
@@ -507,9 +517,9 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           }
           const kpiData = await kpiResponse.json();
           companyId = kpiData.companyId;
-          console.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
+          devLog.log(`[KpiUpdateModal] companyId obtenido del servidor: ${companyId}`);
         } catch (error) {
-          console.error('[KpiUpdateModal] Error al cargar KPI:', error);
+          devLog.error('[KpiUpdateModal] Error al cargar KPI:', error);
           throw new Error('No se pudo cargar el KPI para determinar la compañía');
         }
       }
@@ -521,7 +531,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       // Normalizar annualGoal: si está vacío, enviar null
       const normalizedAnnualGoal = annualGoal.trim() === '' ? null : annualGoal.trim();
       
-      console.log(`[KpiUpdateModal] Actualizando objetivo anual del KPI ${kpiId} para companyId ${companyId}`, {
+      devLog.log(`[KpiUpdateModal] Actualizando objetivo anual del KPI ${kpiId} para companyId ${companyId}`, {
         annualGoal: normalizedAnnualGoal,
         originalValue: annualGoal
       });
@@ -533,26 +543,26 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
+        devLog.error(`[KpiUpdateModal] Error en respuesta: ${response.status} ${errorText}`);
         throw new Error(`Error al actualizar objetivo anual: ${response.status} ${errorText}`);
       }
       
       const updatedKpi = await response.json();
-      console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
+      devLog.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
       return updatedKpi;
     },
-    onSuccess: async (updatedKpi: unknown) => {
-      console.log('[KpiUpdateModal] ✅ Actualización exitosa, invalidando queries...');
-      console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
+    onSuccess: async (updatedKpi: KpiResponse) => {
+      devLog.log('[KpiUpdateModal] ✅ Actualización exitosa, invalidando queries...');
+      devLog.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
 
       // PASO 1: Actualizar directamente el cache de React Query con los datos devueltos
       // Esto es más confiable que depender del refetch
-      console.log('[KpiUpdateModal] Paso 1: Actualizando cache directamente...');
+      devLog.log('[KpiUpdateModal] Paso 1: Actualizando cache directamente...');
       queryClient.setQueryData([`/api/kpis/${kpiId}`], updatedKpi);
-      console.log('[KpiUpdateModal] ✅ Cache actualizado con datos de la mutación');
+      devLog.log('[KpiUpdateModal] ✅ Cache actualizado con datos de la mutación');
 
       // PASO 2: Invalidar TODAS las queries relacionadas de forma MUY agresiva
-      console.log('[KpiUpdateModal] Paso 2: Invalidando todas las queries...');
+      devLog.log('[KpiUpdateModal] Paso 2: Invalidando todas las queries...');
 
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({
@@ -567,7 +577,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           return false;
         }
       });
-      
+
       // Invalidar específicamente las queries conocidas con exact: false
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
@@ -578,33 +588,33 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       ]);
 
       // PASO 3: Actualizar estado local inmediatamente con los datos de la mutación
-      console.log('[KpiUpdateModal] Paso 3: Actualizando estado local...');
+      devLog.log('[KpiUpdateModal] Paso 3: Actualizando estado local...');
       if (updatedKpi.annualGoal !== undefined && updatedKpi.annualGoal !== null) {
         const annualGoalStr = String(updatedKpi.annualGoal);
         setNewAnnualGoal(annualGoalStr);
-        console.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado:', annualGoalStr);
+        devLog.log('[KpiUpdateModal] ✅ AnnualGoal actualizado en estado:', annualGoalStr);
       } else {
         setNewAnnualGoal('');
-        console.log('[KpiUpdateModal] ✅ AnnualGoal limpiado (null/undefined)');
+        devLog.log('[KpiUpdateModal] ✅ AnnualGoal limpiado (null/undefined)');
       }
 
       if (updatedKpi.goal !== undefined || updatedKpi.target !== undefined) {
         const goalStr = String(updatedKpi.goal || updatedKpi.target || '');
         setNewGoal(goalStr);
-        console.log('[KpiUpdateModal] ✅ Goal actualizado en estado:', goalStr);
+        devLog.log('[KpiUpdateModal] ✅ Goal actualizado en estado:', goalStr);
       }
 
       // PASO 4: Forzar refetch de otras queries relacionadas (opcional, ya que usamos setQueryData)
-      console.log('[KpiUpdateModal] Paso 4: Refetch de queries relacionadas...');
+      devLog.log('[KpiUpdateModal] Paso 4: Refetch de queries relacionadas...');
       try {
         await refetchKpi();
-        console.log('[KpiUpdateModal] ✅ Refetch completado');
+        devLog.log('[KpiUpdateModal] ✅ Refetch completado');
       } catch (error) {
-        console.error('[KpiUpdateModal] ❌ Error en refetch:', error);
+        devLog.error('[KpiUpdateModal] ❌ Error en refetch:', error);
       }
 
       // PASO 5: Forzar re-render del componente
-      console.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
+      devLog.log('[KpiUpdateModal] Paso 5: Forzando re-render...');
       setIsEditingAnnualGoal(false);
 
       // PASO 6: Mostrar toast de éxito
@@ -613,10 +623,10 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         description: 'El objetivo anual del KPI se ha actualizado correctamente. La meta mensual se ha calculado automáticamente.',
       });
       
-      console.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
+      devLog.log('[KpiUpdateModal] ✅ Proceso de actualización completado');
     },
     onError: (error: any) => {
-      console.error('[KpiUpdateModal] Error al actualizar objetivo anual:', error);
+      devLog.error('[KpiUpdateModal] Error al actualizar objetivo anual:', error);
       toast({
         title: 'Error al actualizar objetivo anual',
         description: error.message || 'No se pudo actualizar el objetivo anual. Verifica que tengas permisos de administrador.',

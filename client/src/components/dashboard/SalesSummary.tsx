@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,9 +89,9 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   // Debug logging
   useEffect(() => {
     if (allKpis && allKpis.length > 0) {
-      console.log(`[SalesSummary] Company ${currentCompanyId}: Found ${allKpis.length} KPIs`);
-      console.log(`[SalesSummary] Looking for sales KPI. Found:`, salesKpi);
-      console.log(`[SalesSummary] Using KPI ID: ${kpiId}`);
+      devLog.log(`[SalesSummary] Company ${currentCompanyId}: Found ${allKpis.length} KPIs`);
+      devLog.log(`[SalesSummary] Looking for sales KPI. Found:`, salesKpi);
+      devLog.log(`[SalesSummary] Using KPI ID: ${kpiId}`);
     }
   }, [allKpis, salesKpi, kpiId, currentCompanyId]);
   
@@ -130,7 +131,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
     const annualGoal = parseFloat(String(salesKpi.annualGoal).toString().replace(/[^0-9.-]+/g, ''));
     if (!isNaN(annualGoal) && annualGoal > 0) {
       totalTarget = Math.round(annualGoal);
-      console.log(`[SalesSummary] ✅ Usando annualGoal del KPI: ${totalTarget}`);
+      devLog.log(`[SalesSummary] ✅ Usando annualGoal del KPI: ${totalTarget}`);
     } else {
       // Fallback a localStorage o default
       const storedTarget = currentCompanyId === 1 
@@ -156,7 +157,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
 
   // Procesar datos cuando llegan de la API
   useEffect(() => {
-    console.log(`[SalesSummary] KPI History for ID ${kpiId}:`, kpiHistory?.length || 0, 'records');
+    devLog.log(`[SalesSummary] KPI History for ID ${kpiId}:`, kpiHistory?.length || 0, 'records');
     if (kpiHistory && kpiHistory.length > 0) {
       // Definir orden de meses
       const monthOrder: { [key: string]: number } = {
@@ -237,7 +238,7 @@ export function SalesSummary({ companyId }: SalesSummaryProps) {
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
   const compliancePercentage = Math.round((totalSales / totalTarget) * 100);
   
-  console.log(`[SalesSummary] Objetivos calculados - Company ${currentCompanyId}:`, {
+  devLog.log(`[SalesSummary] Objetivos calculados - Company ${currentCompanyId}:`, {
     'annualGoal del KPI': salesKpi?.annualGoal || 'No hay',
     totalTarget: totalTarget.toLocaleString(),
     monthlyTarget: monthlyTarget.toLocaleString(),

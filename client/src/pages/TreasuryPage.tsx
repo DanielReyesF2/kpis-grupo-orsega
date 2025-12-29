@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -123,9 +124,9 @@ export default function TreasuryPage() {
           throw new Error("No se encontró token de autenticación");
         }
 
-        console.log('📤 [Upload] Iniciando upload de archivo:', file.name, 'para empresa:', payerCompanyId);
-        console.log('📤 [Upload] Token presente:', !!token);
-        console.log('📤 [Upload] Token (primeros 20 chars):', token.substring(0, 20) + '...');
+        devLog.log('📤 [Upload] Iniciando upload de archivo:', file.name, 'para empresa:', payerCompanyId);
+        devLog.log('📤 [Upload] Token presente:', !!token);
+        devLog.log('📤 [Upload] Token (primeros 20 chars):', token.substring(0, 20) + '...');
         
         // ⚠️ IMPORTANTE: Cuando se envía FormData, NO se debe establecer Content-Type manualmente
         // El navegador lo establecerá automáticamente con el boundary correcto
@@ -138,7 +139,7 @@ export default function TreasuryPage() {
           body: formData,
         });
 
-        console.log('📥 [Upload] Respuesta recibida:', res.status, res.statusText);
+        devLog.log('📥 [Upload] Respuesta recibida:', res.status, res.statusText);
 
         // Leer el body de la respuesta una sola vez
         const contentType = res.headers.get("content-type");
@@ -151,8 +152,8 @@ export default function TreasuryPage() {
           try {
             responseData = JSON.parse(text);
           } catch (parseError) {
-            console.error('❌ [Upload] Error parseando JSON de respuesta:', parseError);
-            console.error('❌ [Upload] Texto recibido:', text.substring(0, 500));
+            devLog.error('❌ [Upload] Error parseando JSON de respuesta:', parseError);
+            devLog.error('❌ [Upload] Texto recibido:', text.substring(0, 500));
             throw new Error(`Error al procesar respuesta del servidor: ${res.status} ${res.statusText}`);
           }
         } else {
@@ -176,7 +177,7 @@ export default function TreasuryPage() {
             }
           }
           
-          console.error('❌ [Upload] Error del servidor:', {
+          devLog.error('❌ [Upload] Error del servidor:', {
             status: res.status,
             statusText: res.statusText,
             response: responseData,
@@ -186,10 +187,10 @@ export default function TreasuryPage() {
           throw new Error(errorMessage);
         }
 
-        console.log('✅ [Upload] Upload exitoso:', responseData);
+        devLog.log('✅ [Upload] Upload exitoso:', responseData);
         return responseData;
       } catch (error) {
-        console.error('❌ [Upload] Error en mutationFn:', error);
+        devLog.error('❌ [Upload] Error en mutationFn:', error);
         // Si ya es un Error, re-lanzarlo
         if (error instanceof Error) {
           throw error;
@@ -201,8 +202,8 @@ export default function TreasuryPage() {
     onSuccess: (data: UploadResponse) => {
       // Si la factura requiere verificación, abrir el modal
       if (data.requiresVerification && data.documentType === 'invoice') {
-        console.log('📋 [Upload] Factura requiere verificación, abriendo modal...');
-        console.log('📋 [Upload] Datos recibidos del servidor:', JSON.stringify({
+        devLog.log('📋 [Upload] Factura requiere verificación, abriendo modal...');
+        devLog.log('📋 [Upload] Datos recibidos del servidor:', JSON.stringify({
           extractedSupplierName: data.analysis?.extractedSupplierName,
           extractedAmount: data.analysis?.extractedAmount,
           extractedCurrency: data.analysis?.extractedCurrency,
@@ -239,7 +240,7 @@ export default function TreasuryPage() {
       setShowUploadModal(false);
     },
     onError: (error: any) => {
-      console.error('❌ [Upload] Error completo:', error);
+      devLog.error('❌ [Upload] Error completo:', error);
       
       // Extraer mensaje de error más descriptivo
       let errorMessage = "No se pudo procesar el documento";
@@ -298,7 +299,7 @@ export default function TreasuryPage() {
         updatedAt: payment.updated_at || payment.updatedAt,
       }));
       
-      console.log(`📊 [TreasuryPage] Payments normalizados: ${normalizedData.length}`, normalizedData);
+      devLog.log(`📊 [TreasuryPage] Payments normalizados: ${normalizedData.length}`, normalizedData);
       return normalizedData;
     },
   });

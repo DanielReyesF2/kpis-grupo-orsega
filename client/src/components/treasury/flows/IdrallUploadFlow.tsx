@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -53,7 +54,7 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
         throw new Error("No se encontró token de autenticación. Por favor, inicia sesión nuevamente.");
       }
 
-      console.log('📤 [Idrall Upload] Iniciando upload de archivos...');
+      devLog.log('📤 [Idrall Upload] Iniciando upload de archivos...');
       
       const res = await fetch("/api/treasury/idrall/upload", {
         method: "POST",
@@ -74,7 +75,7 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
         try {
           errorData = JSON.parse(text);
         } catch (parseError) {
-          console.error('❌ [Idrall Upload] Error parseando JSON de respuesta:', parseError);
+          devLog.error('❌ [Idrall Upload] Error parseando JSON de respuesta:', parseError);
           throw new Error(`Error al procesar respuesta del servidor: ${res.status} ${res.statusText}`);
         }
       } else {
@@ -101,7 +102,7 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
           }
         }
         
-        console.error('❌ [Idrall Upload] Error del servidor:', {
+        devLog.error('❌ [Idrall Upload] Error del servidor:', {
           status: res.status,
           statusText: res.statusText,
           response: errorData
@@ -110,7 +111,7 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
         throw new Error(errorMessage);
       }
 
-      console.log('✅ [Idrall Upload] Upload exitoso');
+      devLog.log('✅ [Idrall Upload] Upload exitoso');
       return errorData; // Ya parseado como JSON
     },
     onSuccess: (data: ProcessingResult) => {
@@ -129,7 +130,7 @@ export function IdrallUploadFlow({ onBack, preselectedCompanyId, preselectedFile
       });
     },
     onError: (error: any) => {
-      console.error('❌ [Idrall Upload] Error completo:', error);
+      devLog.error('❌ [Idrall Upload] Error completo:', error);
       
       // Extraer mensaje de error más descriptivo
       let errorMessage = "No se pudieron procesar los archivos";

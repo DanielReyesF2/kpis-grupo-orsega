@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
@@ -163,11 +164,11 @@ export default function Dashboard() {
 
   // Handler for changing filters
   const handleFilterChange = (newFilters: any) => {
-    console.log("Cambiando filtros:", newFilters);
+    devLog.log("Cambiando filtros:", newFilters);
     // Si se está cambiando la compañía, tratarla de manera especial
     if ('companyId' in newFilters) {
       const newCompanyId = Number(newFilters.companyId);
-      console.log("Cambiando compañía a:", newCompanyId);
+      devLog.log("Cambiando compañía a:", newCompanyId);
       
       // Guardar la selección en localStorage para persistencia
       localStorage.setItem('selectedCompanyId', String(newCompanyId));
@@ -181,7 +182,7 @@ export default function Dashboard() {
       }));
 
       // Registrar el cambio para validar
-      console.log(`CompanyId actualizado en filters: ${newCompanyId}`);
+      devLog.log(`CompanyId actualizado en filters: ${newCompanyId}`);
     } else {
       // Para otros filtros, actualizar normalmente
       setFilters(prev => {
@@ -189,7 +190,7 @@ export default function Dashboard() {
           ...prev,
           ...newFilters
         };
-        console.log("Filtros actualizados:", updated);
+        devLog.log("Filtros actualizados:", updated);
         return updated;
       });
     }

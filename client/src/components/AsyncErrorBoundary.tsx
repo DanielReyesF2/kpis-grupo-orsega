@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { ReactNode, Component, ErrorInfo } from 'react';
 import { RefreshCw, AlertTriangle, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -86,7 +87,7 @@ export class AsyncErrorBoundary extends Component<AsyncErrorBoundaryProps, Async
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[AsyncErrorBoundary] Error capturado:', error, errorInfo);
+    devLog.error('[AsyncErrorBoundary] Error capturado:', error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
 

@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,11 +37,11 @@ export default function LoginForm() {
       const redirectPath = sessionStorage.getItem('redirectAfterLogin');
       
       if (redirectPath) {
-        console.log(`[LoginForm] Redireccionando a ruta guardada: ${redirectPath}`);
+        devLog.log(`[LoginForm] Redireccionando a ruta guardada: ${redirectPath}`);
         sessionStorage.removeItem('redirectAfterLogin'); // Limpiar
         setLocation(redirectPath);
       } else {
-        console.log('[LoginForm] No hay ruta guardada, redireccionando a Dashboard');
+        devLog.log('[LoginForm] No hay ruta guardada, redireccionando a Dashboard');
         setLocation('/');
       }
     }
@@ -59,11 +60,11 @@ export default function LoginForm() {
     setError(null);
     
     try {
-      console.log(`[LoginForm] Intentando iniciar sesión con usuario: ${values.username}`);
+      devLog.log(`[LoginForm] Intentando iniciar sesión con usuario: ${values.username}`);
       await login(values.username, values.password);
       // El efecto se encargará de la redirección
     } catch (err) {
-      console.error('[LoginForm] Error en inicio de sesión:', err);
+      devLog.error('[LoginForm] Error en inicio de sesión:', err);
       
       // Manejo especial para error 429 (Rate Limiting)
       if (err instanceof Error && err.message.includes('429')) {

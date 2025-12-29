@@ -61,7 +61,7 @@ export function SuppliersModule({
   const loading = injectedLoading ?? isLoading;
 
   const stats = useMemo(() => {
-    const repActive = suppliers.filter((supplier) => supplier.requires_rep).length;
+    const repActive = suppliers.filter((supplier: Supplier) => supplier.requires_rep).length;
     const repInactive = suppliers.length - repActive;
     const recent = [...suppliers]
       .sort(
@@ -159,7 +159,7 @@ export function SuppliersModule({
             {stats.recent.map((supplier) => {
               const initials = supplier.name
                 .split(" ")
-                .map((word) => word.charAt(0))
+                .map((word: string) => word.charAt(0))
                 .join("")
                 .slice(0, 2)
                 .toUpperCase();

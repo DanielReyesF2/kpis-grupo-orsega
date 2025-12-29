@@ -91,7 +91,7 @@ export function PaymentsModule({
       disbursed: 0,
     };
 
-    payments.forEach((payment) => {
+    payments.forEach((payment: TreasuryPayment) => {
       const status = (payment.status || "").toLowerCase();
       if (status === "pending") base.pending += 1;
       else if (status === "authorized") base.authorized += 1;
@@ -103,7 +103,7 @@ export function PaymentsModule({
 
   const { progress, completedThisMonth, totalThisMonth } = useMemo(() => {
     const now = new Date();
-    const thisMonthPayments = payments.filter((payment) => {
+    const thisMonthPayments = payments.filter((payment: TreasuryPayment) => {
       const dueDateString = payment.due_date ?? payment.created_at;
       if (!dueDateString) return false;
       const dueDate = new Date(dueDateString);
@@ -113,7 +113,7 @@ export function PaymentsModule({
       );
     });
 
-    const completed = thisMonthPayments.filter((payment) => {
+    const completed = thisMonthPayments.filter((payment: TreasuryPayment) => {
       const status = (payment.status || "").toLowerCase();
       return status === "paid" || status === "disbursed";
     }).length;
@@ -134,7 +134,7 @@ export function PaymentsModule({
       { label: string; count: number; isoKey: number }
     >();
 
-    payments.forEach((payment) => {
+    payments.forEach((payment: TreasuryPayment) => {
       const date = payment.due_date ?? payment.created_at;
       if (!date) return;
 

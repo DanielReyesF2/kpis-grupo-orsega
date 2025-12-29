@@ -165,7 +165,7 @@ export default function SalesPage() {
 
       return await res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { recordsProcessed: number }) => {
       toast({
         title: "✅ Archivo procesado exitosamente",
         description: `Se procesaron ${data.recordsProcessed} registros de ventas`,

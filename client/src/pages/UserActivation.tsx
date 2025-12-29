@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,7 +54,7 @@ export default function UserActivation() {
           setError(data.message || 'Token de activación no válido');
         }
       } catch (error) {
-        console.error('Error validating token:', error);
+        devLog.error('Error validating token:', error);
         setError('Error de conexión. Inténtalo de nuevo.');
       } finally {
         setLoading(false);
@@ -117,7 +118,7 @@ export default function UserActivation() {
         });
       }
     } catch (error) {
-      console.error('Error setting password:', error);
+      devLog.error('Error setting password:', error);
       toast({
         title: "Error",
         description: 'Error de conexión. Inténtalo de nuevo.',

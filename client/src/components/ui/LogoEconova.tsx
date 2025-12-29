@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React from 'react';
 
 interface LogoEconovaProps {
@@ -19,7 +20,7 @@ export function LogoEconova({ className = "", height = 100 }: LogoEconovaProps) 
         width: 'auto'
       }} 
       onError={(e) => {
-        console.error('Error loading logo:', e);
+        devLog.error('Error loading logo:', e);
         // Fallback: mostrar texto si la imagen no carga
         const target = e.target as HTMLImageElement;
         target.style.display = 'none';

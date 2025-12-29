@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -220,7 +221,7 @@ export function ReportModal({ isOpen, onClose, shipments }: ReportModalProps) {
       
       onClose();
     } catch (error) {
-      console.error("Error al generar PDF:", error);
+      devLog.error("Error al generar PDF:", error);
       alert("Error al generar el PDF. Por favor, inténtalo de nuevo.");
     } finally {
       setIsGenerating(false);

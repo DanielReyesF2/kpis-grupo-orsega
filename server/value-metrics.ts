@@ -59,9 +59,9 @@ export class ValueMetricsService {
     
     return {
       fxAccuracy: {
-        buyError: fxAccuracy.rows[0]?.buy_error || 0,
-        sellError: fxAccuracy.rows[0]?.sell_error || 0,
-        accuracyPercentage: 100 - ((fxAccuracy.rows[0]?.buy_error || 0) * 100)
+        buyError: Number(fxAccuracy.rows[0]?.buy_error) || 0,
+        sellError: Number(fxAccuracy.rows[0]?.sell_error) || 0,
+        accuracyPercentage: 100 - (Number(fxAccuracy.rows[0]?.buy_error || 0) * 100)
       }
     };
   }

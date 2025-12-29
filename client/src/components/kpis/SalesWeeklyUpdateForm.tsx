@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -89,7 +90,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
   // Mutación simplificada
   const mutation = useMutation({
     mutationFn: async (formValues: FormValues) => {
-      console.log("[SalesUpdate] Enviando actualización:", formValues);
+      devLog.log("[SalesUpdate] Enviando actualización:", formValues);
       
       // Convertir el valor a número
       const valueAsString = String(formValues.value || '');
@@ -106,13 +107,13 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
         year: formValues.year
       };
       
-      console.log('[SalesUpdate] Enviando:', requestBody);
+      devLog.log('[SalesUpdate] Enviando:', requestBody);
       
       // Usar apiRequest que ya maneja el token correctamente
       const response = await apiRequest('POST', '/api/sales/update-month', requestBody);
       return await response.json();
     },
-    onSuccess: async (response, variables) => {
+    onSuccess: async (response: { message?: string; data?: { kpiId?: number } }, variables: { companyId: number; month: string; year: number; value: string }) => {
       setSubmissionStatus("success");
       setSubmissionMessage(response.message || "Ventas actualizadas correctamente");
       toast({
@@ -123,14 +124,14 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       const companyId = variables.companyId;
       const kpiId = response.data?.kpiId; // Obtener el KPI ID de la respuesta
       
-      console.log('[SalesUpdate] Invalidando queries para companyId:', companyId, 'kpiId:', kpiId);
+      devLog.log('[SalesUpdate] Invalidando queries para companyId:', companyId, 'kpiId:', kpiId);
       
       // Invalidar TODAS las queries relacionadas con KPIs (más agresivo para asegurar actualización)
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
+      queryClient.invalidateQueries({
+        predicate: (query: { queryKey: unknown[] }) => {
           const queryKey = query.queryKey[0];
           return typeof queryKey === 'string' && (
-            queryKey.includes('/api/kpi') || 
+            queryKey.includes('/api/kpi') ||
             queryKey.includes('/api/kpis') ||
             queryKey.includes('/api/collaborators-performance')
           );
@@ -156,12 +157,12 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       }
       
       // Invalidar también las queries de KPIs filtradas por companyId
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: ['/api/kpis'],
         exact: false,
-        predicate: (query) => {
+        predicate: (query: { queryKey: unknown[] }) => {
           if (Array.isArray(query.queryKey) && query.queryKey.length > 1) {
-            const params = query.queryKey[1];
+            const params = query.queryKey[1] as { companyId?: number } | undefined;
             if (params && typeof params === 'object' && 'companyId' in params) {
               return params.companyId === companyId;
             }
@@ -169,15 +170,15 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
           return false;
         }
       });
-      
+
       // Pequeño delay para asegurar que el backend procesó la actualización
       setTimeout(async () => {
         // Forzar refetch inmediato de todas las queries relacionadas
-        await queryClient.refetchQueries({ 
-          predicate: (query) => {
+        await queryClient.refetchQueries({
+          predicate: (query: { queryKey: unknown[] }) => {
             const queryKey = query.queryKey[0];
             return typeof queryKey === 'string' && (
-              queryKey.includes('/api/kpi-history') || 
+              queryKey.includes('/api/kpi-history') ||
               queryKey.includes('/api/kpis')
             );
           }
@@ -191,13 +192,13 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
           });
         }
         
-        console.log('[SalesUpdate] ✅ Queries refetched después de actualización');
+        devLog.log('[SalesUpdate] ✅ Queries refetched después de actualización');
       }, 500);
       
       // Limpiar solo el campo de valor
       form.setValue("value", "");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setSubmissionStatus("error");
       setSubmissionMessage(
         error?.message || "Error al actualizar los datos de ventas"

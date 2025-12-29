@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +60,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   });
 
   // Log para depuración
-  console.log('[PaymentsDueCard] payments recibidos:', payments.length, payments);
+  devLog.log('[PaymentsDueCard] payments recibidos:', payments.length, payments);
 
   // Filtrar pagos por pagar (vencidos o próximos 7 días para mostrar más ejemplos)
   const today = new Date();
@@ -67,9 +68,9 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(today.getDate() + 7);
 
-  const paymentsDue = payments.filter((p) => {
+  const paymentsDue = payments.filter((p: Payment) => {
     if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") {
-      console.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
+      devLog.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
       return false;
     }
     
@@ -83,7 +84,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     if (paymentDateStr) {
       const paymentDate = new Date(paymentDateStr);
       if (isNaN(paymentDate.getTime())) {
-        console.log('[PaymentsDueCard] Fecha de pago inválida:', p.id, paymentDateStr);
+        devLog.log('[PaymentsDueCard] Fecha de pago inválida:', p.id, paymentDateStr);
         // Si paymentDate es inválido, intentar con dueDate
         if (!dueDateStr) return false;
       } else {
@@ -91,7 +92,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
         // Mostrar si está programado para los próximos 7 días
         const isInRange = paymentDate <= sevenDaysFromNow && paymentDate >= today;
         if (isInRange) {
-          console.log('[PaymentsDueCard] Pago en rango (paymentDate):', p.id, paymentDate.toISOString());
+          devLog.log('[PaymentsDueCard] Pago en rango (paymentDate):', p.id, paymentDate.toISOString());
         }
         return isInRange;
       }
@@ -99,13 +100,13 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     
     // Si no tiene paymentDate, usar dueDate (para pagos vencidos o antiguos)
     if (!dueDateStr) {
-      console.log('[PaymentsDueCard] Sin fecha de pago ni vencimiento:', p.id);
+      devLog.log('[PaymentsDueCard] Sin fecha de pago ni vencimiento:', p.id);
       return false;
     }
     
     const dueDate = new Date(dueDateStr);
     if (isNaN(dueDate.getTime())) {
-      console.log('[PaymentsDueCard] Fecha inválida:', p.id, dueDateStr);
+      devLog.log('[PaymentsDueCard] Fecha inválida:', p.id, dueDateStr);
       return false;
     }
     dueDate.setHours(0, 0, 0, 0);
@@ -113,17 +114,17 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     // Incluir vencidos o próximos 7 días (usando dueDate como fallback)
     const isInRange = dueDate <= sevenDaysFromNow;
     if (!isInRange) {
-      console.log('[PaymentsDueCard] Fuera de rango (dueDate):', p.id, dueDateStr, 'hasta', sevenDaysFromNow.toISOString());
+      devLog.log('[PaymentsDueCard] Fuera de rango (dueDate):', p.id, dueDateStr, 'hasta', sevenDaysFromNow.toISOString());
     }
     return isInRange;
-  }).sort((a, b) => {
+  }).sort((a: Payment, b: Payment) => {
     // Ordenar por paymentDate si existe, sino por dueDate
     const dateA = new Date((a.paymentDate || a.payment_date || a.dueDate || a.due_date || "")).getTime();
     const dateB = new Date((b.paymentDate || b.payment_date || b.dueDate || b.due_date || "")).getTime();
     return dateA - dateB;
   });
 
-  console.log('[PaymentsDueCard] paymentsDue filtrados:', paymentsDue.length, paymentsDue);
+  devLog.log('[PaymentsDueCard] paymentsDue filtrados:', paymentsDue.length, paymentsDue);
 
   const isOverdue = (dueDateStr: string | undefined) => {
     if (!dueDateStr) return false;
@@ -163,7 +164,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
         ) : (
           <>
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {paymentsDue.slice(0, 4).map((payment) => {
+              {paymentsDue.slice(0, 4).map((payment: Payment) => {
                 const overdue = isOverdue(payment.due_date || payment.dueDate);
                 return (
                   <div

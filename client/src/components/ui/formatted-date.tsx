@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -16,7 +17,7 @@ export function FormattedDate({ date, showTime = false }: FormattedDateProps) {
     
     return <span>{format(new Date(date), formatStr, { locale: es })}</span>;
   } catch (error) {
-    console.error("Error formatting date:", error);
+    devLog.error("Error formatting date:", error);
     return <span>{date.toString()}</span>;
   }
 }

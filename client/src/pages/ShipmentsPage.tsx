@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, TrendingUp, Map, Calendar, Truck, AlertTriangle, CheckCircle2, X, Lock } from "lucide-react";
@@ -110,13 +111,13 @@ export default function ShipmentsPage() {
     
     // Log para depuración
     if (shipmentsResponse) {
-      console.log("Respuesta de envíos:", shipmentsResponse);
-      console.log("Array de envíos:", shipments);
+      devLog.log("Respuesta de envíos:", shipmentsResponse);
+      devLog.log("Array de envíos:", shipments);
       if (Array.isArray(shipments)) {
         const validShipments = shipments.filter(
           (shipment: Shipment) => shipment.departureDate && shipment.estimatedDeliveryDate
         );
-        console.log("Envíos con fechas válidas:", validShipments);
+        devLog.log("Envíos con fechas válidas:", validShipments);
       }
     }
   }, [shipmentsError, toast, shipmentsResponse, shipments]);

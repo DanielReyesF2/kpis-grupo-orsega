@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -262,7 +263,7 @@ export function ReceiptsModule({
       {} as Record<(typeof BOARD_COLUMNS)[number]["id"], number>
     );
 
-    vouchers.forEach((voucher) => {
+    vouchers.forEach((voucher: PaymentVoucher) => {
       const status = (mapOldVoucherStatus(voucher.status ?? "factura_pagada")) as (typeof BOARD_COLUMNS)[number]["id"];
       if (counts[status] !== undefined) {
         counts[status] += 1;
@@ -276,8 +277,8 @@ export function ReceiptsModule({
     return BOARD_COLUMNS.map((column) => ({
       ...column,
       vouchers: vouchers.filter(
-        (voucher) =>
-          mapOldVoucherStatus(voucher.status ?? "factura_pagada") === column.id
+        (v: PaymentVoucher) =>
+          mapOldVoucherStatus(v.status ?? "factura_pagada") === column.id
       ),
     }));
   }, [vouchers]);
@@ -307,7 +308,7 @@ export function ReceiptsModule({
 
   const handleDragStart = (event: DragStartEvent) => {
     const voucherId = event.active.id;
-    const voucher = vouchers.find((v) => v.id === voucherId);
+    const voucher = vouchers.find((v: PaymentVoucher) => v.id === voucherId);
     if (voucher) {
       setActiveVoucher(voucher);
     }
@@ -325,11 +326,11 @@ export function ReceiptsModule({
     // Validar que el estado existe en BOARD_COLUMNS
     const isValidStatus = BOARD_COLUMNS.some(col => col.id === newStatus);
     if (!isValidStatus) {
-      console.warn(`Estado inválido: ${newStatus}`);
+      devLog.warn(`Estado inválido: ${newStatus}`);
       return;
     }
 
-    const voucher = vouchers.find((v) => v.id === active.id);
+    const voucher = vouchers.find((v: PaymentVoucher) => v.id === active.id);
     if (!voucher) return;
 
     // Actualizar solo si el estado cambió
@@ -462,7 +463,7 @@ export function ReceiptsModule({
                     vouchers={column.vouchers}
                   >
                     <SortableContext
-                      items={column.vouchers.map((voucher) => voucher.id)}
+                      items={column.vouchers.map((voucher: PaymentVoucher) => voucher.id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-3 flex-1 min-h-[280px]">
@@ -471,7 +472,7 @@ export function ReceiptsModule({
                             Vacío
                           </div>
                         )}
-                        {column.vouchers.map((voucher) => (
+                        {column.vouchers.map((voucher: PaymentVoucher) => (
                           <SortableVoucherCard key={voucher.id} voucher={voucher} />
                         ))}
                       </div>

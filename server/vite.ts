@@ -62,7 +62,7 @@ export async function setupVite(app: Express, server: Server) {
     configFile: false,
     customLogger: {
       ...viteLogger,
-      error: (msg, options) => {
+      error: (msg: string, options?: { timestamp?: boolean; clear?: boolean }) => {
         // Log errors but don't kill the server - let Vite handle retries
         viteLogger.error(msg, options);
         // Only exit on critical errors, not on transform errors

@@ -113,7 +113,7 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
           </div>
         ) : documentsData?.documents && documentsData.documents.length > 0 ? (
           <div className="space-y-6 py-4">
-            {documentsData.documents.map((doc, index) => {
+            {documentsData.documents.map((doc: Document, index: number) => {
               const Icon = getDocumentIcon(doc.type);
               return (
                 <Card key={index} className="overflow-hidden">

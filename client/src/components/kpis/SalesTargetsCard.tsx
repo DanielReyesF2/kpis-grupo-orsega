@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -38,7 +39,7 @@ export default function SalesTargetsCard() {
 
   // Función para cargar los objetivos actuales
   const loadTargets = useCallback(() => {
-    console.log("Cargando objetivos de ventas...", { kpis, companies });
+    devLog.log("Cargando objetivos de ventas...", { kpis, companies });
     
     if (Array.isArray(kpis) && kpis.length > 0 && Array.isArray(companies) && companies.length > 0) {
       const salesTargets: CompanyTarget[] = [];
@@ -49,10 +50,10 @@ export default function SalesTargetsCard() {
         const storedData = localStorage.getItem('salesTargets');
         if (storedData) {
           storedTargets = JSON.parse(storedData);
-          console.log("Objetivos recuperados del almacenamiento local:", storedTargets);
+          devLog.log("Objetivos recuperados del almacenamiento local:", storedTargets);
         }
       } catch (e) {
-        console.error("Error al recuperar objetivos del almacenamiento local:", e);
+        devLog.error("Error al recuperar objetivos del almacenamiento local:", e);
       }
       
       // Valores fijos correctos por defecto
@@ -68,7 +69,7 @@ export default function SalesTargetsCard() {
           kpi.companyId === company.id
         );
         
-        console.log(`KPI para compañía ${company.name}:`, volumeKpi);
+        devLog.log(`KPI para compañía ${company.name}:`, volumeKpi);
         
         if (volumeKpi) {
           // Extraer el valor numérico del target
@@ -84,21 +85,21 @@ export default function SalesTargetsCard() {
           // 1. Comprobar si existe un valor almacenado localmente
           if (storedTargets[company.id]?.annualTarget) {
             annualTargetNumeric = storedTargets[company.id].annualTarget;
-            console.log(`Usando objetivo almacenado localmente para ${company.name}:`, annualTargetNumeric);
+            devLog.log(`Usando objetivo almacenado localmente para ${company.name}:`, annualTargetNumeric);
           } 
           // 1.b. Para compatibilidad, también verificamos duraAnnualTarget y orsegaAnnualTarget
           else if (company.id === 1 && localStorage.getItem('duraAnnualTarget')) {
             annualTargetNumeric = parseInt(localStorage.getItem('duraAnnualTarget') || '0', 10);
-            console.log(`Usando duraAnnualTarget para ${company.name}:`, annualTargetNumeric);
+            devLog.log(`Usando duraAnnualTarget para ${company.name}:`, annualTargetNumeric);
           }
           else if (company.id === 2 && localStorage.getItem('orsegaAnnualTarget')) {
             annualTargetNumeric = parseInt(localStorage.getItem('orsegaAnnualTarget') || '0', 10);
-            console.log(`Usando orsegaAnnualTarget para ${company.name}:`, annualTargetNumeric);
+            devLog.log(`Usando orsegaAnnualTarget para ${company.name}:`, annualTargetNumeric);
           }
           // 2. Si no hay valor almacenado, usar el valor predeterminado correcto
           else if (defaultTargets[company.id as keyof typeof defaultTargets]) {
             annualTargetNumeric = defaultTargets[company.id as keyof typeof defaultTargets];
-            console.log(`Usando objetivo predeterminado para ${company.name}:`, annualTargetNumeric);
+            devLog.log(`Usando objetivo predeterminado para ${company.name}:`, annualTargetNumeric);
           }
           // 3. Si no hay valor predeterminado, extraer del KPI
           else {
@@ -106,13 +107,13 @@ export default function SalesTargetsCard() {
               // Primero reemplazar las comas por puntos para manejar números grandes
               const cleanedString = targetString.replace(/[^0-9.,]+/g, '').replace(/,/g, '');
               annualTargetNumeric = parseFloat(cleanedString);
-              console.log(`Valor extraído para ${company.name}:`, { 
+              devLog.log(`Valor extraído para ${company.name}:`, { 
                 original: targetString, 
                 limpio: cleanedString, 
                 parseado: annualTargetNumeric 
               });
             } catch (e) {
-              console.error("Error al extraer valor numérico:", e);
+              devLog.error("Error al extraer valor numérico:", e);
               annualTargetNumeric = 0;
             }
           }
@@ -149,7 +150,7 @@ export default function SalesTargetsCard() {
               [company.id]: annualTargetNumeric.toLocaleString('es-MX')
             }));
             
-            console.log(`Objetivo para ${company.name} cargado:`, { 
+            devLog.log(`Objetivo para ${company.name} cargado:`, { 
               anual: annualTargetNumeric,
               mensual: monthlyTarget,
               semanal: weeklyTarget
@@ -167,7 +168,7 @@ export default function SalesTargetsCard() {
       });
       
       setCompanyTargets(salesTargets);
-      console.log("Objetivos cargados:", salesTargets);
+      devLog.log("Objetivos cargados:", salesTargets);
     }
   }, [kpis, companies]);
 
@@ -201,16 +202,16 @@ export default function SalesTargetsCard() {
             });
             
             if (checkResponse.ok) {
-              console.log("Token válido, continuando con la actualización");
+              devLog.log("Token válido, continuando con la actualización");
               return currentToken;
             } else {
-              console.warn("Token posiblemente inválido, redirigiendo al login");
+              devLog.warn("Token posiblemente inválido, redirigiendo al login");
               // Si el usuario está en la aplicación, significa que ya se autenticó en algún momento
               // Vamos a intentar la operación con el token actual de todas formas
               return currentToken;
             }
           } catch (e) {
-            console.error("Error al verificar el token:", e);
+            devLog.error("Error al verificar el token:", e);
             return currentToken;
           }
         };
@@ -233,7 +234,7 @@ export default function SalesTargetsCard() {
         if (!response.ok) {
           // Si el error es 401, podría ser un problema de token expirado
           if (response.status === 401) {
-            console.error("Error de autenticación (401). Intentando refrescar la página...");
+            devLog.error("Error de autenticación (401). Intentando refrescar la página...");
             // Podríamos recargar la página para que el usuario se autentique nuevamente
             // window.location.reload();
             throw new Error("Error de autenticación. Por favor, inicia sesión nuevamente.");
@@ -248,22 +249,22 @@ export default function SalesTargetsCard() {
           
           // Revisar si el texto comienza con <!DOCTYPE> o <html>
           if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-            console.warn("Se recibió HTML en lugar de JSON, pero la operación fue exitosa");
+            devLog.warn("Se recibió HTML en lugar de JSON, pero la operación fue exitosa");
             return { success: true, message: "Operación completada" };
           }
           
           return JSON.parse(text);
         } catch (e) {
-          console.warn("Error al parsear la respuesta, pero la operación fue exitosa:", e);
+          devLog.warn("Error al parsear la respuesta, pero la operación fue exitosa:", e);
           // En lugar de fallar, devolvemos un objeto con éxito
           return { success: true, message: "Operación completada" };
         }
       } catch (error) {
-        console.error("Error en mutationFn:", error);
+        devLog.error("Error en mutationFn:", error);
         throw error;
       }
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result: { success: boolean; message: string }) => {
       toast({
         title: "Objetivo actualizado",
         description: "El objetivo de ventas ha sido actualizado correctamente.",
@@ -336,7 +337,7 @@ export default function SalesTargetsCard() {
     });
     setCompanyTargets(updatedCompanyTargets);
     
-    console.log(`Actualizando objetivos para compañía ${companyId}:`, {
+    devLog.log(`Actualizando objetivos para compañía ${companyId}:`, {
       anual: numericValue,
       mensual: newMonthlyTarget,
       semanal: newWeeklyTarget
@@ -377,7 +378,7 @@ export default function SalesTargetsCard() {
         description: "El objetivo ha sido actualizado correctamente y se aplicará en todos los cálculos.",
       });
     } catch (error) {
-      console.error("Error al guardar el objetivo:", error);
+      devLog.error("Error al guardar el objetivo:", error);
       toast({
         title: "Error al actualizar",
         description: "Se ha producido un error, pero los cambios se han guardado localmente.",

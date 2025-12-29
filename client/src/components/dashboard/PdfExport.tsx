@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
@@ -22,7 +23,7 @@ export function PdfExport({ dashboardRef, companyId, period }: PdfExportProps) {
     queryKey: ['/api/companies'],
   });
   
-  const company = companies?.find(c => c.id === companyId);
+  const company = companies?.find((c: Company) => c.id === companyId);
   
   const handleDownload = async () => {
     if (!dashboardRef.current || !company) {
@@ -56,7 +57,7 @@ export function PdfExport({ dashboardRef, companyId, period }: PdfExportProps) {
         description: "El reporte se ha descargado correctamente",
       });
     } catch (error) {
-      console.error("Error al generar PDF:", error);
+      devLog.error("Error al generar PDF:", error);
       toast({
         title: "Error",
         description: "Ocurrió un error al generar el PDF",

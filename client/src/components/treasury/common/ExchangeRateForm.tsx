@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -73,8 +74,8 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
         throw new Error(errorMessage);
       }
     },
-    onSuccess: async (data) => {
-      console.log('[ExchangeRateForm] Registro exitoso:', data);
+    onSuccess: async (data: any) => {
+      devLog.log('[ExchangeRateForm] Registro exitoso:', data);
 
       // Invalidar todas las queries relacionadas con tipos de cambio
       await Promise.all([
@@ -91,7 +92,7 @@ export function ExchangeRateForm({ isOpen, onClose, source }: ExchangeRateFormPr
         queryClient.refetchQueries({ queryKey: ["/api/fx/source-series"], exact: false }),
       ]);
 
-      console.log('[ExchangeRateForm] ✅ Queries invalidadas y refetched');
+      devLog.log('[ExchangeRateForm] ✅ Queries invalidadas y refetched');
 
       const sourceName = source || selectedSource;
       toast({

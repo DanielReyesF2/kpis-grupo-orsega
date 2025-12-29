@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -436,7 +437,7 @@ const KanbanColumn = ({
         onDrop(shipment, status);
       }
     } catch (error) {
-      console.error("Error al procesar el drop:", error);
+      devLog.error("Error al procesar el drop:", error);
     }
   };
 
@@ -758,7 +759,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   // Debug: Ver qué productos se están recibiendo
   useEffect(() => {
     if (products.length > 0) {
-      console.log(`🔵 [DragDropKanban] Productos recibidos (companyId=${companyIdNum}):`, products.map((p: { name: string }) => p.name));
+      devLog.log(`🔵 [DragDropKanban] Productos recibidos (companyId=${companyIdNum}):`, products.map((p: { name: string }) => p.name));
     }
   }, [products, companyIdNum]);
 
@@ -932,8 +933,8 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
 
   const handleRequestSubmit = async (requestData: any) => {
     // TODO: Implementar llamada al backend
-    console.log('Datos de solicitud:', requestData);
-    console.log('Envío:', requestDialog.shipment);
+    devLog.log('Datos de solicitud:', requestData);
+    devLog.log('Envío:', requestDialog.shipment);
     
     toast({
       title: "Solicitud enviada",
@@ -1742,7 +1743,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
       onSaved();
     },
     onError: (err: any) => {
-      console.error('[EditShipmentInline] Error actualizando envío:', err);
+      devLog.error('[EditShipmentInline] Error actualizando envío:', err);
       toast({ 
         title: 'Error', 
         description: err.message || 'No se pudo actualizar el envío. Verifique su conexión.', 

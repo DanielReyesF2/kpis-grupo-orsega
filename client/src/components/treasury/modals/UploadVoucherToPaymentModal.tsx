@@ -55,7 +55,7 @@ export function UploadVoucherToPaymentModal({
 
       return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "✅ Comprobante subido exitosamente",
         description: data.message || "El comprobante ha sido vinculado a la cuenta por pagar",

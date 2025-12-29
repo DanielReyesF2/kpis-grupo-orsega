@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -60,20 +61,21 @@ export default function SimpleTargetsButtons() {
         loadedTargets = JSON.parse(storedTargets);
       }
     } catch (error) {
-      console.error("Error al parsear objetivos almacenados:", error);
+      devLog.error("Error al parsear objetivos almacenados:", error);
     }
 
     // Preparar los objetivos para cada compañía
-    const newTargets = companies.map((company: any) => {
+    const newTargets = companies.map((company: { id: number; name: string }) => {
       // Obtener el KPI de ventas para esta compañía
-      const salesKpi = kpis.find((kpi: any) => 
-        kpi.companyId === company.id && 
+      const salesKpi = kpis.find((kpi: { companyId: number; name: string; target?: string }) =>
+        kpi.companyId === company.id &&
         kpi.name.toLowerCase().includes("volumen de ventas")
       );
 
       // Verificar si hay un objetivo almacenado para esta compañía
       const storedTarget = loadedTargets[company.id];
-      let annualTarget = defaultTargets[company.id] || 0;
+      const companyIdKey = company.id as 1 | 2;
+      let annualTarget = defaultTargets[companyIdKey] || 0;
 
       // Usar el objetivo almacenado si existe, o el KPI target si no
       if (storedTarget && storedTarget.annualTarget) {
@@ -134,18 +136,18 @@ export default function SimpleTargetsButtons() {
       
       return { monthlyTarget, weeklyTarget };
     } catch (error) {
-      console.error("Error al guardar objetivos:", error);
+      devLog.error("Error al guardar objetivos:", error);
       throw error;
     }
   };
 
   // Mutación para actualizar un objetivo
   const updateTargetMutation = useMutation({
-    mutationFn: async ({ companyId, annualTarget }: { companyId: number, annualTarget: number }) => {
+    mutationFn: async ({ companyId, annualTarget }: { companyId: number, annualTarget: number | string }) => {
       try {
         // Parsear el valor para asegurar que es un número
-        const targetValue = typeof annualTarget === 'string' 
-          ? parseInt(annualTarget.replace(/[^\d]/g, '')) 
+        const targetValue = typeof annualTarget === 'string'
+          ? parseInt(annualTarget.replace(/[^\d]/g, ''))
           : annualTarget;
           
         if (isNaN(targetValue)) {
@@ -159,7 +161,7 @@ export default function SimpleTargetsButtons() {
         
         return result;
       } catch (error) {
-        console.error("Error actualizando objetivo:", error);
+        devLog.error("Error actualizando objetivo:", error);
         throw error;
       }
     },

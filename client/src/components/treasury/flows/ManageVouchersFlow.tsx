@@ -236,7 +236,7 @@ export function ManageVouchersFlow({ onBack }: ManageVouchersFlowProps) {
   // Agrupar vouchers por estado simplificado
   const groupedVouchers = SIMPLIFIED_COLUMNS.reduce(
     (acc, column) => {
-      acc[column.id] = vouchers.filter((v) => mapToSimplifiedStatus(v.status) === column.id);
+      acc[column.id] = vouchers.filter((v: PaymentVoucher) => mapToSimplifiedStatus(v.status) === column.id);
       return acc;
     },
     {} as Record<SimplifiedStatus, PaymentVoucher[]>
@@ -276,7 +276,7 @@ export function ManageVouchersFlow({ onBack }: ManageVouchersFlowProps) {
 
   const handleDragStart = (event: DragStartEvent) => {
     const voucherId = Number(event.active.id);
-    const voucher = vouchers.find((v) => v.id === voucherId);
+    const voucher = vouchers.find((v: PaymentVoucher) => v.id === voucherId);
     setDraggedVoucher(voucher || null);
   };
 
@@ -290,7 +290,7 @@ export function ManageVouchersFlow({ onBack }: ManageVouchersFlowProps) {
     const voucherId = Number(active.id);
     const targetStatus = over.id as SimplifiedStatus;
 
-    const voucher = vouchers.find((v) => v.id === voucherId);
+    const voucher = vouchers.find((v: PaymentVoucher) => v.id === voucherId);
     if (!voucher) return;
 
     const currentSimplified = mapToSimplifiedStatus(voucher.status);

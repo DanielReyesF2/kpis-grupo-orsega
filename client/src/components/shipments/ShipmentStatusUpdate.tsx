@@ -26,7 +26,7 @@ const statusConfig = {
 };
 
 export function ShipmentStatusUpdate({ shipment, onUpdate }: ShipmentStatusUpdateProps) {
-  const [status, setStatus] = useState(shipment.status);
+  const [status, setStatus] = useState<string>(shipment.status);
   const [location, setLocation] = useState('');
   const [comments, setComments] = useState('');
   const [sendNotification, setSendNotification] = useState(true);
@@ -35,22 +35,22 @@ export function ShipmentStatusUpdate({ shipment, onUpdate }: ShipmentStatusUpdat
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  type StatusKey = 'pending' | 'in_transit' | 'delayed' | 'delivered' | 'cancelled';
+
   const updateStatusMutation = useMutation({
-    mutationFn: async (data: { 
-      status: string; 
-      location?: string; 
-      comments?: string; 
-      sendNotification: boolean; 
+    mutationFn: async (data: {
+      status: string;
+      location?: string;
+      comments?: string;
+      sendNotification: boolean;
     }) => {
-      return await apiRequest(`/api/shipments/${shipment.id}/status`, {
-        method: 'PATCH',
-        body: data
-      });
+      const response = await apiRequest('PATCH', `/api/shipments/${shipment.id}/status`, data);
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { notificationSent?: boolean }) => {
       toast({
         title: "Estado actualizado",
-        description: data.notificationSent 
+        description: data.notificationSent
           ? "El estado del envío se actualizó y se envió una notificación al cliente"
           : "El estado del envío se actualizó correctamente",
       });
@@ -66,7 +66,7 @@ export function ShipmentStatusUpdate({ shipment, onUpdate }: ShipmentStatusUpdat
       
       if (onUpdate) onUpdate();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Error al actualizar el estado del envío",

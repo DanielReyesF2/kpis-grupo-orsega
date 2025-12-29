@@ -74,9 +74,9 @@ export function FxModule({
 
   const filtered = useMemo(() => {
     return exchangeRates
-      .filter((rate) => (rate.source ?? "").toUpperCase() === source.toUpperCase())
+      .filter((rate: ExchangeRate) => (rate.source ?? "").toUpperCase() === source.toUpperCase())
       .sort(
-        (a, b) =>
+        (a: ExchangeRate, b: ExchangeRate) =>
           new Date(b.date).getTime() - new Date(a.date).getTime()
       );
   }, [exchangeRates, source]);
@@ -98,7 +98,7 @@ export function FxModule({
     return filtered
       .slice(0, 7)
       .reverse()
-      .map((rate) => {
+      .map((rate: ExchangeRate) => {
         const normalized = normalizeExchangeRate(rate);
         return {
           label: format(new Date(rate.date), "dd MMM HH:mm", { locale: es }),

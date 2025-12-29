@@ -39,7 +39,7 @@ export function ProviderAutocomplete({
   });
 
   // Filtrar proveedores por empresa y búsqueda
-  const filteredSuppliers = suppliers.filter((supplier) => {
+  const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     // Filtrar solo activos
     if (!supplier.is_active) return false;
     // Filtrar por empresa si está seleccionada
@@ -54,7 +54,7 @@ export function ProviderAutocomplete({
     );
   });
 
-  const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
+  const selectedSupplier = suppliers.find((s: Supplier) => s.id === selectedSupplierId);
 
   return (
     <div className="space-y-4">
@@ -96,7 +96,7 @@ export function ProviderAutocomplete({
                   {companyId ? "No se encontraron proveedores para esta empresa" : "Selecciona primero la empresa"}
                 </div>
               ) : (
-                filteredSuppliers.slice(0, 10).map((supplier) => (
+                filteredSuppliers.slice(0, 10).map((supplier: Supplier) => (
                   <Button
                     key={supplier.id}
                     variant="ghost"

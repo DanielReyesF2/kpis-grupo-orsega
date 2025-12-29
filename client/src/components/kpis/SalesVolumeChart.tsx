@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useMemo } from "react";
 import {
   Card,
@@ -41,7 +42,7 @@ const TargetLabel = (props: any) => {
   
   // Debug: log para ver qué props recibimos
   if (process.env.NODE_ENV === 'development') {
-    console.log('[TargetLabel] Props recibidos:', { viewBox, value, allProps: props });
+    devLog.log('[TargetLabel] Props recibidos:', { viewBox, value, allProps: props });
   }
   
   if (!value) return null;
@@ -207,7 +208,7 @@ export function SalesVolumeChart({
   // Prioridad: providedKpiId > salesKpi por nombre > IDs conocidos por companyId
   const kpiId = providedKpiId || salesKpi?.id || (companyId === 1 ? 39 : 1);
   
-  console.log("[SalesVolumeChart] 🔍 Búsqueda de KPI:", {
+  devLog.log("[SalesVolumeChart] 🔍 Búsqueda de KPI:", {
     companyId,
     providedKpiId,
     totalKpis: allKpis?.length || 0,
@@ -220,8 +221,8 @@ export function SalesVolumeChart({
   
   // Si estamos usando fallback y no encontramos el KPI, mostrar advertencia
   if (!providedKpiId && !salesKpi && allKpis && !isLoadingKpis) {
-    console.warn("[SalesVolumeChart] ⚠️ No se encontró KPI de ventas por nombre, usando ID fallback:", kpiId);
-    console.warn("[SalesVolumeChart] KPIs disponibles:", allKpis.map((k: any) => ({
+    devLog.warn("[SalesVolumeChart] ⚠️ No se encontró KPI de ventas por nombre, usando ID fallback:", kpiId);
+    devLog.warn("[SalesVolumeChart] KPIs disponibles:", allKpis.map((k: any) => ({
       id: k.id,
       name: k.name || k.kpiName,
       companyId: k.companyId
@@ -433,12 +434,12 @@ export function SalesVolumeChart({
               className="h-12 sm:h-16 w-auto object-contain"
               style={{ maxWidth: '120px', display: 'block' }}
               onError={(e) => {
-                console.error('[SalesVolumeChart] Error cargando logo:', companyLogo);
+                devLog.error('[SalesVolumeChart] Error cargando logo:', companyLogo);
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
               }}
               onLoad={() => {
-                console.log('[SalesVolumeChart] ✅ Logo cargado:', companyLogo);
+                devLog.log('[SalesVolumeChart] ✅ Logo cargado:', companyLogo);
               }}
             />
           </div>
@@ -689,8 +690,8 @@ export function SalesVolumeChart({
                       const range = maxValue - minValue;
                       
                       // Calcular tamaño del punto basado en el volumen de ventas
-                      const normalizedValue = range > 0 
-                        ? (payload.value - minValue) / range 
+                      const normalizedValue = range > 0
+                        ? ((payload as { valor: number }).valor - minValue) / range
                         : 0.5;
                       
                       // Tamaño base pequeño, más grande para valores altos

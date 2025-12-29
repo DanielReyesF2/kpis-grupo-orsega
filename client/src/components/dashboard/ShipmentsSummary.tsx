@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Package, Clock, CheckCircle, MapPin, AlertTriangle, BarChart, BadgeCheck } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -60,7 +61,7 @@ export function ShipmentsSummary() {
       
       // Si hay una compañía seleccionada, filtrar los envíos
       if (selectedCompany) {
-        console.log(`[ShipmentsSummary] Filtrando envíos para compañía ID: ${selectedCompany}`);
+        devLog.log(`[ShipmentsSummary] Filtrando envíos para compañía ID: ${selectedCompany}`);
         return allShipments.filter(shipment => shipment.companyId === selectedCompany);
       }
       

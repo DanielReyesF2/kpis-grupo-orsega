@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { queryClient } from '@/lib/queryClient';
@@ -14,14 +15,14 @@ export const useNavigationCleanup = () => {
     const criticalRoutes = ['/logistics', '/kpi-control', '/'];
     
     if (criticalRoutes.includes(location)) {
-      console.log(`[NavigationCleanup] Limpiando cache para ruta: ${location}`);
+      devLog.log(`[NavigationCleanup] Limpiando cache para ruta: ${location}`);
       
       // Mantener auth cache crítico, limpiar queries de datos
       queryClient.removeQueries({
-        predicate: (query) => {
+        predicate: (query: { queryKey: unknown[] }) => {
           const queryKey = query.queryKey[0]?.toString() || '';
           // No limpiar queries críticas de auth y usuario
-          return !queryKey.includes('/api/user') && 
+          return !queryKey.includes('/api/user') &&
                  !queryKey.includes('/api/login') &&
                  !queryKey.includes('auth');
         }

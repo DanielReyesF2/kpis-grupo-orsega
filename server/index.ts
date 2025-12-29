@@ -34,7 +34,7 @@ if (process.env.SENTRY_DSN) {
     replaysOnErrorSampleRate: 1.0,
     
     // Filter errors
-    beforeSend(event, hint) {
+    beforeSend(event: unknown, hint: { request?: { url?: string } }) {
       // Don't send errors from healthcheck endpoints
       if (hint.request?.url?.includes('/health')) {
         return null;

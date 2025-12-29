@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -50,7 +51,7 @@ export function InvoiceVerificationModal({
   const { toast } = useToast();
   
   // Log de datos recibidos para diagnóstico
-  console.log('🔍 [InvoiceVerificationModal] Datos recibidos:', JSON.stringify({
+  devLog.log('🔍 [InvoiceVerificationModal] Datos recibidos:', JSON.stringify({
     extractedSupplierName: invoiceData.analysis.extractedSupplierName,
     extractedAmount: invoiceData.analysis.extractedAmount,
     extractedCurrency: invoiceData.analysis.extractedCurrency,
@@ -153,8 +154,8 @@ export function InvoiceVerificationModal({
 
       return await response.json();
     },
-    onSuccess: async (data) => {
-      console.log('✅ [InvoiceVerificationModal] Cuenta por pagar creada:', data);
+    onSuccess: async (data: any) => {
+      devLog.log('✅ [InvoiceVerificationModal] Cuenta por pagar creada:', data);
       
       toast({
         title: "✅ Cuenta por pagar creada exitosamente",
@@ -184,7 +185,7 @@ export function InvoiceVerificationModal({
         exact: false, // Refetch todas las queries relacionadas
       });
       
-      console.log('✅ [InvoiceVerificationModal] Queries invalidadas y refetched');
+      devLog.log('✅ [InvoiceVerificationModal] Queries invalidadas y refetched');
       
       onClose();
     },

@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { useState } from 'react';
 import Timeline from 'react-calendar-timeline';
 import 'react-calendar-timeline/lib/Timeline.css';
@@ -84,9 +85,9 @@ export const ShipmentTimeline: React.FC<ShipmentTimelineProps> = ({
   const [selectedShipmentId, setSelectedShipmentId] = useState<number | null>(null);
 
   // Debug: Log de los datos recibidos
-  console.log("ShipmentTimeline - Datos recibidos:");
-  console.log("Shipments:", shipments);
-  console.log("Companies:", companies);
+  devLog.log("ShipmentTimeline - Datos recibidos:");
+  devLog.log("Shipments:", shipments);
+  devLog.log("Companies:", companies);
 
   // Filtrar envíos que tengan fechas válidas
   const validShipments = shipments.filter(
@@ -94,7 +95,7 @@ export const ShipmentTimeline: React.FC<ShipmentTimelineProps> = ({
   );
   
   // Debug: Log de envíos válidos
-  console.log("Envíos válidos para timeline:", validShipments);
+  devLog.log("Envíos válidos para timeline:", validShipments);
 
   if (validShipments.length === 0) {
     return (
@@ -123,7 +124,7 @@ export const ShipmentTimeline: React.FC<ShipmentTimelineProps> = ({
       : moment(shipment.estimatedDeliveryDate);
     
     // Debug: Log de fechas procesadas
-    console.log(`Envío ${shipment.trackingCode}:`, {
+    devLog.log(`Envío ${shipment.trackingCode}:`, {
       fechaOrigen: shipment.departureDate,
       startDate: startDate.format('YYYY-MM-DD'),
       fechaEntrega: shipment.estimatedDeliveryDate,

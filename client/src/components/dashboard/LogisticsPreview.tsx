@@ -116,7 +116,7 @@ export function LogisticsPreview() {
           </div>
         ) : recentShipments.length > 0 ? (
           <div className="space-y-3">
-            {recentShipments.map((shipment) => (
+            {recentShipments.map((shipment: Shipment) => (
               <div 
                 key={shipment.id}
                 className="group p-4 border border-border/60 rounded-xl bg-card/70 hover:border-primary/40 hover:shadow-md transition-modern cursor-pointer"

@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -301,7 +302,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
         updatedAt: payment.updated_at || payment.updatedAt,
       }));
       
-      console.log(`📊 [ScheduledPaymentsKanban] Payments recibidos: ${normalizedData.length}`, normalizedData);
+      devLog.log(`📊 [ScheduledPaymentsKanban] Payments recibidos: ${normalizedData.length}`, normalizedData);
       return normalizedData;
     },
     staleTime: 0, // Reducir staleTime para que siempre refetch después de invalidación
@@ -321,10 +322,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest(`/api/scheduled-payments/${id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
+      return await apiRequest('PUT', `/api/scheduled-payments/${id}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
@@ -340,7 +338,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
   });
 
   const handleDragStart = (event: DragStartEvent) => {
-    const payment = payments.find((p) => p.id === event.active.id);
+    const payment = payments.find((p: ScheduledPayment) => p.id === event.active.id);
     setActivePayment(payment || null);
   };
 
@@ -350,7 +348,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
 
     if (!over) return;
 
-    const activePayment = payments.find((p) => p.id === active.id);
+    const activePayment = payments.find((p: ScheduledPayment) => p.id === active.id);
     if (!activePayment) return;
 
     const columnId = over.id as keyof typeof COLUMN_CONFIG;
@@ -370,13 +368,13 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
 
   // Agrupar pagos por columna
   const groupedPayments = useMemo(() => {
-    const porPagar = payments.filter((p) => 
+    const porPagar = payments.filter((p: ScheduledPayment) =>
       COLUMN_CONFIG.por_pagar.statuses.includes(p.status)
     );
-    const pagada = payments.filter((p) => 
+    const pagada = payments.filter((p: ScheduledPayment) =>
       COLUMN_CONFIG.pagada.statuses.includes(p.status)
     );
-    const enSeguimientoREP = payments.filter((p) => 
+    const enSeguimientoREP = payments.filter((p: ScheduledPayment) =>
       p.voucherId && COLUMN_CONFIG.en_seguimiento_rep.statuses.includes(p.status)
     );
 

@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,11 +56,11 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   // Procesar datos (YTD: solo meses del año en curso)
   const salesData = useMemo(() => {
     if (!kpiHistory || kpiHistory.length === 0) {
-      console.log(`[SalesMetricsCards] KPI History vacío para Company ${companyId}`);
+      devLog.log(`[SalesMetricsCards] KPI History vacío para Company ${companyId}`);
       return [];
     }
     
-    console.log(`[SalesMetricsCards] Procesando ${kpiHistory.length} registros de historial para Company ${companyId}`);
+    devLog.log(`[SalesMetricsCards] Procesando ${kpiHistory.length} registros de historial para Company ${companyId}`);
     
     const monthOrder: { [key: string]: number } = {
       'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4,
@@ -92,7 +93,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       return !isNaN(year) && year === currentYear;
     });
     
-    console.log(`[SalesMetricsCards] Filtrados por año ${currentYear}: ${filtered.length} registros`);
+    devLog.log(`[SalesMetricsCards] Filtrados por año ${currentYear}: ${filtered.length} registros`);
 
     const sortedHistory = [...filtered].sort((a: any, b: any) => {
       const monthA = (a.period || '').split(' ')[0];
@@ -105,7 +106,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       const parsed = parseFloat(rawValue.replace(/[^0-9.-]+/g, '')) || 0;
       
       if (parsed > 1000000) {
-        console.warn(`[SalesMetricsCards] ⚠️ Valor alto detectado:`, {
+        devLog.warn(`[SalesMetricsCards] ⚠️ Valor alto detectado:`, {
           raw: rawValue,
           parsed,
           period: item.period
@@ -121,7 +122,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   // Volumen total del año (YTD)
   const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
   
-  console.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros = ${salesData.length}`);
+  devLog.log(`[SalesMetricsCards] Company ${companyId}: Total YTD = ${totalSales.toLocaleString()}, Registros = ${salesData.length}`);
 
   // ============================================================================
   // CÁLCULO DEL OBJETIVO ANUAL - UNA SOLA FUENTE DE VERDAD
@@ -136,7 +137,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     const annualGoal = parseFloat(String(salesKpi.annualGoal).toString().replace(/[^0-9.-]+/g, ''));
     if (!isNaN(annualGoal) && annualGoal > 0) {
       calculatedFromKpi = Math.round(annualGoal);
-      console.log(`[SalesMetricsCards] ✅ Usando annualGoal del KPI: ${calculatedFromKpi}`);
+      devLog.log(`[SalesMetricsCards] ✅ Usando annualGoal del KPI: ${calculatedFromKpi}`);
     }
   }
   
@@ -145,7 +146,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
     const monthlyGoalFromDb = parseFloat(String(salesKpi.goal).toString().replace(/[^0-9.-]+/g, ''));
     if (!isNaN(monthlyGoalFromDb) && monthlyGoalFromDb > 0) {
       calculatedFromKpi = Math.round(monthlyGoalFromDb * 12);
-      console.log(`[SalesMetricsCards] ⚠️  Calculando desde goal mensual * 12: ${calculatedFromKpi}`);
+      devLog.log(`[SalesMetricsCards] ⚠️  Calculando desde goal mensual * 12: ${calculatedFromKpi}`);
     }
   }
 
@@ -166,7 +167,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
           storedTargetNumeric = parseInt(String(targets[companyId].annualTarget), 10);
         }
       } catch (e) {
-        console.warn('[SalesMetricsCards] Error parsing salesTargets:', e);
+        devLog.warn('[SalesMetricsCards] Error parsing salesTargets:', e);
       }
     }
     
@@ -203,7 +204,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   
   // Limpiar localStorage si detectamos un objetivo incorrecto
   if (isTargetSuspiciouslyLow && !hasAnnualGoalFromKpi) {
-    console.warn(`[SalesMetricsCards] ⚠️ Objetivo bajo (${rawTarget}), usando default (${totalTarget})`);
+    devLog.warn(`[SalesMetricsCards] ⚠️ Objetivo bajo (${rawTarget}), usando default (${totalTarget})`);
     
     if (companyId === 1) {
       localStorage.removeItem('duraAnnualTarget');
@@ -219,7 +220,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
         localStorage.setItem('salesTargets', JSON.stringify(targets));
       }
     } catch (e) {
-      console.warn('[SalesMetricsCards] Error al limpiar salesTargets:', e);
+      devLog.warn('[SalesMetricsCards] Error al limpiar salesTargets:', e);
     }
   }
 
@@ -228,7 +229,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
   const monthlyTarget = totalTarget > 0 ? Math.round(totalTarget / 12) : 0;
   
   // Log para debugging
-  console.log(`[SalesMetricsCards] Objetivo anual - Company ${companyId}:`, {
+  devLog.log(`[SalesMetricsCards] Objetivo anual - Company ${companyId}:`, {
     'annualGoal del KPI': salesKpi?.annualGoal || 'No hay',
     calculatedFromKpi: calculatedFromKpi || 'No hay',
     isValidKpiTarget,
@@ -244,7 +245,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
 
   // Alerta si el porcentaje es sospechosamente alto
   if (companyId === 2 && totalTarget > 0 && compliancePercentage > 300) {
-    console.error(`🚨 [SalesMetricsCards] PROBLEMA DETECTADO - Orsega:`, {
+    devLog.error(`🚨 [SalesMetricsCards] PROBLEMA DETECTADO - Orsega:`, {
       'Porcentaje anormal': `${compliancePercentage}%`,
       'Total ventas YTD': totalSales.toLocaleString(),
       'Objetivo anual': totalTarget.toLocaleString(),
@@ -287,7 +288,7 @@ export function SalesMetricsCards({ companyId }: SalesMetricsCardsProps) {
       }
       
       if (compliance > 500) {
-        console.warn(`[SalesMetricsCards] ⚠️ Compliance alto para ${monthShortNames[index]}:`, {
+        devLog.warn(`[SalesMetricsCards] ⚠️ Compliance alto para ${monthShortNames[index]}:`, {
           sales,
           monthlyTarget,
           compliance

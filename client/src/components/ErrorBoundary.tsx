@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { Component, ReactNode } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('[ErrorBoundary] Error capturado:', error, errorInfo);
+    devLog.error('[ErrorBoundary] Error capturado:', error, errorInfo);
   }
 
   handleReload = () => {

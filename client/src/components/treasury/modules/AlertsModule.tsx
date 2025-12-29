@@ -61,14 +61,14 @@ export function AlertsModule({
 
   const { overdue, pendingThisMonth, completedThisMonth, chart } = useMemo(() => {
     const now = new Date();
-    const overduePayments = payments.filter((payment) => {
+    const overduePayments = payments.filter((payment: TreasuryPayment) => {
       if (!payment.due_date) return false;
       const due = new Date(payment.due_date);
       const status = (payment.status || "").toLowerCase();
       return due.getTime() < now.getTime() && status !== "paid" && status !== "disbursed";
     });
 
-    const monthlyPayments = payments.filter((payment) => {
+    const monthlyPayments = payments.filter((payment: TreasuryPayment) => {
       const due = payment.due_date ?? payment.created_at;
       if (!due) return false;
       const date = new Date(due);
@@ -77,7 +77,7 @@ export function AlertsModule({
       );
     });
 
-    const completed = monthlyPayments.filter((payment) => {
+    const completed = monthlyPayments.filter((payment: TreasuryPayment) => {
       const status = (payment.status || "").toLowerCase();
       return status === "paid" || status === "disbursed";
     }).length;
@@ -90,7 +90,7 @@ export function AlertsModule({
       { label: string; pending: number; completed: number; order: number }
     >();
 
-    monthlyPayments.forEach((payment) => {
+    monthlyPayments.forEach((payment: TreasuryPayment) => {
       const dateStr = payment.due_date ?? payment.created_at;
       if (!dateStr) return;
       const date = new Date(dateStr);

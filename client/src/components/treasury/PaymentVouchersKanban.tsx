@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -356,7 +357,7 @@ export function PaymentVouchersKanban({ vouchers }: PaymentVouchersKanbanProps) 
     
     // Validar que el estado existe en STATUS_CONFIG
     if (!STATUS_CONFIG[newStatus]) {
-      console.warn(`Estado inválido: ${newStatus}`);
+      devLog.warn(`Estado inválido: ${newStatus}`);
       return;
     }
 

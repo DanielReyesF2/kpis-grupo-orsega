@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -292,7 +293,7 @@ export default function LogisticsPage() {
               shipments={shipments as any[]} 
               onShipmentClick={(shipment) => {
                 // Opcional: abrir detalles del embarque
-                console.log('Ver detalles de:', shipment);
+                devLog.log('Ver detalles de:', shipment);
               }}
             />
           )}
@@ -627,7 +628,7 @@ export default function LogisticsPage() {
                               onClick={async () => {
                                 if (confirm(`¿Estás seguro de que deseas eliminar el producto "${product.name}"?`)) {
                                   try {
-                                    console.log('[ProductsModal] Eliminando producto:', product.id);
+                                    devLog.log('[ProductsModal] Eliminando producto:', product.id);
                                     const response = await apiRequest('DELETE', `/api/products/${product.id}`);
                                     
                                     if (!response.ok) {
@@ -647,7 +648,7 @@ export default function LogisticsPage() {
                                     });
                                     queryClient.invalidateQueries({ queryKey: ['/api/products'] });
                                   } catch (error: any) {
-                                    console.error('[ProductsModal] Error al eliminar producto:', error);
+                                    devLog.error('[ProductsModal] Error al eliminar producto:', error);
                                     toast({
                                       title: "Error",
                                       description: error.message || "No se pudo eliminar el producto.",
@@ -1284,7 +1285,7 @@ function ProductFormDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof productFormSchema>) => {
-      console.log('[ProductForm] Creando producto:', data);
+      devLog.log('[ProductForm] Creando producto:', data);
       try {
         const response = await apiRequest('POST', '/api/products', {
           name: data.name.trim(),
@@ -1303,10 +1304,10 @@ function ProductFormDialog({
         }
         
         const result = await response.json();
-        console.log('[ProductForm] Producto creado exitosamente:', result);
+        devLog.log('[ProductForm] Producto creado exitosamente:', result);
         return result;
       } catch (error: any) {
-        console.error('[ProductForm] Error al crear producto:', error);
+        devLog.error('[ProductForm] Error al crear producto:', error);
         throw error;
       }
     },
@@ -1329,7 +1330,7 @@ function ProductFormDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof productFormSchema>) => {
-      console.log('[ProductForm] Actualizando producto:', product?.id, data);
+      devLog.log('[ProductForm] Actualizando producto:', product?.id, data);
       try {
         const response = await apiRequest('PUT', `/api/products/${product?.id}`, {
           name: data.name.trim(),
@@ -1348,10 +1349,10 @@ function ProductFormDialog({
         }
         
         const result = await response.json();
-        console.log('[ProductForm] Producto actualizado exitosamente:', result);
+        devLog.log('[ProductForm] Producto actualizado exitosamente:', result);
         return result;
       } catch (error: any) {
-        console.error('[ProductForm] Error al actualizar producto:', error);
+        devLog.error('[ProductForm] Error al actualizar producto:', error);
         throw error;
       }
     },

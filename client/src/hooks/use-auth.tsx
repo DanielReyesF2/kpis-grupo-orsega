@@ -1,3 +1,4 @@
+import { devLog } from "@/lib/logger";
 import React, { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthToken, removeAuthToken } from '@/lib/queryClient';
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       // Verificar que el token se guardó correctamente
       const savedToken = getAuthToken();
       if (!savedToken || savedToken !== token) {
-        console.error('[Auth] Error: Token no se guardó correctamente');
+        devLog.error('[Auth] Error: Token no se guardó correctamente');
         throw new Error('Error al guardar el token de autenticación');
       }
       
@@ -155,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         description: `Sesión iniciada como ${data.user.name}`,
       });
     } catch (error: any) {
-      console.error('[Auth] Error login:', error);
+      devLog.error('[Auth] Error login:', error);
       
       // Manejo especial para error 429 (Rate Limiting)
       if (error.message && error.message.includes('429')) {
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         description: "Has cerrado sesión correctamente",
       });
     } catch (error) {
-      console.error('[Auth] Error logout:', error);
+      devLog.error('[Auth] Error logout:', error);
       toast({
         title: "Error al cerrar sesión",
         description: "Ha ocurrido un error al cerrar la sesión",
