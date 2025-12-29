@@ -62,7 +62,7 @@ export function InvoiceUploadWizard({ isOpen, onClose, onUploadComplete }: Invoi
   });
 
   // Filter suppliers by company and search
-  const filteredSuppliers = suppliers.filter((supplier) => {
+  const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     if (!supplier.is_active) return false;
     if (selectedCompanyId && supplier.company_id !== selectedCompanyId) return false;
     if (!searchTerm) return true;
@@ -94,7 +94,7 @@ export function InvoiceUploadWizard({ isOpen, onClose, onUploadComplete }: Invoi
 
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
       toast({
         title: "✅ Factura procesada",
@@ -293,7 +293,7 @@ export function InvoiceUploadWizard({ isOpen, onClose, onUploadComplete }: Invoi
                   No se encontraron proveedores
                 </div>
               ) : (
-                filteredSuppliers.map((supplier) => (
+                filteredSuppliers.map((supplier: Supplier) => (
                   <Card
                     key={supplier.id}
                     className={cn(
