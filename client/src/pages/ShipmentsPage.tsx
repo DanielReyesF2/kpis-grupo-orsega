@@ -31,33 +31,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import { AppLayout } from "@/components/layout/AppLayout";
-
-// Tipos para envíos
-interface Shipment {
-  id: number;
-  companyId: number;
-  trackingCode: string;
-  customerName: string;
-  destination: string;
-  origin: string;
-  product: string;
-  quantity: string;
-  unit: string;
-  departureDate: string | null;
-  estimatedDeliveryDate: string | null;
-  actualDeliveryDate: string | null;
-  deliveredAt?: string | null;
-  status: 'pending' | 'in_transit' | 'delayed' | 'delivered' | 'cancelled';
-  carrier: string;
-  vehicleInfo: string | null;
-  driverName: string | null;
-  driverPhone: string | null;
-  customerEmail: string | null;
-  customerPhone: string | null;
-  comments: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Shipment } from "@shared/schema";
 
 const StatusBadge = ({ status }: { status: Shipment['status'] }) => {
   const statusMap = {
@@ -83,17 +57,17 @@ export default function ShipmentsPage() {
   const { toast } = useToast();
 
   // Consulta para obtener empresas
-  const { data: companies, isLoading: isLoadingCompanies } = useQuery({
+  const { data: companies, isLoading: isLoadingCompanies } = useQuery<{ id: number; name: string }[]>({
     queryKey: ["/api/companies"],
   });
 
   // Consulta para obtener envíos
-  const { 
-    data: shipmentsResponse, 
+  const {
+    data: shipmentsResponse,
     isLoading: isLoadingShipments,
     error: shipmentsError,
     refetch: refetchShipments
-  } = useQuery({
+  } = useQuery<{ shipments: Shipment[] }>({
     queryKey: ["/api/shipments"],
   });
 

@@ -199,7 +199,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
   // Si está en expandedLayout y hay datos históricos, mostrar solo la gráfica
   if (expandedLayout && fullHistoryData.length > 0) {
     // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
-    const values = fullHistoryData.map((d: HistoryDataPoint) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
+    const values = fullHistoryData.map((d: { value: number }) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
     // Validar que hay valores después del filtro
     if (values.length === 0) {
@@ -535,7 +535,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
                     }
 
                     // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
-                    const values = fullHistoryData.map((d: HistoryDataPoint) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
+                    const values = fullHistoryData.map((d: { value: number }) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
                     // Si no hay valores válidos después del filtro, mostrar mensaje
                     if (values.length === 0) {

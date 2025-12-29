@@ -19,7 +19,7 @@ export const useNavigationCleanup = () => {
       
       // Mantener auth cache crítico, limpiar queries de datos
       queryClient.removeQueries({
-        predicate: (query: { queryKey: unknown[] }) => {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
           const queryKey = query.queryKey[0]?.toString() || '';
           // No limpiar queries críticas de auth y usuario
           return !queryKey.includes('/api/user') &&

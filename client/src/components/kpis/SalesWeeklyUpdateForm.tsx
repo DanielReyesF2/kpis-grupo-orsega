@@ -128,7 +128,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       
       // Invalidar TODAS las queries relacionadas con KPIs (más agresivo para asegurar actualización)
       queryClient.invalidateQueries({
-        predicate: (query: { queryKey: unknown[] }) => {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
           const queryKey = query.queryKey[0];
           return typeof queryKey === 'string' && (
             queryKey.includes('/api/kpi') ||
@@ -160,7 +160,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       queryClient.invalidateQueries({
         queryKey: ['/api/kpis'],
         exact: false,
-        predicate: (query: { queryKey: unknown[] }) => {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
           if (Array.isArray(query.queryKey) && query.queryKey.length > 1) {
             const params = query.queryKey[1] as { companyId?: number } | undefined;
             if (params && typeof params === 'object' && 'companyId' in params) {
@@ -175,7 +175,7 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
       setTimeout(async () => {
         // Forzar refetch inmediato de todas las queries relacionadas
         await queryClient.refetchQueries({
-          predicate: (query: { queryKey: unknown[] }) => {
+          predicate: (query: { queryKey: readonly unknown[] }) => {
             const queryKey = query.queryKey[0];
             return typeof queryKey === 'string' && (
               queryKey.includes('/api/kpi-history') ||

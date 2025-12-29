@@ -164,16 +164,19 @@ export async function seedProductionData() {
       // Filtrar KPIs que no existen
       const existingKpiIds = existingKpis.map(k => k.id);
       const newKpis = kpisToInsert.filter(kpi => !existingKpiIds.includes(kpi.id));
-      
+
       if (newKpis.length > 0) {
-        await db.insert(kpis).values(newKpis);
+        // KPIs are created via storage methods which handle company-specific tables
+        for (const kpi of newKpis) {
+          await storage.createKpi(kpi as any);
+        }
       }
     }
 
     // 5. Obtener conteos finales
     const finalCompanies = await db.select().from(companies);
     const finalAreas = await db.select().from(areas);
-    const finalKpis = await db.select().from(kpis);
+    const finalKpis = await storage.getKpis();
     
     console.log("✅ Seeding completado exitosamente!");
     return { 

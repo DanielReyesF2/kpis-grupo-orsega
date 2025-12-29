@@ -6,8 +6,19 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AuthRequest } from './index';
 import { parseExcelVentas, type SalesTransaction, type SalesResumen } from './sales-excel-parser';
+
+// Extended Request type for authenticated routes
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+    areaId?: number | null;
+    companyId?: number | null;
+  };
+}
 import { neon } from '@neondatabase/serverless';
 import path from 'path';
 
@@ -79,7 +90,7 @@ export async function handleSalesUpload(
     }
 
     console.log(`📋 [Sales Upload] Hojas encontradas: ${workbook.worksheets.length}`);
-    workbook.worksheets.forEach((ws, idx) => {
+    workbook.worksheets.forEach((ws: { name: string }, idx: number) => {
       console.log(`   - Hoja ${idx + 1}: "${ws.name}"`);
     });
 

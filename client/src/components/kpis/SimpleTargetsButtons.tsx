@@ -27,11 +27,11 @@ export default function SimpleTargetsButtons() {
   const [calculatedWeekly, setCalculatedWeekly] = useState("");
 
   // Cargar las empresas y los KPIs
-  const { data: companies = [] } = useQuery({
+  const { data: companies = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ["/api/companies"],
   });
 
-  const { data: kpis = [] } = useQuery({
+  const { data: kpis = [] } = useQuery<{ companyId: number; name: string; target?: string }[]>({
     queryKey: ["/api/kpis"],
   });
 

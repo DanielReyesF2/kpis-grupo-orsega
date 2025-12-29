@@ -174,13 +174,13 @@ async function updateLogisticsKPIs(companyId: number) {
     console.log(`[KPI Logística] Actualizando KPIs para company ${companyId}, período: ${firstDayOfMonth.toISOString()} - ${lastDayOfMonth.toISOString()}`);
 
     // 1. Obtener todos los envíos entregados del mes actual para esta empresa
-    const monthlyShipments = await sql<Shipment[]>`
+    const monthlyShipments = await sql`
       SELECT * FROM shipments
       WHERE company_id = ${companyId}
       AND status = 'delivered'
       AND delivered_at >= ${firstDayOfMonth}
       AND delivered_at <= ${lastDayOfMonth}
-    `;
+    ` as Shipment[];
 
     console.log(`[KPI Logística] Envíos entregados este mes: ${monthlyShipments.length}`);
 

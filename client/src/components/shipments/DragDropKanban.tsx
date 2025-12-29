@@ -1626,7 +1626,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
   });
 
   // Productos del envío
-  const { data: items = [], refetch: refetchItems, isLoading: itemsLoading } = useQuery({
+  const { data: items = [], refetch: refetchItems, isLoading: itemsLoading } = useQuery<{ id: number; product: string; quantity?: number; weight?: number }[]>({
     queryKey: [`/api/shipments/${shipment.id}/items`],
   });
 

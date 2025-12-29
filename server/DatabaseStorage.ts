@@ -1277,8 +1277,8 @@ export class DatabaseStorage implements IStorage {
           readAt: notifications.readAt,
           fromUserId: notifications.fromUserId,
           toUserId: notifications.toUserId,
-          fromUserName: users.name,
-          fromUserEmail: users.email,
+          companyId: notifications.companyId,
+          areaId: notifications.areaId,
         })
         .from(notifications)
         .leftJoin(users, eq(notifications.fromUserId, users.id))
@@ -1441,8 +1441,8 @@ export class DatabaseStorage implements IStorage {
         userKpis: userKpis.map(kpi => ({
           id: kpi.id,
           name: kpi.name,
-          target: kpi.target,
-          frequency: kpi.frequency,
+          target: kpi.target || '',
+          frequency: kpi.frequency || '',
         })),
       };
       

@@ -36,6 +36,45 @@ interface KpiDetailsModalProps {
   onClose: () => void;
 }
 
+// Types for API responses
+interface KpiDetails {
+  id: number;
+  name: string;
+  target?: string;
+  frequency?: string;
+  calculationMethod?: string;
+  responsible?: string;
+  companyId?: number;
+  areaId?: number;
+}
+
+interface KpiValue {
+  id: number;
+  date: string;
+  value: string;
+  period: string;
+  status?: string;
+  comments?: string;
+}
+
+interface ActionPlan {
+  id: number;
+  title: string;
+  status: string;
+  dueDate: string;
+  assignee?: string;
+}
+
+interface CompanyDetails {
+  id: number;
+  name: string;
+}
+
+interface AreaDetails {
+  id: number;
+  name: string;
+}
+
 export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps) {
   const [comment, setComment] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -48,36 +87,36 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
   }, [isOpen]);
 
   // Fetch KPI details
-  const { data: kpi, isLoading: isLoadingKpi } = useQuery({
+  const { data: kpi, isLoading: isLoadingKpi } = useQuery<KpiDetails>({
     queryKey: [`/api/kpis/${kpiId}`],
     enabled: !!kpiId && isOpen,
   });
 
   // Fetch KPI values
-  const { data: kpiValues, isLoading: isLoadingValues } = useQuery({
+  const { data: kpiValues, isLoading: isLoadingValues } = useQuery<KpiValue[]>({
     queryKey: [`/api/kpi-values`, { kpiId }],
     enabled: !!kpiId && isOpen,
   });
 
   // Fetch company and area details
-  const { data: company } = useQuery({
+  const { data: company } = useQuery<CompanyDetails>({
     queryKey: [`/api/companies/${kpi?.companyId}`],
     enabled: !!kpi && isOpen,
   });
 
-  const { data: area } = useQuery({
+  const { data: area } = useQuery<AreaDetails>({
     queryKey: [`/api/areas/${kpi?.areaId}`],
     enabled: !!kpi && isOpen,
   });
 
   // Fetch action plans
-  const { data: actionPlans, isLoading: isLoadingActionPlans } = useQuery({
+  const { data: actionPlans, isLoading: isLoadingActionPlans } = useQuery<ActionPlan[]>({
     queryKey: [`/api/action-plans`, { kpiId }],
     enabled: !!kpiId && isOpen,
   });
 
   // Get latest value
-  const latestValue = kpiValues?.length > 0
+  const latestValue = kpiValues && kpiValues.length > 0
     ? [...kpiValues].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : null;
 
@@ -86,7 +125,7 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
     ? [...kpiValues]
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .map(value => ({
-          date: formatDate(value.date),
+          date: formatDate(new Date(value.date)),
           value: parseFloat(value.value.replace('%', '')),
           period: value.period
         }))
@@ -288,7 +327,7 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                         <div className="border-b border-secondary-200 pb-3">
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-medium">{kpi?.responsible || 'Sistema'}</span>
-                            <span className="text-xs text-secondary-500">{formatDate(latestValue?.date)}</span>
+                            <span className="text-xs text-secondary-500">{latestValue?.date ? formatDate(new Date(latestValue.date)) : ''}</span>
                           </div>
                           <p className="text-sm text-secondary-700">{latestValue.comments}</p>
                         </div>
@@ -346,12 +385,12 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{value.period}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{value.value}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value.status)}`}>
-                                  {getStatusIcon(value.status)}
-                                  {getStatusText(value.status as any)}
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value.status || '')}`}>
+                                  {getStatusIcon(value.status || '')}
+                                  {getStatusText((value.status || '') as any)}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{formatDate(value.date)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{formatDate(new Date(value.date))}</td>
                             </tr>
                           ))}
                         </tbody>

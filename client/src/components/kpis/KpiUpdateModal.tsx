@@ -377,7 +377,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({
-        predicate: (query: { queryKey: unknown[] }) => {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
             return queryKey.includes('/api/kpi') ||
@@ -566,7 +566,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
       // Invalidar usando predicate para cubrir TODAS las variantes
       queryClient.invalidateQueries({
-        predicate: (query: { queryKey: unknown[] }) => {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
             return queryKey.includes('/api/kpi') ||

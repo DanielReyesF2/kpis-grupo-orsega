@@ -108,9 +108,10 @@ export function validateTenantAccess(
  * Usar con: app.post('/endpoint', jwtAuthMiddleware, validateTenantFromBody('companyId'), handler)
  */
 export function validateTenantFromBody(fieldName: string = 'companyId') {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user;
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
       const rawCompanyId = (req.body as any)[fieldName];
       
       // Parsear companyId a número si viene como string
@@ -128,12 +129,13 @@ export function validateTenantFromBody(fieldName: string = 'companyId') {
       
       // Logging para debug
       console.log(`[TenantValidation] Validando acceso para usuario ${user?.id} (${user?.name}), role: ${user?.role}, userCompanyId: ${user?.companyId}, resourceCompanyId: ${resourceCompanyId} (raw: ${rawCompanyId}, type: ${typeof rawCompanyId})`);
-      
-      validateTenantAccess(req, resourceCompanyId);
+
+      validateTenantAccess(authReq, resourceCompanyId);
       next();
     } catch (error) {
       console.error('[TenantValidation Middleware] Access denied:', error);
-      const user = req.user;
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
       console.error(`[TenantValidation] Detalles del usuario: ID=${user?.id}, Name=${user?.name}, Role=${user?.role}, CompanyId=${user?.companyId}`);
       res.status(403).json({ 
         message: error instanceof Error ? error.message : 'Forbidden: Access denied',
@@ -149,16 +151,17 @@ export function validateTenantFromBody(fieldName: string = 'companyId') {
  * Usar con: app.get('/endpoint', jwtAuthMiddleware, validateTenantFromQuery('companyId'), handler)
  */
 export function validateTenantFromQuery(fieldName: string = 'companyId') {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const resourceCompanyId = req.query[fieldName] 
-        ? parseInt(req.query[fieldName] as string, 10) 
+      const authReq = req as AuthRequest;
+      const resourceCompanyId = req.query[fieldName]
+        ? parseInt(req.query[fieldName] as string, 10)
         : undefined;
-      validateTenantAccess(req, resourceCompanyId);
+      validateTenantAccess(authReq, resourceCompanyId);
       next();
     } catch (error) {
       console.error('[TenantValidation Middleware] Access denied:', error);
-      res.status(403).json({ 
+      res.status(403).json({
         message: error instanceof Error ? error.message : 'Forbidden: Access denied',
         code: 'TENANT_ACCESS_DENIED'
       });
@@ -172,16 +175,17 @@ export function validateTenantFromQuery(fieldName: string = 'companyId') {
  * Usar con: app.get('/endpoint/:companyId', jwtAuthMiddleware, validateTenantFromParams('companyId'), handler)
  */
 export function validateTenantFromParams(fieldName: string = 'companyId') {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const resourceCompanyId = req.params[fieldName] 
-        ? parseInt(req.params[fieldName], 10) 
+      const authReq = req as AuthRequest;
+      const resourceCompanyId = req.params[fieldName]
+        ? parseInt(req.params[fieldName], 10)
         : undefined;
-      validateTenantAccess(req, resourceCompanyId);
+      validateTenantAccess(authReq, resourceCompanyId);
       next();
     } catch (error) {
       console.error('[TenantValidation Middleware] Access denied:', error);
-      res.status(403).json({ 
+      res.status(403).json({
         message: error instanceof Error ? error.message : 'Forbidden: Access denied',
         code: 'TENANT_ACCESS_DENIED'
       });
