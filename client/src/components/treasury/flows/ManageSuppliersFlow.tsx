@@ -57,7 +57,7 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
   });
 
   // Filtrar proveedores
-  const filteredSuppliers = suppliers.filter((supplier) => {
+  const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     // Filtrar por empresa
     if (selectedCompany && supplier.company_id !== selectedCompany) return false;
     // Filtrar por búsqueda
@@ -94,10 +94,10 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
 
   const stats = {
     total: suppliers.length,
-    active: suppliers.filter((s) => s.is_active).length,
-    withRep: suppliers.filter((s) => s.requires_rep).length,
-    dura: suppliers.filter((s) => s.company_id === 1).length,
-    orsega: suppliers.filter((s) => s.company_id === 2).length,
+    active: suppliers.filter((s: Supplier) => s.is_active).length,
+    withRep: suppliers.filter((s: Supplier) => s.requires_rep).length,
+    dura: suppliers.filter((s: Supplier) => s.company_id === 1).length,
+    orsega: suppliers.filter((s: Supplier) => s.company_id === 2).length,
   };
 
   return (
@@ -234,7 +234,7 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSuppliers.map((supplier) => (
+                  {filteredSuppliers.map((supplier: Supplier) => (
                     <tr
                       key={supplier.id}
                       className="border-b border-primary/10 hover:bg-primary/5 transition-colors"

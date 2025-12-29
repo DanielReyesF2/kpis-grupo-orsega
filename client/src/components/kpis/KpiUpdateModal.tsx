@@ -228,7 +228,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
         throw error;
       }
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: unknown) => {
       console.log('[KPI Update] Actualización exitosa, invalidando cachés y actualizando historial');
       
       toast({
@@ -358,19 +358,19 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
       return updatedKpi;
     },
-    onSuccess: async (updatedKpi) => {
+    onSuccess: async (updatedKpi: unknown) => {
       console.log('[KpiUpdateModal] ✅ Actualización de meta exitosa, invalidando queries...');
       console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
-      
+
       // PASO 1: Invalidar TODAS las queries relacionadas de forma MUY agresiva
       console.log('[KpiUpdateModal] Paso 1: Invalidando todas las queries...');
-      
+
       // Invalidar usando predicate para cubrir TODAS las variantes
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
+      queryClient.invalidateQueries({
+        predicate: (query: { queryKey: unknown[] }) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
-            return queryKey.includes('/api/kpi') || 
+            return queryKey.includes('/api/kpi') ||
                    queryKey.includes('/api/kpis') ||
                    queryKey.includes('/api/collaborators-performance') ||
                    queryKey.includes('/api/sales');
@@ -378,7 +378,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
           return false;
         }
       });
-      
+
       // Invalidar específicamente las queries conocidas con exact: false
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [`/api/kpis/${kpiId}`], exact: false }),
@@ -541,7 +541,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
       console.log(`[KpiUpdateModal] KPI actualizado exitosamente:`, updatedKpi);
       return updatedKpi;
     },
-    onSuccess: async (updatedKpi) => {
+    onSuccess: async (updatedKpi: unknown) => {
       console.log('[KpiUpdateModal] ✅ Actualización exitosa, invalidando queries...');
       console.log('[KpiUpdateModal] KPI actualizado recibido:', updatedKpi);
 
@@ -553,13 +553,13 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
 
       // PASO 2: Invalidar TODAS las queries relacionadas de forma MUY agresiva
       console.log('[KpiUpdateModal] Paso 2: Invalidando todas las queries...');
-      
+
       // Invalidar usando predicate para cubrir TODAS las variantes
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
+      queryClient.invalidateQueries({
+        predicate: (query: { queryKey: unknown[] }) => {
           const queryKey = query.queryKey[0];
           if (typeof queryKey === 'string') {
-            return queryKey.includes('/api/kpi') || 
+            return queryKey.includes('/api/kpi') ||
                    queryKey.includes('/api/kpis') ||
                    queryKey.includes('/api/collaborators-performance') ||
                    queryKey.includes('/api/sales');
