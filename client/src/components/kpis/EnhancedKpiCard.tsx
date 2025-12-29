@@ -26,6 +26,14 @@ interface KpiValue {
   recordedAt: string;
 }
 
+interface HistoryDataPoint {
+  value: number;
+  periodName: string;
+  date?: string;
+  period?: string;
+  created_at?: string;
+}
+
 interface EnhancedKpiCardProps {
   kpi: {
     id: number;
@@ -190,7 +198,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
   // Si está en expandedLayout y hay datos históricos, mostrar solo la gráfica
   if (expandedLayout && fullHistoryData.length > 0) {
     // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
-    const values = fullHistoryData.map(d => d.value).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+    const values = fullHistoryData.map((d: HistoryDataPoint) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
     // Validar que hay valores después del filtro
     if (values.length === 0) {
@@ -204,7 +212,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
 
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
-    const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const avgValue = values.reduce((sum: number, v: number) => sum + v, 0) / values.length;
     const range = maxValue - minValue;
     const padding = range * 0.1 || Math.abs(maxValue) * 0.1 || 10;
     const yAxisMin = Math.max(0, minValue - padding);
@@ -526,7 +534,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
                     }
 
                     // ✅ FIX CRÍTICO: Filtrar valores válidos antes de calcular estadísticas
-                    const values = fullHistoryData.map(d => d.value).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+                    const values = fullHistoryData.map((d: HistoryDataPoint) => d.value).filter((v: number) => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
                     // Si no hay valores válidos después del filtro, mostrar mensaje
                     if (values.length === 0) {
@@ -540,7 +548,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
 
                     const minValue = Math.min(...values);
                     const maxValue = Math.max(...values);
-                    const avgValue = values.reduce((sum, v) => sum + v, 0) / values.length;
+                    const avgValue = values.reduce((sum: number, v: number) => sum + v, 0) / values.length;
                     const range = maxValue - minValue;
                     const padding = range * 0.1 || Math.abs(maxValue) * 0.1 || 10;
                     const yAxisMin = Math.max(0, minValue - padding);

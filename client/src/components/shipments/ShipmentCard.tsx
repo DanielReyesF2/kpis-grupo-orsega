@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel, Lock } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ShipmentMap } from "./ShipmentMap";
@@ -15,6 +18,15 @@ import { useToast } from "@/hooks/use-toast";
 import { FormattedDate } from "@/components/ui/formatted-date";
 import { ShipmentStatusUpdate } from "./ShipmentStatusUpdate";
 import type { Shipment } from "@shared/schema";
+
+// Local schema definition for update form
+const updateShipmentSchema = z.object({
+  status: z.enum(['pending', 'in_transit', 'delayed', 'delivered', 'cancelled']).optional(),
+  comments: z.string().optional(),
+  location: z.string().optional(),
+});
+
+type UpdateShipmentFormValues = z.infer<typeof updateShipmentSchema>;
 
 interface ShipmentUpdate {
   id: number;
@@ -34,7 +46,8 @@ interface ShipmentCardProps {
 
 export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps) {
   const { toast } = useToast();
-  
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+
   // Consulta para obtener actualizaciones del envío
   const { data: updates = [], isLoading: isLoadingUpdates, refetch: refetchUpdates } = useQuery<ShipmentUpdate[]>({
     queryKey: [`/api/shipments/${shipment.id}/updates`],
@@ -83,7 +96,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
       // Refrescar lista de envíos
       onRefresh();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: "No se pudo crear la actualización",
@@ -141,7 +154,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
             </CardTitle>
             <CardDescription>
               {company?.name} • Código: {shipment.trackingCode} • Creado el{" "}
-              <FormattedDate date={new Date(shipment.createdAt)} />
+              <FormattedDate date={shipment.createdAt ? new Date(shipment.createdAt) : new Date()} />
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
