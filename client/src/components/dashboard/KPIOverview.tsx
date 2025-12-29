@@ -128,8 +128,8 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
 
   // Filtrar por empresa seleccionada
   const companyName = companies?.find((c: any) => c.id === selectedCompany)?.name || '';
-  
-  const filteredKPIs = kpiOverview?.filter(kpi => {
+
+  const filteredKPIs = kpiOverview?.filter((kpi: KPIOverviewItem) => {
     const matchesCompany = kpi.companyName === companyName;
     const matchesSearch = kpi.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          kpi.kpiName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -142,12 +142,12 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
   }) || [];
 
   // Obtener áreas únicas para el filtro
-  const uniqueAreas = [...new Set(kpiOverview?.filter(kpi => kpi.companyName === companyName).map(kpi => kpi.areaName) || [])];
-  
-  // Obtener personas únicas para el filtro
-  const uniquePersons = [...new Set(kpiOverview?.filter(kpi => kpi.companyName === companyName).map(kpi => kpi.userName) || [])];
+  const uniqueAreas = [...new Set(kpiOverview?.filter((kpi: KPIOverviewItem) => kpi.companyName === companyName).map((kpi: KPIOverviewItem) => kpi.areaName) || [])] as string[];
 
-  const groupedByArea = filteredKPIs.reduce((acc, kpi) => {
+  // Obtener personas únicas para el filtro
+  const uniquePersons = [...new Set(kpiOverview?.filter((kpi: KPIOverviewItem) => kpi.companyName === companyName).map((kpi: KPIOverviewItem) => kpi.userName) || [])] as string[];
+
+  const groupedByArea = filteredKPIs.reduce((acc: Record<string, KPIOverviewItem[]>, kpi: KPIOverviewItem) => {
     if (!acc[kpi.areaName]) {
       acc[kpi.areaName] = [];
     }
@@ -155,9 +155,9 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
     return acc;
   }, {} as Record<string, KPIOverviewItem[]>);
 
-  const criticalKPIs = filteredKPIs.filter(kpi => kpi.status === 'non-compliant');
-  const alertKPIs = filteredKPIs.filter(kpi => kpi.status === 'alert');
-  const compliantKPIs = filteredKPIs.filter(kpi => kpi.status === 'compliant');
+  const criticalKPIs = filteredKPIs.filter((kpi: KPIOverviewItem) => kpi.status === 'non-compliant');
+  const alertKPIs = filteredKPIs.filter((kpi: KPIOverviewItem) => kpi.status === 'alert');
+  const compliantKPIs = filteredKPIs.filter((kpi: KPIOverviewItem) => kpi.status === 'compliant');
 
   const handleViewHistory = (kpi: KPIOverviewItem) => {
     setSelectedKPI(kpi);
@@ -331,7 +331,7 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
 
         <TabsContent value={activeTab} className="space-y-4">
           {/* Agrupación por Área */}
-          {Object.entries(groupedByArea).map(([areaName, kpis]) => (
+          {(Object.entries(groupedByArea) as [string, KPIOverviewItem[]][]).map(([areaName, kpis]) => (
             <Card key={areaName}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -341,10 +341,10 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
-                  {kpis.map((kpi) => {
+                  {kpis.map((kpi: KPIOverviewItem) => {
                     const progress = calculateKPIProgress(kpi.kpiValue, kpi.kpiTarget, kpi.kpiName);
                     const progressColor = getProgressColor(progress);
-                    
+
                     return (
                       <Card key={`${kpi.userId}-${kpi.kpiId}`} className="hover:shadow-md transition-shadow border-l-4 border-l-gray-300 hover:border-l-blue-500">
                         <CardContent className="p-4">
@@ -352,7 +352,7 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
                             <div className="flex items-center space-x-4">
                               <div className="flex-shrink-0">
                                 <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                  {kpi.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                  {kpi.userName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                                 </div>
                               </div>
                               <div className="flex-1">

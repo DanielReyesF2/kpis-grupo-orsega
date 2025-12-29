@@ -295,7 +295,7 @@ export class MemStorage {
         id: this.areaId++,
         name: areaName,
         description: `Área de ${areaName} para Dura International`,
-        companyId: duraCompany.id,
+        companyId: 1 as const,
       };
       this.areas.set(area.id, area);
       duraAreaMap.set(areaName, area);
@@ -307,7 +307,7 @@ export class MemStorage {
         id: this.areaId++,
         name: areaName,
         description: `Área de ${areaName} para Grupo Orsega`,
-        companyId: orsegaCompany.id,
+        companyId: 2 as const,
       };
       this.areas.set(area.id, area);
       orsegaAreaMap.set(areaName, area);
@@ -369,15 +369,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Contabilidad y Finanzas")!.id,
-          companyId: duraCompany.id,
+          area: "Contabilidad y Finanzas",
+          companyId: 1 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
-        
+
         // Sample values for Dura
         const duraValues = [
           { 
@@ -404,8 +410,8 @@ export class MemStorage {
             compliancePercentage: kpiData.name.includes("Rotación") ? 
                                   // 45/42 = 1.071, 1.071*100 = 107.1%
                                   "107.1%" : "100%",
-            comments: kpiData.name.includes("Rotación") ? 
-                      "Por debajo del objetivo (45 días). Excelente gestión de cobros." : 
+            comments: kpiData.name.includes("Rotación") ?
+                      "Por debajo del objetivo (45 días). Excelente gestión de cobros." :
                       "Mejora respecto al periodo anterior"
           }
         ];
@@ -414,14 +420,16 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: 1 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
           };
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
-        
+
         // Grupo Orsega KPI
         const orsegaKpi: Kpi = {
           id: this.kpiId++,
@@ -429,15 +437,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Contabilidad y Finanzas")!.id,
-          companyId: orsegaCompany.id,
+          area: "Contabilidad y Finanzas",
+          companyId: 2 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
-        
+
         // Sample values for Orsega
         const orsegaValues = [
           { 
@@ -470,7 +484,9 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: 2 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
@@ -479,7 +495,7 @@ export class MemStorage {
         });
       });
     }
-    
+
     // 2. COMPRAS
     if (duraAreaMap.has("Compras") && orsegaAreaMap.has("Compras")) {
       const purchasingKpis = [
@@ -534,15 +550,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Compras")!.id,
-          companyId: duraCompany.id,
+          area: "Compras",
+          companyId: 1 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
-        
+
         // Sample values for Dura
         const duraValues = [
           { 
@@ -553,7 +575,7 @@ export class MemStorage {
             period: "Q1 2023", 
             status: kpiData.name.includes("Tiempo de respuesta") ? "alert" : 
                     kpiData.name.includes("Tiempo de entrega") ? "alert" : "complies",
-            compliancePercentage: kpiData.name.includes("Tiempo de respuesta") ? "90%" : 
+            compliancePercentage: kpiData.name.includes("Tiempo de respuesta") ? "90%" :
                                   kpiData.name.includes("Tiempo de entrega") ? "92%" : "100%",
             comments: "Valor registrado para el periodo"
           }
@@ -563,14 +585,16 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: 1 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
           };
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
-        
+
         // Grupo Orsega KPI
         const orsegaKpi: Kpi = {
           id: this.kpiId++,
@@ -578,18 +602,24 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Compras")!.id,
-          companyId: orsegaCompany.id,
+          area: "Compras",
+          companyId: 2 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
-        
+
         // Sample values for Orsega
         const orsegaValues = [
-          { 
+          {
             value: kpiData.name.includes("Nivel") ? "5.8 ton" : 
                    kpiData.name.includes("Tiempo de respuesta") ? "3.8 horas" : 
                    kpiData.name.includes("Tiempo de entrega") ? "96%" : 
@@ -605,7 +635,9 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: 2 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
@@ -614,7 +646,7 @@ export class MemStorage {
         });
       });
     }
-    
+
     // 3. VENTAS
     if (duraAreaMap.has("Ventas") && orsegaAreaMap.has("Ventas")) {
       const salesKpis = [
@@ -679,15 +711,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Ventas")!.id,
-          companyId: duraCompany.id,
+          area: "Ventas",
+          companyId: 1 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
-        
+
         // Sample values for Dura - DATOS ACTUALIZADOS 2025
         const duraValues = kpiData.name.includes("Volumen") ? [
           { 
@@ -741,7 +779,7 @@ export class MemStorage {
             period: "Enero 2025", 
             status: kpiData.name.includes("Porcentaje de crecimiento") ? "alert" : 
                     "complies",
-            compliancePercentage: kpiData.name.includes("Porcentaje de crecimiento") ? "85%" : 
+            compliancePercentage: kpiData.name.includes("Porcentaje de crecimiento") ? "85%" :
                                   "100%",
             comments: "Valor registrado para el periodo"
           }
@@ -751,14 +789,16 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: 1 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
           };
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
-        
+
         // Grupo Orsega KPI
         const orsegaKpi: Kpi = {
           id: this.kpiId++,
@@ -766,15 +806,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Ventas")!.id,
-          companyId: orsegaCompany.id,
+          area: "Ventas",
+          companyId: 2 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
-        
+
         // Sample values for Orsega - DATOS ACTUALIZADOS 2025
         const orsegaValues = kpiData.name.includes("Volumen") ? [
           { 
@@ -843,7 +889,9 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: 2 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
@@ -852,7 +900,7 @@ export class MemStorage {
         });
       });
     }
-    
+
     // 4. SOPORTE DE VENTAS
     if (duraAreaMap.has("Soporte de Ventas") && orsegaAreaMap.has("Soporte de Ventas")) {
       const salesSupportKpis = [
@@ -937,11 +985,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Soporte de Ventas")!.id,
-          companyId: duraCompany.id,
+          area: "Soporte de Ventas",
+          companyId: 1 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -965,7 +1019,7 @@ export class MemStorage {
             compliancePercentage: kpiData.name.includes("Actualización") ? "95%" : 
                                   kpiData.name.includes("Precisión") ? "97%" : 
                                   kpiData.name.includes("Eficiencia") ? "98%" : 
-                                  kpiData.name.includes("Seguimiento a redes") ? "75%" : 
+                                  kpiData.name.includes("Seguimiento a redes") ? "75%" :
                                   "100%",
             comments: "Valor registrado para el periodo"
           }
@@ -975,14 +1029,16 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: 1 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
           };
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
-        
+
         // Grupo Orsega KPI
         const orsegaKpi: Kpi = {
           id: this.kpiId++,
@@ -990,15 +1046,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Soporte de Ventas")!.id,
-          companyId: orsegaCompany.id,
+          area: "Soporte de Ventas",
+          companyId: 2 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
-        
+
         // Sample values for Orsega
         const orsegaValues = [
           { 
@@ -1020,7 +1082,9 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: 2 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
@@ -1029,7 +1093,7 @@ export class MemStorage {
         });
       });
     }
-    
+
     // 5. LOGÍSTICA
     if (duraAreaMap.has("Logística") && orsegaAreaMap.has("Logística")) {
       const logisticsKpis = [
@@ -1094,15 +1158,21 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Logística")!.id,
-          companyId: duraCompany.id,
+          area: "Logística",
+          companyId: 1 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
-        
+
         // Sample values for Dura
         const duraValues = [
           { 
@@ -1120,7 +1190,7 @@ export class MemStorage {
             compliancePercentage: kpiData.name.includes("Precisión de inventarios") ? "98%" : 
                                   kpiData.name.includes("Cumplimiento de tiempos") ? "95%" : 
                                   kpiData.name.includes("Satisfacción") ? "92%" : 
-                                  kpiData.name.includes("Tiempo de recuperación") ? "85%" : 
+                                  kpiData.name.includes("Tiempo de recuperación") ? "85%" :
                                   "100%",
             comments: "Valor registrado para el periodo"
           }
@@ -1130,14 +1200,16 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: 1 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
           };
           this.kpiValues.set(kpiValue.id, kpiValue);
         });
-        
+
         // Grupo Orsega KPI
         const orsegaKpi: Kpi = {
           id: this.kpiId++,
@@ -1145,18 +1217,24 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Logística")!.id,
-          companyId: orsegaCompany.id,
+          area: "Logística",
+          companyId: 2 as const,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
-        
+
         // Sample values for Orsega
         const orsegaValues = [
-          { 
+          {
             value: kpiData.name.includes("Precisión de inventarios") ? "99.2%" : 
                    kpiData.name.includes("Cumplimiento de tiempos") ? "97%" : 
                    kpiData.name.includes("Costos de transporte") ? "-1.5% vs inflación" : 
@@ -1167,7 +1245,7 @@ export class MemStorage {
                     kpiData.name.includes("Satisfacción") ? "alert" : 
                     "complies",
             compliancePercentage: kpiData.name.includes("Cumplimiento de tiempos") ? "97%" : 
-                                  kpiData.name.includes("Satisfacción") ? "95%" : 
+                                  kpiData.name.includes("Satisfacción") ? "95%" :
                                   "100%",
             comments: "Valor registrado para el periodo"
           }
@@ -1177,7 +1255,9 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: 2 as const,
+            month: null,
+            year: null,
             updatedBy: null,
             ...valueData,
             date: new Date()
@@ -1359,13 +1439,14 @@ export class MemStorage {
 
     const kpi: Kpi = {
       id,
-      companyId: insertKpi.companyId,
+      companyId: (insertKpi.companyId || 1) as 1 | 2,
       areaId: insertKpi.areaId ?? null,
       area: area?.name ?? insertKpi.area ?? null,
       name: insertKpi.name,
       description: insertKpi.description ?? null,
       goal,
       target: goal,
+      annualGoal: null,
       unit: insertKpi.unit ?? null,
       frequency: insertKpi.frequency ?? null,
       calculationMethod: insertKpi.calculationMethod ?? null,
@@ -1392,7 +1473,7 @@ export class MemStorage {
       updatedKpi.target = goal;
     }
 
-    if (kpiData.areaId !== undefined) {
+    if (kpiData.areaId !== undefined && kpiData.areaId !== null) {
       const area = this.areas.get(kpiData.areaId);
       updatedKpi.areaId = kpiData.areaId;
       if (area) {
@@ -1442,9 +1523,10 @@ export class MemStorage {
   }
 
   async getKpiValuesByKpi(kpiId: number, companyId: number): Promise<KpiValue[]> {
-    return this.getKpiValues(companyId)
-      .filter((value) => value.kpiId === kpiId)
-      .sort((a, b) => {
+    const values = await this.getKpiValues(companyId);
+    return values
+      .filter((value: KpiValue) => value.kpiId === kpiId)
+      .sort((a: KpiValue, b: KpiValue) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;
         const bTime = b.date ? new Date(b.date).getTime() : 0;
         return bTime - aTime;
@@ -1452,9 +1534,10 @@ export class MemStorage {
   }
 
   async getLatestKpiValues(kpiId: number, limit: number, companyId: number): Promise<KpiValue[]> {
-    return this.getKpiValues(companyId)
-      .filter((value) => value.kpiId === kpiId)
-      .sort((a, b) => {
+    const values = await this.getKpiValues(companyId);
+    return values
+      .filter((value: KpiValue) => value.kpiId === kpiId)
+      .sort((a: KpiValue, b: KpiValue) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;
         const bTime = b.date ? new Date(b.date).getTime() : 0;
         return bTime - aTime;
@@ -1477,17 +1560,21 @@ export class MemStorage {
       period = `${months[date.getMonth()]} ${date.getFullYear()}`;
     }
     
-    const kpiValue: KpiValue = { 
-      ...insertKpiValue, 
-      id, 
-      date: new Date(),
+    const kpiValue: KpiValue = {
+      id,
+      kpiId: insertKpiValue.kpiId,
+      companyId: (insertKpiValue.companyId || 1) as 1 | 2,
+      value: insertKpiValue.value,
       period,
+      month: insertKpiValue.month || null,
+      year: insertKpiValue.year || null,
+      date: new Date(),
       status: insertKpiValue.status || null,
       compliancePercentage: insertKpiValue.compliancePercentage || null,
       comments: insertKpiValue.comments || null,
       updatedBy: insertKpiValue.updatedBy || null
     };
-    
+
     this.kpiValues.set(id, kpiValue);
     return kpiValue;
   }
@@ -1599,28 +1686,46 @@ export class MemStorage {
     const createdAt = new Date();
     const updatedAt = new Date();
     
-    const shipment: Shipment = {
+    const shipment = {
       id,
-      ...shipmentData,
       trackingCode,
-      status: shipmentData.status || 'pending',
+      companyId: shipmentData.companyId,
+      customerId: shipmentData.customerId ?? null,
+      customerName: shipmentData.customerName,
+      purchaseOrder: shipmentData.purchaseOrder,
+      customerEmail: shipmentData.customerEmail ?? null,
+      customerPhone: shipmentData.customerPhone ?? null,
+      invoiceNumber: shipmentData.invoiceNumber ?? null,
+      destination: shipmentData.destination,
+      origin: shipmentData.origin,
+      product: shipmentData.product,
+      quantity: shipmentData.quantity,
+      unit: shipmentData.unit,
+      departureDate: shipmentData.departureDate ?? null,
+      estimatedDeliveryDate: shipmentData.estimatedDeliveryDate ?? null,
+      actualDeliveryDate: shipmentData.actualDeliveryDate ?? null,
+      status: shipmentData.status || 'pending' as const,
+      carrier: shipmentData.carrier ?? null,
+      vehicleInfo: shipmentData.vehicleInfo ?? null,
+      vehicleType: shipmentData.vehicleType ?? null,
+      fuelType: shipmentData.fuelType ?? null,
+      distance: shipmentData.distance ?? null,
+      carbonFootprint: shipmentData.carbonFootprint ?? null,
+      driverName: shipmentData.driverName ?? null,
+      driverPhone: shipmentData.driverPhone ?? null,
+      comments: shipmentData.comments ?? null,
+      transportCost: shipmentData.transportCost ?? null,
+      inRouteAt: null,
+      deliveredAt: null,
       createdAt,
       updatedAt,
-      comments: shipmentData.comments || null,
-      customerEmail: shipmentData.customerEmail || null,
-      customerPhone: shipmentData.customerPhone || null,
-      departureDate: shipmentData.departureDate || null,
-      estimatedDeliveryDate: shipmentData.estimatedDeliveryDate || null,
-      actualDeliveryDate: shipmentData.actualDeliveryDate || null,
-      carrier: shipmentData.carrier || null,
-      vehicleInfo: shipmentData.vehicleInfo || null,
-      vehicleType: shipmentData.vehicleType || null,
-      fuelType: shipmentData.fuelType || null,
-      distance: shipmentData.distance || null,
-      carbonFootprint: shipmentData.carbonFootprint || null,
-      driverName: shipmentData.driverName || null,
-      driverPhone: shipmentData.driverPhone || null
-    };
+      destinationLat: null,
+      destinationLng: null,
+      originLat: null,
+      originLng: null,
+      purchaseOrderNumber: null,
+      notificationEmails: null
+    } as Shipment;
     
     this.shipments.set(id, shipment);
     return shipment;
@@ -1846,30 +1951,52 @@ export class MemStorage {
 
     // Registrar envíos de Dura
     duraShipments.forEach(shipmentData => {
-      const shipment: Shipment = {
+      const shipment = {
         id: this.shipmentId++,
         ...shipmentData,
+        customerId: null,
+        invoiceNumber: null,
+        transportCost: null,
+        inRouteAt: null,
+        deliveredAt: null,
+        destinationLat: null,
+        destinationLng: null,
+        originLat: null,
+        originLng: null,
+        purchaseOrderNumber: null,
+        notificationEmails: null,
         actualDeliveryDate: shipmentData.actualDeliveryDate || null,
-        createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000), // Fecha aleatoria en los últimos 10 días
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000),
         updatedAt: new Date()
-      };
+      } as Shipment;
       this.shipments.set(shipment.id, shipment);
-      
+
       // Crear actualizaciones para este envío
       this.createInitialShipmentUpdates(shipment);
     });
-    
+
     // Registrar envíos de Orsega
     orsegaShipments.forEach(shipmentData => {
-      const shipment: Shipment = {
+      const shipment = {
         id: this.shipmentId++,
         ...shipmentData,
+        customerId: null,
+        invoiceNumber: null,
+        transportCost: null,
+        inRouteAt: null,
+        deliveredAt: null,
+        destinationLat: null,
+        destinationLng: null,
+        originLat: null,
+        originLng: null,
+        purchaseOrderNumber: null,
+        notificationEmails: null,
         actualDeliveryDate: shipmentData.actualDeliveryDate || null,
-        createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000), // Fecha aleatoria en los últimos 10 días
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000),
         updatedAt: new Date()
-      };
+      } as Shipment;
       this.shipments.set(shipment.id, shipment);
-      
+
       // Crear actualizaciones para este envío
       this.createInitialShipmentUpdates(shipment);
     });
@@ -2099,10 +2226,8 @@ export class MemStorage {
       userKpis: kpis.map(kpi => ({
         id: kpi.id,
         name: kpi.name,
-        description: kpi.description || '',
-        target: kpi.target,
-        frequency: kpi.frequency,
-        unit: kpi.unit
+        target: kpi.target || '',
+        frequency: kpi.frequency || ''
       }))
     };
   }
