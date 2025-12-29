@@ -27,6 +27,13 @@ interface KPIHistoryItem {
   updatedBy: number;
 }
 
+interface ChartDataItem {
+  date: string;
+  value: number;
+  target: number;
+  rawDate: Date;
+}
+
 export function KPIHistoryModal({ 
   isOpen, 
   onClose, 
@@ -44,17 +51,17 @@ export function KPIHistoryModal({
     enabled: kpiId !== null && isOpen,
   });
 
-  const processChartData = () => {
+  const processChartData = (): ChartDataItem[] => {
     if (!kpiHistory || kpiHistory.length === 0) return [];
 
     return kpiHistory
-      .map(item => ({
+      .map((item: KPIHistoryItem): ChartDataItem => ({
         date: format(new Date(item.date), 'MMM yyyy', { locale: es }),
         value: parseFloat(item.value.replace('%', '')),
         target: parseFloat(kpiTarget.replace('%', '')),
         rawDate: new Date(item.date)
       }))
-      .sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
+      .sort((a: ChartDataItem, b: ChartDataItem) => a.rawDate.getTime() - b.rawDate.getTime())
       .slice(-months);
   };
 
@@ -62,11 +69,11 @@ export function KPIHistoryModal({
 
   const calculateTrend = () => {
     if (chartData.length < 2) return 'stable';
-    
+
     const recent = chartData.slice(-3);
-    const average = recent.reduce((sum, item) => sum + item.value, 0) / recent.length;
+    const average = recent.reduce((sum: number, item: ChartDataItem) => sum + item.value, 0) / recent.length;
     const previous = chartData.slice(-6, -3);
-    const previousAverage = previous.reduce((sum, item) => sum + item.value, 0) / previous.length;
+    const previousAverage = previous.reduce((sum: number, item: ChartDataItem) => sum + item.value, 0) / previous.length;
     
     if (average > previousAverage * 1.05) return 'up';
     if (average < previousAverage * 0.95) return 'down';
@@ -112,8 +119,8 @@ export function KPIHistoryModal({
   const exportData = () => {
     const csvContent = [
       ['Fecha', 'Valor', 'Meta'],
-      ...chartData.map(item => [item.date, `${item.value}%`, `${item.target}%`])
-    ].map(row => row.join(',')).join('\n');
+      ...chartData.map((item: ChartDataItem) => [item.date, `${item.value}%`, `${item.target}%`])
+    ].map((row: string[]) => row.join(',')).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -300,9 +307,9 @@ export function KPIHistoryModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {chartData.map((item, index) => {
+                    {chartData.map((item: ChartDataItem, index: number) => {
                       const difference = item.value - item.target;
-                      const status = item.value >= item.target * 0.95 ? 'compliant' : 
+                      const status = item.value >= item.target * 0.95 ? 'compliant' :
                                    item.value >= item.target * 0.8 ? 'alert' : 'non-compliant';
                       
                       return (

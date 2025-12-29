@@ -44,7 +44,9 @@ interface ShipmentItem {
 interface Shipment {
   id: number;
   trackingCode: string;
+  companyId: number;
   customerName: string;
+  purchaseOrder: string;
   product: string;
   quantity: number;
   unit: string;
@@ -52,9 +54,12 @@ interface Shipment {
   destination: string;
   status: string;
   estimatedDeliveryDate: string | null;
+  actualDeliveryDate: string | null;
   createdAt: string;
+  updatedAt: string | null;
   carbonFootprint: number;
   customerEmail?: string;
+  invoiceNumber?: string | null;
   items?: ShipmentItem[];
   // Include cycle times data to eliminate N+1 queries
   cycleTimes?: {
@@ -753,7 +758,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   // Debug: Ver qué productos se están recibiendo
   useEffect(() => {
     if (products.length > 0) {
-      console.log(`🔵 [DragDropKanban] Productos recibidos (companyId=${companyIdNum}):`, products.map(p => p.name));
+      console.log(`🔵 [DragDropKanban] Productos recibidos (companyId=${companyIdNum}):`, products.map((p: { name: string }) => p.name));
     }
   }, [products, companyIdNum]);
 
@@ -786,10 +791,10 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
         }
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { notificationSent?: boolean }) => {
       toast({
         title: "Estado actualizado",
-        description: data.notificationSent 
+        description: data.notificationSent
           ? "Se actualizó el estado y se envió notificación al cliente"
           : "El estado se actualizó correctamente",
       });
@@ -1644,7 +1649,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
         }
       });
     },
-    onSuccess: (newProduct) => {
+    onSuccess: (newProduct: { id: number; name: string }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", { companyId: selectedCompanyId }] });
       toast({ title: 'Producto creado', description: `"${newProduct.name}" fue agregado al catálogo` });
     },
@@ -1862,7 +1867,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
                     const productName = prompt('Ingrese el nombre del nuevo producto:');
                     if (productName && productName.trim()) {
                       createProductMutation.mutate(productName.trim(), {
-                        onSuccess: (newProduct) => {
+                        onSuccess: (newProduct: { id: number; name: string }) => {
                           setNewItem({ ...newItem, product: newProduct.name });
                         }
                       });
@@ -1887,7 +1892,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
                   onClick={() => {
                     if (newItem.product && newItem.product.trim()) {
                       createProductMutation.mutate(newItem.product.trim(), {
-                        onSuccess: (newProduct) => {
+                        onSuccess: (newProduct: { id: number; name: string }) => {
                           setNewItem({ ...newItem, product: newProduct.name });
                         }
                       });

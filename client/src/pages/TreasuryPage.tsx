@@ -27,6 +27,52 @@ import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
+interface Voucher {
+  id: number;
+  createdAt: string;
+  status: string;
+}
+
+interface Payment {
+  id: number;
+  amount: number;
+  status: string;
+  createdAt?: string;
+  created_at?: string;
+  dueDate?: string;
+  due_date?: string;
+  paymentDate?: string;
+  payment_date?: string;
+  voucherId?: number;
+  voucher_id?: number;
+  companyId?: number;
+  company_id?: number;
+  supplierId?: number;
+  supplier_id?: number;
+  supplierName?: string;
+  supplier_name?: string;
+}
+
+interface UploadResponse {
+  requiresVerification?: boolean;
+  documentType?: string;
+  analysis?: {
+    extractedSupplierName?: string;
+    extractedAmount?: number;
+    extractedCurrency?: string;
+    extractedDueDate?: string;
+    extractedDate?: string;
+    extractedInvoiceNumber?: string;
+    extractedTaxId?: string;
+  };
+  supplier?: {
+    id: number;
+    name: string;
+  };
+  scheduledPayment?: unknown;
+  message?: string;
+}
+
 export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -152,7 +198,7 @@ export default function TreasuryPage() {
         throw new Error(error?.toString() || "Error desconocido al subir documento");
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data: UploadResponse) => {
       // Si la factura requiere verificación, abrir el modal
       if (data.requiresVerification && data.documentType === 'invoice') {
         console.log('📋 [Upload] Factura requiere verificación, abriendo modal...');
@@ -219,12 +265,12 @@ export default function TreasuryPage() {
   };
 
   // Estadísticas del mes
-  const { data: vouchers = [] } = useQuery<any[]>({
+  const { data: vouchers = [] } = useQuery<Voucher[]>({
     queryKey: ["/api/payment-vouchers"],
     staleTime: 30000,
   });
 
-  const { data: payments = [] } = useQuery<any[]>({
+  const { data: payments = [] } = useQuery<Payment[]>({
     queryKey: ["/api/treasury/payments"],
     staleTime: 0, // Refetch después de invalidación
     queryFn: async () => {
@@ -261,22 +307,22 @@ export default function TreasuryPage() {
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
-  const vouchersThisMonth = vouchers.filter((v) => {
+  const vouchersThisMonth = vouchers.filter((v: Voucher) => {
     const date = new Date(v.createdAt);
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
 
-  const paymentsThisMonth = payments.filter((p) => {
+  const paymentsThisMonth = payments.filter((p: Payment) => {
     const date = new Date(p.createdAt || p.created_at || p.dueDate || p.due_date || new Date());
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
 
   const totalVouchers = vouchersThisMonth.length;
   const completedVouchers = vouchersThisMonth.filter(
-    (v) => v.status === "cierre_contable" || v.status === "factura_pagada"
+    (v: Voucher) => v.status === "cierre_contable" || v.status === "factura_pagada"
   ).length;
   const totalPayments = paymentsThisMonth.length;
-  const paidPayments = paymentsThisMonth.filter((p) => p.status === "paid").length;
+  const paidPayments = paymentsThisMonth.filter((p: Payment) => p.status === "paid").length;
 
   // Calcular pagos para semana actual (usando paymentDate, no dueDate)
   const today = new Date();
@@ -286,9 +332,9 @@ export default function TreasuryPage() {
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
   weekEnd.setHours(23, 59, 59, 999);
   
-  const paymentsThisWeek = payments.filter((p) => {
+  const paymentsThisWeek = payments.filter((p: Payment) => {
     if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") return false;
-    
+
     // ✅ USAR paymentDate para organizar por semana, no dueDate
     const paymentDateStr = p.paymentDate || p.payment_date;
     if (!paymentDateStr) {
@@ -299,7 +345,7 @@ export default function TreasuryPage() {
       dueDate.setHours(0, 0, 0, 0);
       return dueDate >= weekStart && dueDate <= weekEnd;
     }
-    
+
     const paymentDate = new Date(paymentDateStr);
     if (isNaN(paymentDate.getTime())) {
       return false;
@@ -307,11 +353,11 @@ export default function TreasuryPage() {
     paymentDate.setHours(0, 0, 0, 0);
     return paymentDate >= weekStart && paymentDate <= weekEnd;
   });
-  
-  const totalThisWeek = paymentsThisWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const totalThisWeek = paymentsThisWeek.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
 
   // Calcular conteo de REPs pendientes (misma lógica que el Kanban)
-  const repsPendingCount = payments.filter((p) => 
+  const repsPendingCount = payments.filter((p: Payment) =>
     p.voucherId && p.status === 'voucher_uploaded'
   ).length;
 
@@ -320,10 +366,10 @@ export default function TreasuryPage() {
   nextWeekStart.setHours(0, 0, 0, 0);
   const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
   nextWeekEnd.setHours(23, 59, 59, 999);
-  
-  const paymentsNextWeek = payments.filter((p) => {
+
+  const paymentsNextWeek = payments.filter((p: Payment) => {
     if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") return false;
-    
+
     // ✅ USAR paymentDate para organizar por semana
     const paymentDateStr = p.paymentDate || p.payment_date;
     if (!paymentDateStr) {
@@ -334,17 +380,17 @@ export default function TreasuryPage() {
       dueDate.setHours(0, 0, 0, 0);
       return dueDate >= nextWeekStart && dueDate <= nextWeekEnd;
     }
-    
+
     const paymentDate = new Date(paymentDateStr);
     if (isNaN(paymentDate.getTime())) return false;
     paymentDate.setHours(0, 0, 0, 0);
     return paymentDate >= nextWeekStart && paymentDate <= nextWeekEnd;
   });
-  
-  const totalNextWeek = paymentsNextWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const totalNextWeek = paymentsNextWeek.reduce((sum: number, p: Payment) => sum + (p.amount || 0), 0);
 
   // REPs pendientes del día
-  const pendingREPs = vouchers.filter((v) => {
+  const pendingREPs = vouchers.filter((v: Voucher) => {
     const voucherDate = new Date(v.createdAt);
     voucherDate.setHours(0, 0, 0, 0);
     const isToday = voucherDate.getTime() === today.getTime();
