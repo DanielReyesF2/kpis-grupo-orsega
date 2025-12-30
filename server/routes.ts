@@ -7663,6 +7663,112 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // GET /api/sales-yearly-comparison - Comparativo anual dinámico (reemplaza datos hardcodeados)
+  app.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, year1, year2 } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      // Años a comparar (por defecto: año actual vs año anterior)
+      const currentYear = new Date().getFullYear();
+      const compareYear1 = year1 ? parseInt(year1 as string) : currentYear - 1;
+      const compareYear2 = year2 ? parseInt(year2 as string) : currentYear;
+
+      // Obtener datos mensuales para ambos años
+      const monthlyData = await sql(`
+        SELECT
+          sale_month,
+          sale_year,
+          COALESCE(SUM(quantity), 0) as total_quantity,
+          COALESCE(SUM(total_amount), 0) as total_amount,
+          COUNT(DISTINCT client_name) as unique_clients,
+          MAX(unit) as unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year IN ($2, $3)
+        GROUP BY sale_year, sale_month
+        ORDER BY sale_month
+      `, [resolvedCompanyId, compareYear1, compareYear2]);
+
+      // Organizar datos por mes
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+      const comparisonData = monthNames.map((mes, index) => {
+        const monthNum = index + 1;
+        const year1Data = monthlyData.find((r: any) => r.sale_month === monthNum && r.sale_year === compareYear1);
+        const year2Data = monthlyData.find((r: any) => r.sale_month === monthNum && r.sale_year === compareYear2);
+
+        const qty1 = parseFloat(year1Data?.total_quantity || '0');
+        const qty2 = parseFloat(year2Data?.total_quantity || '0');
+        const amt1 = parseFloat(year1Data?.total_amount || '0');
+        const amt2 = parseFloat(year2Data?.total_amount || '0');
+
+        return {
+          mes,
+          monthNum,
+          [`qty_${compareYear1}`]: qty1,
+          [`qty_${compareYear2}`]: qty2,
+          [`amt_${compareYear1}`]: amt1,
+          [`amt_${compareYear2}`]: amt2,
+          qty_diff: qty2 - qty1,
+          qty_percent: qty1 > 0 ? ((qty2 - qty1) / qty1) * 100 : (qty2 > 0 ? 100 : 0),
+          amt_diff: amt2 - amt1,
+          amt_percent: amt1 > 0 ? ((amt2 - amt1) / amt1) * 100 : (amt2 > 0 ? 100 : 0),
+          unit: year2Data?.unit || year1Data?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades')
+        };
+      });
+
+      // Calcular totales
+      const totals = comparisonData.reduce((acc, row) => ({
+        [`qty_${compareYear1}`]: acc[`qty_${compareYear1}`] + row[`qty_${compareYear1}`],
+        [`qty_${compareYear2}`]: acc[`qty_${compareYear2}`] + row[`qty_${compareYear2}`],
+        [`amt_${compareYear1}`]: acc[`amt_${compareYear1}`] + row[`amt_${compareYear1}`],
+        [`amt_${compareYear2}`]: acc[`amt_${compareYear2}`] + row[`amt_${compareYear2}`],
+      }), { [`qty_${compareYear1}`]: 0, [`qty_${compareYear2}`]: 0, [`amt_${compareYear1}`]: 0, [`amt_${compareYear2}`]: 0 });
+
+      // Obtener años disponibles para selector
+      const availableYears = await sql(`
+        SELECT DISTINCT sale_year
+        FROM sales_data
+        WHERE company_id = $1
+        ORDER BY sale_year DESC
+      `, [resolvedCompanyId]);
+
+      res.json({
+        companyId: resolvedCompanyId,
+        year1: compareYear1,
+        year2: compareYear2,
+        data: comparisonData,
+        totals: {
+          ...totals,
+          qty_diff: totals[`qty_${compareYear2}`] - totals[`qty_${compareYear1}`],
+          qty_percent: totals[`qty_${compareYear1}`] > 0
+            ? ((totals[`qty_${compareYear2}`] - totals[`qty_${compareYear1}`]) / totals[`qty_${compareYear1}`]) * 100
+            : 0,
+          amt_diff: totals[`amt_${compareYear2}`] - totals[`amt_${compareYear1}`],
+          amt_percent: totals[`amt_${compareYear1}`] > 0
+            ? ((totals[`amt_${compareYear2}`] - totals[`amt_${compareYear1}`]) / totals[`amt_${compareYear1}`]) * 100
+            : 0,
+        },
+        availableYears: availableYears.map((r: any) => r.sale_year),
+        unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
+      });
+    } catch (error) {
+      console.error('[GET /api/sales-yearly-comparison] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch yearly comparison' });
+    }
+  });
+
   // GET /api/sales-top-clients - Top clientes por volumen
   app.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     try {
