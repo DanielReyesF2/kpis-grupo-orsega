@@ -3561,7 +3561,7 @@ export function registerRoutes(app: express.Application) {
       // DATOS HARDCODEADOS TEMPORALES - PARA PRESENTACIÓN
       // TODO: ELIMINAR ESTE BLOQUE CUANDO SE ARREGLE LA FUNCIÓN DE ACTUALIZAR VENTAS
       // ========================================================================
-      const HARDCODED_SALES_DATA_ENABLED = true; // Cambiar a false para desactivar
+      const HARDCODED_SALES_DATA_ENABLED = false; // DESACTIVADO - Datos reales en tabla ventas
 
       if (HARDCODED_SALES_DATA_ENABLED && (companyId === 1 || companyId === 2)) {
         console.log(`[GET /api/kpi-history/:kpiId] ⚠️ USANDO DATOS HARDCODEADOS para companyId=${companyId}`);
@@ -7462,7 +7462,7 @@ export function registerRoutes(app: express.Application) {
       // DATOS HARDCODEADOS TEMPORALES - PARA PRESENTACIÓN
       // TODO: ELIMINAR ESTE BLOQUE CUANDO SE ARREGLE LA FUNCIÓN DE ACTUALIZAR VENTAS
       // ========================================================================
-      const HARDCODED_COMPARISON_ENABLED = true;
+      const HARDCODED_COMPARISON_ENABLED = false; // DESACTIVADO - Datos reales en tabla ventas
 
       if (HARDCODED_COMPARISON_ENABLED && (resolvedCompanyId === 1 || resolvedCompanyId === 2)) {
         console.log(`[GET /api/sales-comparison] ⚠️ USANDO DATOS HARDCODEADOS para companyId=${resolvedCompanyId}`);
