@@ -7769,6 +7769,271 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // GET /api/sales-multi-year-trend - Tendencia multi-año para gráfica overlay
+  app.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      // Obtener datos mensuales agrupados por año
+      const monthlyData = await sql(`
+        SELECT
+          sale_year,
+          sale_month,
+          COALESCE(SUM(quantity), 0) as total_quantity,
+          COALESCE(SUM(total_amount), 0) as total_amount,
+          COUNT(DISTINCT client_name) as unique_clients,
+          MAX(unit) as unit
+        FROM sales_data
+        WHERE company_id = $1
+        GROUP BY sale_year, sale_month
+        ORDER BY sale_year, sale_month
+      `, [resolvedCompanyId]);
+
+      // Organizar por año para la gráfica overlay
+      const years = [...new Set(monthlyData.map((r: any) => r.sale_year))].sort();
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+      // Formato para gráfica: array de meses con valores por año
+      const chartData = monthNames.map((month, index) => {
+        const monthNum = index + 1;
+        const dataPoint: any = { month, monthNum };
+
+        years.forEach((year: number) => {
+          const record = monthlyData.find((r: any) => r.sale_year === year && r.sale_month === monthNum);
+          dataPoint[`qty_${year}`] = parseFloat(record?.total_quantity || '0');
+          dataPoint[`amt_${year}`] = parseFloat(record?.total_amount || '0');
+        });
+
+        return dataPoint;
+      });
+
+      // Calcular totales por año
+      const yearTotals = years.map((year: number) => {
+        const yearData = monthlyData.filter((r: any) => r.sale_year === year);
+        return {
+          year,
+          totalQty: yearData.reduce((sum: number, r: any) => sum + parseFloat(r.total_quantity || '0'), 0),
+          totalAmt: yearData.reduce((sum: number, r: any) => sum + parseFloat(r.total_amount || '0'), 0),
+          avgMonthly: yearData.reduce((sum: number, r: any) => sum + parseFloat(r.total_quantity || '0'), 0) / 12
+        };
+      });
+
+      res.json({
+        companyId: resolvedCompanyId,
+        years,
+        data: chartData,
+        yearTotals,
+        unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
+      });
+    } catch (error) {
+      console.error('[GET /api/sales-multi-year-trend] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch multi-year trend' });
+    }
+  });
+
+  // GET /api/sales-churn-risk - Análisis de riesgo de churn de clientes
+  app.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const currentYear = new Date().getFullYear();
+      const lastYear = currentYear - 1;
+
+      // Análisis de clientes: última compra, volumen actual vs anterior, tendencia
+      const clientAnalysis = await sql(`
+        WITH client_stats AS (
+          SELECT
+            client_name,
+            MAX(sale_date) as last_purchase,
+            SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current_year,
+            SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_last_year,
+            SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current_year,
+            SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_last_year,
+            COUNT(DISTINCT sale_year) as years_active,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+          GROUP BY client_name
+        )
+        SELECT
+          client_name,
+          last_purchase,
+          qty_current_year,
+          qty_last_year,
+          amt_current_year,
+          amt_last_year,
+          years_active,
+          unit,
+          CURRENT_DATE - last_purchase as days_since_purchase,
+          CASE
+            WHEN qty_last_year > 0 THEN ((qty_current_year - qty_last_year) / qty_last_year * 100)
+            ELSE 0
+          END as yoy_change
+        FROM client_stats
+        ORDER BY last_purchase DESC
+      `, [resolvedCompanyId, currentYear, lastYear]);
+
+      // Categorizar clientes por riesgo
+      const categorized = {
+        critical: [] as any[],    // Sin compras 60+ días
+        warning: [] as any[],     // Caída >30% YoY
+        declining: [] as any[],   // Caída 10-30% YoY
+        stable: [] as any[],      // Mantiene ±10%
+        growing: [] as any[],     // Creciendo >10%
+        new: [] as any[],         // Solo tiene datos del año actual
+        lost: [] as any[]         // Compraba antes, no este año
+      };
+
+      clientAnalysis.forEach((client: any) => {
+        const daysSince = parseInt(client.days_since_purchase || '0');
+        const yoyChange = parseFloat(client.yoy_change || '0');
+        const qtyCurrentYear = parseFloat(client.qty_current_year || '0');
+        const qtyLastYear = parseFloat(client.qty_last_year || '0');
+
+        const clientData = {
+          name: client.client_name,
+          lastPurchase: client.last_purchase,
+          daysSincePurchase: daysSince,
+          qtyCurrentYear,
+          qtyLastYear,
+          yoyChange: yoyChange,
+          amtCurrentYear: parseFloat(client.amt_current_year || '0'),
+          unit: client.unit
+        };
+
+        if (qtyLastYear > 0 && qtyCurrentYear === 0) {
+          categorized.lost.push(clientData);
+        } else if (daysSince > 60) {
+          categorized.critical.push(clientData);
+        } else if (yoyChange < -30) {
+          categorized.warning.push(clientData);
+        } else if (yoyChange < -10) {
+          categorized.declining.push(clientData);
+        } else if (qtyLastYear === 0 && qtyCurrentYear > 0) {
+          categorized.new.push(clientData);
+        } else if (yoyChange > 10) {
+          categorized.growing.push(clientData);
+        } else {
+          categorized.stable.push(clientData);
+        }
+      });
+
+      // Ordenar cada categoría por impacto (volumen perdido)
+      categorized.critical.sort((a, b) => b.qtyLastYear - a.qtyLastYear);
+      categorized.warning.sort((a, b) => (b.qtyLastYear - b.qtyCurrentYear) - (a.qtyLastYear - a.qtyCurrentYear));
+      categorized.lost.sort((a, b) => b.qtyLastYear - a.qtyLastYear);
+
+      // Resumen
+      const summary = {
+        totalClients: clientAnalysis.length,
+        criticalCount: categorized.critical.length,
+        warningCount: categorized.warning.length,
+        lostCount: categorized.lost.length,
+        newCount: categorized.new.length,
+        growingCount: categorized.growing.length,
+        lostVolume: categorized.lost.reduce((sum, c) => sum + c.qtyLastYear, 0),
+        atRiskVolume: [...categorized.critical, ...categorized.warning].reduce((sum, c) => sum + c.qtyLastYear, 0)
+      };
+
+      res.json({
+        companyId: resolvedCompanyId,
+        currentYear,
+        lastYear,
+        summary,
+        clients: categorized,
+        unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
+      });
+    } catch (error) {
+      console.error('[GET /api/sales-churn-risk] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch churn risk analysis' });
+    }
+  });
+
+  // GET /api/sales-client-trends - Top clientes con tendencia YoY
+  app.get("/api/sales-client-trends", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, limit = 10 } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const currentYear = new Date().getFullYear();
+      const lastYear = currentYear - 1;
+
+      const clientTrends = await sql(`
+        SELECT
+          client_name,
+          SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current,
+          SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_previous,
+          SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current,
+          SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_previous,
+          MAX(unit) as unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_year IN ($2, $3)
+        GROUP BY client_name
+        ORDER BY SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) DESC
+        LIMIT $4
+      `, [resolvedCompanyId, currentYear, lastYear, parseInt(limit as string)]);
+
+      const formattedData = clientTrends.map((client: any) => {
+        const qtyCurrent = parseFloat(client.qty_current || '0');
+        const qtyPrevious = parseFloat(client.qty_previous || '0');
+        const change = qtyCurrent - qtyPrevious;
+        const changePercent = qtyPrevious > 0 ? (change / qtyPrevious) * 100 : (qtyCurrent > 0 ? 100 : 0);
+
+        return {
+          name: client.client_name,
+          qtyCurrent,
+          qtyPrevious,
+          change,
+          changePercent,
+          amtCurrent: parseFloat(client.amt_current || '0'),
+          amtPrevious: parseFloat(client.amt_previous || '0'),
+          unit: client.unit
+        };
+      });
+
+      res.json({
+        companyId: resolvedCompanyId,
+        currentYear,
+        previousYear: lastYear,
+        clients: formattedData,
+        unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
+      });
+    } catch (error) {
+      console.error('[GET /api/sales-client-trends] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch client trends' });
+    }
+  });
+
   // GET /api/sales-top-clients - Top clientes por volumen
   app.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     try {

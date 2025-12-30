@@ -45,10 +45,13 @@ import {
   PieChart,
   Pie
 } from "recharts";
-// TEMPORAL: Importar tabla comparativa hardcodeada
+// Componentes de análisis de ventas
 import { SalesYearlyComparisonTable } from "@/components/dashboard/SalesYearlyComparisonTable";
+import { MultiYearTrendChart } from "@/components/dashboard/MultiYearTrendChart";
+import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
+import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 
-type ViewMode = "overview" | "upload" | "comparison" | "alerts";
+type ViewMode = "overview" | "upload" | "comparison" | "alerts" | "analytics";
 
 export default function SalesPage() {
   const { user } = useAuth();
@@ -626,7 +629,27 @@ export default function SalesPage() {
             )}
 
             {/* Sección de acciones rápidas - Minimalista */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
+                onClick={() => setViewMode("analytics")}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Análisis Histórico</p>
+                      <p className="text-xs text-muted-foreground">Tendencias 2022-2025</p>
+                    </div>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <BarChart3 className={`w-10 h-10 ${companyColors.iconColor}`} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Comparativo multi-año y análisis de churn
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card
                 className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("comparison")}
@@ -634,7 +657,7 @@ export default function SalesPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Análisis Comparativo</p>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Comparativo Anual</p>
                       <p className="text-xs text-muted-foreground">Año actual vs anterior</p>
                     </div>
                     <div className={`${companyColors.iconBg} p-3 rounded-full`}>
@@ -1409,6 +1432,47 @@ export default function SalesPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Vista Análisis Histórico */}
+        {viewMode === "analytics" && (
+          <div className="space-y-6">
+            {/* Header con botón de regreso */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setViewMode("overview")}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver
+                </Button>
+                <div>
+                  <h2 className="text-2xl font-bold">Análisis Histórico</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Tendencias multi-año y análisis de clientes (2022-2025)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Multi-Year Trend Chart - Principal */}
+            <MultiYearTrendChart companyId={selectedCompany} />
+
+            {/* Grid de análisis */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Churn Risk Scorecard */}
+              <ChurnRiskScorecard companyId={selectedCompany} />
+
+              {/* Client Trends Chart */}
+              <ClientTrendsChart companyId={selectedCompany} limit={10} />
+            </div>
+
+            {/* Comparativo Anual Detallado */}
+            <SalesYearlyComparisonTable companyId={selectedCompany} />
           </div>
         )}
       </div>
