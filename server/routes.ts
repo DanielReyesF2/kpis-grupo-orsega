@@ -36,6 +36,7 @@ import { sendEmail, createTeamMessageTemplate } from "./email";
 import { sendEmail as sendGridEmail, getShipmentStatusEmailTemplate, getPaymentReceiptEmailTemplate } from "./sendgrid";
 import { catalogRouter } from './routes-catalog';
 import { logisticsRouter } from './routes-logistics';
+import { smartSearch } from './smart-search';
 import path from "path";
 import fs from "fs";
 import { neon } from '@neondatabase/serverless';
@@ -7633,7 +7634,7 @@ export function registerRoutes(app: express.Application) {
           sale_year,
           sale_month,
           COALESCE(SUM(quantity), 0) as total_volume,
-          COUNT(DISTINCT client_id) FILTER (WHERE client_id IS NOT NULL) as active_clients,
+          COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
@@ -8050,10 +8051,9 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Buscar top clientes en los últimos 3 meses para mostrar datos históricos reales
-      // Si no hay datos en últimos 3 meses, buscar en el último año disponible
+      // Usamos client_name porque client_id puede ser NULL en datos migrados
       let topClients = await sql(`
         SELECT
-          client_id,
           client_name,
           COALESCE(SUM(quantity), 0) as total_volume,
           COUNT(*) as transactions,
@@ -8062,8 +8062,8 @@ export function registerRoutes(app: express.Application) {
         WHERE company_id = $1
           AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
           AND sale_date <= CURRENT_DATE
-          AND client_id IS NOT NULL
-        GROUP BY client_id, client_name
+          AND client_name IS NOT NULL AND client_name <> ''
+        GROUP BY client_name
         ORDER BY total_volume DESC
         LIMIT $2
       `, [resolvedCompanyId, parseInt(limit as string) || 5]);
@@ -8072,7 +8072,6 @@ export function registerRoutes(app: express.Application) {
       if (!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) {
         topClients = await sql(`
           SELECT
-            client_id,
             client_name,
             COALESCE(SUM(quantity), 0) as total_volume,
             COUNT(*) as transactions,
@@ -8081,8 +8080,8 @@ export function registerRoutes(app: express.Application) {
           WHERE company_id = $1
             AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
             AND sale_date <= CURRENT_DATE
-            AND client_id IS NOT NULL
-          GROUP BY client_id, client_name
+            AND client_name IS NOT NULL AND client_name <> ''
+          GROUP BY client_name
           ORDER BY total_volume DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
@@ -8604,269 +8603,21 @@ export function registerRoutes(app: express.Application) {
   // SMART SEARCH / AI ASSISTANT ENDPOINT
   // ========================================================================
   // POST /api/ask - Interpretar preguntas en lenguaje natural sobre datos
+  // Usa OpenAI function calling para consultas dinámicas
   app.post("/api/ask", jwtAuthMiddleware, async (req, res) => {
     try {
-      const authReq = req as AuthRequest;
-      const user = authReq.user;
       const { question } = req.body;
 
       if (!question || typeof question !== 'string') {
         return res.status(400).json({ error: 'Pregunta requerida' });
       }
 
-      const q = question.toLowerCase().trim();
-      let answer = "";
-      let data: any = null;
-      let source = "";
+      console.log(`[POST /api/ask] Procesando pregunta: "${question}"`);
 
-      // Helper para formatear números
-      const formatNum = (n: number) => n.toLocaleString('es-MX');
+      // Usar el nuevo sistema de búsqueda inteligente con OpenAI
+      const result = await smartSearch(question);
 
-      // ====== PATRONES DE PREGUNTAS ======
-
-      // 1. Ventas de DURA este mes
-      if ((q.includes('dura') || q.includes('di')) &&
-          (q.includes('vend') || q.includes('volumen')) &&
-          (q.includes('mes') || q.includes('actual'))) {
-
-        const result = await sql`
-          SELECT
-            COALESCE(SUM(quantity), 0) as total_volume,
-            COUNT(DISTINCT client_id) as clients,
-            MAX(unit) as unit
-          FROM sales_data
-          WHERE company_id = 1
-            AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-        `;
-
-        const row = result[0];
-        const volume = parseFloat(row?.total_volume || '0');
-        const unit = row?.unit || 'KG';
-        const clients = parseInt(row?.clients || '0');
-
-        answer = "📦 DURA International ha vendido **" + formatNum(volume) + " " + unit + "** este mes.\n\nSe han atendido a " + clients + " clientes diferentes durante este período.";
-        data = { volume, unit, clients, company: 'DURA' };
-        source = "sales_data (ventas del mes actual)";
-      }
-
-      // 2. Ventas de ORSEGA este mes
-      else if ((q.includes('orsega') || q.includes('go')) &&
-               (q.includes('vend') || q.includes('volumen')) &&
-               (q.includes('mes') || q.includes('actual'))) {
-
-        const result = await sql`
-          SELECT
-            COALESCE(SUM(quantity), 0) as total_volume,
-            COUNT(DISTINCT client_id) as clients,
-            MAX(unit) as unit
-          FROM sales_data
-          WHERE company_id = 2
-            AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-        `;
-
-        const row = result[0];
-        const volume = parseFloat(row?.total_volume || '0');
-        const unit = row?.unit || 'Unidades';
-        const clients = parseInt(row?.clients || '0');
-
-        answer = "📦 Grupo ORSEGA ha vendido **" + formatNum(volume) + " " + unit + "** este mes.\n\nSe han atendido a " + clients + " clientes diferentes durante este período.";
-        data = { volume, unit, clients, company: 'ORSEGA' };
-        source = "sales_data (ventas del mes actual)";
-      }
-
-      // 3. Clientes activos
-      else if (q.includes('cliente') && (q.includes('activo') || q.includes('cuanto') || q.includes('cuánto'))) {
-        const isDura = q.includes('dura') || q.includes('di');
-        const isOrsega = q.includes('orsega') || q.includes('go');
-        const companyId = isDura ? 1 : isOrsega ? 2 : null;
-        const companyName = isDura ? 'DURA International' : isOrsega ? 'Grupo ORSEGA' : 'ambas empresas';
-
-        let result;
-        if (companyId) {
-          result = await sql`
-            SELECT COUNT(DISTINCT client_id) as active_clients
-            FROM sales_data
-            WHERE company_id = ${companyId}
-              AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-              AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-          `;
-        } else {
-          result = await sql`
-            SELECT COUNT(DISTINCT client_id) as active_clients
-            FROM sales_data
-            WHERE EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-              AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-          `;
-        }
-        const activeClients = parseInt(result[0]?.active_clients || '0');
-
-        answer = "👥 **" + companyName + "** tiene **" + activeClients + " clientes activos** este mes.\n\nEsto incluye todos los clientes que han realizado al menos una compra en el período actual.";
-        data = { activeClients, company: companyName };
-        source = "sales_data (clientes con compras este mes)";
-      }
-
-      // 4. Crecimiento vs año anterior
-      else if ((q.includes('crecimiento') || q.includes('crec') || q.includes('vs') || q.includes('comparado')) &&
-               (q.includes('año') || q.includes('anterior'))) {
-        const isDura = q.includes('dura') || q.includes('di');
-        const companyId = isDura ? 1 : 2;
-        const companyName = isDura ? 'DURA International' : 'Grupo ORSEGA';
-
-        const result = await sql`
-          WITH current_year AS (
-            SELECT COALESCE(SUM(quantity), 0) as total
-            FROM sales_data
-            WHERE company_id = ${companyId}
-              AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-          ),
-          previous_year AS (
-            SELECT COALESCE(SUM(quantity), 0) as total
-            FROM sales_data
-            WHERE company_id = ${companyId}
-              AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE) - 1
-          )
-          SELECT
-            current_year.total as current,
-            previous_year.total as previous
-          FROM current_year, previous_year
-        `;
-
-        const current = parseFloat(result[0]?.current || '0');
-        const previous = parseFloat(result[0]?.previous || '0');
-        const growth = previous > 0 ? ((current - previous) / previous * 100) : 0;
-        const sign = growth >= 0 ? '+' : '';
-
-        answer = "📈 **" + companyName + "** presenta un **" + sign + growth.toFixed(1) + "%** de crecimiento en " + new Date().getFullYear() + " vs " + (new Date().getFullYear() - 1) + ".\n\nVolumen actual: " + formatNum(current) + "\nVolumen anterior: " + formatNum(previous);
-        data = { growth: growth.toFixed(1), current, previous, company: companyName };
-        source = "sales_data (comparativo anual)";
-      }
-
-      // 5. Tipo de cambio
-      else if (q.includes('tipo de cambio') || q.includes('dolar') || q.includes('dólar') || q.includes('exchange')) {
-        const result = await sql`
-          SELECT rate, source, date
-          FROM exchange_rates
-          ORDER BY date DESC, created_at DESC
-          LIMIT 3
-        `;
-
-        if (result.length > 0) {
-          const rates = result.map((r: any) => "• " + r.source + ": $" + parseFloat(r.rate).toFixed(2) + " MXN").join('\n');
-          answer = "💱 **Tipos de cambio más recientes:**\n\n" + rates + "\n\nFecha: " + (result[0]?.date || 'hoy');
-          data = result;
-          source = "exchange_rates";
-        } else {
-          answer = "No encontré datos de tipo de cambio registrados.";
-        }
-      }
-
-      // 6. Top clientes
-      else if (q.includes('top') && q.includes('cliente')) {
-        const isDura = q.includes('dura') || q.includes('di');
-        const companyId = isDura ? 1 : 2;
-        const companyName = isDura ? 'DURA International' : 'Grupo ORSEGA';
-
-        const result = await sql`
-          SELECT client_name, SUM(quantity) as total, MAX(unit) as unit
-          FROM sales_data
-          WHERE company_id = ${companyId}
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-          GROUP BY client_name
-          ORDER BY total DESC
-          LIMIT 5
-        `;
-
-        if (result.length > 0) {
-          const list = result.map((r: any, i: number) =>
-            (i + 1) + ". **" + r.client_name + "** - " + formatNum(parseFloat(r.total)) + " " + (r.unit || '')
-          ).join('\n');
-
-          answer = "🏆 **Top 5 clientes de " + companyName + " en " + new Date().getFullYear() + ":**\n\n" + list;
-          data = result;
-          source = "sales_data (ranking por volumen)";
-        } else {
-          answer = "No encontré datos de clientes para " + companyName + ".";
-        }
-      }
-
-      // 7. Clientes nuevos
-      else if (q.includes('nuevo') && q.includes('cliente')) {
-        const isDura = q.includes('dura') || q.includes('di');
-        const companyId = isDura ? 1 : 2;
-        const companyName = isDura ? 'DURA International' : 'Grupo ORSEGA';
-
-        const result = await sql`
-          SELECT COUNT(DISTINCT client_id) as new_clients
-          FROM sales_data
-          WHERE company_id = ${companyId}
-            AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND client_id NOT IN (
-              SELECT DISTINCT client_id FROM sales_data
-              WHERE company_id = ${companyId}
-                AND sale_date < DATE_TRUNC('month', CURRENT_DATE)
-            )
-        `;
-
-        const newClients = parseInt(result[0]?.new_clients || '0');
-        answer = "✨ **" + companyName + "** tiene **" + newClients + " clientes nuevos** este mes.\n\nEstos son clientes que realizaron su primera compra en el período actual.";
-        data = { newClients, company: companyName };
-        source = "sales_data (primera compra este mes)";
-      }
-
-      // 8. Resumen general
-      else if (q.includes('resumen') || q.includes('general') || q.includes('overview')) {
-        const duraStats = await sql`
-          SELECT
-            COALESCE(SUM(quantity), 0) as volume,
-            COUNT(DISTINCT client_id) as clients,
-            MAX(unit) as unit
-          FROM sales_data
-          WHERE company_id = 1
-            AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-        `;
-
-        const orsegaStats = await sql`
-          SELECT
-            COALESCE(SUM(quantity), 0) as volume,
-            COUNT(DISTINCT client_id) as clients,
-            MAX(unit) as unit
-          FROM sales_data
-          WHERE company_id = 2
-            AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-            AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-        `;
-
-        const dura = duraStats[0];
-        const orsega = orsegaStats[0];
-
-        answer = "📊 **Resumen del mes actual:**\n\n" +
-          "**DURA International**\n" +
-          "• Volumen: " + formatNum(parseFloat(dura?.volume || '0')) + " " + (dura?.unit || 'KG') + "\n" +
-          "• Clientes activos: " + (dura?.clients || 0) + "\n\n" +
-          "**Grupo ORSEGA**\n" +
-          "• Volumen: " + formatNum(parseFloat(orsega?.volume || '0')) + " " + (orsega?.unit || 'Unidades') + "\n" +
-          "• Clientes activos: " + (orsega?.clients || 0);
-
-        data = { dura, orsega };
-        source = "sales_data (resumen mensual)";
-      }
-
-      // Pregunta no reconocida
-      else {
-        answer = "🤔 No pude entender tu pregunta. Intenta preguntar algo como:\n\n" +
-          "• \"¿Cuánto hemos vendido en DURA este mes?\"\n" +
-          "• \"¿Cuántos clientes activos tiene ORSEGA?\"\n" +
-          "• \"¿Cuál es el crecimiento de DURA vs año anterior?\"\n" +
-          "• \"¿Cuál es el tipo de cambio de hoy?\"\n" +
-          "• \"Top 5 clientes de ORSEGA\"\n" +
-          "• \"Dame un resumen general\"";
-      }
-
-      res.json({ answer, data, source });
+      res.json(result);
     } catch (error) {
       console.error('[POST /api/ask] Error:', error);
       res.status(500).json({
