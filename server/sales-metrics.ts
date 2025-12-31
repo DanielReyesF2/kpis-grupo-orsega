@@ -621,7 +621,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     SELECT COALESCE(SUM(quantity), 0) as total
     FROM sales_data
     WHERE company_id = $1
-      AND sale_year = $4
+      AND sale_year = $2
       AND sale_month = $3
   `;
   const lastYearVolume = await sql(lastYearVolumeQuery, [companyId, currentYear - 1, currentMonth]);
@@ -629,7 +629,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   
   // Unidad (de últimos 12 meses)
   const unitQuery = `
-    SELECT COALESCE(MAX(unit), $5) as unit
+    SELECT COALESCE(MAX(unit), $2) as unit
     FROM sales_data
     WHERE company_id = $1
       AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
