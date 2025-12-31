@@ -1,0 +1,35 @@
+-- =====================================================
+-- ORSEGA Sales Data - Full Year 2025
+-- Company ID: 2 (ORSEGA)
+-- Total: ~387 records (national + exports)
+-- =====================================================
+-- Execute each file in order or run this complete file
+
+-- To run all parts separately in Neon, execute each file:
+-- 1. insert_orsega_2025_part1_jan.sql
+-- 2. insert_orsega_2025_part2_feb.sql
+-- 3. insert_orsega_2025_part3_mar.sql
+-- 4. insert_orsega_2025_part4_apr.sql
+-- 5. insert_orsega_2025_part5_may.sql
+-- 6. insert_orsega_2025_part6_jun.sql
+-- 7. insert_orsega_2025_part7_jul.sql
+-- 8. insert_orsega_2025_part8_aug.sql
+-- 9. insert_orsega_2025_part9_sep.sql
+-- 10. insert_orsega_2025_part10_oct.sql
+-- 11. insert_orsega_2025_part11_nov.sql
+-- 12. insert_orsega_2025_part12_dec.sql
+
+-- Summary by month:
+-- January:   42 records
+-- February:  37 records
+-- March:     54 records
+-- April:     26 records
+-- May:       40 records
+-- June:      43 records
+-- July:      40 records
+-- August:    24 records
+-- September: 24 records
+-- October:   29 records
+-- November:  28 records
+-- December:  50 records
+-- =====================================================
