@@ -58,26 +58,41 @@ const COMPANY_COLORS = {
 
 export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
   // Fetch data for DURA (company 1)
-  const { data: duraData, isLoading: isLoadingDura } = useQuery<MultiYearData>({
+  const { data: duraData, isLoading: isLoadingDura, error: duraError } = useQuery<MultiYearData>({
     queryKey: ['/api/sales-multi-year-trend', 1],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/sales-multi-year-trend?companyId=1`);
       return await res.json();
     },
     enabled: !companyId || companyId === 1,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
   // Fetch data for ORSEGA (company 2)
-  const { data: orsegaData, isLoading: isLoadingOrsega } = useQuery<MultiYearData>({
+  const { data: orsegaData, isLoading: isLoadingOrsega, error: orsegaError } = useQuery<MultiYearData>({
     queryKey: ['/api/sales-multi-year-trend', 2],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/sales-multi-year-trend?companyId=2`);
       return await res.json();
     },
     enabled: !companyId || companyId === 2,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  const isLoading = isLoadingDura || isLoadingOrsega;
+  // Determinar estados de carga basados en companyId
+  const isLoading = companyId === 1 ? isLoadingDura :
+                    companyId === 2 ? isLoadingOrsega :
+                    (isLoadingDura || isLoadingOrsega);
+
+  const hasError = companyId === 1 ? !!duraError :
+                   companyId === 2 ? !!orsegaError :
+                   (!!duraError && !!orsegaError);
+
+  const hasData = companyId === 1 ? (duraData?.yearTotals?.length ?? 0) > 0 :
+                  companyId === 2 ? (orsegaData?.yearTotals?.length ?? 0) > 0 :
+                  ((duraData?.yearTotals?.length ?? 0) > 0 || (orsegaData?.yearTotals?.length ?? 0) > 0);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -102,27 +117,67 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
       <Card className="shadow-lg border-2 border-border/50">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <CardTitle>Cargando panorama de ventas...</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[300px] w-full" />
         </CardContent>
+      </Card>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Card className="shadow-lg border-2 border-red-200 dark:border-red-900/50">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+              <BarChart3 className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <CardTitle className="text-red-700 dark:text-red-400">Error al cargar datos</CardTitle>
+              <CardDescription>No se pudieron obtener los datos de ventas</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <Card className="shadow-lg border-2 border-border/50">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-muted">
+              <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <CardTitle>Panorama Histórico de Ventas</CardTitle>
+              <CardDescription>No hay datos de ventas disponibles para mostrar</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
       </Card>
     );
   }
 
   // Prepare combined chart data
   const allYears = new Set<number>();
-  duraData?.yearTotals.forEach(yt => allYears.add(yt.year));
-  orsegaData?.yearTotals.forEach(yt => allYears.add(yt.year));
+  if (duraData?.yearTotals && Array.isArray(duraData.yearTotals)) {
+    duraData.yearTotals.forEach(yt => allYears.add(yt.year));
+  }
+  if (orsegaData?.yearTotals && Array.isArray(orsegaData.yearTotals)) {
+    orsegaData.yearTotals.forEach(yt => allYears.add(yt.year));
+  }
 
-  const sortedYears = Array.from(allYears).sort();
+  const sortedYears = Array.from(allYears).sort((a, b) => a - b);
 
   const chartData = sortedYears.map(year => {
-    const duraYear = duraData?.yearTotals.find(yt => yt.year === year);
-    const orsegaYear = orsegaData?.yearTotals.find(yt => yt.year === year);
+    const duraYear = duraData?.yearTotals?.find(yt => yt.year === year);
+    const orsegaYear = orsegaData?.yearTotals?.find(yt => yt.year === year);
 
     return {
       year: year.toString(),
