@@ -8,14 +8,12 @@ import type { Company, Kpi, KpiValue, KpiDetail } from '@shared/schema';
 import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { FilteredKpisModal } from '@/components/kpis/FilteredKpisModal';
 import { SalesSummary } from '@/components/dashboard/SalesSummary';
-import { SalesMetricsCards } from '@/components/dashboard/SalesMetricsCards';
+import { CompanyComparisonCards } from '@/components/dashboard/CompanyComparisonCards';
 import { ExchangeRateCards } from '@/components/dashboard/ExchangeRateCards';
 import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// TEMPORAL: Tabla comparativa anual para presentación
-import { SalesYearlyComparisonTable } from '@/components/dashboard/SalesYearlyComparisonTable';
 import { SalesExecutiveSummary } from '@/components/dashboard/SalesExecutiveSummary';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
@@ -232,78 +230,33 @@ export default function Dashboard() {
             </p>
           </div>
           
-          {/* Grid de tarjetas de KPIs para ambas empresas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-onboarding="kpi-stats">
-            <div className="space-y-4">
-              {/* Logo de Dura International centrado con tamaño visual consistente */}
-              <div className="flex justify-center items-center mb-4 h-28 sm:h-32">
-                <img 
-                  src="/logodura.jpg" 
-                  alt="Dura International Logo" 
-                  className="h-full w-auto object-contain"
-                  style={{ maxWidth: '250px' }}
-                  onError={(e) => {
-                    // Fallback si la imagen no carga
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = '<h3 class="text-lg sm:text-xl font-semibold text-foreground text-center">Dura International</h3>';
-                    }
-                  }}
-                />
-              </div>
-              <SalesMetricsCards companyId={1} />
-              
-              {/* Botón para mostrar gráfico de Dura centrado debajo de las tarjetas */}
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => setSelectedChartCompany(1)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    selectedChartCompany === 1
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
-                  }`}
-                >
-                  Ventas mensuales
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {/* Logo de Grupo Orsega centrado con tamaño visual consistente */}
-              <div className="flex justify-center items-center mb-4 h-28 sm:h-32">
-                <img 
-                  src="/logo orsega.jpg" 
-                  alt="Grupo Orsega Logo" 
-                  className="h-full w-auto object-contain"
-                  style={{ maxWidth: '250px' }}
-                  onError={(e) => {
-                    // Fallback si la imagen no carga
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = '<h3 class="text-lg sm:text-xl font-semibold text-foreground text-center">Grupo Orsega</h3>';
-                    }
-                  }}
-                />
-              </div>
-              <SalesMetricsCards companyId={2} />
-              
-              {/* Botón para mostrar gráfico de Orsega centrado debajo de las tarjetas */}
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => setSelectedChartCompany(2)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    selectedChartCompany === 2
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
-                  }`}
-                >
-                  Ventas mensuales
-                </button>
-              </div>
-            </div>
+          {/* Comparativa de ambas empresas - Hub principal */}
+          <div className="mb-6 sm:mb-8" data-onboarding="company-comparison">
+            <CompanyComparisonCards />
+          </div>
+
+          {/* Selector de empresa para gráficos detallados */}
+          <div className="flex justify-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedChartCompany(1)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                selectedChartCompany === 1
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
+              }`}
+            >
+              DURA - Ventas mensuales
+            </button>
+            <button
+              onClick={() => setSelectedChartCompany(2)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                selectedChartCompany === 2
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-muted text-foreground opacity-70 hover:opacity-100 border border-border'
+              }`}
+            >
+              ORSEGA - Ventas mensuales
+            </button>
           </div>
 
           {/* Gráfico de Histórico de Ventas - Se muestra según la empresa seleccionada */}
@@ -330,14 +283,9 @@ export default function Dashboard() {
             </Tabs>
           </div>
 
-          {/* RESUMEN EJECUTIVO - Análisis rápido antes del detalle */}
+          {/* RESUMEN EJECUTIVO - Análisis visual rápido */}
           <div className="mt-8" data-onboarding="executive-summary">
             <SalesExecutiveSummary companyId={selectedChartCompany} />
-          </div>
-
-          {/* TABLA COMPARATIVA ANUAL - Detalle completo */}
-          <div className="mt-6" data-onboarding="sales-comparison-table">
-            <SalesYearlyComparisonTable companyId={selectedChartCompany} />
           </div>
         </div>
       </div>
