@@ -168,7 +168,7 @@ export function SmartSearch({ isOpen, onClose }: SmartSearchProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
             transition={{ duration: 0.15 }}
-            className="fixed left-1/2 top-[10%] -translate-x-1/2 z-50 w-full max-w-2xl mx-4 sm:mx-auto"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-xl"
           >
             <div className="bg-background rounded-2xl shadow-2xl border border-border/50 overflow-hidden flex flex-col max-h-[80vh]">
               {/* Header */}

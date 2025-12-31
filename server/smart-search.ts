@@ -4,9 +4,45 @@
  */
 
 import OpenAI from "openai";
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
+import WebSocket from "ws";
+
+// Configurar WebSocket para Neon
+neonConfig.webSocketConstructor = WebSocket;
 
 const sql = neon(process.env.DATABASE_URL!);
+
+// Cache para el último período con datos (evitar múltiples queries)
+let lastDataCache: { [key: number]: { year: number; month: number } } = {};
+let cacheTimestamp = 0;
+
+// Obtener el último período con datos para una empresa
+async function getLastDataPeriod(companyId: number): Promise<{ year: number; month: number }> {
+  // Usar cache si es reciente (5 minutos)
+  const now = Date.now();
+  if (lastDataCache[companyId] && (now - cacheTimestamp) < 300000) {
+    return lastDataCache[companyId];
+  }
+
+  const result = await sql`
+    SELECT sale_year, sale_month
+    FROM sales_data
+    WHERE company_id = ${companyId}
+    GROUP BY sale_year, sale_month
+    ORDER BY sale_year DESC, sale_month DESC
+    LIMIT 1
+  `;
+
+  const period = {
+    year: parseInt(result[0]?.sale_year || '2025'),
+    month: parseInt(result[0]?.sale_month || '6')
+  };
+
+  lastDataCache[companyId] = period;
+  cacheTimestamp = now;
+
+  return period;
+}
 
 // Tipos para function calling
 interface FunctionCall {
@@ -177,33 +213,41 @@ async function getSalesVolume(company: string, period: string): Promise<any> {
   const companyId = company === "dura" ? 1 : 2;
   const companyName = company === "dura" ? "DURA International" : "Grupo ORSEGA";
 
+  // Obtener el último período con datos reales
+  const lastPeriod = await getLastDataPeriod(companyId);
+  const lastYear = lastPeriod.year;
+  const lastMonth = lastPeriod.month;
+
   let dateFilter = "";
   let periodLabel = "";
 
   switch (period) {
     case "this_month":
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este mes";
+      // Usar el último mes con datos
+      dateFilter = `sale_year = ${lastYear} AND sale_month = ${lastMonth}`;
+      periodLabel = `en ${getMonthName(lastMonth)} ${lastYear}`;
       break;
     case "last_month":
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month') AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month')";
-      periodLabel = "el mes pasado";
+      const prevMonth = lastMonth === 1 ? 12 : lastMonth - 1;
+      const prevYear = lastMonth === 1 ? lastYear - 1 : lastYear;
+      dateFilter = `sale_year = ${prevYear} AND sale_month = ${prevMonth}`;
+      periodLabel = `en ${getMonthName(prevMonth)} ${prevYear}`;
       break;
     case "this_year":
-      dateFilter = "EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este año";
+      dateFilter = `sale_year = ${lastYear}`;
+      periodLabel = `en ${lastYear}`;
       break;
     case "last_year":
-      dateFilter = "EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE) - 1";
-      periodLabel = "el año pasado";
+      dateFilter = `sale_year = ${lastYear - 1}`;
+      periodLabel = `en ${lastYear - 1}`;
       break;
     case "last_3_months":
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '3 months'";
-      periodLabel = "los últimos 3 meses";
+      dateFilter = `(sale_year = ${lastYear} AND sale_month >= ${Math.max(1, lastMonth - 2)}) OR (sale_year = ${lastYear - 1} AND sale_month >= ${lastMonth + 10})`;
+      periodLabel = "en los últimos 3 meses con datos";
       break;
     default:
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este mes";
+      dateFilter = `sale_year = ${lastYear} AND sale_month = ${lastMonth}`;
+      periodLabel = `en ${getMonthName(lastMonth)} ${lastYear}`;
   }
 
   const result = await sql(`
@@ -221,34 +265,50 @@ async function getSalesVolume(company: string, period: string): Promise<any> {
     volume: parseFloat(row?.total_volume || "0"),
     clients: parseInt(row?.clients || "0"),
     unit: row?.unit || (companyId === 1 ? "KG" : "unidades"),
-    period: periodLabel
+    period: periodLabel,
+    dataAsOf: `${getMonthName(lastMonth)} ${lastYear}`
   };
 }
 
+// Helper para obtener nombre del mes
+function getMonthName(month: number): string {
+  const months = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  return months[month] || '';
+}
+
 async function getActiveClients(company: string, period: string): Promise<any> {
+  // Para "both", usar el período más reciente de cualquier empresa
+  const companyId = company === "dura" ? 1 : company === "orsega" ? 2 : 2;
+  const lastPeriod = await getLastDataPeriod(companyId);
+  const lastYear = lastPeriod.year;
+  const lastMonth = lastPeriod.month;
+
   let dateFilter = "";
   let periodLabel = "";
 
   switch (period) {
     case "this_month":
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este mes";
+      dateFilter = `sale_year = ${lastYear} AND sale_month = ${lastMonth}`;
+      periodLabel = `en ${getMonthName(lastMonth)} ${lastYear}`;
       break;
     case "last_month":
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month') AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month')";
-      periodLabel = "el mes pasado";
+      const prevMonth = lastMonth === 1 ? 12 : lastMonth - 1;
+      const prevYear = lastMonth === 1 ? lastYear - 1 : lastYear;
+      dateFilter = `sale_year = ${prevYear} AND sale_month = ${prevMonth}`;
+      periodLabel = `en ${getMonthName(prevMonth)} ${prevYear}`;
       break;
     case "last_3_months":
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '3 months'";
-      periodLabel = "los últimos 3 meses";
+      dateFilter = `sale_year = ${lastYear} AND sale_month >= ${Math.max(1, lastMonth - 2)}`;
+      periodLabel = "en los últimos 3 meses con datos";
       break;
     case "this_year":
-      dateFilter = "EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este año";
+      dateFilter = `sale_year = ${lastYear}`;
+      periodLabel = `en ${lastYear}`;
       break;
     default:
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
-      periodLabel = "este mes";
+      dateFilter = `sale_year = ${lastYear} AND sale_month = ${lastMonth}`;
+      periodLabel = `en ${getMonthName(lastMonth)} ${lastYear}`;
   }
 
   if (company === "both") {
@@ -261,8 +321,8 @@ async function getActiveClients(company: string, period: string): Promise<any> {
       GROUP BY company_id
     `);
 
-    const dura = result.find((r: any) => r.company_id === 1);
-    const orsega = result.find((r: any) => r.company_id === 2);
+    const dura = result.find((r: any) => parseInt(r.company_id) === 1);
+    const orsega = result.find((r: any) => parseInt(r.company_id) === 2);
 
     return {
       dura: parseInt(dura?.clients || "0"),
@@ -272,7 +332,6 @@ async function getActiveClients(company: string, period: string): Promise<any> {
     };
   }
 
-  const companyId = company === "dura" ? 1 : 2;
   const companyName = company === "dura" ? "DURA International" : "Grupo ORSEGA";
 
   const result = await sql(`
@@ -293,17 +352,26 @@ async function getTopClients(company: string, limit: number, period: string = "t
   const companyName = company === "dura" ? "DURA International" : "Grupo ORSEGA";
   const safeLimit = Math.min(Math.max(1, limit), 10);
 
+  // Obtener el último período con datos
+  const lastPeriod = await getLastDataPeriod(companyId);
+  const lastYear = lastPeriod.year;
+  const lastMonth = lastPeriod.month;
+
   let dateFilter = "";
+  let periodLabel = "";
   switch (period) {
     case "this_month":
-      dateFilter = "EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)";
+      dateFilter = `sale_year = ${lastYear} AND sale_month = ${lastMonth}`;
+      periodLabel = `${getMonthName(lastMonth)} ${lastYear}`;
       break;
     case "last_3_months":
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '3 months'";
+      dateFilter = `sale_year = ${lastYear} AND sale_month >= ${Math.max(1, lastMonth - 2)}`;
+      periodLabel = "últimos 3 meses";
       break;
     case "this_year":
     default:
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '12 months'";
+      dateFilter = `sale_year = ${lastYear}`;
+      periodLabel = `${lastYear}`;
   }
 
   const result = await sql(`
@@ -322,6 +390,7 @@ async function getTopClients(company: string, limit: number, period: string = "t
 
   return {
     company: companyName,
+    period: periodLabel,
     clients: result.map((r: any, i: number) => ({
       rank: i + 1,
       name: r.client_name,
@@ -335,20 +404,23 @@ async function getGrowthComparison(company: string): Promise<any> {
   const companyId = company === "dura" ? 1 : 2;
   const companyName = company === "dura" ? "DURA International" : "Grupo ORSEGA";
 
+  // Obtener el último período con datos
+  const lastPeriod = await getLastDataPeriod(companyId);
+  const lastYear = lastPeriod.year;
+  const lastMonth = lastPeriod.month;
+
   const result = await sql`
     WITH current_year AS (
       SELECT COALESCE(SUM(quantity), 0) as total
       FROM sales_data
       WHERE company_id = ${companyId}
-        AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-        AND EXTRACT(MONTH FROM sale_date) <= EXTRACT(MONTH FROM CURRENT_DATE)
+        AND sale_year = ${lastYear}
     ),
     last_year AS (
       SELECT COALESCE(SUM(quantity), 0) as total
       FROM sales_data
       WHERE company_id = ${companyId}
-        AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE) - 1
-        AND EXTRACT(MONTH FROM sale_date) <= EXTRACT(MONTH FROM CURRENT_DATE)
+        AND sale_year = ${lastYear - 1}
     )
     SELECT
       current_year.total as current_volume,
@@ -358,14 +430,17 @@ async function getGrowthComparison(company: string): Promise<any> {
 
   const current = parseFloat(result[0]?.current_volume || "0");
   const last = parseFloat(result[0]?.last_volume || "0");
-  const growth = last > 0 ? ((current - last) / last * 100).toFixed(1) : 0;
+  const growth = last > 0 ? ((current - last) / last * 100).toFixed(1) : (current > 0 ? 100 : 0);
 
   return {
     company: companyName,
     currentYear: current,
+    currentYearLabel: lastYear,
     lastYear: last,
+    lastYearLabel: lastYear - 1,
     growth: parseFloat(growth as string),
-    isPositive: current >= last
+    isPositive: current >= last,
+    dataAsOf: `${getMonthName(lastMonth)} ${lastYear}`
   };
 }
 
@@ -449,6 +524,10 @@ async function getNewClients(company: string, period: string = "this_month"): Pr
 }
 
 async function getSummary(): Promise<any> {
+  // Obtener el último período con datos de cada empresa
+  const duraPeriod = await getLastDataPeriod(1);
+  const orsegaPeriod = await getLastDataPeriod(2);
+
   const duraResult = await sql`
     SELECT
       COALESCE(SUM(quantity), 0) as volume,
@@ -456,8 +535,7 @@ async function getSummary(): Promise<any> {
       MAX(unit) as unit
     FROM sales_data
     WHERE company_id = 1
-      AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-      AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+      AND sale_year = ${duraPeriod.year}
   `;
 
   const orsegaResult = await sql`
@@ -467,20 +545,21 @@ async function getSummary(): Promise<any> {
       MAX(unit) as unit
     FROM sales_data
     WHERE company_id = 2
-      AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
-      AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+      AND sale_year = ${orsegaPeriod.year}
   `;
 
   return {
     dura: {
       volume: parseFloat(duraResult[0]?.volume || "0"),
       clients: parseInt(duraResult[0]?.clients || "0"),
-      unit: duraResult[0]?.unit || "KG"
+      unit: duraResult[0]?.unit || "KG",
+      dataAsOf: `${getMonthName(duraPeriod.month)} ${duraPeriod.year}`
     },
     orsega: {
       volume: parseFloat(orsegaResult[0]?.volume || "0"),
       clients: parseInt(orsegaResult[0]?.clients || "0"),
-      unit: orsegaResult[0]?.unit || "unidades"
+      unit: orsegaResult[0]?.unit || "unidades",
+      dataAsOf: `${getMonthName(orsegaPeriod.month)} ${orsegaPeriod.year}`
     }
   };
 }
