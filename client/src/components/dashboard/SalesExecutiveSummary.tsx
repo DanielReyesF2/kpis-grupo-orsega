@@ -1,10 +1,12 @@
 /**
  * Resumen Ejecutivo de Ventas
- * Muestra un resumen conciso del análisis profundo antes de las tablas de detalle
+ * Muestra un resumen conciso con datos reales de /api/sales-stats
  */
 
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp,
   TrendingDown,
@@ -13,45 +15,103 @@ import {
   Target,
   Users,
   ArrowRight,
-  Lightbulb
+  Lightbulb,
+  UserPlus,
+  UserMinus
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+
+interface SalesMetrics {
+  activeClients: number;
+  currentVolume: number;
+  unit: string;
+  growth: number;
+  activeAlerts: number;
+  activeClientsMetrics?: {
+    thisMonth: number;
+    last3Months: number;
+  };
+  retentionRate?: {
+    rate: number;
+    retainedClients: number;
+  };
+  newClients?: {
+    count: number;
+  };
+  clientChurn?: {
+    count: number;
+    rate: number;
+  };
+}
 
 interface SalesExecutiveSummaryProps {
   companyId: number; // 1 = DURA, 2 = ORSEGA
 }
 
 export function SalesExecutiveSummary({ companyId }: SalesExecutiveSummaryProps) {
-  // Datos de resumen para DURA
-  const duraResumen = {
-    status: "critical" as const,
-    cambioAnual: -12.2,
-    kgPerdidos: 70109,
-    clientesPerdidos: 7,
-    clienteConMayorPerdida: "BP International Trading",
-    kgPerdidosMayorCliente: 40226,
-    mesesPositivos: 5,
-    accionPrioritaria: "Reunión urgente con BP International Trading",
-    oportunidad: "Recuperar 40,226 kg perdidos con plan de acción específico"
-  };
+  const { data: metrics, isLoading } = useQuery<SalesMetrics>({
+    queryKey: ['/api/sales-stats', companyId],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-stats?companyId=${companyId}`);
+      return await res.json();
+    },
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
 
-  // Datos de resumen para ORSEGA
-  const orsegaResumen = {
-    status: "positive" as const,
-    cambioAnual: 8.1,
-    unidadesGanadas: 761956,
-    mesesSobrePresupuesto: 7,
-    mejorMes: "Marzo",
-    unidadesMejorMes: 1319150,
-    desafio: "Segundo semestre con 4 meses bajo presupuesto",
-    accionPrioritaria: "Analizar causas de caída Sep-Nov",
-    oportunidad: "Mantener momentum del primer semestre"
-  };
-
-  const resumen = companyId === 1 ? duraResumen : orsegaResumen;
   const isDura = companyId === 1;
-  const isPositive = resumen.status === "positive";
-
+  const isPositive = (metrics?.growth || 0) >= 0;
   const formatNumber = (num: number) => new Intl.NumberFormat('es-MX').format(num);
+
+  if (isLoading) {
+    return (
+      <Card className="shadow-lg border-l-4 border-l-primary">
+        <CardHeader className="pb-3">
+          <Skeleton className="h-8 w-64" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Calcular accion prioritaria basada en datos reales
+  const getAccionPrioritaria = () => {
+    if (!metrics) return { accion: "Cargar datos de ventas", oportunidad: "Sin datos suficientes" };
+
+    const churnCount = metrics.clientChurn?.count || 0;
+    const newCount = metrics.newClients?.count || 0;
+    const retentionRate = metrics.retentionRate?.rate || 0;
+
+    if (churnCount > newCount) {
+      return {
+        accion: `Analizar ${churnCount} clientes perdidos`,
+        oportunidad: `Implementar programa de reactivacion para recuperar volumen`
+      };
+    } else if (retentionRate < 80) {
+      return {
+        accion: `Mejorar retencion (${retentionRate.toFixed(0)}%)`,
+        oportunidad: "Fortalecer relacion con clientes clave"
+      };
+    } else if (isPositive) {
+      return {
+        accion: "Mantener momentum de crecimiento",
+        oportunidad: `Capitalizar ${metrics.growth.toFixed(1)}% de crecimiento`
+      };
+    } else {
+      return {
+        accion: "Revisar estrategia comercial",
+        oportunidad: "Identificar areas de mejora para revertir tendencia"
+      };
+    }
+  };
+
+  const accion = getAccionPrioritaria();
 
   return (
     <Card className="shadow-lg border-l-4 border-l-primary">
@@ -67,107 +127,103 @@ export function SalesExecutiveSummary({ companyId }: SalesExecutiveSummaryProps)
             </div>
             <div>
               <CardTitle className="text-lg">Resumen Ejecutivo - {isDura ? 'DURA International' : 'Grupo ORSEGA'}</CardTitle>
-              <p className="text-sm text-muted-foreground">Análisis comparativo 2024 vs 2025</p>
+              <p className="text-sm text-muted-foreground">Datos en tiempo real de sales_data</p>
             </div>
           </div>
           <Badge variant={isPositive ? "default" : "destructive"} className="text-sm px-3 py-1">
             {isPositive ? (
               <><CheckCircle2 className="h-4 w-4 mr-1" /> En Crecimiento</>
             ) : (
-              <><AlertTriangle className="h-4 w-4 mr-1" /> Requiere Atención</>
+              <><AlertTriangle className="h-4 w-4 mr-1" /> Requiere Atencion</>
             )}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
         <div className="grid md:grid-cols-3 gap-4">
-          {/* Columna 1: Situación Actual */}
+          {/* Columna 1: Situacion Actual */}
           <div className="space-y-3">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <Target className="h-4 w-4" /> Situación Actual
+              <Target className="h-4 w-4" /> Situacion Actual
             </h4>
             <div className={`p-3 rounded-lg ${isPositive ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
               <div className="flex items-baseline gap-2">
                 <span className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                  {isPositive ? '+' : ''}{resumen.cambioAnual.toFixed(1)}%
+                  {isPositive ? '+' : ''}{metrics?.growth?.toFixed(1) || 0}%
                 </span>
-                <span className="text-sm text-muted-foreground">vs 2024</span>
+                <span className="text-sm text-muted-foreground">vs año anterior</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {isDura ? (
-                  <>{formatNumber(duraResumen.kgPerdidos)} KG {isPositive ? 'ganados' : 'perdidos'}</>
-                ) : (
-                  <>{formatNumber(orsegaResumen.unidadesGanadas)} unidades ganadas</>
-                )}
+                {formatNumber(metrics?.currentVolume || 0)} {metrics?.unit || 'unidades'} este mes
               </p>
             </div>
-            {isDura && (
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-orange-500" />
-                <span><strong>{duraResumen.clientesPerdidos}</strong> clientes perdidos (churn)</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4 text-blue-500" />
+              <span><strong>{metrics?.activeClients || 0}</strong> clientes activos este mes</span>
+            </div>
             <div className="flex items-center gap-2 text-sm">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
               <span>
-                <strong>{isDura ? duraResumen.mesesPositivos : orsegaResumen.mesesSobrePresupuesto}</strong> de 12 meses
-                {isDura ? ' superan 2024' : ' sobre presupuesto'}
+                <strong>{metrics?.activeClientsMetrics?.last3Months || 0}</strong> clientes ultimos 3 meses
               </span>
             </div>
           </div>
 
-          {/* Columna 2: Punto Crítico / Destacado */}
+          {/* Columna 2: Clientes */}
           <div className="space-y-3">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> {isDura ? 'Punto Crítico' : 'Punto Destacado'}
+              <Users className="h-4 w-4" /> Dinamica de Clientes
             </h4>
-            <div className={`p-3 rounded-lg border ${isDura ? 'border-red-200 dark:border-red-900' : 'border-green-200 dark:border-green-900'}`}>
-              {isDura ? (
-                <>
-                  <p className="font-medium text-foreground">{duraResumen.clienteConMayorPerdida}</p>
-                  <p className="text-sm text-red-600 font-semibold">
-                    -{formatNumber(duraResumen.kgPerdidosMayorCliente)} KG
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Mayor pérdida individual del año
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="font-medium text-foreground">Mejor mes: {orsegaResumen.mejorMes}</p>
-                  <p className="text-sm text-green-600 font-semibold">
-                    {formatNumber(orsegaResumen.unidadesMejorMes)} unidades
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Récord del año en ventas
-                  </p>
-                </>
-              )}
+            <div className="p-3 rounded-lg border border-border">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="font-bold text-lg text-green-600">{metrics?.newClients?.count || 0}</p>
+                    <p className="text-xs text-muted-foreground">Nuevos</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UserMinus className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-bold text-lg text-red-600">{metrics?.clientChurn?.count || 0}</p>
+                    <p className="text-xs text-muted-foreground">Perdidos</p>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Retencion:</span>
+                  <span className={`font-bold ${(metrics?.retentionRate?.rate || 0) >= 80 ? 'text-green-600' : 'text-orange-500'}`}>
+                    {metrics?.retentionRate?.rate?.toFixed(0) || 0}%
+                  </span>
+                </div>
+              </div>
             </div>
-            {!isDura && (
+            {(metrics?.activeAlerts || 0) > 0 && (
               <div className="flex items-center gap-2 text-sm text-orange-600">
                 <AlertTriangle className="h-4 w-4" />
-                <span>{orsegaResumen.desafio}</span>
+                <span>{metrics?.activeAlerts} alertas activas</span>
               </div>
             )}
           </div>
 
-          {/* Columna 3: Acción Recomendada */}
+          {/* Columna 3: Accion Recomendada */}
           <div className="space-y-3">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <Lightbulb className="h-4 w-4" /> Acción Prioritaria
+              <Lightbulb className="h-4 w-4" /> Accion Prioritaria
             </h4>
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
               <div className="flex items-start gap-2">
                 <ArrowRight className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-foreground text-sm">{resumen.accionPrioritaria}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{resumen.oportunidad}</p>
+                  <p className="font-medium text-foreground text-sm">{accion.accion}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{accion.oportunidad}</p>
                 </div>
               </div>
             </div>
             <p className="text-xs text-muted-foreground italic">
-              Ver análisis detallado abajo para más información
+              Basado en datos reales de ventas
             </p>
           </div>
         </div>
