@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import { TopBar } from './TopBar';
 import { PoweredByFooter } from '@/components/ui/PoweredByFooter';
+import { AIAssistant } from '@/components/ai/AIAssistant';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -33,6 +34,9 @@ export function AppLayout({ children, title }: AppLayoutProps) {
           <PoweredByFooter />
         </main>
       </div>
+
+      {/* AI Assistant Floating Button */}
+      <AIAssistant />
     </>
   );
 }
