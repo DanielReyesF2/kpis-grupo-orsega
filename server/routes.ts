@@ -8106,6 +8106,72 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // GET /api/sales-top-products - Top productos por volumen vendido
+  app.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, limit = 5 } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      // Buscar top productos en los últimos 3 meses
+      let topProducts = await sql(`
+        SELECT
+          product_name,
+          COALESCE(SUM(quantity), 0) as total_volume,
+          COUNT(DISTINCT client_name) as unique_clients,
+          COUNT(*) as transactions,
+          MAX(unit) as unit
+        FROM sales_data
+        WHERE company_id = $1
+          AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
+          AND sale_date <= CURRENT_DATE
+          AND product_name IS NOT NULL AND product_name <> ''
+        GROUP BY product_name
+        ORDER BY total_volume DESC
+        LIMIT $2
+      `, [resolvedCompanyId, parseInt(limit as string) || 5]);
+
+      // Si no hay datos recientes, buscar en 12 meses
+      if (!topProducts || topProducts.length === 0) {
+        topProducts = await sql(`
+          SELECT
+            product_name,
+            COALESCE(SUM(quantity), 0) as total_volume,
+            COUNT(DISTINCT client_name) as unique_clients,
+            COUNT(*) as transactions,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND product_name IS NOT NULL AND product_name <> ''
+          GROUP BY product_name
+          ORDER BY total_volume DESC
+          LIMIT $2
+        `, [resolvedCompanyId, parseInt(limit as string) || 5]);
+      }
+
+      const formatted = topProducts.map((row: any) => ({
+        name: row.product_name || 'Sin nombre',
+        volume: parseFloat(row.total_volume) || 0,
+        uniqueClients: parseInt(row.unique_clients) || 0,
+        transactions: parseInt(row.transactions) || 0,
+        unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
+      }));
+
+      res.json(formatted);
+    } catch (error) {
+      console.error('[GET /api/sales-top-products] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch top products' });
+    }
+  });
+
   // POST /api/sales-alerts/:id/resolve - Resolver alerta
   app.post("/api/sales-alerts/:id/resolve", jwtAuthMiddleware, async (req, res) => {
     try {
