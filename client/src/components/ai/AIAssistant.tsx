@@ -1,6 +1,6 @@
 /**
- * AI Assistant - Interfaz estilo ChatGPT/Claude/Notion AI
- * Se abre con Command+K o botón flotante
+ * AI Assistant - Interfaz moderna estilo ChatGPT/Claude
+ * Diseño luminoso y amigable
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -22,7 +22,11 @@ import {
   TrendingUp,
   Users,
   Package,
-  HelpCircle
+  HelpCircle,
+  MessageSquare,
+  Lightbulb,
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
 
 interface Message {
@@ -135,10 +139,10 @@ export function AIAssistant() {
   };
 
   const suggestions = [
-    { icon: TrendingUp, text: "¿Cuál es el crecimiento de ventas?", color: "text-green-500" },
-    { icon: Users, text: "¿Cuántos clientes activos hay?", color: "text-blue-500" },
-    { icon: Package, text: "¿Cuál es el volumen total?", color: "text-purple-500" },
-    { icon: HelpCircle, text: "¿Qué métricas puedo consultar?", color: "text-orange-500" },
+    { icon: TrendingUp, text: "¿Cuál es el crecimiento de ventas?", gradient: "from-emerald-500 to-teal-500" },
+    { icon: Users, text: "¿Cuántos clientes activos hay?", gradient: "from-blue-500 to-cyan-500" },
+    { icon: Package, text: "¿Cuál es el volumen total?", gradient: "from-purple-500 to-pink-500" },
+    { icon: BarChart3, text: "¿Qué métricas puedo consultar?", gradient: "from-orange-500 to-amber-500" },
   ];
 
   const clearChat = () => {
@@ -147,21 +151,30 @@ export function AIAssistant() {
 
   return (
     <>
-      {/* Floating Button - Solo visible cuando está cerrado */}
+      {/* Floating Button - Moderno y brillante */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all group"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all group"
           >
-            <Sparkles className="h-5 w-5" />
-            <span className="font-medium text-sm hidden sm:inline">Asistente AI</span>
-            <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono bg-white/20 rounded ml-1">
+            <div className="relative">
+              <Sparkles className="h-5 w-5" />
+              <motion.div
+                className="absolute inset-0"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              >
+                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-300 rounded-full" />
+              </motion.div>
+            </div>
+            <span className="font-semibold text-sm hidden sm:inline">Asistente AI</span>
+            <kbd className="hidden md:inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-mono bg-white/20 backdrop-blur-sm rounded-lg ml-1">
               <Command className="h-2.5 w-2.5" />K
             </kbd>
           </motion.button>
@@ -172,93 +185,111 @@ export function AIAssistant() {
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - Más suave */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md"
             />
 
-            {/* Chat Modal - Centered, larger, modern */}
+            {/* Chat Modal - Diseño luminoso y moderno */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-[700px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[600px] sm:max-h-[85vh] bg-background rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-border/50"
+              className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-[720px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[650px] sm:max-h-[85vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-primary to-primary/70 rounded-xl shadow-lg">
-                    <Sparkles className="h-5 w-5 text-white" />
+              {/* Header - Gradiente luminoso */}
+              <div className="relative px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 dark:from-violet-950/30 dark:via-purple-950/30 dark:to-indigo-950/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="p-3 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 rounded-2xl shadow-lg shadow-purple-500/30">
+                        <Sparkles className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-xl text-slate-900 dark:text-white flex items-center gap-2">
+                        Asistente AI
+                        <span className="px-2.5 py-1 text-[10px] font-bold bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-full uppercase tracking-wide">
+                          Beta
+                        </span>
+                      </h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                        Tu copiloto inteligente para datos y métricas
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="font-semibold text-lg flex items-center gap-2">
-                      Asistente AI
-                      <span className="px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded-full">
-                        Beta
-                      </span>
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Pregunta sobre ventas, clientes y métricas
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {messages.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {messages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearChat}
+                        className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 gap-1.5"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Nuevo chat
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
-                      size="sm"
-                      onClick={clearChat}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      size="icon"
+                      className="h-9 w-9 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                      onClick={() => setIsOpen(false)}
                     >
-                      Limpiar
+                      <X className="h-5 w-5 text-slate-500" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  </div>
                 </div>
               </div>
 
               {/* Messages Area */}
-              <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+              <ScrollArea className="flex-1 p-6 bg-slate-50/50 dark:bg-slate-950/50" ref={scrollRef}>
                 {messages.length === 0 ? (
-                  /* Empty State - Suggestions */
+                  /* Empty State - Diseño luminoso */
                   <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                    <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl mb-6">
-                      <Zap className="h-10 w-10 text-primary" />
+                    <div className="relative mb-8">
+                      <div className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 rounded-full blur-2xl opacity-20 animate-pulse" />
+                      <div className="relative p-6 bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30 rounded-3xl">
+                        <Lightbulb className="h-12 w-12 text-violet-600 dark:text-violet-400" />
+                      </div>
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">¿En qué puedo ayudarte?</h3>
-                    <p className="text-muted-foreground text-sm mb-8 max-w-md">
-                      Puedo responder preguntas sobre tus datos de ventas, clientes, métricas y más.
+
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+                      ¿En qué puedo ayudarte?
+                    </h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-10 max-w-md leading-relaxed">
+                      Pregúntame sobre ventas, clientes, métricas de rendimiento,
+                      tendencias históricas y mucho más.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
                       {suggestions.map((suggestion, i) => (
-                        <button
+                        <motion.button
                           key={i}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.1 }}
                           onClick={() => {
                             setInput(suggestion.text);
                             inputRef.current?.focus();
                           }}
-                          className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/30 transition-all text-left group"
+                          className="flex items-center gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-lg hover:shadow-violet-500/10 transition-all text-left group"
                         >
-                          <div className={`p-2 rounded-lg bg-muted ${suggestion.color}`}>
-                            <suggestion.icon className="h-4 w-4" />
+                          <div className={`p-2.5 rounded-xl bg-gradient-to-br ${suggestion.gradient} shadow-sm`}>
+                            <suggestion.icon className="h-4 w-4 text-white" />
                           </div>
-                          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                          <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors font-medium">
                             {suggestion.text}
                           </span>
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   </div>
@@ -274,16 +305,16 @@ export function AIAssistant() {
                       >
                         {/* Avatar */}
                         <div
-                          className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${
+                          className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm ${
                             message.role === "assistant"
-                              ? "bg-gradient-to-br from-primary to-primary/70"
-                              : "bg-muted border border-border"
+                              ? "bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600"
+                              : "bg-gradient-to-br from-slate-600 to-slate-700 dark:from-slate-500 dark:to-slate-600"
                           }`}
                         >
                           {message.role === "assistant" ? (
                             <Bot className="h-5 w-5 text-white" />
                           ) : (
-                            <User className="h-5 w-5 text-muted-foreground" />
+                            <User className="h-5 w-5 text-white" />
                           )}
                         </div>
 
@@ -294,15 +325,15 @@ export function AIAssistant() {
                           }`}
                         >
                           <div
-                            className={`inline-block px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                            className={`inline-block px-5 py-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
                               message.role === "assistant"
-                                ? "bg-muted text-foreground rounded-tl-md"
-                                : "bg-primary text-primary-foreground rounded-tr-md"
+                                ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-md border border-slate-100 dark:border-slate-700"
+                                : "bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white rounded-tr-md"
                             }`}
                           >
                             <p className="whitespace-pre-wrap">{message.content}</p>
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 px-1">
                             {message.timestamp.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
@@ -316,13 +347,29 @@ export function AIAssistant() {
                         animate={{ opacity: 1 }}
                         className="flex gap-4"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 flex items-center justify-center shadow-sm">
                           <Bot className="h-5 w-5 text-white" />
                         </div>
-                        <div className="px-4 py-3 bg-muted rounded-2xl rounded-tl-md">
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                            <span className="text-sm text-muted-foreground">Pensando...</span>
+                        <div className="px-5 py-4 bg-white dark:bg-slate-800 rounded-2xl rounded-tl-md border border-slate-100 dark:border-slate-700 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-1.5">
+                              <motion.div
+                                className="w-2 h-2 bg-violet-500 rounded-full"
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                              />
+                              <motion.div
+                                className="w-2 h-2 bg-purple-500 rounded-full"
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                              />
+                              <motion.div
+                                className="w-2 h-2 bg-indigo-500 rounded-full"
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+                              />
+                            </div>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">Analizando...</span>
                           </div>
                         </div>
                       </motion.div>
@@ -331,37 +378,49 @@ export function AIAssistant() {
                 )}
               </ScrollArea>
 
-              {/* Input Area */}
-              <div className="p-4 border-t border-border/50 bg-muted/30">
+              {/* Input Area - Diseño moderno */}
+              <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <form onSubmit={handleSubmit} className="relative">
                   <textarea
                     ref={inputRef}
                     value={input}
                     onChange={handleTextareaChange}
                     onKeyDown={handleKeyDown}
-                    placeholder="Escribe tu pregunta... (Enter para enviar)"
+                    placeholder="Escribe tu pregunta aquí..."
                     rows={1}
-                    className="w-full resize-none rounded-xl border border-border/60 bg-background px-4 py-3 pr-14 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
+                    className="w-full resize-none rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-5 py-4 pr-14 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0 focus:border-violet-500 dark:focus:border-violet-500 transition-all"
                     disabled={askMutation.isPending}
-                    style={{ minHeight: "48px", maxHeight: "200px" }}
+                    style={{ minHeight: "56px", maxHeight: "200px" }}
                   />
                   <Button
                     type="submit"
                     size="icon"
                     disabled={!input.trim() || askMutation.isPending}
-                    className="absolute right-2 bottom-2 h-9 w-9 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50"
+                    className="absolute right-3 bottom-3 h-10 w-10 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all"
                   >
                     {askMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                     ) : (
-                      <ArrowUp className="h-4 w-4" />
+                      <ArrowUp className="h-4 w-4 text-white" />
                     )}
                   </Button>
                 </form>
-                <p className="text-[10px] text-muted-foreground text-center mt-2">
-                  <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">⌘K</kbd> para abrir ·
-                  <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono ml-1">Esc</kbd> para cerrar
-                </p>
+                <div className="flex items-center justify-center gap-4 mt-3">
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">⌘K</kbd>
+                    <span>abrir</span>
+                  </p>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Enter</kbd>
+                    <span>enviar</span>
+                  </p>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-mono text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Esc</kbd>
+                    <span>cerrar</span>
+                  </p>
+                </div>
               </div>
             </motion.div>
           </>
