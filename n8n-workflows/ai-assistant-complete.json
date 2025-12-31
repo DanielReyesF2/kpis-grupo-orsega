@@ -1,0 +1,597 @@
+{
+  "name": "KPIs Grupo ORSEGA - AI Assistant Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-assistant",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-ai-assistant",
+      "name": "Webhook AI Assistant",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "ai-assistant-webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Eres un asistente de negocios experto para Grupo ORSEGA y DURA International.\n\nCONTEXTO DEL SISTEMA:\n- DURA International (company_id=1): Vende productos en KG\n- Grupo ORSEGA (company_id=2): Vende productos en unidades\n- Datos de ventas disponibles hasta 2025\n\nDATOS DE CONTEXTO:\n{{ $json.enrichedData }}\n\nHISTORIAL DE CONVERSACIÓN:\n{{ $json.conversationHistory }}\n\nResponde de forma profesional, clara y concisa en español. Formatea números con separadores de miles."
+            },
+            {
+              "content": "={{ $json.body.question }}",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-chat",
+      "name": "OpenAI Chat",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [850, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT \n  (SELECT json_build_object(\n    'dura_total_2025', COALESCE(SUM(quantity), 0),\n    'dura_clients_2025', COUNT(DISTINCT client_name)\n  ) FROM sales_data WHERE company_id = 1 AND sale_year = 2025) as dura_stats,\n  (SELECT json_build_object(\n    'orsega_total_2025', COALESCE(SUM(quantity), 0),\n    'orsega_clients_2025', COUNT(DISTINCT client_name)\n  ) FROM sales_data WHERE company_id = 2 AND sale_year = 2025) as orsega_stats,\n  (SELECT json_agg(json_build_object('currency', currency, 'rate', rate)) FROM exchange_rates) as exchange_rates",
+        "options": {}
+      },
+      "id": "postgres-context",
+      "name": "Get Business Context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.body.sqlQuery }}",
+        "options": {}
+      },
+      "id": "postgres-dynamic",
+      "name": "Execute Dynamic Query",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [650, 450],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "enrichedData",
+              "value": "={{ JSON.stringify($node['Get Business Context'].json) }}"
+            },
+            {
+              "name": "conversationHistory",
+              "value": "={{ $json.body.history ? JSON.stringify($json.body.history) : 'Sin historial previo' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-context",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.message.content, \"source\": \"n8n-ai-assistant\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-alerts",
+      "name": "Schedule Alerts Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 600]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH daily_sales AS (\n  SELECT \n    company_id,\n    sale_date,\n    SUM(quantity) as daily_total,\n    AVG(SUM(quantity)) OVER (PARTITION BY company_id ORDER BY sale_date ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) as avg_7_days\n  FROM sales_data\n  WHERE sale_date >= CURRENT_DATE - INTERVAL '30 days'\n  GROUP BY company_id, sale_date\n)\nSELECT \n  company_id,\n  sale_date,\n  daily_total,\n  avg_7_days,\n  CASE \n    WHEN avg_7_days > 0 THEN ((daily_total - avg_7_days) / avg_7_days * 100)\n    ELSE 0\n  END as deviation_percent\nFROM daily_sales\nWHERE sale_date = CURRENT_DATE - INTERVAL '1 day'\n  AND ABS((daily_total - avg_7_days) / NULLIF(avg_7_days, 0) * 100) > 20",
+        "options": {}
+      },
+      "id": "postgres-anomaly-check",
+      "name": "Check Anomalies",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 600],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "anomaly-check",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-anomaly",
+      "name": "If Anomaly Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Analiza esta anomalía de ventas y genera un reporte conciso:\n\n{{ JSON.stringify($json) }}\n\nFormato: Título breve, descripción del problema, posible causa, recomendación."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "id": "openai-analyze-anomaly",
+      "name": "Analyze Anomaly",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [850, 550],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "alertas@tudominio.com",
+        "toEmail": "admin@tudominio.com",
+        "subject": "=🚨 Alerta de Ventas - {{ $json.company_id === 1 ? 'DURA' : 'ORSEGA' }}",
+        "text": "={{ $node['Analyze Anomaly'].json.message.content }}",
+        "options": {}
+      },
+      "id": "send-alert-email",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1050, 550],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [1],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "schedule-weekly-report",
+      "name": "Weekly Report Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 900]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  company_id,\n  CASE WHEN company_id = 1 THEN 'DURA International' ELSE 'Grupo ORSEGA' END as company_name,\n  CASE WHEN company_id = 1 THEN 'KG' ELSE 'unidades' END as unit,\n  SUM(quantity) as total_week,\n  COUNT(DISTINCT client_name) as active_clients,\n  COUNT(*) as total_transactions,\n  LAG(SUM(quantity)) OVER (PARTITION BY company_id ORDER BY MIN(sale_date)) as prev_week_total\nFROM sales_data\nWHERE sale_date >= CURRENT_DATE - INTERVAL '7 days'\nGROUP BY company_id\nORDER BY company_id",
+        "options": {}
+      },
+      "id": "postgres-weekly-data",
+      "name": "Get Weekly Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 900],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  client_name,\n  SUM(quantity) as total,\n  company_id\nFROM sales_data\nWHERE sale_date >= CURRENT_DATE - INTERVAL '7 days'\n  AND client_name IS NOT NULL AND client_name <> ''\nGROUP BY client_name, company_id\nORDER BY total DESC\nLIMIT 10",
+        "options": {}
+      },
+      "id": "postgres-top-clients",
+      "name": "Get Top Clients",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 1050],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Genera un reporte ejecutivo semanal profesional basado en estos datos:\n\nVENTAS DE LA SEMANA:\n{{ JSON.stringify($node['Get Weekly Data'].json) }}\n\nTOP CLIENTES:\n{{ JSON.stringify($node['Get Top Clients'].json) }}\n\nIncluye:\n1. Resumen ejecutivo (3-4 líneas)\n2. Métricas clave por empresa\n3. Top 5 clientes de la semana\n4. Tendencias observadas\n5. Recomendaciones (2-3 puntos)\n\nFormato profesional y conciso."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.6,
+          "maxTokens": 1500
+        }
+      },
+      "id": "openai-weekly-report",
+      "name": "Generate Weekly Report",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [700, 970],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "reportes@tudominio.com",
+        "toEmail": "directivos@tudominio.com",
+        "subject": "=📊 Reporte Semanal KPIs - Semana {{ new Date().toLocaleDateString('es-MX') }}",
+        "text": "={{ $json.message.content }}",
+        "options": {}
+      },
+      "id": "send-weekly-email",
+      "name": "Send Weekly Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [950, 970],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-memory",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-memory",
+      "name": "Webhook Memory Agent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 1250],
+      "webhookId": "ai-memory-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ai_conversations (user_id, session_id, role, content, created_at)\nVALUES (\n  '{{ $json.body.userId }}',\n  '{{ $json.body.sessionId }}',\n  '{{ $json.body.role }}',\n  '{{ $json.body.content }}',\n  NOW()\n)\nRETURNING id",
+        "options": {}
+      },
+      "id": "postgres-save-memory",
+      "name": "Save to Memory",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 1250],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content, created_at\nFROM ai_conversations\nWHERE session_id = '{{ $json.body.sessionId }}'\nORDER BY created_at DESC\nLIMIT 10",
+        "options": {}
+      },
+      "id": "postgres-get-memory",
+      "name": "Get Conversation History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [450, 1400],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL KPIs"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"saved\": true, \"history\": $json } }}",
+        "options": {}
+      },
+      "id": "respond-memory",
+      "name": "Respond Memory",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [700, 1320]
+    }
+  ],
+  "connections": {
+    "Webhook AI Assistant": {
+      "main": [
+        [
+          {
+            "node": "Get Business Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Business Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Alerts Check": {
+      "main": [
+        [
+          {
+            "node": "Check Anomalies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Anomalies": {
+      "main": [
+        [
+          {
+            "node": "If Anomaly Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Anomaly Found": {
+      "main": [
+        [
+          {
+            "node": "Analyze Anomaly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Anomaly": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Report Schedule": {
+      "main": [
+        [
+          {
+            "node": "Get Weekly Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Top Clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weekly Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Weekly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Top Clients": {
+      "main": [
+        [
+          {
+            "node": "Generate Weekly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Weekly Report": {
+      "main": [
+        [
+          {
+            "node": "Send Weekly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Memory Agent": {
+      "main": [
+        [
+          {
+            "node": "Save to Memory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Memory": {
+      "main": [
+        [
+          {
+            "node": "Respond Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History": {
+      "main": [
+        [
+          {
+            "node": "Respond Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "kpis-grupo-orsega"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 3
+}
