@@ -228,66 +228,36 @@ export function SalesVolumeChart({
     })));
   }
   
-  // Obtener datos reales de la API - Estandarizado para sincronización con otros componentes
-  const { data: kpiHistoryData, isLoading: isLoadingHistory, error: kpiHistoryError } = useQuery<any[]>({
-    queryKey: [`/api/kpi-history/${kpiId}`, { months: 12, companyId }],
-    enabled: !!kpiId && kpiId > 0,
-    staleTime: 0, // No cachear para asegurar datos frescos después de actualizaciones
-    refetchInterval: 30000, // Refrescar cada 30 segundos (estandarizado)
-    refetchOnWindowFocus: true, // Refrescar cuando la ventana vuelve a estar en foco
+  // Usar datos reales de sales_data en lugar de kpi_values
+  // El endpoint /api/sales-monthly-trends devuelve datos agregados de la tabla sales_data
+  const { data: salesTrendsData, isLoading: isLoadingTrends, error: salesTrendsError } = useQuery<any[]>({
+    queryKey: ['/api/sales-monthly-trends', { companyId, months: 12 }],
+    enabled: !!companyId && companyId > 0,
+    staleTime: 0,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
-  // Procesar datos históricos de la API - Optimizado con useMemo
+  // Procesar datos de sales_data - Optimizado con useMemo
   const chartData = useMemo(() => {
-    if (!kpiHistoryData || kpiHistoryData.length === 0) {
+    if (!salesTrendsData || salesTrendsData.length === 0) {
       return [];
     }
 
-    // Mapeo de nombres de meses para ordenamiento
-    const monthOrder: { [key: string]: number } = {
-      'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4,
-      'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8,
-      'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12,
-      'ENERO': 1, 'FEBRERO': 2, 'MARZO': 3, 'ABRIL': 4,
-      'MAYO': 5, 'JUNIO': 6, 'JULIO': 7, 'AGOSTO': 8,
-      'SEPTIEMBRE': 9, 'OCTUBRE': 10, 'NOVIEMBRE': 11, 'DICIEMBRE': 12
-    };
+    // Los datos ya vienen ordenados cronológicamente del endpoint
+    return salesTrendsData.map((item: any) => ({
+      period: item.month || `${item.monthNum}/${item.year}`,
+      value: item.volume || 0,
+      clients: item.clients || 0,
+      year: item.year,
+      monthNum: item.monthNum,
+      unit: companyId === 1 ? 'KG' : 'unidades'
+    }));
+  }, [salesTrendsData, companyId]);
 
-    // Procesar y ordenar los datos
-    const processedData = kpiHistoryData
-      .map((item: any) => {
-        // Extraer mes y año del periodo (formato: "Enero 2025" o "ENERO 2025")
-        const periodParts = (item.period || '').split(' ');
-        const month = periodParts[0] || '';
-        const year = periodParts[1] || new Date().getFullYear().toString();
-        const value = parseFloat(item.value?.toString() || '0');
-
-        return {
-          period: item.period,
-          value: value,
-          date: item.date ? new Date(item.date) : new Date(`${year}-${monthOrder[month] || 1}-01`),
-          monthOrder: monthOrder[month] || 0,
-          year: parseInt(year) || new Date().getFullYear(),
-          unit: companyId === 1 ? 'KG' : 'unidades'
-        };
-      })
-      .filter((item: any) => item.monthOrder > 0) // Filtrar items con meses válidos
-      .sort((a, b) => {
-        // Ordenar por año, luego por mes
-        if (a.year !== b.year) {
-          return a.year - b.year;
-        }
-        return a.monthOrder - b.monthOrder;
-      });
-
-    // NO aplicar slice aquí - mostrar todos los datos disponibles
-    // El limit se usará solo si es necesario para mostrar los últimos N meses
-    const finalData = limit > 0 && processedData.length > limit 
-      ? processedData.slice(-limit) 
-      : processedData;
-
-    return finalData;
-  }, [kpiHistoryData, companyId, limit]);
+  // Mantener compatibilidad con el código existente
+  const isLoadingHistory = isLoadingTrends;
+  const kpiHistoryError = salesTrendsError;
 
   // Extraer el valor objetivo (target) quitando "KG" y convirtiendo a número
   const targetValue = target ? parseInt(target.replace(/[^0-9]/g, ''), 10) : 0;
