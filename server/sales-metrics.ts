@@ -458,204 +458,127 @@ export async function getClientChurn(
 
 /**
  * Calcula todas las métricas de ventas para una empresa
- * Esta es la función principal que combina todas las métricas en una query optimizada
- * 
+ * MUESTRA TOTALES HISTÓRICOS - toda la data disponible
+ *
  * @param companyId - ID de la empresa (1 = Dura, 2 = Orsega)
  * @returns Métricas completas de ventas
- * 
- * @example
- * const metrics = await getSalesMetrics(1); // Dura International
  */
 export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> {
   const startTime = Date.now();
-  
-  console.log(`[getSalesMetrics] Iniciando cálculo de métricas para companyId: ${companyId}`);
-  
+
+  console.log(`[getSalesMetrics] Iniciando cálculo de métricas HISTÓRICAS para companyId: ${companyId}`);
+
   // Validar companyId
   if (!companyId || (companyId !== 1 && companyId !== 2)) {
     throw new Error(`Invalid companyId: ${companyId}. Must be 1 (Dura) or 2 (Orsega)`);
   }
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  const currentPeriod: Period = { type: 'month', year: currentYear, month: currentMonth };
-  
-  // Período anterior (mes anterior)
-  const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-  const previousYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-  const previousPeriod: Period = { type: 'month', year: previousYear, month: previousMonth };
-
-  // Queries separadas para evitar problemas con CTEs vacíos en CROSS JOIN
   const defaultUnit = companyId === 1 ? 'KG' : 'unidades';
-  
-  // Clientes activos este mes (con fallback a últimos 30 días si no hay datos)
-  // Usamos client_name porque client_id puede ser NULL en datos migrados
-  const currentMonthClientsQuery = `
-    SELECT COUNT(DISTINCT client_name) as count
+
+  // ========================================================================
+  // ESTRATEGIA: Mostrar TOTALES HISTÓRICOS de toda la data disponible
+  // ========================================================================
+
+  // 1. Obtener el rango de datos disponibles
+  const dataRangeQuery = `
+    SELECT
+      MIN(sale_year) as min_year,
+      MAX(sale_year) as max_year,
+      MIN(sale_date) as min_date,
+      MAX(sale_date) as max_date,
+      COUNT(*) as total_records
     FROM sales_data
     WHERE company_id = $1
-      AND sale_year = $2
-      AND sale_month = $3
+  `;
+  const dataRange = await sql(dataRangeQuery, [companyId]);
+  const minYear = parseInt(dataRange[0]?.min_year || '2024');
+  const maxYear = parseInt(dataRange[0]?.max_year || '2025');
+  const totalRecords = parseInt(dataRange[0]?.total_records || '0');
+
+  console.log(`[getSalesMetrics] Rango de datos: ${minYear}-${maxYear}, Total registros: ${totalRecords}`);
+
+  if (totalRecords === 0) {
+    console.warn(`[getSalesMetrics] ⚠️ No hay datos para companyId ${companyId}`);
+  }
+
+  // 2. TOTAL de clientes únicos en TODA la historia
+  const totalClientsQuery = `
+    SELECT COUNT(DISTINCT client_name) as total_clients
+    FROM sales_data
+    WHERE company_id = $1
       AND client_name IS NOT NULL AND client_name <> ''
   `;
-  const currentMonthClients = await sql(currentMonthClientsQuery, [companyId, currentYear, currentMonth]);
-  let currentMonthClientsCount = parseInt(currentMonthClients[0]?.count || '0', 10);
-  console.log(`[getSalesMetrics] Clientes mes actual (${currentYear}-${currentMonth}): ${currentMonthClientsCount}`);
-  
-  // Volumen este mes (con fallback a últimos 30 días si no hay datos)
-  const currentMonthVolumeQuery = `
-    SELECT COALESCE(SUM(quantity), 0) as total
+  const totalClientsResult = await sql(totalClientsQuery, [companyId]);
+  const totalHistoricalClients = parseInt(totalClientsResult[0]?.total_clients || '0');
+  console.log(`[getSalesMetrics] Total clientes históricos: ${totalHistoricalClients}`);
+
+  // 3. Clientes del ÚLTIMO AÑO con datos (maxYear)
+  const currentYearClientsQuery = `
+    SELECT COUNT(DISTINCT client_name) as clients
     FROM sales_data
     WHERE company_id = $1
       AND sale_year = $2
-      AND sale_month = $3
-  `;
-  const currentMonthVolume = await sql(currentMonthVolumeQuery, [companyId, currentYear, currentMonth]);
-  let currentVolume = parseFloat(currentMonthVolume[0]?.total || '0');
-  console.log(`[getSalesMetrics] Volumen mes actual (${currentYear}-${currentMonth}): ${currentVolume}`);
-  
-  // Si no hay datos en el mes actual, buscar en últimos 30 días históricos
-  if (currentVolume === 0 || currentMonthClientsCount === 0) {
-    console.log(`[getSalesMetrics] No hay datos en mes actual, buscando en últimos 30 días...`);
-    const last30DaysQuery = `
-      SELECT
-        COALESCE(SUM(quantity), 0) as total,
-        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients
-      FROM sales_data
-      WHERE company_id = $1
-        AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
-        AND sale_date <= CURRENT_DATE
-    `;
-    const last30Days = await sql(last30DaysQuery, [companyId]);
-    const last30DaysVolume = parseFloat(last30Days[0]?.total || '0');
-    const last30DaysClients = parseInt(last30Days[0]?.clients || '0', 10);
-    console.log(`[getSalesMetrics] Últimos 30 días - Volumen: ${last30DaysVolume}, Clientes: ${last30DaysClients}`);
-    
-    if (currentVolume === 0 && last30DaysVolume > 0) {
-      currentVolume = last30DaysVolume;
-      console.log(`[getSalesMetrics] Usando volumen de últimos 30 días: ${currentVolume}`);
-    }
-    if (currentMonthClientsCount === 0 && last30DaysClients > 0) {
-      currentMonthClientsCount = last30DaysClients;
-      console.log(`[getSalesMetrics] Usando clientes de últimos 30 días: ${currentMonthClientsCount}`);
-    }
-  }
-  
-  // Si aún no hay datos, buscar el último mes con datos disponibles (de cualquier año)
-  // Guardamos el último mes encontrado para usarlo en otras queries
-  let lastDataYear = currentYear;
-  let lastDataMonth = currentMonth;
-
-  if (currentVolume === 0) {
-    console.log(`[getSalesMetrics] No hay datos en últimos 30 días, buscando último mes con datos...`);
-    const lastMonthWithDataQuery = `
-      SELECT
-        sale_year,
-        sale_month,
-        COALESCE(SUM(quantity), 0) as total,
-        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients
-      FROM sales_data
-      WHERE company_id = $1
-      GROUP BY sale_year, sale_month
-      ORDER BY sale_year DESC, sale_month DESC
-      LIMIT 1
-    `;
-    const lastMonthData = await sql(lastMonthWithDataQuery, [companyId]);
-    if (lastMonthData.length > 0) {
-      lastDataYear = parseInt(lastMonthData[0]?.sale_year || currentYear);
-      lastDataMonth = parseInt(lastMonthData[0]?.sale_month || currentMonth);
-      const lastMonthVolume = parseFloat(lastMonthData[0]?.total || '0');
-      const lastMonthClients = parseInt(lastMonthData[0]?.clients || '0', 10);
-      console.log(`[getSalesMetrics] Último mes con datos: ${lastDataYear}-${lastDataMonth}, Volumen: ${lastMonthVolume}, Clientes: ${lastMonthClients}`);
-
-      if (lastMonthVolume > 0) {
-        currentVolume = lastMonthVolume;
-        console.log(`[getSalesMetrics] Usando volumen del último mes disponible: ${currentVolume}`);
-      }
-      if (currentMonthClientsCount === 0 && lastMonthClients > 0) {
-        currentMonthClientsCount = lastMonthClients;
-        console.log(`[getSalesMetrics] Usando clientes del último mes disponible: ${currentMonthClientsCount}`);
-      }
-    } else {
-      console.warn(`[getSalesMetrics] ⚠️ No se encontró ningún mes con datos para companyId ${companyId}`);
-    }
-  }
-
-  // Clientes activos últimos 3 meses (relativo al último mes con datos, no CURRENT_DATE)
-  // Calculamos la fecha de referencia basada en el último mes con datos
-  const referenceDate = new Date(lastDataYear, lastDataMonth - 1, 28); // Último día aproximado del mes
-  const threeMonthsAgo = new Date(lastDataYear, lastDataMonth - 4, 1); // 3 meses antes
-
-  const last3MonthsClientsQuery = `
-    SELECT COUNT(DISTINCT client_name) as count
-    FROM sales_data
-    WHERE company_id = $1
-      AND (sale_year > $2 OR (sale_year = $2 AND sale_month >= $3))
-      AND (sale_year < $4 OR (sale_year = $4 AND sale_month <= $5))
       AND client_name IS NOT NULL AND client_name <> ''
   `;
-  const last3MonthsClients = await sql(last3MonthsClientsQuery, [
-    companyId,
-    threeMonthsAgo.getFullYear(),
-    threeMonthsAgo.getMonth() + 1,
-    lastDataYear,
-    lastDataMonth
-  ]);
-  const last3MonthsClientsCount = parseInt(last3MonthsClients[0]?.count || '0', 10);
-  console.log(`[getSalesMetrics] Clientes últimos 3 meses (${threeMonthsAgo.getFullYear()}/${threeMonthsAgo.getMonth() + 1} - ${lastDataYear}/${lastDataMonth}): ${last3MonthsClientsCount}`);
-  
-  // Verificar si hay datos en sales_data para este company_id
-  const totalRecordsQuery = `
-    SELECT COUNT(*) as total
-    FROM sales_data
-    WHERE company_id = $1
-  `;
-  const totalRecords = await sql(totalRecordsQuery, [companyId]);
-  const totalRecordsCount = parseInt(totalRecords[0]?.total || '0', 10);
-  console.log(`[getSalesMetrics] Total de registros en sales_data para companyId ${companyId}: ${totalRecordsCount}`);
-  
-  if (totalRecordsCount === 0) {
-    console.error(`[getSalesMetrics] ⚠️ ADVERTENCIA: No hay registros en sales_data para companyId ${companyId}`);
-  } else {
-    // Verificar rango de fechas
-    const dateRangeQuery = `
-      SELECT 
-        MIN(sale_date) as min_date,
-        MAX(sale_date) as max_date,
-        MIN(sale_year) as min_year,
-        MAX(sale_year) as max_year
-      FROM sales_data
-      WHERE company_id = $1
-    `;
-    const dateRange = await sql(dateRangeQuery, [companyId]);
-    console.log(`[getSalesMetrics] Rango de fechas: ${dateRange[0]?.min_date} a ${dateRange[0]?.max_date} (años: ${dateRange[0]?.min_year} a ${dateRange[0]?.max_year})`);
-  }
-  
-  // Volumen año anterior mismo mes (usando lastDataMonth para comparar el mismo período)
-  const lastYearVolumeQuery = `
-    SELECT COALESCE(SUM(quantity), 0) as total
+  const currentYearClients = await sql(currentYearClientsQuery, [companyId, maxYear]);
+  const activeClientsCurrentYear = parseInt(currentYearClients[0]?.clients || '0');
+  console.log(`[getSalesMetrics] Clientes año ${maxYear}: ${activeClientsCurrentYear}`);
+
+  // 4. VOLUMEN TOTAL del último año con datos
+  const currentYearVolumeQuery = `
+    SELECT COALESCE(SUM(quantity), 0) as total_volume
     FROM sales_data
     WHERE company_id = $1
       AND sale_year = $2
-      AND sale_month = $3
   `;
-  const lastYearVolume = await sql(lastYearVolumeQuery, [companyId, lastDataYear - 1, lastDataMonth]);
-  const lastYearVolumeTotal = parseFloat(lastYearVolume[0]?.total || '0');
-  console.log(`[getSalesMetrics] Volumen año anterior (${lastDataYear - 1}/${lastDataMonth}): ${lastYearVolumeTotal}`);
+  const currentYearVolume = await sql(currentYearVolumeQuery, [companyId, maxYear]);
+  const volumeCurrentYear = parseFloat(currentYearVolume[0]?.total_volume || '0');
+  console.log(`[getSalesMetrics] Volumen año ${maxYear}: ${volumeCurrentYear}`);
 
-  // Unidad (del último mes con datos, no CURRENT_DATE)
+  // 5. VOLUMEN TOTAL del año anterior para comparación
+  const previousYearVolumeQuery = `
+    SELECT COALESCE(SUM(quantity), 0) as total_volume
+    FROM sales_data
+    WHERE company_id = $1
+      AND sale_year = $2
+  `;
+  const previousYearVolume = await sql(previousYearVolumeQuery, [companyId, maxYear - 1]);
+  const volumePreviousYear = parseFloat(previousYearVolume[0]?.total_volume || '0');
+  console.log(`[getSalesMetrics] Volumen año ${maxYear - 1}: ${volumePreviousYear}`);
+
+  // 6. Calcular CRECIMIENTO año vs año
+  const growth = volumePreviousYear > 0
+    ? parseFloat(((volumeCurrentYear - volumePreviousYear) / volumePreviousYear * 100).toFixed(1))
+    : (volumeCurrentYear > 0 ? 100 : 0);
+  console.log(`[getSalesMetrics] Crecimiento YoY: ${growth}%`);
+
+  // 7. Clientes activos últimos 3 meses del último año con datos
+  const last3MonthsQuery = `
+    SELECT COUNT(DISTINCT client_name) as clients
+    FROM sales_data
+    WHERE company_id = $1
+      AND sale_year = $2
+      AND sale_month >= (
+        SELECT MAX(sale_month) - 2
+        FROM sales_data
+        WHERE company_id = $1 AND sale_year = $2
+      )
+      AND client_name IS NOT NULL AND client_name <> ''
+  `;
+  const last3MonthsResult = await sql(last3MonthsQuery, [companyId, maxYear]);
+  const clientsLast3Months = parseInt(last3MonthsResult[0]?.clients || '0');
+  console.log(`[getSalesMetrics] Clientes últimos 3 meses de ${maxYear}: ${clientsLast3Months}`);
+
+  // 8. Obtener unidad
   const unitQuery = `
     SELECT COALESCE(MAX(unit), $2) as unit
     FROM sales_data
     WHERE company_id = $1
-      AND sale_year = $3
-      AND sale_month = $4
   `;
-  const unitResult = await sql(unitQuery, [companyId, defaultUnit, lastDataYear, lastDataMonth]);
+  const unitResult = await sql(unitQuery, [companyId, defaultUnit]);
   const unit = unitResult[0]?.unit || defaultUnit;
-  
-  // Alertas activas
+
+  // 9. Alertas activas
   const alertsQuery = `
     SELECT COUNT(*) as count
     FROM sales_alerts
@@ -665,16 +588,24 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   `;
   const alerts = await sql(alertsQuery, [companyId]);
   const activeAlertsCount = parseInt(alerts[0]?.count || '0', 10);
-  
-  // Calcular crecimiento
-  const growth = lastYearVolumeTotal > 0
-    ? parseFloat(((currentVolume - lastYearVolumeTotal) / lastYearVolumeTotal * 100).toFixed(1))
-    : 0;
-  
-  // Usar clientes activos del mes actual, o de últimos 30 días si no hay
-  const activeClientsCount = currentMonthClientsCount > 0 
-    ? currentMonthClientsCount 
-    : last3MonthsClientsCount;
+
+  // 10. Períodos para métricas adicionales (usar último mes con datos)
+  const lastMonthQuery = `
+    SELECT sale_year, sale_month
+    FROM sales_data
+    WHERE company_id = $1
+    GROUP BY sale_year, sale_month
+    ORDER BY sale_year DESC, sale_month DESC
+    LIMIT 1
+  `;
+  const lastMonthResult = await sql(lastMonthQuery, [companyId]);
+  const lastDataYear = parseInt(lastMonthResult[0]?.sale_year || maxYear);
+  const lastDataMonth = parseInt(lastMonthResult[0]?.sale_month || '12');
+
+  const currentPeriod: Period = { type: 'month', year: lastDataYear, month: lastDataMonth };
+  const previousMonth = lastDataMonth === 1 ? 12 : lastDataMonth - 1;
+  const previousYear = lastDataMonth === 1 ? lastDataYear - 1 : lastDataYear;
+  const previousPeriod: Period = { type: 'month', year: previousYear, month: previousMonth };
 
   // Calcular métricas adicionales en paralelo
   const [
@@ -692,23 +623,27 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   ]);
 
   const executionTime = Date.now() - startTime;
-  console.log(`[getSalesMetrics] Calculadas métricas para companyId ${companyId} en ${executionTime}ms`);
+  console.log(`[getSalesMetrics] Calculadas métricas HISTÓRICAS para companyId ${companyId} en ${executionTime}ms`);
+  console.log(`[getSalesMetrics] RESUMEN: Clientes=${activeClientsCurrentYear}, Volumen=${volumeCurrentYear}, Crecimiento=${growth}%`);
 
   return {
-    // Métricas existentes (backward compatibility)
-    activeClients: activeClientsCount,
-    currentVolume,
+    // Métricas principales - DATOS DEL AÑO MÁS RECIENTE
+    activeClients: activeClientsCurrentYear,
+    currentVolume: volumeCurrentYear,
     unit: unit,
     growth,
     activeAlerts: activeAlertsCount,
-    
-    // Nuevas métricas
-    activeClientsMetrics,
+
+    // Métricas extendidas
+    activeClientsMetrics: {
+      thisMonth: activeClientsCurrentYear,
+      last3Months: clientsLast3Months || totalHistoricalClients
+    },
     retentionRate,
     newClients,
     avgOrderValue,
     clientChurn,
-    
+
     // Metadata
     period: {
       current: currentPeriod,
