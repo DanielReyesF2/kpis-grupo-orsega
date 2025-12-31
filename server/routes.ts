@@ -7633,7 +7633,7 @@ export function registerRoutes(app: express.Application) {
           sale_year,
           sale_month,
           COALESCE(SUM(quantity), 0) as total_volume,
-          COUNT(DISTINCT client_id) FILTER (WHERE client_id IS NOT NULL) as active_clients,
+          COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
@@ -8050,10 +8050,9 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Buscar top clientes en los últimos 3 meses para mostrar datos históricos reales
-      // Si no hay datos en últimos 3 meses, buscar en el último año disponible
+      // Usamos client_name porque client_id puede ser NULL en datos migrados
       let topClients = await sql(`
         SELECT
-          client_id,
           client_name,
           COALESCE(SUM(quantity), 0) as total_volume,
           COUNT(*) as transactions,
@@ -8062,8 +8061,8 @@ export function registerRoutes(app: express.Application) {
         WHERE company_id = $1
           AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
           AND sale_date <= CURRENT_DATE
-          AND client_id IS NOT NULL
-        GROUP BY client_id, client_name
+          AND client_name IS NOT NULL AND client_name <> ''
+        GROUP BY client_name
         ORDER BY total_volume DESC
         LIMIT $2
       `, [resolvedCompanyId, parseInt(limit as string) || 5]);
@@ -8072,7 +8071,6 @@ export function registerRoutes(app: express.Application) {
       if (!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) {
         topClients = await sql(`
           SELECT
-            client_id,
             client_name,
             COALESCE(SUM(quantity), 0) as total_volume,
             COUNT(*) as transactions,
@@ -8081,8 +8079,8 @@ export function registerRoutes(app: express.Application) {
           WHERE company_id = $1
             AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
             AND sale_date <= CURRENT_DATE
-            AND client_id IS NOT NULL
-          GROUP BY client_id, client_name
+            AND client_name IS NOT NULL AND client_name <> ''
+          GROUP BY client_name
           ORDER BY total_volume DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
@@ -8632,7 +8630,7 @@ export function registerRoutes(app: express.Application) {
         const result = await sql`
           SELECT
             COALESCE(SUM(quantity), 0) as total_volume,
-            COUNT(DISTINCT client_id) as clients,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = 1
@@ -8658,7 +8656,7 @@ export function registerRoutes(app: express.Application) {
         const result = await sql`
           SELECT
             COALESCE(SUM(quantity), 0) as total_volume,
-            COUNT(DISTINCT client_id) as clients,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = 2
@@ -8686,7 +8684,7 @@ export function registerRoutes(app: express.Application) {
         let result;
         if (companyId) {
           result = await sql`
-            SELECT COUNT(DISTINCT client_id) as active_clients
+            SELECT COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients
             FROM sales_data
             WHERE company_id = ${companyId}
               AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
@@ -8694,7 +8692,7 @@ export function registerRoutes(app: express.Application) {
           `;
         } else {
           result = await sql`
-            SELECT COUNT(DISTINCT client_id) as active_clients
+            SELECT COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients
             FROM sales_data
             WHERE EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
               AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
@@ -8798,15 +8796,17 @@ export function registerRoutes(app: express.Application) {
         const companyName = isDura ? 'DURA International' : 'Grupo ORSEGA';
 
         const result = await sql`
-          SELECT COUNT(DISTINCT client_id) as new_clients
+          SELECT COUNT(DISTINCT client_name) as new_clients
           FROM sales_data
           WHERE company_id = ${companyId}
             AND EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
             AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND client_id NOT IN (
-              SELECT DISTINCT client_id FROM sales_data
+            AND client_name IS NOT NULL AND client_name <> ''
+            AND client_name NOT IN (
+              SELECT DISTINCT client_name FROM sales_data
               WHERE company_id = ${companyId}
                 AND sale_date < DATE_TRUNC('month', CURRENT_DATE)
+                AND client_name IS NOT NULL AND client_name <> ''
             )
         `;
 
@@ -8821,7 +8821,7 @@ export function registerRoutes(app: express.Application) {
         const duraStats = await sql`
           SELECT
             COALESCE(SUM(quantity), 0) as volume,
-            COUNT(DISTINCT client_id) as clients,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = 1
@@ -8832,7 +8832,7 @@ export function registerRoutes(app: express.Application) {
         const orsegaStats = await sql`
           SELECT
             COALESCE(SUM(quantity), 0) as volume,
-            COUNT(DISTINCT client_id) as clients,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = 2

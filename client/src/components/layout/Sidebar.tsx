@@ -208,71 +208,6 @@ function Sidebar() {
             Dashboard
           </NavItem>
 
-          <NavItem
-            href="/kpi-control"
-            icon={<TrendingUp className="h-4 w-4" />}
-            active={location === "/kpi-control"}
-            onClick={closeMenu}
-          >
-            Centro de Control
-          </NavItem>
-
-          {/* Módulo de Logística */}
-          {hasLogisticsAccess && (
-            <NavItem
-              href="/logistics"
-              icon={<Truck className="h-4 w-4" />}
-              active={location === "/logistics" || location.includes("/logistics/")}
-              onClick={closeMenu}
-            >
-              Logística
-            </NavItem>
-          )}
-
-          {/* Tesorería */}
-          <Collapsible open={isTreasuryOpen} onOpenChange={setIsTreasuryOpen}>
-            <CollapsibleTrigger asChild>
-              <div
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-all duration-150",
-                  location.startsWith("/treasury")
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  <span>Tesorería</span>
-                </div>
-                {isTreasuryOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 mt-1">
-              <NavItem
-                href="/treasury/vouchers"
-                icon={<Receipt className="h-4 w-4" />}
-                active={location === "/treasury/vouchers" || location === "/treasury"}
-                onClick={closeMenu}
-                indent
-              >
-                Comprobantes
-              </NavItem>
-              <NavItem
-                href="/treasury/exchange-rates"
-                icon={<DollarSign className="h-4 w-4" />}
-                active={location === "/treasury/exchange-rates"}
-                onClick={closeMenu}
-                indent
-              >
-                Tipos de Cambio
-              </NavItem>
-            </CollapsibleContent>
-          </Collapsible>
-
           {/* Ventas */}
           <Collapsible open={isSalesOpen} onOpenChange={setIsSalesOpen}>
             <CollapsibleTrigger asChild>
@@ -318,6 +253,72 @@ function Sidebar() {
               </NavItem>
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Tesorería */}
+          <Collapsible open={isTreasuryOpen} onOpenChange={setIsTreasuryOpen}>
+            <CollapsibleTrigger asChild>
+              <div
+                className={cn(
+                  "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-all duration-150",
+                  location.startsWith("/treasury")
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  <span>Tesorería</span>
+                </div>
+                {isTreasuryOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1 mt-1">
+              <NavItem
+                href="/treasury/vouchers"
+                icon={<Receipt className="h-4 w-4" />}
+                active={location === "/treasury/vouchers" || location === "/treasury"}
+                onClick={closeMenu}
+                indent
+              >
+                Comprobantes
+              </NavItem>
+              <NavItem
+                href="/treasury/exchange-rates"
+                icon={<DollarSign className="h-4 w-4" />}
+                active={location === "/treasury/exchange-rates"}
+                onClick={closeMenu}
+                indent
+              >
+                Tipos de Cambio
+              </NavItem>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Módulo de Logística */}
+          {hasLogisticsAccess && (
+            <NavItem
+              href="/logistics"
+              icon={<Truck className="h-4 w-4" />}
+              active={location === "/logistics" || location.includes("/logistics/")}
+              onClick={closeMenu}
+            >
+              Logística
+            </NavItem>
+          )}
+
+          {/* Centro de Control */}
+          <NavItem
+            href="/kpi-control"
+            icon={<TrendingUp className="h-4 w-4" />}
+            active={location === "/kpi-control"}
+            onClick={closeMenu}
+          >
+            Centro de Control
+          </NavItem>
 
           {/* Admin */}
           {isAdmin && (

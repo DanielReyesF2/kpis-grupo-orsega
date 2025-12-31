@@ -103,13 +103,14 @@ export async function getActiveClients(
 
   if (period === 'month') {
     // Buscar en el mes actual, pero si no hay datos, buscar en el último mes con datos disponibles
+    // Usar client_name en lugar de client_id porque client_id puede ser NULL en los datos migrados
     query = `
-      SELECT COUNT(DISTINCT client_id) as count
+      SELECT COUNT(DISTINCT client_name) as count
       FROM sales_data
       WHERE company_id = $1
         AND sale_year = $2
         AND sale_month = $3
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     `;
     params = [companyId, currentYear, currentMonth];
     
@@ -119,10 +120,10 @@ export async function getActiveClients(
     // Si no hay datos en el mes actual, buscar en los últimos 30 días históricos
     if (count === 0) {
       const last30DaysQuery = `
-        SELECT COUNT(DISTINCT client_id) as count
+        SELECT COUNT(DISTINCT client_name) as count
         FROM sales_data
         WHERE company_id = $1
-          AND client_id IS NOT NULL
+          AND client_name IS NOT NULL AND client_name <> ''
           AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
           AND sale_date <= CURRENT_DATE
       `;
@@ -132,10 +133,10 @@ export async function getActiveClients(
       // Si aún no hay datos, buscar el último mes con datos disponibles
       if (last30DaysCount === 0) {
         const lastMonthWithDataQuery = `
-          SELECT COUNT(DISTINCT client_id) as count
+          SELECT COUNT(DISTINCT client_name) as count
           FROM sales_data
           WHERE company_id = $1
-            AND client_id IS NOT NULL
+            AND client_name IS NOT NULL AND client_name <> ''
           ORDER BY sale_date DESC
           LIMIT 1
         `;
@@ -151,14 +152,14 @@ export async function getActiveClients(
     // Últimos 3 meses (90 días) - usar sale_date para datos históricos
     const threeMonthsAgo = new Date(now);
     threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-    
+
     query = `
-      SELECT COUNT(DISTINCT client_id) as count
+      SELECT COUNT(DISTINCT client_name) as count
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= $2
         AND sale_date <= $3
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     `;
     params = [companyId, threeMonthsAgo.toISOString().split('T')[0], now.toISOString().split('T')[0]];
     
@@ -208,27 +209,28 @@ export async function getRetentionRate(
   const previousDates = calculatePeriodDates(previousPeriod);
 
   // Query optimizada para calcular retención
+  // Usamos client_name porque client_id puede ser NULL en datos migrados
   const query = `
     WITH current_period_clients AS (
-      SELECT DISTINCT client_id
+      SELECT DISTINCT client_name
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= $2
         AND sale_date <= $3
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     ),
     previous_period_clients AS (
-      SELECT DISTINCT client_id
+      SELECT DISTINCT client_name
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= $4
         AND sale_date <= $5
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     ),
     retained_clients AS (
-      SELECT DISTINCT c.client_id
+      SELECT DISTINCT c.client_name
       FROM current_period_clients c
-      INNER JOIN previous_period_clients p ON c.client_id = p.client_id
+      INNER JOIN previous_period_clients p ON c.client_name = p.client_name
     )
     SELECT 
       (SELECT COUNT(*) FROM current_period_clients) as current_count,
@@ -282,7 +284,7 @@ export async function getNewClients(
         MIN(sale_date) as first_purchase_date
       FROM sales_data
       WHERE company_id = $1
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
       GROUP BY client_id, client_name
     ),
     new_clients AS (
@@ -370,41 +372,41 @@ export async function getClientChurn(
   const currentDates = calculatePeriodDates(currentPeriod);
   const previousDates = calculatePeriodDates(previousPeriod);
 
+  // Usamos client_name porque client_id puede ser NULL en datos migrados
   const query = `
     WITH current_period_clients AS (
-      SELECT DISTINCT client_id
+      SELECT DISTINCT client_name
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= $2
         AND sale_date <= $3
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     ),
     previous_period_clients AS (
-      SELECT DISTINCT client_id
+      SELECT DISTINCT client_name
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= $4
         AND sale_date <= $5
-        AND client_id IS NOT NULL
+        AND client_name IS NOT NULL AND client_name <> ''
     ),
     churned_clients AS (
-      SELECT DISTINCT p.client_id
+      SELECT DISTINCT p.client_name
       FROM previous_period_clients p
-      LEFT JOIN current_period_clients c ON p.client_id = c.client_id
-      WHERE c.client_id IS NULL
+      LEFT JOIN current_period_clients c ON p.client_name = c.client_name
+      WHERE c.client_name IS NULL
     ),
     churned_with_details AS (
-      SELECT 
-        cc.client_id,
-        sd.client_name,
+      SELECT
+        cc.client_name,
         MAX(sd.sale_date) as last_purchase_date
       FROM churned_clients cc
-      INNER JOIN sales_data sd ON cc.client_id = sd.client_id
+      INNER JOIN sales_data sd ON cc.client_name = sd.client_name
       WHERE sd.company_id = $1
-      GROUP BY cc.client_id, sd.client_name
+      GROUP BY cc.client_name
     )
-    SELECT 
-      client_id as id,
+    SELECT
+      0 as id,
       client_name as name,
       last_purchase_date as "lastPurchaseDate"
     FROM churned_with_details
@@ -428,12 +430,12 @@ export async function getClientChurn(
   // Calcular tasa de churn
   // Necesitamos el total de clientes del período anterior
   const previousCountQuery = `
-    SELECT COUNT(DISTINCT client_id) as count
+    SELECT COUNT(DISTINCT client_name) as count
     FROM sales_data
     WHERE company_id = $1
       AND sale_date >= $2
       AND sale_date <= $3
-      AND client_id IS NOT NULL
+      AND client_name IS NOT NULL AND client_name <> ''
   `;
 
   const previousCountResult = await sql(previousCountQuery, [
@@ -488,13 +490,14 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   const defaultUnit = companyId === 1 ? 'KG' : 'unidades';
   
   // Clientes activos este mes (con fallback a últimos 30 días si no hay datos)
+  // Usamos client_name porque client_id puede ser NULL en datos migrados
   const currentMonthClientsQuery = `
-    SELECT COUNT(DISTINCT client_id) as count
+    SELECT COUNT(DISTINCT client_name) as count
     FROM sales_data
     WHERE company_id = $1
       AND sale_year = $2
       AND sale_month = $3
-      AND client_id IS NOT NULL
+      AND client_name IS NOT NULL AND client_name <> ''
   `;
   const currentMonthClients = await sql(currentMonthClientsQuery, [companyId, currentYear, currentMonth]);
   let currentMonthClientsCount = parseInt(currentMonthClients[0]?.count || '0', 10);
@@ -516,9 +519,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   if (currentVolume === 0 || currentMonthClientsCount === 0) {
     console.log(`[getSalesMetrics] No hay datos en mes actual, buscando en últimos 30 días...`);
     const last30DaysQuery = `
-      SELECT 
+      SELECT
         COALESCE(SUM(quantity), 0) as total,
-        COUNT(DISTINCT client_id) FILTER (WHERE client_id IS NOT NULL) as clients
+        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients
       FROM sales_data
       WHERE company_id = $1
         AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
@@ -543,11 +546,11 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   if (currentVolume === 0) {
     console.log(`[getSalesMetrics] No hay datos en últimos 30 días, buscando último mes con datos...`);
     const lastMonthWithDataQuery = `
-      SELECT 
+      SELECT
         sale_year,
         sale_month,
         COALESCE(SUM(quantity), 0) as total,
-        COUNT(DISTINCT client_id) FILTER (WHERE client_id IS NOT NULL) as clients
+        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients
       FROM sales_data
       WHERE company_id = $1
       GROUP BY sale_year, sale_month
@@ -575,12 +578,12 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   
   // Clientes activos últimos 3 meses
   const last3MonthsClientsQuery = `
-    SELECT COUNT(DISTINCT client_id) as count
+    SELECT COUNT(DISTINCT client_name) as count
     FROM sales_data
     WHERE company_id = $1
       AND sale_date >= CURRENT_DATE - INTERVAL '90 days'
       AND sale_date <= CURRENT_DATE
-      AND client_id IS NOT NULL
+      AND client_name IS NOT NULL AND client_name <> ''
   `;
   const last3MonthsClients = await sql(last3MonthsClientsQuery, [companyId]);
   const last3MonthsClientsCount = parseInt(last3MonthsClients[0]?.count || '0', 10);
