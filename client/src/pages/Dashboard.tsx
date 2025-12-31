@@ -14,6 +14,8 @@ import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { YearlyTotalsBarChart } from '@/components/dashboard/YearlyTotalsBarChart';
+import { TopClientsChart } from '@/components/dashboard/TopClientsChart';
+import { TopProductsChart } from '@/components/dashboard/TopProductsChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Importación de ShipmentCarbonFootprint eliminada a petición del usuario
@@ -286,6 +288,12 @@ export default function Dashboard() {
           {/* Panorama Histórico de Ventas por Año */}
           <div className="mt-8" data-onboarding="yearly-chart">
             <YearlyTotalsBarChart companyId={selectedChartCompany} />
+          </div>
+
+          {/* Top Clientes y Top Productos */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6" data-onboarding="top-charts">
+            <TopClientsChart companyId={selectedChartCompany} limit={5} />
+            <TopProductsChart companyId={selectedChartCompany} limit={5} />
           </div>
 
         </div>

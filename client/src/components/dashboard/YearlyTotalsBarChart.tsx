@@ -1,6 +1,6 @@
 /**
  * Yearly Totals Bar Chart - Panorama Histórico de Ventas
- * Diseño moderno con insights y métricas clave
+ * Diseño moderno premium con gradientes y animaciones suaves
  */
 
 import { useState } from "react";
@@ -16,7 +16,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  LabelList
+  LabelList,
+  ReferenceLine
 } from "recharts";
 import {
   TrendingUp,
@@ -28,7 +29,8 @@ import {
   Zap,
   Award,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Sparkles
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -67,8 +69,24 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
   });
 
   const companyName = companyId === 1 ? "DURA" : companyId === 2 ? "ORSEGA" : "DURA";
-  const companyColor = companyId === 2 ? "#8b5cf6" : "#10b981";
-  const companyColorLight = companyId === 2 ? "#a78bfa" : "#34d399";
+
+  // Colores más vibrantes y modernos
+  const companyConfig = companyId === 2
+    ? {
+        primary: "#8b5cf6",
+        secondary: "#a78bfa",
+        gradient: ["#8b5cf6", "#6366f1"],
+        light: "rgba(139, 92, 246, 0.1)",
+        glow: "rgba(139, 92, 246, 0.3)"
+      }
+    : {
+        primary: "#10b981",
+        secondary: "#34d399",
+        gradient: ["#10b981", "#059669"],
+        light: "rgba(16, 185, 129, 0.1)",
+        glow: "rgba(16, 185, 129, 0.3)"
+      };
+
   const unit = companyId === 2 ? "unidades" : "KG";
 
   const formatNumber = (num: number) => {
@@ -83,15 +101,20 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
 
   if (isLoading) {
     return (
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden bg-gradient-to-br from-card to-muted/30 border-border/50">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">Cargando datos históricos...</span>
+            <div className="p-2 rounded-lg bg-primary/10 animate-pulse">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+              <div className="h-3 w-24 bg-muted/50 rounded animate-pulse" />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[280px] w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
         </CardContent>
       </Card>
     );
@@ -99,11 +122,14 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
 
   if (error || !chartDataRaw?.yearTotals?.length) {
     return (
-      <Card className="overflow-hidden border-dashed">
-        <CardContent className="py-12">
+      <Card className="overflow-hidden border-dashed border-2">
+        <CardContent className="py-16">
           <div className="text-center">
-            <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No hay datos históricos disponibles</p>
+            <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+              <BarChart3 className="h-8 w-8 text-muted-foreground/40" />
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">No hay datos históricos disponibles</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Sube datos de ventas para ver el panorama histórico</p>
           </div>
         </CardContent>
       </Card>
@@ -151,26 +177,30 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
 
     const data = payload[0].payload;
     return (
-      <div className="bg-[#1a1a1a] border border-[#333] rounded-xl p-4 shadow-2xl min-w-[180px]">
-        <p className="text-white font-bold text-lg mb-2">{label}</p>
+      <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl p-4 shadow-xl min-w-[200px]">
+        <div className="flex items-center gap-2 mb-3">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: data.isBestYear ? '#f59e0b' : companyConfig.primary }}
+          />
+          <p className="text-foreground font-bold text-lg">{label}</p>
+          {data.isBestYear && <Award className="h-4 w-4 text-amber-500" />}
+        </div>
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Total</span>
-            <span className="text-white font-semibold">{formatFullNumber(data.value)} {unit}</span>
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-muted-foreground text-sm">Total vendido</span>
+            <span className="text-foreground font-bold">{formatFullNumber(data.value)}</span>
+          </div>
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-muted-foreground text-sm">Unidad</span>
+            <span className="text-foreground font-medium">{unit}</span>
           </div>
           {data.growth !== null && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400 text-sm">Crecimiento</span>
-              <span className={`font-semibold flex items-center gap-1 ${data.growth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {data.growth >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+            <div className="flex justify-between items-center gap-4 pt-2 border-t border-border/50">
+              <span className="text-muted-foreground text-sm">vs. año anterior</span>
+              <span className={`font-bold flex items-center gap-1 ${data.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                {data.growth >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
                 {data.growth >= 0 ? '+' : ''}{data.growth.toFixed(1)}%
-              </span>
-            </div>
-          )}
-          {data.isBestYear && (
-            <div className="pt-2 mt-2 border-t border-[#333]">
-              <span className="text-amber-400 text-xs flex items-center gap-1">
-                <Award className="h-3 w-3" /> Mejor año histórico
               </span>
             </div>
           )}
@@ -180,33 +210,40 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
   };
 
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-background to-muted/20">
-      {/* Header with stats */}
+    <Card className="overflow-hidden bg-gradient-to-br from-card via-card to-muted/20 border-border/50 shadow-lg">
+      {/* Header mejorado */}
       <CardHeader className="pb-0">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
             <div
-              className="p-2.5 rounded-xl"
-              style={{ backgroundColor: `${companyColor}20` }}
+              className="p-3 rounded-2xl shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, ${companyConfig.primary}20, ${companyConfig.primary}10)`,
+                boxShadow: `0 4px 20px ${companyConfig.glow}`
+              }}
             >
-              <BarChart3 className="h-5 w-5" style={{ color: companyColor }} />
+              <BarChart3 className="h-6 w-6" style={{ color: companyConfig.primary }} />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
                 Panorama Histórico
+                <Sparkles className="h-4 w-4 text-amber-500" />
               </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {companyName} · {yearTotals[0].year} - {latestYear.year}
+              <p className="text-sm text-muted-foreground mt-1">
+                {companyName} · Ventas acumuladas {yearTotals[0].year} - {latestYear.year}
               </p>
             </div>
           </div>
 
-          {/* Quick insight badge */}
+          {/* Badge de crecimiento mejorado */}
           <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-md"
             style={{
-              backgroundColor: latestGrowth >= 0 ? 'rgb(16 185 129 / 0.1)' : 'rgb(239 68 68 / 0.1)',
-              color: latestGrowth >= 0 ? 'rgb(16 185 129)' : 'rgb(239 68 68)'
+              background: latestGrowth >= 0
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
+                : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))',
+              color: latestGrowth >= 0 ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)',
+              border: `1px solid ${latestGrowth >= 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
             }}
           >
             {latestGrowth >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -214,99 +251,141 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="text-xs">Total Histórico</span>
+        {/* Stats cards mejoradas */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+          <div className="relative overflow-hidden bg-gradient-to-br from-background to-muted/30 rounded-2xl p-4 border border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <div className="absolute top-0 right-0 w-16 h-16 opacity-10"
+              style={{ background: `radial-gradient(circle, ${companyConfig.primary}, transparent)` }}
+            />
+            <div className="flex items-center gap-2 text-muted-foreground mb-2">
+              <Calendar className="h-4 w-4" />
+              <span className="text-xs font-medium">Total Histórico</span>
             </div>
-            <p className="text-lg font-bold" style={{ color: companyColor }}>
+            <p className="text-2xl font-bold" style={{ color: companyConfig.primary }}>
               {formatNumber(totalHistorico)}
             </p>
-            <p className="text-[10px] text-muted-foreground">{unit}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{unit}</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Target className="h-3.5 w-3.5" />
-              <span className="text-xs">Promedio Anual</span>
+          <div className="relative overflow-hidden bg-gradient-to-br from-background to-muted/30 rounded-2xl p-4 border border-border/50 shadow-sm hover:shadow-md transition-shadow">
+            <div className="absolute top-0 right-0 w-16 h-16 opacity-10"
+              style={{ background: `radial-gradient(circle, ${companyConfig.secondary}, transparent)` }}
+            />
+            <div className="flex items-center gap-2 text-muted-foreground mb-2">
+              <Target className="h-4 w-4" />
+              <span className="text-xs font-medium">Promedio Anual</span>
             </div>
-            <p className="text-lg font-bold">{formatNumber(avgAnual)}</p>
-            <p className="text-[10px] text-muted-foreground">{unit}/año</p>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(avgAnual)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{unit}/año</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Award className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs">Mejor Año</span>
+          <div className="relative overflow-hidden bg-gradient-to-br from-amber-50/50 to-amber-100/30 dark:from-amber-950/20 dark:to-amber-900/10 rounded-2xl p-4 border border-amber-200/50 dark:border-amber-800/30 shadow-sm hover:shadow-md transition-shadow">
+            <div className="absolute top-0 right-0 w-16 h-16 opacity-20"
+              style={{ background: 'radial-gradient(circle, #f59e0b, transparent)' }}
+            />
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
+              <Award className="h-4 w-4" />
+              <span className="text-xs font-medium">Mejor Año</span>
             </div>
-            <p className="text-lg font-bold">{bestYear.year}</p>
-            <p className="text-[10px] text-muted-foreground">{formatNumber(bestYear.totalQty)} {unit}</p>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{bestYear.year}</p>
+            <p className="text-[11px] text-amber-700/70 dark:text-amber-300/70 mt-1">{formatNumber(bestYear.totalQty)} {unit}</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Zap className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-xs">CAGR</span>
+          <div className="relative overflow-hidden bg-gradient-to-br from-blue-50/50 to-blue-100/30 dark:from-blue-950/20 dark:to-blue-900/10 rounded-2xl p-4 border border-blue-200/50 dark:border-blue-800/30 shadow-sm hover:shadow-md transition-shadow">
+            <div className="absolute top-0 right-0 w-16 h-16 opacity-20"
+              style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }}
+            />
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
+              <Zap className="h-4 w-4" />
+              <span className="text-xs font-medium">CAGR</span>
             </div>
-            <p className={`text-lg font-bold ${cagr >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+            <p className={`text-2xl font-bold ${cagr >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
               {cagr >= 0 ? '+' : ''}{cagr.toFixed(1)}%
             </p>
-            <p className="text-[10px] text-muted-foreground">crecimiento compuesto</p>
+            <p className="text-[11px] text-blue-700/70 dark:text-blue-300/70 mt-1">crecimiento compuesto</p>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-6">
-        {/* Chart */}
-        <div className="h-[280px] w-full">
+      <CardContent className="pt-8">
+        {/* Chart con diseño mejorado */}
+        <div className="h-[320px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
+              margin={{ top: 30, right: 20, left: 0, bottom: 10 }}
               onMouseMove={(state) => {
                 if (state?.activeLabel) setHoveredYear(state.activeLabel);
               }}
               onMouseLeave={() => setHoveredYear(null)}
             >
+              <defs>
+                <linearGradient id={`barGradient-${companyId}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={companyConfig.primary} stopOpacity={1} />
+                  <stop offset="100%" stopColor={companyConfig.secondary} stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="bestYearGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#f87171" stopOpacity={0.8} />
+                </linearGradient>
+              </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
                 stroke="hsl(var(--border))"
-                opacity={0.5}
+                opacity={0.4}
               />
               <XAxis
                 dataKey="year"
-                tick={{ fontSize: 12, fontWeight: 500 }}
+                tick={{ fontSize: 13, fontWeight: 600, fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 tickFormatter={formatNumber}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
-                width={50}
+                width={55}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2, radius: 8 }} />
+              <ReferenceLine
+                y={avgAnual}
+                stroke="hsl(var(--muted-foreground))"
+                strokeDasharray="4 4"
+                opacity={0.5}
+                label={{ value: 'Promedio', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+              />
               <Bar
                 dataKey="value"
-                radius={[8, 8, 0, 0]}
-                maxBarSize={60}
+                radius={[12, 12, 4, 4]}
+                maxBarSize={70}
               >
                 <LabelList
                   dataKey="value"
                   position="top"
                   formatter={formatNumber}
-                  style={{ fontSize: 11, fontWeight: 600, fill: 'hsl(var(--muted-foreground))' }}
+                  style={{ fontSize: 12, fontWeight: 700, fill: 'hsl(var(--foreground))' }}
                 />
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.isBestYear ? '#f59e0b' : entry.growth !== null && entry.growth < 0 ? '#ef4444' : companyColor}
-                    opacity={hoveredYear === null || hoveredYear === entry.year ? 1 : 0.4}
-                    style={{ transition: 'opacity 0.2s ease' }}
+                    fill={
+                      entry.isBestYear
+                        ? 'url(#bestYearGradient)'
+                        : entry.growth !== null && entry.growth < 0
+                          ? 'url(#negativeGradient)'
+                          : `url(#barGradient-${companyId})`
+                    }
+                    opacity={hoveredYear === null || hoveredYear === entry.year ? 1 : 0.35}
+                    style={{
+                      transition: 'all 0.3s ease',
+                      filter: hoveredYear === entry.year ? `drop-shadow(0 4px 8px ${companyConfig.glow})` : 'none'
+                    }}
                   />
                 ))}
               </Bar>
@@ -314,29 +393,36 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
           </ResponsiveContainer>
         </div>
 
-        {/* Year-by-year breakdown */}
-        <div className="mt-6 pt-5 border-t border-border/50">
-          <p className="text-xs font-medium text-muted-foreground mb-3">Detalle por año</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {/* Year-by-year breakdown mejorado */}
+        <div className="mt-8 pt-6 border-t border-border/50">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold text-foreground">Detalle por Año</p>
+            <p className="text-xs text-muted-foreground">{yearTotals.length} años de datos</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {chartData.map((item) => (
               <div
                 key={item.year}
-                className={`p-3 rounded-lg border transition-all cursor-default ${
+                className={`relative overflow-hidden p-4 rounded-xl border transition-all duration-300 cursor-default group hover:shadow-lg ${
                   item.isBestYear
-                    ? 'bg-amber-500/10 border-amber-500/30'
-                    : 'bg-muted/30 border-border/50 hover:border-border'
+                    ? 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-300/50 dark:border-amber-700/50'
+                    : 'bg-gradient-to-br from-background to-muted/20 border-border/50 hover:border-border'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-semibold">{item.year}</span>
-                  {item.isBestYear && <Award className="h-3 w-3 text-amber-500" />}
+                {item.isBestYear && (
+                  <div className="absolute top-2 right-2">
+                    <Award className="h-4 w-4 text-amber-500" />
+                  </div>
+                )}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-base font-bold text-foreground">{item.year}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">{formatFullNumber(item.value)}</p>
+                <p className="text-sm text-muted-foreground font-medium">{formatFullNumber(item.value)}</p>
                 {item.growth !== null && (
-                  <div className={`flex items-center gap-0.5 mt-1 text-[10px] font-medium ${
-                    item.growth >= 0 ? 'text-emerald-500' : 'text-red-500'
+                  <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${
+                    item.growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {item.growth >= 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                    {item.growth >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                     {item.growth >= 0 ? '+' : ''}{item.growth.toFixed(1)}%
                   </div>
                 )}
