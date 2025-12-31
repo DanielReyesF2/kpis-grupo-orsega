@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -149,7 +150,8 @@ export function SmartSearch({ isOpen, onClose }: SmartSearchProps) {
 
   if (!isOpen) return null;
 
-  return (
+  // Usar portal para renderizar fuera del Sidebar y evitar problemas de z-index/transform
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -159,7 +161,7 @@ export function SmartSearch({ isOpen, onClose }: SmartSearchProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
           >
             {/* Modal */}
             <motion.div
@@ -319,4 +321,7 @@ export function SmartSearch({ isOpen, onClose }: SmartSearchProps) {
       )}
     </AnimatePresence>
   );
+
+  // Renderizar en el body usando portal para evitar problemas con el sidebar
+  return createPortal(modalContent, document.body);
 }
