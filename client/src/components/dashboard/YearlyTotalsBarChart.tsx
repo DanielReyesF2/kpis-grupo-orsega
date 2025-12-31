@@ -1,11 +1,11 @@
 /**
- * Yearly Totals Bar Chart - Panorama completo de ventas anuales
- * Muestra gráfica de barras con el total de ventas por año para ambas empresas
+ * Yearly Totals Bar Chart - Panorama Histórico de Ventas
+ * Diseño moderno con insights y métricas clave
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart,
@@ -14,12 +14,22 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Cell,
-  ReferenceLine
+  LabelList
 } from "recharts";
-import { TrendingUp, TrendingDown, BarChart3, Loader2, Building2 } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Loader2,
+  Calendar,
+  Target,
+  Zap,
+  Award,
+  ArrowUpRight,
+  ArrowDownRight
+} from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface YearTotal {
@@ -38,61 +48,28 @@ interface MultiYearData {
 }
 
 interface YearlyTotalsBarChartProps {
-  companyId?: number; // Optional - if not provided, shows both companies
+  companyId?: number;
 }
 
-const COMPANY_COLORS = {
-  dura: {
-    primary: "#16a34a", // green-600
-    light: "#22c55e",   // green-500
-    bg: "bg-green-50 dark:bg-green-950/20",
-    text: "text-green-700 dark:text-green-400"
-  },
-  orsega: {
-    primary: "#7c3aed", // violet-600
-    light: "#8b5cf6",   // violet-500
-    bg: "bg-violet-50 dark:bg-violet-950/20",
-    text: "text-violet-700 dark:text-violet-400"
-  }
-};
-
 export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
-  // Fetch data for DURA (company 1)
-  const { data: duraData, isLoading: isLoadingDura, error: duraError } = useQuery<MultiYearData>({
-    queryKey: ['/api/sales-multi-year-trend', 1],
+  const [hoveredYear, setHoveredYear] = useState<string | null>(null);
+
+  // Fetch data based on companyId
+  const { data: chartDataRaw, isLoading, error } = useQuery<MultiYearData>({
+    queryKey: ['/api/sales-multi-year-trend', companyId || 'all'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-multi-year-trend?companyId=1`);
+      const id = companyId || 1;
+      const res = await apiRequest('GET', `/api/sales-multi-year-trend?companyId=${id}`);
       return await res.json();
     },
-    enabled: !companyId || companyId === 1,
     retry: 2,
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch data for ORSEGA (company 2)
-  const { data: orsegaData, isLoading: isLoadingOrsega, error: orsegaError } = useQuery<MultiYearData>({
-    queryKey: ['/api/sales-multi-year-trend', 2],
-    queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-multi-year-trend?companyId=2`);
-      return await res.json();
-    },
-    enabled: !companyId || companyId === 2,
-    retry: 2,
-    staleTime: 5 * 60 * 1000, // 5 minutos
-  });
-
-  // Determinar estados de carga basados en companyId
-  const isLoading = companyId === 1 ? isLoadingDura :
-                    companyId === 2 ? isLoadingOrsega :
-                    (isLoadingDura || isLoadingOrsega);
-
-  const hasError = companyId === 1 ? !!duraError :
-                   companyId === 2 ? !!orsegaError :
-                   (!!duraError && !!orsegaError);
-
-  const hasData = companyId === 1 ? (duraData?.yearTotals?.length ?? 0) > 0 :
-                  companyId === 2 ? (orsegaData?.yearTotals?.length ?? 0) > 0 :
-                  ((duraData?.yearTotals?.length ?? 0) > 0 || (orsegaData?.yearTotals?.length ?? 0) > 0);
+  const companyName = companyId === 1 ? "DURA" : companyId === 2 ? "ORSEGA" : "DURA";
+  const companyColor = companyId === 2 ? "#8b5cf6" : "#10b981";
+  const companyColorLight = companyId === 2 ? "#a78bfa" : "#34d399";
+  const unit = companyId === 2 ? "unidades" : "KG";
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -104,434 +81,268 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
     return num.toLocaleString('es-MX', { maximumFractionDigits: 0 });
   };
 
-  // Calculate YoY growth
-  const getYoYGrowth = (yearTotals: YearTotal[], currentYear: number) => {
-    const current = yearTotals.find(y => y.year === currentYear);
-    const previous = yearTotals.find(y => y.year === currentYear - 1);
-    if (!current || !previous || previous.totalQty === 0) return null;
-    return ((current.totalQty - previous.totalQty) / previous.totalQty) * 100;
-  };
-
   if (isLoading) {
     return (
-      <Card className="shadow-lg border-2 border-border/50">
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <CardTitle>Cargando panorama de ventas...</CardTitle>
+            <span className="text-sm text-muted-foreground">Cargando datos históricos...</span>
           </div>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-[280px] w-full rounded-xl" />
         </CardContent>
       </Card>
     );
   }
 
-  if (hasError) {
+  if (error || !chartDataRaw?.yearTotals?.length) {
     return (
-      <Card className="shadow-lg border-2 border-red-200 dark:border-red-900/50">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-              <BarChart3 className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <CardTitle className="text-red-700 dark:text-red-400">Error al cargar datos</CardTitle>
-              <CardDescription>No se pudieron obtener los datos de ventas</CardDescription>
-            </div>
+      <Card className="overflow-hidden border-dashed">
+        <CardContent className="py-12">
+          <div className="text-center">
+            <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No hay datos históricos disponibles</p>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
     );
   }
 
-  if (!hasData) {
-    return (
-      <Card className="shadow-lg border-2 border-border/50">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-muted">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <CardTitle>Panorama Histórico de Ventas</CardTitle>
-              <CardDescription>No hay datos de ventas disponibles para mostrar</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  }
+  const yearTotals = chartDataRaw.yearTotals;
 
-  // Prepare combined chart data
-  const allYears = new Set<number>();
-  if (duraData?.yearTotals && Array.isArray(duraData.yearTotals)) {
-    duraData.yearTotals.forEach(yt => allYears.add(yt.year));
-  }
-  if (orsegaData?.yearTotals && Array.isArray(orsegaData.yearTotals)) {
-    orsegaData.yearTotals.forEach(yt => allYears.add(yt.year));
-  }
-
-  const sortedYears = Array.from(allYears).sort((a, b) => a - b);
-
-  const chartData = sortedYears.map(year => {
-    const duraYear = duraData?.yearTotals?.find(yt => yt.year === year);
-    const orsegaYear = orsegaData?.yearTotals?.find(yt => yt.year === year);
+  // Prepare chart data with growth calculations
+  const chartData = yearTotals.map((yt, index) => {
+    const prevYear = index > 0 ? yearTotals[index - 1] : null;
+    const growth = prevYear && prevYear.totalQty > 0
+      ? ((yt.totalQty - prevYear.totalQty) / prevYear.totalQty) * 100
+      : null;
 
     return {
-      year: year.toString(),
-      yearNum: year,
-      dura: duraYear?.totalQty || 0,
-      orsega: orsegaYear?.totalQty || 0,
-      duraGrowth: duraData ? getYoYGrowth(duraData.yearTotals, year) : null,
-      orsegaGrowth: orsegaData ? getYoYGrowth(orsegaData.yearTotals, year) : null
+      year: yt.year.toString(),
+      value: yt.totalQty,
+      growth,
+      isLatest: index === yearTotals.length - 1,
+      isBestYear: yt.totalQty === Math.max(...yearTotals.map(y => y.totalQty))
     };
   });
 
-  // Calculate totals and growth for summary cards
-  const duraTotals = duraData?.yearTotals || [];
-  const orsegaTotals = orsegaData?.yearTotals || [];
+  // Calculate insights
+  const totalHistorico = yearTotals.reduce((sum, yt) => sum + yt.totalQty, 0);
+  const avgAnual = totalHistorico / yearTotals.length;
+  const bestYear = yearTotals.reduce((best, yt) => yt.totalQty > best.totalQty ? yt : best, yearTotals[0]);
+  const latestYear = yearTotals[yearTotals.length - 1];
+  const previousYear = yearTotals.length > 1 ? yearTotals[yearTotals.length - 2] : null;
 
-  const duraGrandTotal = duraTotals.reduce((sum, yt) => sum + yt.totalQty, 0);
-  const orsegaGrandTotal = orsegaTotals.reduce((sum, yt) => sum + yt.totalQty, 0);
+  const latestGrowth = previousYear && previousYear.totalQty > 0
+    ? ((latestYear.totalQty - previousYear.totalQty) / previousYear.totalQty) * 100
+    : 0;
 
-  const latestDuraGrowth = duraTotals.length >= 2
-    ? getYoYGrowth(duraTotals, duraTotals[duraTotals.length - 1].year)
-    : null;
-  const latestOrsegaGrowth = orsegaTotals.length >= 2
-    ? getYoYGrowth(orsegaTotals, orsegaTotals[orsegaTotals.length - 1].year)
-    : null;
-
-  // Calculate CAGR (Compound Annual Growth Rate)
-  const calculateCAGR = (totals: YearTotal[]) => {
-    if (totals.length < 2) return null;
-    const first = totals[0].totalQty;
-    const last = totals[totals.length - 1].totalQty;
-    const years = totals.length - 1;
-    if (first <= 0 || years <= 0) return null;
-    return (Math.pow(last / first, 1 / years) - 1) * 100;
-  };
-
-  const duraCAGR = calculateCAGR(duraTotals);
-  const orsegaCAGR = calculateCAGR(orsegaTotals);
+  // CAGR calculation
+  const firstYear = yearTotals[0];
+  const yearsCount = yearTotals.length - 1;
+  const cagr = yearsCount > 0 && firstYear.totalQty > 0
+    ? (Math.pow(latestYear.totalQty / firstYear.totalQty, 1 / yearsCount) - 1) * 100
+    : 0;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
+    if (!active || !payload?.length) return null;
 
+    const data = payload[0].payload;
     return (
-      <div className="bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-xl p-4 min-w-[200px]">
-        <p className="font-bold text-lg mb-3 pb-2 border-b border-border">{label}</p>
-        {payload.map((entry: any, index: number) => {
-          const isDura = entry.dataKey === 'dura';
-          const growth = isDura ? entry.payload.duraGrowth : entry.payload.orsegaGrowth;
-          const unit = isDura ? 'KG' : 'unidades';
-
-          return (
-            <div key={index} className="mb-2 last:mb-0">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  <span className="font-medium">{isDura ? 'DURA' : 'ORSEGA'}</span>
-                </div>
-                <span className="font-bold tabular-nums">
-                  {formatFullNumber(entry.value)} {unit}
-                </span>
-              </div>
-              {growth !== null && (
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  {growth >= 0
-                    ? <TrendingUp className="h-3 w-3 text-green-600" />
-                    : <TrendingDown className="h-3 w-3 text-red-600" />
-                  }
-                  <span className={`text-xs ${growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {growth >= 0 ? '+' : ''}{growth.toFixed(1)}% vs año anterior
-                  </span>
-                </div>
-              )}
+      <div className="bg-[#1a1a1a] border border-[#333] rounded-xl p-4 shadow-2xl min-w-[180px]">
+        <p className="text-white font-bold text-lg mb-2">{label}</p>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 text-sm">Total</span>
+            <span className="text-white font-semibold">{formatFullNumber(data.value)} {unit}</span>
+          </div>
+          {data.growth !== null && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Crecimiento</span>
+              <span className={`font-semibold flex items-center gap-1 ${data.growth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {data.growth >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                {data.growth >= 0 ? '+' : ''}{data.growth.toFixed(1)}%
+              </span>
             </div>
-          );
-        })}
+          )}
+          {data.isBestYear && (
+            <div className="pt-2 mt-2 border-t border-[#333]">
+              <span className="text-amber-400 text-xs flex items-center gap-1">
+                <Award className="h-3 w-3" /> Mejor año histórico
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
 
-  // Single company or combined view
-  const showBoth = !companyId;
-  const singleCompanyData = companyId === 1 ? duraData : orsegaData;
-
   return (
-    <Card className="shadow-lg border-2 border-border/50">
-      <CardHeader className="pb-4">
+    <Card className="overflow-hidden bg-gradient-to-br from-background to-muted/20">
+      {/* Header with stats */}
+      <CardHeader className="pb-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
-              <BarChart3 className="h-6 w-6 text-primary" />
+            <div
+              className="p-2.5 rounded-xl"
+              style={{ backgroundColor: `${companyColor}20` }}
+            >
+              <BarChart3 className="h-5 w-5" style={{ color: companyColor }} />
             </div>
             <div>
-              <CardTitle className="text-xl">
-                Panorama Histórico de Ventas
+              <CardTitle className="text-lg font-semibold">
+                Panorama Histórico
               </CardTitle>
-              <CardDescription className="text-sm mt-0.5">
-                {showBoth
-                  ? `Comparativo anual DURA y ORSEGA (${sortedYears[0]} - ${sortedYears[sortedYears.length - 1]})`
-                  : `Total anual ${companyId === 1 ? 'DURA' : 'ORSEGA'} (${sortedYears[0]} - ${sortedYears[sortedYears.length - 1]})`
-                }
-              </CardDescription>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {companyName} · {yearTotals[0].year} - {latestYear.year}
+              </p>
             </div>
           </div>
 
-          {/* Year summary badges */}
-          <div className="flex flex-wrap gap-2">
-            {sortedYears.map(year => (
-              <Badge
-                key={year}
-                variant="outline"
-                className="text-xs px-2 py-1"
-              >
-                {year}
-              </Badge>
-            ))}
+          {/* Quick insight badge */}
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
+            style={{
+              backgroundColor: latestGrowth >= 0 ? 'rgb(16 185 129 / 0.1)' : 'rgb(239 68 68 / 0.1)',
+              color: latestGrowth >= 0 ? 'rgb(16 185 129)' : 'rgb(239 68 68)'
+            }}
+          >
+            {latestGrowth >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            <span>{latestGrowth >= 0 ? '+' : ''}{latestGrowth.toFixed(1)}% último año</span>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="text-xs">Total Histórico</span>
+            </div>
+            <p className="text-lg font-bold" style={{ color: companyColor }}>
+              {formatNumber(totalHistorico)}
+            </p>
+            <p className="text-[10px] text-muted-foreground">{unit}</p>
+          </div>
+
+          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Target className="h-3.5 w-3.5" />
+              <span className="text-xs">Promedio Anual</span>
+            </div>
+            <p className="text-lg font-bold">{formatNumber(avgAnual)}</p>
+            <p className="text-[10px] text-muted-foreground">{unit}/año</p>
+          </div>
+
+          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Award className="h-3.5 w-3.5 text-amber-500" />
+              <span className="text-xs">Mejor Año</span>
+            </div>
+            <p className="text-lg font-bold">{bestYear.year}</p>
+            <p className="text-[10px] text-muted-foreground">{formatNumber(bestYear.totalQty)} {unit}</p>
+          </div>
+
+          <div className="bg-background/50 rounded-xl p-3 border border-border/50">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Zap className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-xs">CAGR</span>
+            </div>
+            <p className={`text-lg font-bold ${cagr >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              {cagr >= 0 ? '+' : ''}{cagr.toFixed(1)}%
+            </p>
+            <p className="text-[10px] text-muted-foreground">crecimiento compuesto</p>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {/* Summary Cards */}
-        <div className={`grid gap-4 ${showBoth ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
-          {(showBoth || companyId === 1) && duraData && (
-            <div className={`p-4 rounded-xl ${COMPANY_COLORS.dura.bg} border border-green-200 dark:border-green-800/50`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="h-4 w-4 text-green-600" />
-                <span className="font-semibold text-green-700 dark:text-green-400">DURA</span>
-              </div>
-              <p className="text-2xl font-bold text-green-800 dark:text-green-300">
-                {formatNumber(duraGrandTotal)} KG
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-                Total histórico ({duraTotals.length} años)
-              </p>
-              {latestDuraGrowth !== null && (
-                <div className="flex items-center gap-1 mt-2">
-                  {latestDuraGrowth >= 0
-                    ? <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-                    : <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-                  }
-                  <span className={`text-sm font-medium ${latestDuraGrowth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {latestDuraGrowth >= 0 ? '+' : ''}{latestDuraGrowth.toFixed(1)}% último año
-                  </span>
-                </div>
-              )}
-              {duraCAGR !== null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  CAGR: {duraCAGR >= 0 ? '+' : ''}{duraCAGR.toFixed(1)}%
-                </p>
-              )}
-            </div>
-          )}
-
-          {(showBoth || companyId === 2) && orsegaData && (
-            <div className={`p-4 rounded-xl ${COMPANY_COLORS.orsega.bg} border border-violet-200 dark:border-violet-800/50`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="h-4 w-4 text-violet-600" />
-                <span className="font-semibold text-violet-700 dark:text-violet-400">ORSEGA</span>
-              </div>
-              <p className="text-2xl font-bold text-violet-800 dark:text-violet-300">
-                {formatNumber(orsegaGrandTotal)} unidades
-              </p>
-              <p className="text-xs text-violet-600 dark:text-violet-500 mt-1">
-                Total histórico ({orsegaTotals.length} años)
-              </p>
-              {latestOrsegaGrowth !== null && (
-                <div className="flex items-center gap-1 mt-2">
-                  {latestOrsegaGrowth >= 0
-                    ? <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-                    : <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-                  }
-                  <span className={`text-sm font-medium ${latestOrsegaGrowth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {latestOrsegaGrowth >= 0 ? '+' : ''}{latestOrsegaGrowth.toFixed(1)}% último año
-                  </span>
-                </div>
-              )}
-              {orsegaCAGR !== null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  CAGR: {orsegaCAGR >= 0 ? '+' : ''}{orsegaCAGR.toFixed(1)}%
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Bar Chart */}
-        <div className="h-[400px] w-full">
+      <CardContent className="pt-6">
+        {/* Chart */}
+        <div className="h-[280px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-              barGap={8}
+              margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
+              onMouseMove={(state) => {
+                if (state?.activeLabel) setHoveredYear(state.activeLabel);
+              }}
+              onMouseLeave={() => setHoveredYear(null)}
             >
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="hsl(var(--border))"
+                opacity={0.5}
+              />
               <XAxis
                 dataKey="year"
-                tick={{ fontSize: 14, fontWeight: 600 }}
-                tickLine={false}
-                axisLine={{ stroke: '#e5e7eb' }}
-              />
-              <YAxis
-                yAxisId="left"
-                tickFormatter={formatNumber}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fontWeight: 500 }}
                 tickLine={false}
                 axisLine={false}
-                label={{
-                  value: 'DURA (KG)',
-                  angle: -90,
-                  position: 'insideLeft',
-                  style: { fontSize: 11, fill: COMPANY_COLORS.dura.primary }
-                }}
               />
-              {showBoth && (
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={formatNumber}
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                  label={{
-                    value: 'ORSEGA (unidades)',
-                    angle: 90,
-                    position: 'insideRight',
-                    style: { fontSize: 11, fill: COMPANY_COLORS.orsega.primary }
-                  }}
+              <YAxis
+                tickFormatter={formatNumber}
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={50}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
+              <Bar
+                dataKey="value"
+                radius={[8, 8, 0, 0]}
+                maxBarSize={60}
+              >
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={formatNumber}
+                  style={{ fontSize: 11, fontWeight: 600, fill: 'hsl(var(--muted-foreground))' }}
                 />
-              )}
-              <Tooltip content={<CustomTooltip />} />
-              <Legend
-                wrapperStyle={{ paddingTop: '20px' }}
-                formatter={(value) => (
-                  <span className="font-medium">{value === 'dura' ? 'DURA (KG)' : 'ORSEGA (unidades)'}</span>
-                )}
-              />
-
-              {(showBoth || companyId === 1) && (
-                <Bar
-                  yAxisId="left"
-                  dataKey="dura"
-                  name="dura"
-                  fill={COMPANY_COLORS.dura.primary}
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={80}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`dura-${index}`}
-                      fill={entry.duraGrowth !== null && entry.duraGrowth < 0
-                        ? '#ef4444' // red for negative growth
-                        : COMPANY_COLORS.dura.primary
-                      }
-                      opacity={entry.yearNum === sortedYears[sortedYears.length - 1] ? 1 : 0.8}
-                    />
-                  ))}
-                </Bar>
-              )}
-
-              {(showBoth || companyId === 2) && (
-                <Bar
-                  yAxisId={showBoth ? "right" : "left"}
-                  dataKey="orsega"
-                  name="orsega"
-                  fill={COMPANY_COLORS.orsega.primary}
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={80}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`orsega-${index}`}
-                      fill={entry.orsegaGrowth !== null && entry.orsegaGrowth < 0
-                        ? '#ef4444' // red for negative growth
-                        : COMPANY_COLORS.orsega.primary
-                      }
-                      opacity={entry.yearNum === sortedYears[sortedYears.length - 1] ? 1 : 0.8}
-                    />
-                  ))}
-                </Bar>
-              )}
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.isBestYear ? '#f59e0b' : entry.growth !== null && entry.growth < 0 ? '#ef4444' : companyColor}
+                    opacity={hoveredYear === null || hoveredYear === entry.year ? 1 : 0.4}
+                    style={{ transition: 'opacity 0.2s ease' }}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Year-by-Year Detail Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Año</th>
-                {(showBoth || companyId === 1) && (
-                  <>
-                    <th className="text-right py-3 px-2 font-semibold text-green-600">DURA (KG)</th>
-                    <th className="text-right py-3 px-2 font-semibold text-green-600">Variación</th>
-                  </>
+        {/* Year-by-year breakdown */}
+        <div className="mt-6 pt-5 border-t border-border/50">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Detalle por año</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {chartData.map((item) => (
+              <div
+                key={item.year}
+                className={`p-3 rounded-lg border transition-all cursor-default ${
+                  item.isBestYear
+                    ? 'bg-amber-500/10 border-amber-500/30'
+                    : 'bg-muted/30 border-border/50 hover:border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold">{item.year}</span>
+                  {item.isBestYear && <Award className="h-3 w-3 text-amber-500" />}
+                </div>
+                <p className="text-xs text-muted-foreground">{formatFullNumber(item.value)}</p>
+                {item.growth !== null && (
+                  <div className={`flex items-center gap-0.5 mt-1 text-[10px] font-medium ${
+                    item.growth >= 0 ? 'text-emerald-500' : 'text-red-500'
+                  }`}>
+                    {item.growth >= 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                    {item.growth >= 0 ? '+' : ''}{item.growth.toFixed(1)}%
+                  </div>
                 )}
-                {(showBoth || companyId === 2) && (
-                  <>
-                    <th className="text-right py-3 px-2 font-semibold text-violet-600">ORSEGA (un.)</th>
-                    <th className="text-right py-3 px-2 font-semibold text-violet-600">Variación</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {chartData.map((row, idx) => (
-                <tr key={row.year} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                  <td className="py-3 px-2 font-bold">{row.year}</td>
-                  {(showBoth || companyId === 1) && (
-                    <>
-                      <td className="text-right py-3 px-2 font-medium tabular-nums">
-                        {formatFullNumber(row.dura)}
-                      </td>
-                      <td className="text-right py-3 px-2">
-                        {row.duraGrowth !== null ? (
-                          <span className={`inline-flex items-center gap-1 ${row.duraGrowth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {row.duraGrowth >= 0
-                              ? <TrendingUp className="h-3 w-3" />
-                              : <TrendingDown className="h-3 w-3" />
-                            }
-                            {row.duraGrowth >= 0 ? '+' : ''}{row.duraGrowth.toFixed(1)}%
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-                    </>
-                  )}
-                  {(showBoth || companyId === 2) && (
-                    <>
-                      <td className="text-right py-3 px-2 font-medium tabular-nums">
-                        {formatFullNumber(row.orsega)}
-                      </td>
-                      <td className="text-right py-3 px-2">
-                        {row.orsegaGrowth !== null ? (
-                          <span className={`inline-flex items-center gap-1 ${row.orsegaGrowth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {row.orsegaGrowth >= 0
-                              ? <TrendingUp className="h-3 w-3" />
-                              : <TrendingDown className="h-3 w-3" />
-                            }
-                            {row.orsegaGrowth >= 0 ? '+' : ''}{row.orsegaGrowth.toFixed(1)}%
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
