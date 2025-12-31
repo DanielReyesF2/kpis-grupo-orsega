@@ -7623,12 +7623,9 @@ export function registerRoutes(app: express.Application) {
       }
 
       const monthsCount = parseInt(months as string) || 12;
-      const currentDate = new Date();
-      const startDate = new Date(currentDate);
-      startDate.setMonth(startDate.getMonth() - monthsCount);
-      
-      // Obtener datos mensuales de los últimos N meses usando sale_date para datos históricos reales
-      // IMPORTANTE: Usar sale_date para capturar datos históricos de cualquier año
+
+      // Obtener los últimos N meses con datos reales
+      // SIN filtrar por fecha actual - mostramos los datos más recientes que existan
       const monthlyData = await sql(`
         SELECT
           sale_year,
@@ -7638,12 +7635,12 @@ export function registerRoutes(app: express.Application) {
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
-          AND sale_date >= $2
-          AND sale_date <= $3
+          AND sale_year IS NOT NULL
+          AND sale_month IS NOT NULL
         GROUP BY sale_year, sale_month
         ORDER BY sale_year DESC, sale_month DESC
-        LIMIT $4
-      `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
+        LIMIT $2
+      `, [resolvedCompanyId, monthsCount]);
 
       // Formatear datos para el gráfico
       const formattedData = monthlyData.map((row: any) => {
