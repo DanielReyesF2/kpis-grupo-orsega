@@ -7646,14 +7646,17 @@ export function registerRoutes(app: express.Application) {
       `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
 
       // Formatear datos para el gráfico
+      // Convertir a números para consistencia (PostgreSQL puede retornar strings)
       const formattedData = monthlyData.map((row: any) => {
         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const saleMonth = parseInt(row.sale_month);
+        const saleYear = parseInt(row.sale_year);
         return {
-          month: `${monthNames[row.sale_month - 1]} ${row.sale_year}`,
+          month: `${monthNames[saleMonth - 1]} ${saleYear}`,
           volume: parseFloat(row.total_volume || '0'),
           clients: parseInt(row.active_clients || '0'),
-          year: row.sale_year,
-          monthNum: row.sale_month
+          year: saleYear,
+          monthNum: saleMonth
         };
       }).reverse(); // Invertir para mostrar cronológicamente
 
@@ -7706,8 +7709,9 @@ export function registerRoutes(app: express.Application) {
 
       const comparisonData = monthNames.map((mes, index) => {
         const monthNum = index + 1;
-        const year1Data = monthlyData.find((r: any) => r.sale_month === monthNum && r.sale_year === compareYear1);
-        const year2Data = monthlyData.find((r: any) => r.sale_month === monthNum && r.sale_year === compareYear2);
+        // Convertir a números para comparación correcta (PostgreSQL puede retornar strings)
+        const year1Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear1);
+        const year2Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear2);
 
         const qty1 = parseFloat(year1Data?.total_quantity || '0');
         const qty2 = parseFloat(year2Data?.total_quantity || '0');
@@ -7761,7 +7765,7 @@ export function registerRoutes(app: express.Application) {
             ? ((totals[`amt_${compareYear2}`] - totals[`amt_${compareYear1}`]) / totals[`amt_${compareYear1}`]) * 100
             : 0,
         },
-        availableYears: availableYears.map((r: any) => r.sale_year),
+        availableYears: availableYears.map((r: any) => parseInt(r.sale_year)),
         unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
       });
     } catch (error) {
@@ -7801,7 +7805,8 @@ export function registerRoutes(app: express.Application) {
       `, [resolvedCompanyId]);
 
       // Organizar por año para la gráfica overlay
-      const years = [...new Set(monthlyData.map((r: any) => r.sale_year))].sort();
+      // Convertir a números para comparación correcta (PostgreSQL puede retornar strings)
+      const years = [...new Set(monthlyData.map((r: any) => parseInt(r.sale_year)))].sort();
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
       // Formato para gráfica: array de meses con valores por año
@@ -7810,7 +7815,7 @@ export function registerRoutes(app: express.Application) {
         const dataPoint: any = { month, monthNum };
 
         years.forEach((year: number) => {
-          const record = monthlyData.find((r: any) => r.sale_year === year && r.sale_month === monthNum);
+          const record = monthlyData.find((r: any) => parseInt(r.sale_year) === year && parseInt(r.sale_month) === monthNum);
           dataPoint[`qty_${year}`] = parseFloat(record?.total_quantity || '0');
           dataPoint[`amt_${year}`] = parseFloat(record?.total_amount || '0');
         });
@@ -7820,7 +7825,7 @@ export function registerRoutes(app: express.Application) {
 
       // Calcular totales por año
       const yearTotals = years.map((year: number) => {
-        const yearData = monthlyData.filter((r: any) => r.sale_year === year);
+        const yearData = monthlyData.filter((r: any) => parseInt(r.sale_year) === year);
         return {
           year,
           totalQty: yearData.reduce((sum: number, r: any) => sum + parseFloat(r.total_quantity || '0'), 0),
