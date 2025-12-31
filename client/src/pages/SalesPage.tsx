@@ -50,6 +50,7 @@ import { SalesYearlyComparisonTable } from "@/components/dashboard/SalesYearlyCo
 import { MultiYearTrendChart } from "@/components/dashboard/MultiYearTrendChart";
 import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
 import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
+import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 
 type ViewMode = "overview" | "upload" | "comparison" | "alerts" | "analytics";
 
@@ -711,8 +712,13 @@ export default function SalesPage() {
               </Card>
             </div>
 
-            {/* TABLA COMPARATIVA ANUAL - Visible en vista principal */}
+            {/* GRÁFICA DE BARRAS - Panorama Histórico de Ventas */}
             <div className="mt-2">
+              <YearlyTotalsBarChart companyId={selectedCompany} />
+            </div>
+
+            {/* TABLA COMPARATIVA ANUAL - Visible en vista principal */}
+            <div className="mt-6">
               <SalesYearlyComparisonTable companyId={selectedCompany} />
             </div>
 
