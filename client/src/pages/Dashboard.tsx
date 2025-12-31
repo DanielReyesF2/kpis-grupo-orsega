@@ -9,8 +9,8 @@ import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { FilteredKpisModal } from '@/components/kpis/FilteredKpisModal';
 import { SalesSummary } from '@/components/dashboard/SalesSummary';
 import { CompanyComparisonCards } from '@/components/dashboard/CompanyComparisonCards';
-import { ExchangeRateCompact } from '@/components/dashboard/ExchangeRateCompact';
-import { LogisticsCompact } from '@/components/dashboard/LogisticsCompact';
+import { ExchangeRateCards } from '@/components/dashboard/ExchangeRateCards';
+import { LogisticsPreview } from '@/components/dashboard/LogisticsPreview';
 import { ExchangeRateForm } from '@/components/treasury/common/ExchangeRateForm';
 import { SalesVolumeChart } from '@/components/kpis/SalesVolumeChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -285,13 +285,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Barra compacta de información secundaria */}
-      <div className="space-y-3 mb-6" data-onboarding="quick-info">
-        {/* Tipo de Cambio - Compacto */}
-        <ExchangeRateCompact />
-
-        {/* Logística - Compacto */}
-        <LogisticsCompact />
+      {/* Comparativa de Tipos de Cambio */}
+      <div className="mb-6 sm:mb-10" data-onboarding="exchange-rates">
+        <ExchangeRateCards
+          onUpdateRate={(source) => {
+            setFormSource(source);
+            setShowRateForm(true);
+          }}
+        />
       </div>
 
       {/* Modal de formulario para actualizar tipo de cambio */}
@@ -303,6 +304,11 @@ export default function Dashboard() {
         }}
         source={formSource}
       />
+
+      {/* Preview de Logística */}
+      <div className="mb-6 sm:mb-10" data-onboarding="logistics-preview">
+        <LogisticsPreview />
+      </div>
 
       
       {/* Sección de Huella de Carbono eliminada a petición del usuario - ahora solo mostrada en la página de trazabilidad de envíos */}
