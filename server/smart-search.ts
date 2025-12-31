@@ -205,6 +205,32 @@ const availableFunctions = [
         required: []
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_sales_by_month",
+      description: "Obtener ventas de un mes específico (enero, febrero, marzo, etc.)",
+      parameters: {
+        type: "object",
+        properties: {
+          company: {
+            type: "string",
+            enum: ["dura", "orsega", "both"],
+            description: "La empresa o 'both' para ambas"
+          },
+          month: {
+            type: "number",
+            description: "Número del mes (1=enero, 2=febrero, ..., 12=diciembre)"
+          },
+          year: {
+            type: "number",
+            description: "Año (ej: 2024, 2025). Si no se especifica, usar el año más reciente con datos."
+          }
+        },
+        required: ["company", "month"]
+      }
+    }
   }
 ];
 
@@ -523,6 +549,95 @@ async function getNewClients(company: string, period: string = "this_month"): Pr
   };
 }
 
+async function getSalesByMonth(company: string, month: number, year?: number): Promise<any> {
+  const monthNames = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+  if (company === "both") {
+    // Obtener datos de ambas empresas
+    const duraPeriod = await getLastDataPeriod(1);
+    const orsegaPeriod = await getLastDataPeriod(2);
+
+    const targetYearDura = year || duraPeriod.year;
+    const targetYearOrsega = year || orsegaPeriod.year;
+
+    const duraResult = await sql`
+      SELECT
+        COALESCE(SUM(quantity), 0) as volume,
+        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
+        COUNT(*) as orders,
+        MAX(unit) as unit
+      FROM sales_data
+      WHERE company_id = 1
+        AND sale_year = ${targetYearDura}
+        AND sale_month = ${month}
+    `;
+
+    const orsegaResult = await sql`
+      SELECT
+        COALESCE(SUM(quantity), 0) as volume,
+        COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
+        COUNT(*) as orders,
+        MAX(unit) as unit
+      FROM sales_data
+      WHERE company_id = 2
+        AND sale_year = ${targetYearOrsega}
+        AND sale_month = ${month}
+    `;
+
+    return {
+      month: monthNames[month],
+      monthNumber: month,
+      dura: {
+        year: targetYearDura,
+        volume: parseFloat(duraResult[0]?.volume || "0"),
+        clients: parseInt(duraResult[0]?.clients || "0"),
+        orders: parseInt(duraResult[0]?.orders || "0"),
+        unit: duraResult[0]?.unit || "KG"
+      },
+      orsega: {
+        year: targetYearOrsega,
+        volume: parseFloat(orsegaResult[0]?.volume || "0"),
+        clients: parseInt(orsegaResult[0]?.clients || "0"),
+        orders: parseInt(orsegaResult[0]?.orders || "0"),
+        unit: orsegaResult[0]?.unit || "unidades"
+      }
+    };
+  }
+
+  const companyId = company === "dura" ? 1 : 2;
+  const companyName = company === "dura" ? "DURA International" : "Grupo ORSEGA";
+
+  // Si no se especifica año, usar el más reciente con datos
+  const lastPeriod = await getLastDataPeriod(companyId);
+  const targetYear = year || lastPeriod.year;
+
+  const result = await sql`
+    SELECT
+      COALESCE(SUM(quantity), 0) as volume,
+      COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as clients,
+      COUNT(*) as orders,
+      MAX(unit) as unit
+    FROM sales_data
+    WHERE company_id = ${companyId}
+      AND sale_year = ${targetYear}
+      AND sale_month = ${month}
+  `;
+
+  const row = result[0];
+  return {
+    company: companyName,
+    month: monthNames[month],
+    monthNumber: month,
+    year: targetYear,
+    volume: parseFloat(row?.volume || "0"),
+    clients: parseInt(row?.clients || "0"),
+    orders: parseInt(row?.orders || "0"),
+    unit: row?.unit || (companyId === 1 ? "KG" : "unidades"),
+    hasData: parseInt(row?.orders || "0") > 0
+  };
+}
+
 async function getSummary(): Promise<any> {
   // Obtener el último período con datos de cada empresa
   const duraPeriod = await getLastDataPeriod(1);
@@ -566,23 +681,32 @@ async function getSummary(): Promise<any> {
 
 // Ejecutar una función por nombre
 async function executeFunction(name: string, args: any): Promise<any> {
-  switch (name) {
-    case "get_sales_volume":
-      return getSalesVolume(args.company, args.period);
-    case "get_active_clients":
-      return getActiveClients(args.company, args.period);
-    case "get_top_clients":
-      return getTopClients(args.company, args.limit, args.period);
-    case "get_growth_comparison":
-      return getGrowthComparison(args.company);
-    case "get_exchange_rate":
-      return getExchangeRate(args.currency, args.date);
-    case "get_new_clients":
-      return getNewClients(args.company, args.period);
-    case "get_summary":
-      return getSummary();
-    default:
-      throw new Error(`Unknown function: ${name}`);
+  console.log(`[Smart Search] Ejecutando: ${name} con args:`, JSON.stringify(args));
+
+  try {
+    switch (name) {
+      case "get_sales_volume":
+        return await getSalesVolume(args.company, args.period);
+      case "get_active_clients":
+        return await getActiveClients(args.company, args.period);
+      case "get_top_clients":
+        return await getTopClients(args.company, args.limit, args.period);
+      case "get_growth_comparison":
+        return await getGrowthComparison(args.company);
+      case "get_exchange_rate":
+        return await getExchangeRate(args.currency, args.date);
+      case "get_new_clients":
+        return await getNewClients(args.company, args.period);
+      case "get_summary":
+        return await getSummary();
+      case "get_sales_by_month":
+        return await getSalesByMonth(args.company, args.month, args.year);
+      default:
+        throw new Error(`Unknown function: ${name}`);
+    }
+  } catch (error) {
+    console.error(`[Smart Search] Error en función ${name}:`, error);
+    throw error;
   }
 }
 
@@ -607,12 +731,19 @@ export async function smartSearch(question: string): Promise<SearchResult> {
       messages: [
         {
           role: "system",
-          content: `Eres un asistente de negocios para Grupo ORSEGA. Tienes acceso a datos de ventas de dos empresas:
-- DURA International (vende en KG)
-- Grupo ORSEGA (vende en unidades)
+          content: `Eres un asistente de negocios para Grupo ORSEGA. SIEMPRE debes usar las funciones disponibles para responder preguntas sobre datos.
 
-Responde siempre en español de manera clara y concisa. Usa las funciones disponibles para obtener los datos necesarios.
-Si la pregunta no está relacionada con ventas o datos del negocio, responde amablemente que solo puedes ayudar con consultas sobre el negocio.`
+Tienes acceso a datos de ventas de dos empresas:
+- DURA International (company="dura") - vende en KG
+- Grupo ORSEGA (company="orsega") - vende en unidades
+
+IMPORTANTE:
+- Cuando el usuario pregunta sobre un mes específico (enero, febrero, marzo, abril, mayo, junio, julio, agosto, septiembre, octubre, noviembre, diciembre), USA la función get_sales_by_month con el número del mes (1-12).
+- Si el usuario no especifica empresa, usa company="both" para mostrar datos de ambas.
+- Si el usuario pregunta "cuántos pedidos" o "cuántas ventas", esto se refiere al volumen de ventas.
+- Siempre llama una función para obtener datos reales. Nunca inventes números.
+
+Meses: enero=1, febrero=2, marzo=3, abril=4, mayo=5, junio=6, julio=7, agosto=8, septiembre=9, octubre=10, noviembre=11, diciembre=12`
         },
         {
           role: "user",
@@ -688,6 +819,44 @@ Incluye el contexto relevante pero sé breve.`
 // Búsqueda básica sin OpenAI (fallback)
 async function basicSearch(question: string): Promise<SearchResult> {
   const q = question.toLowerCase().trim();
+
+  // Detectar si pregunta por un mes específico
+  const monthMap: { [key: string]: number } = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+  };
+
+  let detectedMonth: number | null = null;
+  for (const [name, num] of Object.entries(monthMap)) {
+    if (q.includes(name)) {
+      detectedMonth = num;
+      break;
+    }
+  }
+
+  // Si detectamos un mes específico
+  if (detectedMonth) {
+    const isDura = q.includes("dura") || q.includes("di");
+    const isOrsega = q.includes("orsega") || q.includes("go");
+    const company = isDura ? "dura" : isOrsega ? "orsega" : "both";
+
+    const data = await getSalesByMonth(company, detectedMonth);
+
+    if (company === "both") {
+      return {
+        answer: `Ventas en ${data.month}:\n\nDURA International (${data.dura.year}):\n• Volumen: ${data.dura.volume.toLocaleString("es-MX")} ${data.dura.unit}\n• Clientes: ${data.dura.clients}\n• Registros: ${data.dura.orders}\n\nGrupo ORSEGA (${data.orsega.year}):\n• Volumen: ${data.orsega.volume.toLocaleString("es-MX")} ${data.orsega.unit}\n• Clientes: ${data.orsega.clients}\n• Registros: ${data.orsega.orders}`,
+        data,
+        source: "Búsqueda básica (sales_data)"
+      };
+    }
+
+    return {
+      answer: `${data.company} en ${data.month} ${data.year}:\n• Volumen: ${data.volume.toLocaleString("es-MX")} ${data.unit}\n• Clientes activos: ${data.clients}\n• Registros: ${data.orders}`,
+      data,
+      source: "Búsqueda básica (sales_data)"
+    };
+  }
 
   // Patrones básicos
   if ((q.includes("dura") || q.includes("di")) && (q.includes("vend") || q.includes("volumen"))) {
