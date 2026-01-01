@@ -265,11 +265,17 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
         {
           id: 6,
           title: "Rentabilidad",
-          value: profitabilityData?.overallProfitability 
-            ? `${profitabilityData.overallProfitability.toFixed(1)}%`
-            : salesMetrics?.profitability 
-            ? `${salesMetrics.profitability.toFixed(1)}%`
-            : "N/A",
+          value: (() => {
+            const profitability = profitabilityData?.overallProfitability ?? salesMetrics?.profitability;
+            console.log('[ExecutiveKPICards] Rendering profitability:', {
+              profitabilityData: profitabilityData?.overallProfitability,
+              salesMetrics: salesMetrics?.profitability,
+              final: profitability
+            });
+            return profitability 
+              ? `${profitability.toFixed(1)}%`
+              : "N/A";
+          })(),
       unit: "",
           subtitle: `Margen bruto calculado`,
           progress: profitabilityData?.overallProfitability || salesMetrics?.profitability || 0,
