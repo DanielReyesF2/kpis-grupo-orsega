@@ -24,6 +24,11 @@ import NewShipmentPage from "@/pages/NewShipmentPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import SalesPage from "@/pages/SalesPage";
 
+// CopilotKit
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
 function Router() {
   return (
     <Switch>
@@ -133,8 +138,20 @@ function App() {
           <ThemeProvider attribute="class" defaultTheme="dark">
             <SafeAuthProvider>
               <CompanyFilterProvider>
-                <Toaster />
-                <Router />
+                <CopilotKit runtimeUrl="/api/copilotkit">
+                  <Toaster />
+                  <Router />
+                  <CopilotPopup
+                    instructions="Eres un asistente AI para Grupo Orsega. Ayudas a los usuarios a analizar datos de ventas, logística, tesorería y KPIs. Responde siempre en español. Sé conciso y profesional."
+                    labels={{
+                      title: "Asistente AI",
+                      initial: "¡Hola! Soy tu asistente AI. ¿En qué puedo ayudarte hoy?",
+                      placeholder: "Escribe tu pregunta aquí...",
+                    }}
+                    defaultOpen={false}
+                    clickOutsideToClose={true}
+                  />
+                </CopilotKit>
               </CompanyFilterProvider>
             </SafeAuthProvider>
           </ThemeProvider>
