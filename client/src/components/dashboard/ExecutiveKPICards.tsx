@@ -473,108 +473,97 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
                     </div>
                   </div>
 
-                        {/* Valor principal */}
-                        <div className="mb-4">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-foreground tracking-tight">
-                              {kpi.value}
-                            </span>
-                            {kpi.unit && (
-                              <span className="text-sm text-muted-foreground">
-                                {kpi.unit}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                  {/* Valor principal */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-foreground tracking-tight">
+                        {kpi.value}
+                      </span>
+                      {kpi.unit && (
+                        <span className="text-sm text-muted-foreground">
+                          {kpi.unit}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                        {/* Barra de progreso o indicador de tendencia */}
-                        {kpi.progress !== undefined && kpi.id !== 6 && (
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {kpi.progressLabel}
-                              </span>
-                              {kpi.progress > 0 && (
-                                <span className="text-xs font-semibold text-foreground/70">
-                                  {kpi.progress.toFixed(0)}%
-                                </span>
-                              )}
-                            </div>
-                            <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
-                              <motion.div
-                                className={cn(
-                                  "h-full rounded-full",
-                                  kpi.progress >= 75 ? "bg-emerald-500" :
-                                  kpi.progress >= 50 ? "bg-blue-500" :
-                                  kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
-                                )}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
-                                transition={{ duration: 0.8, delay: (index + primaryKPIs.length) * 0.1 + 0.3 }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                  {/* Barra de progreso */}
+                  {kpi.progress !== undefined && kpi.id !== 6 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          {kpi.progress.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className={cn(
+                            "h-full rounded-full",
+                            kpi.progress >= 75 ? "bg-emerald-500" :
+                            kpi.progress >= 50 ? "bg-blue-500" :
+                            kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
+                          )}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
+                          transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Barra de rentabilidad */}
-                        {kpi.id === 6 && salesMetrics?.profitability && (
-                          <div className="mb-3">
-                            <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                              <motion.div
-                                className={cn(
-                                  "h-full rounded-full",
-                                  salesMetrics.profitability >= 20 ? "bg-emerald-500" :
-                                  salesMetrics.profitability >= 15 ? "bg-blue-500" :
-                                  salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
-                                )}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
-                                transition={{ duration: 0.8, delay: (index + primaryKPIs.length) * 0.1 + 0.3 }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                  {/* Barra de rentabilidad */}
+                  {kpi.id === 6 && salesMetrics?.profitability && (
+                    <div className="mb-3">
+                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className={cn(
+                            "h-full rounded-full",
+                            salesMetrics.profitability >= 20 ? "bg-emerald-500" :
+                            salesMetrics.profitability >= 15 ? "bg-blue-500" :
+                            salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
+                          )}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
+                          transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Indicador de tendencia minimalista */}
-                        {kpi.trend !== undefined && kpi.trendLabel && (
-                          <div className="mb-3">
-                            <div className={cn(
-                              "flex items-center gap-1 text-sm font-medium",
-                              kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                            )}>
-                              {kpi.trend >= 0 ? (
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              )}
-                              <span>{kpi.trendLabel}</span>
-                            </div>
-                          </div>
+                  {/* Indicador de tendencia */}
+                  {kpi.trend !== undefined && kpi.trendLabel && (
+                    <div className="mb-3">
+                      <div className={cn(
+                        "flex items-center gap-1 text-sm font-medium",
+                        kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                      )}>
+                        {kpi.trend >= 0 ? (
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5" />
                         )}
+                        <span>{kpi.trendLabel}</span>
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Badge de estado minimalista */}
-                        {kpi.badge && (
-                          <div className="pt-2 border-t border-border/30">
-                            <Badge
-                              variant={kpi.badge.variant as any}
-                              className="text-xs"
-                            >
-                              {kpi.badge.value}
-                            </Badge>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    <p className="text-sm">{kpi.tooltip}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </motion.div>
-            );
-          })}
-        </div>
+                  {/* Badge de estado */}
+                  {kpi.badge && (
+                    <div className="pt-2 border-t border-border/30">
+                      <Badge
+                        variant={kpi.badge.variant as any}
+                        className="text-xs"
+                      >
+                        {kpi.badge.value}
+                      </Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
