@@ -1,6 +1,6 @@
 /**
  * Executive KPI Cards - Tarjetas premium de métricas ejecutivas
- * Diseño moderno con gradientes, animaciones y badges informativos
+ * Diseño moderno mejorado con mejor UX, jerarquía visual y información contextual
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -18,10 +18,13 @@ import {
   ArrowDown,
   AlertTriangle,
   Percent,
+  Target,
+  Info,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { SalesMetrics } from "@shared/sales-types";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ExecutiveKPICardsProps {
   companyId: number;
@@ -86,7 +89,6 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
       : 10300476;
 
   // Calculate current year total from monthly trends
-  // El endpoint devuelve 'volume', no 'totalQty'
   const currentYearTotal =
     monthlyTrends?.reduce((sum: number, month: any) => sum + (month.volume || 0), 0) || 0;
 
@@ -110,15 +112,14 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
   };
 
   const unit = companyId === 1 ? "KG" : "unidades";
-  const companyColor = companyId === 1 ? "green" : "purple";
 
   if (isLoadingMetrics) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="rounded-xl">
-            <CardContent className="p-6">
-              <Skeleton className="h-24 w-full" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Card key={i} className="rounded-xl border border-border/60">
+            <CardContent className="p-5">
+              <Skeleton className="h-32 w-full" />
             </CardContent>
           </Card>
         ))}
@@ -126,94 +127,96 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     );
   }
 
-  const kpiCards = [
+  // Configuración mejorada de tarjetas con mejor UX
+  const executiveCards = [
     {
       id: 1,
       title: "Ventas Totales Año",
       value: formatNumber(currentYearTotal),
       unit: unit,
-      subtitle: `vs objetivo anual`,
+      subtitle: `Objetivo: ${formatNumber(annualGoal)} ${unit}`,
+      progress: Math.min(yearProgress, 100),
+      progressLabel: `${yearProgress.toFixed(0)}% del objetivo`,
       badge: {
-        value: `${yearProgress.toFixed(0)}%`,
-        variant:
-          yearProgress >= 100
-            ? "default"
-            : yearProgress >= 75
-              ? "secondary"
-              : "destructive",
+        value: yearProgress >= 100 ? "✅ Cumplido" : yearProgress >= 75 ? "🟡 En curso" : "🔴 Bajo objetivo",
+        variant: yearProgress >= 100 ? "default" : yearProgress >= 75 ? "secondary" : "destructive",
       },
       icon: DollarSign,
-      gradient: companyId === 1
-        ? "from-green-50 to-emerald-100/50 dark:from-green-950/20 dark:to-emerald-900/10"
-        : "from-purple-50 to-violet-100/50 dark:from-purple-950/20 dark:to-violet-900/10",
-      borderColor: companyId === 1 ? "border-green-500" : "border-purple-500",
-      iconColor: companyId === 1 ? "text-green-600" : "text-purple-600",
-      iconBg: companyId === 1
-        ? "bg-green-500/20"
-        : "bg-purple-500/20",
+      iconBg: companyId === 1 
+        ? "bg-gradient-to-br from-green-500 to-emerald-600" 
+        : "bg-gradient-to-br from-purple-500 to-violet-600",
+      cardBg: companyId === 1
+        ? "from-green-50/80 via-emerald-50/60 to-transparent dark:from-green-950/30 dark:via-emerald-950/20"
+        : "from-purple-50/80 via-violet-50/60 to-transparent dark:from-purple-950/30 dark:via-violet-950/20",
+      borderAccent: companyId === 1 ? "border-l-green-500" : "border-l-purple-500",
+      tooltip: `Total acumulado del año vs objetivo anual de ${formatNumber(annualGoal)} ${unit}`,
     },
     {
       id: 2,
       title: "Ventas Mes Actual",
       value: formatNumber(currentMonthVolume),
       unit: unit,
-      subtitle: `vs mes anterior`,
+      subtitle: `Mes anterior: ${formatNumber(previousMonthVolume)} ${unit}`,
+      trend: monthGrowth,
+      trendLabel: monthGrowth >= 0 ? `+${monthGrowth.toFixed(1)}%` : `${monthGrowth.toFixed(1)}%`,
       badge: {
-        value: `${monthGrowth >= 0 ? "+" : ""}${monthGrowth.toFixed(1)}%`,
+        value: monthGrowth >= 0 ? "↑ Creciendo" : "↓ Decreciendo",
         variant: monthGrowth >= 0 ? "default" : "destructive",
         icon: monthGrowth >= 0 ? ArrowUp : ArrowDown,
       },
       icon: Calendar,
-      gradient: "from-blue-50 to-cyan-100/50 dark:from-blue-950/20 dark:to-cyan-900/10",
-      borderColor: "border-blue-500",
-      iconColor: "text-blue-600",
-      iconBg: "bg-blue-500/20",
+      iconBg: "bg-gradient-to-br from-blue-500 to-cyan-600",
+      cardBg: "from-blue-50/80 via-cyan-50/60 to-transparent dark:from-blue-950/30 dark:via-cyan-950/20",
+      borderAccent: "border-l-blue-500",
+      tooltip: `Comparación del mes actual vs mes anterior`,
     },
     {
       id: 3,
       title: "Crecimiento YoY",
       value: `${salesMetrics?.growth >= 0 ? "+" : ""}${salesMetrics?.growth?.toFixed(1) || 0}%`,
       unit: "",
-      subtitle: `vs año anterior`,
+      subtitle: `Comparación año sobre año`,
+      trend: salesMetrics?.growth || 0,
       badge: null,
       icon: salesMetrics?.growth >= 0 ? TrendingUp : TrendingDown,
-      gradient: salesMetrics?.growth >= 0
-        ? "from-emerald-50 to-green-100/50 dark:from-emerald-950/20 dark:to-green-900/10"
-        : "from-red-50 to-rose-100/50 dark:from-red-950/20 dark:to-rose-900/10",
-      borderColor: salesMetrics?.growth >= 0 ? "border-emerald-500" : "border-red-500",
-      iconColor: salesMetrics?.growth >= 0 ? "text-emerald-600" : "text-red-600",
-      iconBg: salesMetrics?.growth >= 0 ? "bg-emerald-500/20" : "bg-red-500/20",
+      iconBg: salesMetrics?.growth >= 0
+        ? "bg-gradient-to-br from-emerald-500 to-green-600"
+        : "bg-gradient-to-br from-red-500 to-rose-600",
+      cardBg: salesMetrics?.growth >= 0
+        ? "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20"
+        : "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20",
+      borderAccent: salesMetrics?.growth >= 0 ? "border-l-emerald-500" : "border-l-red-500",
+      tooltip: `Crecimiento porcentual comparado con el mismo período del año anterior`,
     },
     {
       id: 4,
       title: "Clientes Activos",
       value: salesMetrics?.activeClientsMetrics?.thisMonth || 0,
-      unit: "",
-      subtitle: `últimos 3 meses: ${salesMetrics?.activeClientsMetrics?.last3Months || 0}`,
+      unit: "clientes",
+      subtitle: `Últimos 3 meses: ${salesMetrics?.activeClientsMetrics?.last3Months || 0} clientes`,
       badge: null,
       icon: Users,
-      gradient: "from-amber-50 to-orange-100/50 dark:from-amber-950/20 dark:to-orange-900/10",
-      borderColor: "border-amber-500",
-      iconColor: "text-amber-600",
-      iconBg: "bg-amber-500/20",
+      iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
+      cardBg: "from-amber-50/80 via-orange-50/60 to-transparent dark:from-amber-950/30 dark:via-orange-950/20",
+      borderAccent: "border-l-amber-500",
+      tooltip: `Clientes que realizaron compras este mes vs últimos 3 meses`,
     },
-  ];
-
-  // Agregar tarjetas adicionales para información del director general
-  const executiveCards = [
-    ...kpiCards,
     {
       id: 5,
       title: "Meses Bajo Promedio",
       value: salesMetrics?.monthsBelowAverage?.toString() || "0",
-      unit: "meses",
-      subtitle: `del año actual`,
+      unit: "de 12 meses",
+      subtitle: `Año ${new Date().getFullYear()}`,
+      progress: salesMetrics?.monthsBelowAverage 
+        ? (salesMetrics.monthsBelowAverage / 12) * 100 
+        : 0,
+      progressLabel: `${salesMetrics?.monthsBelowAverage || 0} meses bajo el promedio mensual`,
       badge: {
         value: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6 
-          ? "Atención" 
+          ? "⚠️ Atención" 
           : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
-          ? "Moderado"
-          : "Bueno",
+          ? "🟡 Moderado"
+          : "✅ Bueno",
         variant: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
           ? "destructive"
           : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
@@ -221,26 +224,22 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
           : "default",
       },
       icon: AlertTriangle,
-      gradient: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
-        ? "from-red-50 to-rose-100/50 dark:from-red-950/20 dark:to-rose-900/10"
-        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
-        ? "from-amber-50 to-orange-100/50 dark:from-amber-950/20 dark:to-orange-900/10"
-        : "from-emerald-50 to-green-100/50 dark:from-emerald-950/20 dark:to-green-900/10",
-      borderColor: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
-        ? "border-red-500"
-        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
-        ? "border-amber-500"
-        : "border-emerald-500",
-      iconColor: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
-        ? "text-red-600"
-        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
-        ? "text-amber-600"
-        : "text-emerald-600",
       iconBg: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
-        ? "bg-red-500/20"
+        ? "bg-gradient-to-br from-red-500 to-rose-600"
         : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
-        ? "bg-amber-500/20"
-        : "bg-emerald-500/20",
+        ? "bg-gradient-to-br from-amber-500 to-orange-600"
+        : "bg-gradient-to-br from-emerald-500 to-green-600",
+      cardBg: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "from-amber-50/80 via-orange-50/60 to-transparent dark:from-amber-950/30 dark:via-orange-950/20"
+        : "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20",
+      borderAccent: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "border-l-red-500"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "border-l-amber-500"
+        : "border-l-emerald-500",
+      tooltip: `Cantidad de meses del año actual que están por debajo del promedio mensual de ventas`,
     },
     {
       id: 6,
@@ -249,16 +248,20 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
         ? `${salesMetrics.profitability.toFixed(1)}%`
         : "N/A",
       unit: "",
-      subtitle: `margen bruto estimado`,
+      subtitle: `Margen bruto estimado`,
+      progress: salesMetrics?.profitability || 0,
+      progressLabel: salesMetrics?.profitability 
+        ? `${salesMetrics.profitability.toFixed(1)}% de margen bruto`
+        : "Sin datos",
       badge: {
         value: salesMetrics?.profitability 
           ? salesMetrics.profitability >= 20
-            ? "Excelente"
+            ? "⭐ Excelente"
             : salesMetrics.profitability >= 15
-            ? "Buena"
+            ? "✅ Buena"
             : salesMetrics.profitability >= 10
-            ? "Regular"
-            : "Baja"
+            ? "🟡 Regular"
+            : "🔴 Baja"
           : "N/A",
         variant: salesMetrics?.profitability
           ? salesMetrics.profitability >= 20
@@ -271,97 +274,202 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
           : "secondary",
       },
       icon: Percent,
-      gradient: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "from-emerald-50 to-green-100/50 dark:from-emerald-950/20 dark:to-green-900/10"
-          : salesMetrics.profitability >= 15
-          ? "from-blue-50 to-cyan-100/50 dark:from-blue-950/20 dark:to-cyan-900/10"
-          : salesMetrics.profitability >= 10
-          ? "from-amber-50 to-orange-100/50 dark:from-amber-950/20 dark:to-orange-900/10"
-          : "from-red-50 to-rose-100/50 dark:from-red-950/20 dark:to-rose-900/10"
-        : "from-gray-50 to-slate-100/50 dark:from-gray-950/20 dark:to-slate-900/10",
-      borderColor: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "border-emerald-500"
-          : salesMetrics.profitability >= 15
-          ? "border-blue-500"
-          : salesMetrics.profitability >= 10
-          ? "border-amber-500"
-          : "border-red-500"
-        : "border-gray-500",
-      iconColor: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "text-emerald-600"
-          : salesMetrics.profitability >= 15
-          ? "text-blue-600"
-          : salesMetrics.profitability >= 10
-          ? "text-amber-600"
-          : "text-red-600"
-        : "text-gray-600",
       iconBg: salesMetrics?.profitability
         ? salesMetrics.profitability >= 20
-          ? "bg-emerald-500/20"
+          ? "bg-gradient-to-br from-emerald-500 to-green-600"
           : salesMetrics.profitability >= 15
-          ? "bg-blue-500/20"
+          ? "bg-gradient-to-br from-blue-500 to-cyan-600"
           : salesMetrics.profitability >= 10
-          ? "bg-amber-500/20"
-          : "bg-red-500/20"
-        : "bg-gray-500/20",
+          ? "bg-gradient-to-br from-amber-500 to-orange-600"
+          : "bg-gradient-to-br from-red-500 to-rose-600"
+        : "bg-gradient-to-br from-gray-500 to-slate-600",
+      cardBg: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20"
+          : salesMetrics.profitability >= 15
+          ? "from-blue-50/80 via-cyan-50/60 to-transparent dark:from-blue-950/30 dark:via-cyan-950/20"
+          : salesMetrics.profitability >= 10
+          ? "from-amber-50/80 via-orange-50/60 to-transparent dark:from-amber-950/30 dark:via-orange-950/20"
+          : "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20"
+        : "from-gray-50/80 via-slate-50/60 to-transparent dark:from-gray-950/30 dark:via-slate-950/20",
+      borderAccent: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "border-l-emerald-500"
+          : salesMetrics.profitability >= 15
+          ? "border-l-blue-500"
+          : salesMetrics.profitability >= 10
+          ? "border-l-amber-500"
+          : "border-l-red-500"
+        : "border-l-gray-500",
+      tooltip: `Porcentaje de margen bruto estimado basado en estándares de la industria`,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-      {executiveCards.map((kpi, index) => {
-        const Icon = kpi.icon;
-        return (
-          <motion.div
-            key={kpi.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-            whileHover={{ y: -4 }}
-          >
-            <Card
-              className={cn(
-                "relative overflow-hidden rounded-xl border-2 shadow-md hover:shadow-xl transition-all duration-300",
-                `bg-gradient-to-br ${kpi.gradient}`,
-                kpi.borderColor
-              )}
+    <TooltipProvider>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {executiveCards.map((kpi, index) => {
+          const Icon = kpi.icon;
+          return (
+            <motion.div
+              key={kpi.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.05 }}
+              whileHover={{ y: -2, transition: { duration: 0.2 } }}
             >
-              {/* Borde superior de acento */}
-              <div className={cn("absolute top-0 left-0 right-0 h-1", kpi.borderColor.replace("border-", "bg-"))} />
-
-              {/* Icono grande con blur */}
-              <div className={cn("absolute top-4 right-4 w-16 h-16 rounded-full backdrop-blur-sm flex items-center justify-center", kpi.iconBg)}>
-                <Icon className={cn("w-8 h-8", kpi.iconColor)} />
-              </div>
-
-              <CardContent className="p-6 pt-8">
-                <p className="text-sm text-muted-foreground mb-2 font-medium">{kpi.title}</p>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <p className="text-4xl font-bold text-foreground">{kpi.value}</p>
-                  {kpi.unit && (
-                    <span className="text-sm text-muted-foreground font-medium">{kpi.unit}</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">{kpi.subtitle}</p>
-                {kpi.badge && (
-                  <Badge
-                    variant={kpi.badge.variant as any}
-                    className="flex items-center gap-1 w-fit"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={cn(
+                      "relative overflow-hidden rounded-xl border-l-4 shadow-sm hover:shadow-md transition-all duration-300",
+                      "bg-gradient-to-br backdrop-blur-sm",
+                      kpi.cardBg,
+                      kpi.borderAccent,
+                      "group cursor-pointer"
+                    )}
                   >
-                    {kpi.badge.icon && <kpi.badge.icon className="h-3 w-3" />}
-                    {kpi.badge.value}
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        );
-      })}
-    </div>
+                    {/* Patrón de fondo sutil */}
+                    <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity">
+                      <div className="absolute inset-0" style={{
+                        backgroundImage: `radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)`,
+                        backgroundSize: '24px 24px'
+                      }} />
+                    </div>
+
+                    <CardContent className="relative p-5">
+                      {/* Header con icono y tooltip */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-sm font-semibold text-foreground/90 leading-tight">
+                              {kpi.title}
+                            </h3>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {kpi.subtitle}
+                          </p>
+                        </div>
+                        <div className={cn(
+                          "flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center shadow-sm",
+                          kpi.iconBg,
+                          "text-white"
+                        )}>
+                          <Icon className="w-6 h-6" />
+                        </div>
+                      </div>
+
+                      {/* Valor principal */}
+                      <div className="mb-3">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-foreground tracking-tight">
+                            {kpi.value}
+                          </span>
+                          {kpi.unit && (
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {kpi.unit}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Barra de progreso o indicador de tendencia */}
+                      {kpi.progress !== undefined && kpi.id !== 6 && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {kpi.progressLabel}
+                            </span>
+                            {kpi.progress > 0 && (
+                              <span className="text-xs font-semibold text-foreground/70">
+                                {kpi.progress.toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                            <motion.div
+                              className={cn(
+                                "h-full rounded-full",
+                                kpi.progress >= 75 ? "bg-emerald-500" :
+                                kpi.progress >= 50 ? "bg-blue-500" :
+                                kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
+                              transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Barra de rentabilidad (escala 0-30%) */}
+                      {kpi.id === 6 && salesMetrics?.profitability && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {kpi.progressLabel}
+                            </span>
+                            <span className="text-xs font-semibold text-foreground/70">
+                              {salesMetrics.profitability.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                            <motion.div
+                              className={cn(
+                                "h-full rounded-full",
+                                salesMetrics.profitability >= 20 ? "bg-emerald-500" :
+                                salesMetrics.profitability >= 15 ? "bg-blue-500" :
+                                salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
+                              transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Indicador de tendencia */}
+                      {kpi.trend !== undefined && kpi.trendLabel && (
+                        <div className="mb-3">
+                          <div className={cn(
+                            "flex items-center gap-1.5 text-sm font-semibold",
+                            kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                          )}>
+                            {kpi.trend >= 0 ? (
+                              <ArrowUp className="w-4 h-4" />
+                            ) : (
+                              <ArrowDown className="w-4 h-4" />
+                            )}
+                            <span>{kpi.trendLabel}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Badge de estado */}
+                      {kpi.badge && (
+                        <div className="mt-auto pt-2 border-t border-border/40">
+                          <Badge
+                            variant={kpi.badge.variant as any}
+                            className="flex items-center gap-1.5 w-fit text-xs font-medium"
+                          >
+                            {kpi.badge.icon && <kpi.badge.icon className="h-3 w-3" />}
+                            {kpi.badge.value}
+                          </Badge>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p className="text-sm">{kpi.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </motion.div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
-
-
