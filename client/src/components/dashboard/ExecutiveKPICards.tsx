@@ -305,10 +305,22 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     },
   ];
 
+  // Agrupar tarjetas por categoría para mejor organización visual
+  const primaryKPIs = executiveCards.slice(0, 4); // Ventas, Mes Actual, Crecimiento, Clientes
+  const executiveMetrics = executiveCards.slice(4); // Meses Bajo Promedio, Rentabilidad
+
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {executiveCards.map((kpi, index) => {
+      <div className="space-y-8">
+        {/* Grupo 1: KPIs Principales de Ventas - Grid más amplio */}
+        <div>
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Métricas de Ventas
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {primaryKPIs.map((kpi, index) => {
           const Icon = kpi.icon;
           return (
             <motion.div
@@ -465,10 +477,186 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
                 <TooltipContent side="top" className="max-w-xs">
                   <p className="text-sm">{kpi.tooltip}</p>
                 </TooltipContent>
-              </Tooltip>
-            </motion.div>
+            </Tooltip>
+          </motion.div>
           );
-        })}
+            })}
+          </div>
+        </div>
+
+        {/* Separador visual sutil */}
+        <div className="h-px bg-gradient-to-r from-transparent via-border/50 to-transparent my-6" />
+
+        {/* Grupo 2: Métricas Ejecutivas - Grid más compacto */}
+        <div>
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Indicadores Ejecutivos
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {executiveMetrics.map((kpi, index) => {
+            const Icon = kpi.icon;
+            return (
+              <motion.div
+                key={kpi.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: (index + primaryKPIs.length) * 0.05 }}
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card
+                      className={cn(
+                        "relative overflow-hidden rounded-xl border-l-4 shadow-sm hover:shadow-md transition-all duration-300",
+                        "bg-gradient-to-br backdrop-blur-sm",
+                        kpi.cardBg,
+                        kpi.borderAccent,
+                        "group cursor-pointer"
+                      )}
+                    >
+                      {/* Patrón de fondo sutil */}
+                      <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <div className="absolute inset-0" style={{
+                          backgroundImage: `radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)`,
+                          backgroundSize: '24px 24px'
+                        }} />
+                      </div>
+
+                      <CardContent className="relative p-5">
+                        {/* Header con icono y tooltip */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-sm font-semibold text-foreground/90 leading-tight">
+                                {kpi.title}
+                              </h3>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {kpi.subtitle}
+                            </p>
+                          </div>
+                          <div className={cn(
+                            "flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center shadow-sm",
+                            kpi.iconBg,
+                            "text-white"
+                          )}>
+                            <Icon className="w-6 h-6" />
+                          </div>
+                        </div>
+
+                        {/* Valor principal */}
+                        <div className="mb-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-foreground tracking-tight">
+                              {kpi.value}
+                            </span>
+                            {kpi.unit && (
+                              <span className="text-sm font-medium text-muted-foreground">
+                                {kpi.unit}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Barra de progreso o indicador de tendencia */}
+                        {kpi.progress !== undefined && kpi.id !== 6 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {kpi.progressLabel}
+                              </span>
+                              {kpi.progress > 0 && (
+                                <span className="text-xs font-semibold text-foreground/70">
+                                  {kpi.progress.toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                              <motion.div
+                                className={cn(
+                                  "h-full rounded-full",
+                                  kpi.progress >= 75 ? "bg-emerald-500" :
+                                  kpi.progress >= 50 ? "bg-blue-500" :
+                                  kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
+                                )}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
+                                transition={{ duration: 0.8, delay: (index + primaryKPIs.length) * 0.1 + 0.3 }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Barra de rentabilidad (escala 0-30%) */}
+                        {kpi.id === 6 && salesMetrics?.profitability && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {kpi.progressLabel}
+                              </span>
+                              <span className="text-xs font-semibold text-foreground/70">
+                                {salesMetrics.profitability.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                              <motion.div
+                                className={cn(
+                                  "h-full rounded-full",
+                                  salesMetrics.profitability >= 20 ? "bg-emerald-500" :
+                                  salesMetrics.profitability >= 15 ? "bg-blue-500" :
+                                  salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
+                                )}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
+                                transition={{ duration: 0.8, delay: (index + primaryKPIs.length) * 0.1 + 0.3 }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Indicador de tendencia */}
+                        {kpi.trend !== undefined && kpi.trendLabel && (
+                          <div className="mb-3">
+                            <div className={cn(
+                              "flex items-center gap-1.5 text-sm font-semibold",
+                              kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                            )}>
+                              {kpi.trend >= 0 ? (
+                                <ArrowUp className="w-4 h-4" />
+                              ) : (
+                                <ArrowDown className="w-4 h-4" />
+                              )}
+                              <span>{kpi.trendLabel}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Badge de estado */}
+                        {kpi.badge && (
+                          <div className="mt-auto pt-2 border-t border-border/40">
+                            <Badge
+                              variant={kpi.badge.variant as any}
+                              className="flex items-center gap-1.5 w-fit text-xs font-medium"
+                            >
+                              {kpi.badge.icon && <kpi.badge.icon className="h-3 w-3" />}
+                              {kpi.badge.value}
+                            </Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="text-sm">{kpi.tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </TooltipProvider>
   );

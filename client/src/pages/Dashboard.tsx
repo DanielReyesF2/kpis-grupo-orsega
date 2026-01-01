@@ -89,55 +89,164 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* KPIs Principales con animación escalonada */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <ExecutiveKPICards companyId={selectedCompany} />
-        </motion.div>
+        {/* ============================================
+            SECCIÓN 1: KPIs PRINCIPALES - Vista Ejecutiva
+            ============================================ */}
+        <section className="mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-1 w-12 bg-gradient-to-r from-primary to-primary/50 rounded-full" />
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Resumen Ejecutivo
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Métricas clave de rendimiento para toma de decisiones
+                </p>
+              </div>
+            </div>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="relative"
+          >
+            {/* Contenedor con fondo sutil para agrupar visualmente */}
+            <div className="relative p-6 rounded-2xl bg-gradient-to-br from-muted/20 via-muted/10 to-transparent border border-border/40 backdrop-blur-sm">
+              <ExecutiveKPICards companyId={selectedCompany} />
+            </div>
+          </motion.div>
+        </section>
 
-        {/* Gráfico de Tendencias - Card grande premium */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="mt-8"
-        >
-          <SalesTrendChart companyId={selectedCompany} months={12} />
-        </motion.div>
+        {/* Separador visual entre secciones */}
+        <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mb-16" />
 
-        {/* Grid de Rankings con hover effects */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6"
-        >
-          <TopProductsChart
-            companyId={selectedCompany}
-            limit={5}
-            period="month"
-            variant="compact"
-          />
-          <TopProductsChart
-            companyId={selectedCompany}
-            limit={5}
-            period="year"
-            variant="compact"
-          />
-          <TopClientsChart
-            companyId={selectedCompany}
-            limit={5}
-            period="year"
-            variant="compact"
-          />
-          <YearlyTotalsBarChart
-            companyId={selectedCompany}
-            variant="compact"
-          />
-        </motion.div>
+        {/* ============================================
+            SECCIÓN 2: ANÁLISIS DE TENDENCIAS
+            ============================================ */}
+        <section className="mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" />
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Evolución de Ventas
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Tendencias mensuales y comparativas anuales
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Gráfico principal de tendencias - Ocupa 2 columnas en XL */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="xl:col-span-2"
+            >
+              <SalesTrendChart companyId={selectedCompany} months={12} />
+            </motion.div>
+
+            {/* Comparativo anual - 1 columna en XL */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="xl:col-span-1"
+            >
+              <YearlyTotalsBarChart
+                companyId={selectedCompany}
+                variant="compact"
+              />
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Separador visual entre secciones */}
+        <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mb-16" />
+
+        {/* ============================================
+            SECCIÓN 3: ANÁLISIS DETALLADO
+            ============================================ */}
+        <section className="mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-1 w-12 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full" />
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Análisis Detallado
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Top productos, clientes y rankings por período
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Productos - Mes */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+            >
+              <TopProductsChart
+                companyId={selectedCompany}
+                limit={5}
+                period="month"
+                variant="compact"
+              />
+            </motion.div>
+
+            {/* Top Productos - Año */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.7 }}
+            >
+              <TopProductsChart
+                companyId={selectedCompany}
+                limit={5}
+                period="year"
+                variant="compact"
+              />
+            </motion.div>
+
+            {/* Top Clientes */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+            >
+              <TopClientsChart
+                companyId={selectedCompany}
+                limit={5}
+                period="year"
+                variant="compact"
+              />
+            </motion.div>
+          </div>
+        </section>
 
         {/* KPI Details Dialog */}
         <KpiDetailDialog
