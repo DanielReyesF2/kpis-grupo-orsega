@@ -8165,7 +8165,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5 } = req.query;
+      const { companyId, limit = 5, period = '3months' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8175,8 +8175,29 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      // Buscar top clientes en los últimos 3 meses para mostrar datos históricos reales
-      // Usamos client_name porque client_id puede ser NULL en datos migrados
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+
+      let dateFilter = '';
+      let params: any[] = [resolvedCompanyId];
+
+      // Determinar filtro de fecha según el período
+      if (period === 'month') {
+        // Último mes con datos disponibles
+        dateFilter = `AND sale_year = $2 AND sale_month = $3`;
+        params.push(currentYear, currentMonth);
+      } else if (period === 'year') {
+        // Año actual completo
+        dateFilter = `AND sale_year = $2`;
+        params.push(currentYear);
+      } else {
+        // Default: últimos 3 meses (backward compatibility)
+        dateFilter = `AND sale_date >= CURRENT_DATE - INTERVAL '3 months' AND sale_date <= CURRENT_DATE`;
+      }
+
+      params.push(parseInt(limit as string) || 5);
+
+      // Buscar top clientes según el período seleccionado
       let topClients = await sql(`
         SELECT
           client_name,
@@ -8185,16 +8206,15 @@ export function registerRoutes(app: express.Application) {
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
-          AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
-          AND sale_date <= CURRENT_DATE
+          ${dateFilter}
           AND client_name IS NOT NULL AND client_name <> ''
         GROUP BY client_name
         ORDER BY total_volume DESC
-        LIMIT $2
-      `, [resolvedCompanyId, parseInt(limit as string) || 5]);
+        LIMIT $${params.length}
+      `, params);
 
-      // Si no hay datos en últimos 3 meses, buscar en el último año disponible
-      if (!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) {
+      // Si no hay datos y es month/year, buscar en el último período con datos
+      if ((!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) && (period === 'month' || period === 'year')) {
         topClients = await sql(`
           SELECT
             client_name,
@@ -8231,7 +8251,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5 } = req.query;
+      const { companyId, limit = 5, period = '3months' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8241,7 +8261,29 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      // Buscar top productos en los últimos 3 meses
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+
+      let dateFilter = '';
+      let params: any[] = [resolvedCompanyId];
+
+      // Determinar filtro de fecha según el período
+      if (period === 'month') {
+        // Último mes con datos disponibles
+        dateFilter = `AND sale_year = $2 AND sale_month = $3`;
+        params.push(currentYear, currentMonth);
+      } else if (period === 'year') {
+        // Año actual completo
+        dateFilter = `AND sale_year = $2`;
+        params.push(currentYear);
+      } else {
+        // Default: últimos 3 meses (backward compatibility)
+        dateFilter = `AND sale_date >= CURRENT_DATE - INTERVAL '3 months' AND sale_date <= CURRENT_DATE`;
+      }
+
+      params.push(parseInt(limit as string) || 5);
+
+      // Buscar top productos según el período seleccionado
       let topProducts = await sql(`
         SELECT
           product_name,
@@ -8251,16 +8293,15 @@ export function registerRoutes(app: express.Application) {
           MAX(unit) as unit
         FROM sales_data
         WHERE company_id = $1
-          AND sale_date >= CURRENT_DATE - INTERVAL '3 months'
-          AND sale_date <= CURRENT_DATE
+          ${dateFilter}
           AND product_name IS NOT NULL AND product_name <> ''
         GROUP BY product_name
         ORDER BY total_volume DESC
-        LIMIT $2
-      `, [resolvedCompanyId, parseInt(limit as string) || 5]);
+        LIMIT $${params.length}
+      `, params);
 
-      // Si no hay datos recientes, buscar en 12 meses
-      if (!topProducts || topProducts.length === 0) {
+      // Si no hay datos y es month/year, buscar en el último período con datos
+      if ((!topProducts || topProducts.length === 0) && (period === 'month' || period === 'year')) {
         topProducts = await sql(`
           SELECT
             product_name,
@@ -8270,6 +8311,8 @@ export function registerRoutes(app: express.Application) {
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = $1
+            AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
+            AND sale_date <= CURRENT_DATE
             AND product_name IS NOT NULL AND product_name <> ''
           GROUP BY product_name
           ORDER BY total_volume DESC
@@ -8277,7 +8320,7 @@ export function registerRoutes(app: express.Application) {
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
       }
 
-      const formatted = topProducts.map((row: any) => ({
+      const formatted = (topProducts || []).map((row: any) => ({
         name: row.product_name || 'Sin nombre',
         volume: parseFloat(row.total_volume) || 0,
         uniqueClients: parseInt(row.unique_clients) || 0,

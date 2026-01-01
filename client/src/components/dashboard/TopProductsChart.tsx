@@ -5,6 +5,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart,
@@ -36,13 +37,20 @@ interface TopProduct {
 interface TopProductsChartProps {
   companyId?: number;
   limit?: number;
+  period?: 'month' | 'year' | '3months';
+  variant?: 'default' | 'compact';
 }
 
-export function TopProductsChart({ companyId = 1, limit = 5 }: TopProductsChartProps) {
+export function TopProductsChart({ 
+  companyId = 1, 
+  limit = 5,
+  period = '3months',
+  variant = 'default'
+}: TopProductsChartProps) {
   const { data: topProducts, isLoading, error } = useQuery<TopProduct[]>({
-    queryKey: ['/api/sales-top-products', companyId, limit],
+    queryKey: ['/api/sales-top-products', companyId, limit, period],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-top-products?companyId=${companyId}&limit=${limit}`);
+      const res = await apiRequest('GET', `/api/sales-top-products?companyId=${companyId}&limit=${limit}&period=${period}`);
       return await res.json();
     },
     retry: 2,
@@ -165,6 +173,47 @@ export function TopProductsChart({ companyId = 1, limit = 5 }: TopProductsChartP
     );
   };
 
+  // Variante compacta para grid
+  if (variant === 'compact') {
+    return (
+      <Card className="rounded-xl border border-border/60 bg-card shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-primary" />
+            <CardTitle className="text-lg">
+              Top {limit} Productos {period === 'month' ? 'del Mes' : period === 'year' ? 'del Año' : ''}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {topProducts.map((product, index) => {
+            const percentage = totalVolume > 0 ? (product.volume / totalVolume) * 100 : 0;
+            return (
+              <div
+                key={product.name}
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                  {index + 1}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{product.name}</p>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+                <p className="text-sm font-bold shrink-0">{formatNumber(product.volume)}</p>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-card via-card to-muted/20 border-border/50 shadow-lg">
       <CardHeader className="pb-0">
@@ -185,7 +234,7 @@ export function TopProductsChart({ companyId = 1, limit = 5 }: TopProductsChartP
                 <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {companyName} · Últimos 3 meses
+                {companyName} · {period === 'month' ? 'Este mes' : period === 'year' ? 'Este año' : 'Últimos 3 meses'}
               </p>
             </div>
           </div>

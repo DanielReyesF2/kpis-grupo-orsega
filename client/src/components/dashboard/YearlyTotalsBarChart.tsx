@@ -51,9 +51,10 @@ interface MultiYearData {
 
 interface YearlyTotalsBarChartProps {
   companyId?: number;
+  variant?: 'default' | 'compact';
 }
 
-export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
+export function YearlyTotalsBarChart({ companyId, variant = 'default' }: YearlyTotalsBarChartProps) {
   const [hoveredYear, setHoveredYear] = useState<string | null>(null);
 
   // Fetch data based on companyId
@@ -208,6 +209,58 @@ export function YearlyTotalsBarChart({ companyId }: YearlyTotalsBarChartProps) {
       </div>
     );
   };
+
+  // Variante compacta para grid
+  if (variant === 'compact') {
+    return (
+      <Card className="rounded-xl border border-border/60 bg-card shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            <CardTitle className="text-lg">Ventas Histórico Anual</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                <XAxis
+                  dataKey="year"
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tickFormatter={formatNumber}
+                  tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={50}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={50}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.isBestYear ? '#f59e0b' : companyConfig.primary}
+                      opacity={0.8}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Mejor año: {bestYear.year}</span>
+            <span className={latestGrowth >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+              {latestGrowth >= 0 ? '+' : ''}{latestGrowth.toFixed(1)}% vs anterior
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-card via-card to-muted/20 border-border/50 shadow-lg">
