@@ -45,6 +45,7 @@ import multer from "multer";
 import NodeCache from "node-cache";
 import { getSalesMetrics } from "./sales-metrics";
 import { handleSalesUpload } from "./sales-upload-handler-NEW";
+import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -1442,27 +1443,154 @@ export function registerRoutes(app: express.Application) {
 
       if (req.query.kpiId) {
         const kpiId = parseInt(req.query.kpiId as string, 10);
+        let kpi: Kpi | undefined;
+        let resolvedCompanyId: number;
+        
         if (companyIdParam !== undefined) {
-          const kpi = await storage.getKpi(kpiId, companyIdParam);
+          kpi = await storage.getKpi(kpiId, companyIdParam);
           if (!kpi) {
             return res.status(404).json({ message: "KPI not found for this company" });
           }
-          const kpiValues = await storage.getKpiValuesByKpi(kpiId, companyIdParam);
-          return res.json(kpiValues);
+          resolvedCompanyId = companyIdParam;
+        } else {
+          const allKpis = await storage.getKpis();
+          const match = allKpis.find((item) => item.id === kpiId);
+          if (!match?.companyId) {
+            return res.status(404).json({ message: "KPI not found" });
+          }
+          kpi = match;
+          resolvedCompanyId = match.companyId;
         }
 
-        const allKpis = await storage.getKpis();
-        const match = allKpis.find((item) => item.id === kpiId);
-        if (!match?.companyId) {
-          return res.status(404).json({ message: "KPI not found" });
+        // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
+        const kpiName = kpi.name || kpi.kpiName || '';
+        if (storage.isSalesKpi(kpiName)) {
+          console.log(`[GET /api/kpi-values] KPI de ventas detectado: ${kpiName}, calculando desde sales_data`);
+          
+          // Obtener período si se especifica en query params
+          const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+          const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+          
+          // Calcular valor en tiempo real
+          const calculatedValue = await calculateSalesKpiValue(kpiName, resolvedCompanyId, { year, month });
+          
+          if (calculatedValue) {
+            // Obtener historial si se solicita
+            const includeHistory = req.query.history === 'true';
+            let history: Array<{ period: string; value: number; date: Date }> = [];
+            
+            if (includeHistory) {
+              history = await calculateSalesKpiHistory(kpiName, resolvedCompanyId, 12);
+            }
+            
+            // Formatear respuesta en el formato esperado por KpiValue
+            const now = new Date();
+            const periodString = year && month 
+              ? `${['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][month - 1]} ${year}`
+              : `${['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][now.getMonth()]} ${now.getFullYear()}`;
+            
+            // Calcular compliance si hay target/goal
+            let compliancePercentage: string | null = null;
+            let status: string | null = null;
+            
+            if (kpi.target || kpi.goal) {
+              const target = parseFloat((kpi.target || kpi.goal || '0').toString().replace(/[^0-9.-]+/g, ''));
+              const value = typeof calculatedValue.value === 'number' ? calculatedValue.value : parseFloat(calculatedValue.value.toString().replace(/[^0-9.-]+/g, ''));
+              
+              if (!isNaN(target) && target > 0 && !isNaN(value)) {
+                const compliance = (value / target) * 100;
+                compliancePercentage = `${compliance.toFixed(1)}%`;
+                
+                if (compliance >= 100) {
+                  status = 'complies';
+                } else if (compliance >= 85) {
+                  status = 'alert';
+                } else {
+                  status = 'not_compliant';
+                }
+              }
+            }
+            
+            const kpiValue = {
+              id: 0, // Valor calculado, no tiene ID en BD
+              kpiId: kpiId,
+              companyId: resolvedCompanyId,
+              value: calculatedValue.value.toString() + (calculatedValue.unit ? ` ${calculatedValue.unit}` : ''),
+              period: periodString,
+              month: month?.toString() || (now.getMonth() + 1).toString(),
+              year: year || now.getFullYear(),
+              date: now,
+              compliancePercentage,
+              status,
+              comments: 'Valor calculado en tiempo real desde sales_data',
+              updatedBy: null
+            };
+            
+            // Si hay historial, incluir también esos valores
+            if (includeHistory && history.length > 0) {
+              const historyValues = history.map((h, idx) => ({
+                id: -(idx + 1), // IDs negativos para valores históricos calculados
+                kpiId: kpiId,
+                companyId: resolvedCompanyId,
+                value: h.value.toString() + (calculatedValue.unit ? ` ${calculatedValue.unit}` : ''),
+                period: h.period,
+                month: (h.date.getMonth() + 1).toString(),
+                year: h.date.getFullYear(),
+                date: h.date,
+                compliancePercentage: null,
+                status: null,
+                comments: 'Valor histórico calculado desde sales_data',
+                updatedBy: null
+              }));
+              
+              return res.json([kpiValue, ...historyValues]);
+            }
+            
+            return res.json([kpiValue]);
+          }
         }
-        const kpiValues = await storage.getKpiValuesByKpi(kpiId, match.companyId);
+        
+        // Si no es KPI de ventas, usar lógica tradicional
+        const kpiValues = await storage.getKpiValuesByKpi(kpiId, resolvedCompanyId);
         return res.json(kpiValues);
       }
 
+      // Cuando se consultan todos los valores, calcular en tiempo real los de ventas
       const allValues = await storage.getKpiValues(companyIdParam);
-      console.log(`[GET /api/kpi-values] Retornando ${allValues.length} valores para companyId=${companyIdParam ?? 'ALL'}`);
-      res.json(allValues);
+      const allKpis = await storage.getKpis();
+      
+      // Filtrar KPIs de ventas y calcular sus valores en tiempo real
+      const salesKpis = allKpis.filter(kpi => {
+        const kpiName = kpi.name || kpi.kpiName || '';
+        return storage.isSalesKpi(kpiName);
+      });
+      
+      // Reemplazar valores de KPIs de ventas con valores calculados en tiempo real
+      const updatedValues = await Promise.all(
+        allValues.map(async (value) => {
+          const kpi = salesKpis.find(k => k.id === value.kpiId);
+          if (kpi) {
+            const kpiName = kpi.name || kpi.kpiName || '';
+            const calculatedValue = await calculateSalesKpiValue(
+              kpiName,
+              value.companyId,
+              value.year && value.month ? { year: value.year, month: parseInt(value.month) } : undefined
+            );
+            
+            if (calculatedValue) {
+              return {
+                ...value,
+                value: calculatedValue.value.toString() + (calculatedValue.unit ? ` ${calculatedValue.unit}` : ''),
+                comments: value.comments || 'Valor calculado en tiempo real desde sales_data'
+              };
+            }
+          }
+          return value;
+        })
+      );
+      
+      console.log(`[GET /api/kpi-values] Retornando ${updatedValues.length} valores para companyId=${companyIdParam ?? 'ALL'} (${salesKpis.length} KPIs de ventas calculados en tiempo real)`);
+      res.json(updatedValues);
     } catch (error) {
       console.error("[GET /api/kpi-values] Error:", error);
       res.status(500).json({ message: "Internal server error" });

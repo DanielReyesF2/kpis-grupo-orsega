@@ -25,6 +25,7 @@ import {
   type KpiValueOrsega
 } from "@shared/schema";
 import { calculateKpiStatus, calculateCompliance, normalizeStatus, isLowerBetterKPI } from "@shared/kpi-utils";
+import { calculateSalesKpiValue } from "./sales-kpi-calculator";
 import type {
   User, InsertUser,
   Company, InsertCompany,
@@ -84,6 +85,55 @@ export class DatabaseStorage implements IStorage {
 
   private normalizeAreaName(area?: string | null) {
     return area ? area.trim().toLowerCase() : null;
+  }
+
+  /**
+   * Identifica si un KPI es de ventas basándose en su nombre
+   * @param kpiName - Nombre del KPI
+   * @returns true si es un KPI de ventas, false en caso contrario
+   */
+  isSalesKpi(kpiName: string): boolean {
+    const name = kpiName.toLowerCase().trim();
+    
+    // Patrones para identificar KPIs de ventas
+    const salesPatterns = [
+      // Volumen de ventas
+      (name.includes('volumen') && (name.includes('ventas') || name.includes('venta'))) ||
+      (name.includes('sales') && name.includes('volume')) ||
+      name.includes('volumen de ventas'),
+      
+      // Clientes activos
+      (name.includes('clientes') && name.includes('activos')) ||
+      (name.includes('active') && name.includes('clients')) ||
+      name.includes('clientes activos'),
+      
+      // Crecimiento
+      name.includes('crecimiento') ||
+      name.includes('growth') ||
+      name.includes('incremento'),
+      
+      // Churn
+      name.includes('churn') ||
+      name.includes('abandono'),
+      
+      // Retención
+      name.includes('retención') ||
+      name.includes('retention') ||
+      name.includes('retencion'),
+      
+      // Nuevos clientes
+      (name.includes('nuevos') && name.includes('clientes')) ||
+      (name.includes('new') && name.includes('clients')) ||
+      name.includes('nuevos clientes'),
+      
+      // Valor promedio por orden
+      name.includes('valor promedio') ||
+      name.includes('average order') ||
+      name.includes('ticket promedio') ||
+      name.includes('avg order')
+    ];
+    
+    return salesPatterns.some(pattern => pattern === true);
   }
 
   private async findCompanyForKpiId(kpiId: number): Promise<1 | 2 | undefined> {
@@ -1529,14 +1579,84 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Usar función centralizada para obtener últimos valores
-      // Esto asegura consistencia con otras partes del sistema
+      // Para KPIs de ventas, calcular en tiempo real desde sales_data
       const latestValueMap = new Map<string, KpiValue>();
       for (const [companyId, kpis] of kpisByCompany.entries()) {
         for (const kpi of kpis) {
           const key = `${companyId}-${kpi.id}`;
-          const latestValue = await this.getLatestKpiValue(companyId, kpi.id);
-          if (latestValue) {
-            latestValueMap.set(key, latestValue);
+          const kpiName = kpi.name || kpi.kpiName || '';
+          
+          // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
+          if (this.isSalesKpi(kpiName)) {
+            try {
+              console.log(`[getKPIOverview] Calculando valor en tiempo real para KPI de ventas: ${kpiName} (companyId: ${companyId})`);
+              const calculatedValue = await calculateSalesKpiValue(kpiName, companyId);
+              
+              if (calculatedValue) {
+                // Crear un KpiValue simulado con el valor calculado
+                const now = new Date();
+                const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                const periodString = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+                
+                // Calcular compliance si hay target/goal
+                let compliancePercentage: string | null = null;
+                let status: string | null = null;
+                
+                if (kpi.target || kpi.goal) {
+                  const target = parseFloat((kpi.target || kpi.goal || '0').toString().replace(/[^0-9.-]+/g, ''));
+                  const value = typeof calculatedValue.value === 'number' ? calculatedValue.value : parseFloat(calculatedValue.value.toString().replace(/[^0-9.-]+/g, ''));
+                  
+                  if (!isNaN(target) && target > 0 && !isNaN(value)) {
+                    const compliance = (value / target) * 100;
+                    compliancePercentage = `${compliance.toFixed(1)}%`;
+                    
+                    if (compliance >= 100) {
+                      status = 'complies';
+                    } else if (compliance >= 85) {
+                      status = 'alert';
+                    } else {
+                      status = 'not_compliant';
+                    }
+                  }
+                }
+                
+                const calculatedKpiValue: KpiValue = {
+                  id: 0, // Valor calculado, no tiene ID en BD
+                  kpiId: kpi.id,
+                  companyId: companyId as CompanyId,
+                  value: calculatedValue.value.toString() + (calculatedValue.unit ? ` ${calculatedValue.unit}` : ''),
+                  period: periodString,
+                  month: (now.getMonth() + 1).toString(),
+                  year: now.getFullYear(),
+                  date: now,
+                  compliancePercentage,
+                  status,
+                  comments: 'Valor calculado en tiempo real desde sales_data',
+                  updatedBy: null
+                };
+                
+                latestValueMap.set(key, calculatedKpiValue);
+              } else {
+                // Si no se pudo calcular, intentar obtener de kpi_values como fallback
+                const latestValue = await this.getLatestKpiValue(companyId, kpi.id);
+                if (latestValue) {
+                  latestValueMap.set(key, latestValue);
+                }
+              }
+            } catch (error) {
+              console.error(`[getKPIOverview] Error calculando valor para KPI de ventas ${kpiName}:`, error);
+              // Fallback a valor de kpi_values
+              const latestValue = await this.getLatestKpiValue(companyId, kpi.id);
+              if (latestValue) {
+                latestValueMap.set(key, latestValue);
+              }
+            }
+          } else {
+            // Para KPIs no de ventas, usar lógica tradicional
+            const latestValue = await this.getLatestKpiValue(companyId, kpi.id);
+            if (latestValue) {
+              latestValueMap.set(key, latestValue);
+            }
           }
         }
       }
