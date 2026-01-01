@@ -46,6 +46,7 @@ import NodeCache from "node-cache";
 import { getSalesMetrics } from "./sales-metrics";
 import { handleSalesUpload } from "./sales-upload-handler-NEW";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
+import { calculateRealProfitability } from "./profitability-metrics";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -8588,6 +8589,31 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('[POST /api/sales-alerts/:id/resolve] Error:', error);
       res.status(500).json({ error: 'Failed to resolve alert' });
+    }
+  });
+
+  // GET /api/profitability-metrics - Métricas detalladas de rentabilidad
+  app.get("/api/profitability-metrics", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, year } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const targetYear = year ? parseInt(year as string) : undefined;
+      const metrics = await calculateRealProfitability(resolvedCompanyId, targetYear);
+
+      res.json(metrics);
+    } catch (error) {
+      console.error('[GET /api/profitability-metrics] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch profitability metrics' });
     }
   });
 

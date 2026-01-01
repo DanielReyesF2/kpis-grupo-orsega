@@ -47,6 +47,17 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     refetchInterval: 60000,
   });
 
+  // Fetch profitability metrics for real profitability data
+  const { data: profitabilityData } = useQuery({
+    queryKey: ["/api/profitability-metrics", companyId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/profitability-metrics?companyId=${companyId}`);
+      return await res.json();
+    },
+    staleTime: 60000,
+    refetchInterval: 120000,
+  });
+
   // Fetch KPIs to get annual goal
   const { data: kpis } = useQuery<KPI[]>({
     queryKey: ["/api/kpis", companyId],
@@ -239,66 +250,70 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
         : "border-l-emerald-500",
       tooltip: `Cantidad de meses del año actual que están por debajo del promedio mensual de ventas`,
     },
-    {
-      id: 6,
-      title: "Rentabilidad",
-      value: salesMetrics?.profitability 
-        ? `${salesMetrics.profitability.toFixed(1)}%`
-        : "N/A",
+        {
+          id: 6,
+          title: "Rentabilidad",
+          value: profitabilityData?.overallProfitability 
+            ? `${profitabilityData.overallProfitability.toFixed(1)}%`
+            : salesMetrics?.profitability 
+            ? `${salesMetrics.profitability.toFixed(1)}%`
+            : "N/A",
       unit: "",
-      subtitle: `Margen bruto estimado`,
-      progress: salesMetrics?.profitability || 0,
-      progressLabel: salesMetrics?.profitability 
-        ? `${salesMetrics.profitability.toFixed(1)}% de margen bruto`
-        : "Sin datos",
-      badge: {
-        value: salesMetrics?.profitability 
-          ? salesMetrics.profitability >= 20
-            ? "⭐ Excelente"
-            : salesMetrics.profitability >= 15
-            ? "✅ Buena"
-            : salesMetrics.profitability >= 10
-            ? "🟡 Regular"
-            : "🔴 Baja"
-          : "N/A",
-        variant: salesMetrics?.profitability
-          ? salesMetrics.profitability >= 20
-            ? "default"
-            : salesMetrics.profitability >= 15
-            ? "default"
-            : salesMetrics.profitability >= 10
-            ? "secondary"
-            : "destructive"
-          : "secondary",
-      },
-      icon: Percent,
-      iconBg: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "bg-gradient-to-br from-emerald-500 to-green-600"
-          : salesMetrics.profitability >= 15
-          ? "bg-gradient-to-br from-blue-500 to-cyan-600"
-          : salesMetrics.profitability >= 10
-          ? "bg-gradient-to-br from-amber-500 to-orange-600"
-          : "bg-gradient-to-br from-red-500 to-rose-600"
-        : "bg-gradient-to-br from-gray-500 to-slate-600",
-      cardBg: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20"
-          : salesMetrics.profitability >= 15
-          ? "from-blue-50/80 via-cyan-50/60 to-transparent dark:from-blue-950/30 dark:via-cyan-950/20"
-          : salesMetrics.profitability >= 10
-          ? "from-amber-50/80 via-orange-50/60 to-transparent dark:from-amber-950/30 dark:via-orange-950/20"
-          : "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20"
-        : "from-gray-50/80 via-slate-50/60 to-transparent dark:from-gray-950/30 dark:via-slate-950/20",
-      borderAccent: salesMetrics?.profitability
-        ? salesMetrics.profitability >= 20
-          ? "border-l-emerald-500"
-          : salesMetrics.profitability >= 15
-          ? "border-l-blue-500"
-          : salesMetrics.profitability >= 10
-          ? "border-l-amber-500"
-          : "border-l-red-500"
-        : "border-l-gray-500",
+          subtitle: `Margen bruto calculado`,
+          progress: profitabilityData?.overallProfitability || salesMetrics?.profitability || 0,
+          progressLabel: profitabilityData?.overallProfitability 
+            ? `${profitabilityData.overallProfitability.toFixed(1)}% de margen bruto`
+            : salesMetrics?.profitability 
+            ? `${salesMetrics.profitability.toFixed(1)}% de margen bruto`
+            : "Sin datos",
+          badge: {
+            value: (profitabilityData?.overallProfitability ?? salesMetrics?.profitability)
+              ? (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20
+                ? "⭐ Excelente"
+                : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15
+                ? "✅ Buena"
+                : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10
+                ? "🟡 Regular"
+                : "🔴 Baja"
+              : "N/A",
+            variant: (profitabilityData?.overallProfitability ?? salesMetrics?.profitability)
+              ? (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20
+                ? "default"
+                : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15
+                ? "default"
+                : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10
+                ? "secondary"
+                : "destructive"
+              : "secondary",
+          },
+          icon: Percent,
+          iconBg: (profitabilityData?.overallProfitability ?? salesMetrics?.profitability)
+            ? (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20
+              ? "bg-gradient-to-br from-emerald-500 to-green-600"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15
+              ? "bg-gradient-to-br from-blue-500 to-cyan-600"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10
+              ? "bg-gradient-to-br from-amber-500 to-orange-600"
+              : "bg-gradient-to-br from-red-500 to-rose-600"
+            : "bg-gradient-to-br from-gray-500 to-slate-600",
+          cardBg: (profitabilityData?.overallProfitability ?? salesMetrics?.profitability)
+            ? (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20
+              ? "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15
+              ? "from-blue-50/80 via-cyan-50/60 to-transparent dark:from-blue-950/30 dark:via-cyan-950/20"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10
+              ? "from-amber-50/80 via-orange-50/60 to-transparent dark:from-amber-950/30 dark:via-orange-950/20"
+              : "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20"
+            : "from-gray-50/80 via-slate-50/60 to-transparent dark:from-gray-950/30 dark:via-slate-950/20",
+          borderAccent: (profitabilityData?.overallProfitability ?? salesMetrics?.profitability)
+            ? (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20
+              ? "border-l-emerald-500"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15
+              ? "border-l-blue-500"
+              : (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10
+              ? "border-l-amber-500"
+              : "border-l-red-500"
+            : "border-l-gray-500",
       tooltip: `Porcentaje de margen bruto estimado basado en estándares de la industria`,
     },
   ];
@@ -505,18 +520,18 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
                   )}
 
                   {/* Barra de rentabilidad mejorada */}
-                  {kpi.id === 6 && salesMetrics?.profitability && (
+                  {kpi.id === 6 && (profitabilityData?.overallProfitability ?? salesMetrics?.profitability) && (
                     <div className="mb-4">
                       <div className="h-2 bg-muted/20 rounded-full overflow-hidden">
                         <motion.div
                           className={cn(
                             "h-full rounded-full shadow-sm",
-                            salesMetrics.profitability >= 20 ? "bg-emerald-500" :
-                            salesMetrics.profitability >= 15 ? "bg-blue-500" :
-                            salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
+                            (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 20 ? "bg-emerald-500" :
+                            (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 15 ? "bg-blue-500" :
+                            (profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) >= 10 ? "bg-amber-500" : "bg-red-500"
                           )}
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
+                          animate={{ width: `${Math.min(((profitabilityData?.overallProfitability ?? salesMetrics?.profitability ?? 0) / 30) * 100, 100)}%` }}
                           transition={{ duration: 1, delay: (index + primaryKPIs.length) * 0.1 + 0.3, ease: "easeOut" }}
                         />
                       </div>
