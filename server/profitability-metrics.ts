@@ -56,7 +56,17 @@ export async function calculateRealProfitability(
   companyId: number,
   year?: number
 ): Promise<ProfitabilityMetrics> {
-  const targetYear = year || new Date().getFullYear();
+  // Primero encontrar el año más reciente con datos
+  const maxYearQuery = `
+    SELECT MAX(sale_year) as max_year
+    FROM sales_data
+    WHERE company_id = $1
+  `;
+  const maxYearResult = await sql(maxYearQuery, [companyId]);
+  const maxYear = parseInt(maxYearResult[0]?.max_year || String(new Date().getFullYear()));
+  const targetYear = year || maxYear;
+
+  console.log(`[calculateRealProfitability] companyId: ${companyId}, targetYear: ${targetYear}, maxYear: ${maxYear}`);
 
   // 1. Calcular rentabilidad general
   const profitabilityQuery = `
@@ -79,6 +89,8 @@ export async function calculateRealProfitability(
   const avgTransactionValue = parseFloat(profitabilityData[0]?.avg_transaction_value || '0');
   const avgUnitPrice = parseFloat(profitabilityData[0]?.avg_unit_price || '0');
 
+  console.log(`[calculateRealProfitability] Revenue: ${totalRevenue}, Transactions: ${totalTransactions}, AvgPrice: ${avgUnitPrice}`);
+
   // Calcular rentabilidad estimada basada en precio promedio
   // Si tenemos precio unitario, podemos estimar un margen
   // Para distribución: margen típico 15-25%, usamos 18% como base pero ajustamos según precio
@@ -94,6 +106,8 @@ export async function calculateRealProfitability(
       overallProfitability = 18.0; // Productos estándar
     }
   }
+
+  console.log(`[calculateRealProfitability] Calculated profitability: ${overallProfitability}%`);
 
   // 2. Top productos por rentabilidad (por revenue total)
   const topProductsQuery = `

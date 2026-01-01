@@ -48,14 +48,26 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
   });
 
   // Fetch profitability metrics for real profitability data
-  const { data: profitabilityData } = useQuery({
+  const { data: profitabilityData, isLoading: isLoadingProfitability } = useQuery({
     queryKey: ["/api/profitability-metrics", companyId],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/profitability-metrics?companyId=${companyId}`);
-      return await res.json();
+      try {
+        const res = await apiRequest("GET", `/api/profitability-metrics?companyId=${companyId}`);
+        if (!res.ok) {
+          console.error('[ExecutiveKPICards] Error fetching profitability:', res.status);
+          return null;
+        }
+        const data = await res.json();
+        console.log('[ExecutiveKPICards] Profitability data:', data);
+        return data;
+      } catch (error) {
+        console.error('[ExecutiveKPICards] Error fetching profitability:', error);
+        return null;
+      }
     },
     staleTime: 60000,
     refetchInterval: 120000,
+    retry: 2,
   });
 
   // Fetch KPIs to get annual goal
