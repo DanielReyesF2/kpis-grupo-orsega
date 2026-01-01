@@ -510,7 +510,7 @@ export default function KpiControlCenter() {
 
   // Obtener valores de KPIs (con actualización balanceada)
   const { data: kpiValues = [], isSuccess: kpiValuesSuccess } = useQuery<KpiValue[]>({
-    queryKey: ['/api/kpi-values'],
+    queryKey: ['/api/kpi-values', { companyId: selectedCompanyId || null }],
     staleTime: 1 * 60 * 1000, // Los datos son válidos por 1 minuto
     refetchInterval: 15000, // Actualizar cada 15 segundos (más crítico)
   });

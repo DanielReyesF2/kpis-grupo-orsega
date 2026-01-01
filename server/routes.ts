@@ -3854,10 +3854,76 @@ export function registerRoutes(app: express.Application) {
       // FIN DATOS HARDCODEADOS TEMPORALES
       // ========================================================================
 
-      // getKPIHistory puede resolver automáticamente el companyId si no se proporciona
-      // usando findCompanyForKpiId internamente
-      const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
+      // Resolver companyId si no se proporciona
+      let resolvedCompanyId = companyId;
+      if (!resolvedCompanyId) {
+        const allKpis = await storage.getKpis();
+        const kpi = allKpis.find(k => k.id === kpiId);
+        if (kpi?.companyId) {
+          resolvedCompanyId = kpi.companyId;
+        } else {
+          // Si no se puede resolver, usar lógica tradicional
+          const kpiHistory = await storage.getKPIHistory(kpiId, months, companyId);
+          return res.json(kpiHistory);
+        }
+      }
 
+      // Obtener información del KPI para verificar si es de ventas
+      const kpi = await storage.getKpi(kpiId, resolvedCompanyId);
+      if (!kpi) {
+        return res.status(404).json({ message: "KPI not found" });
+      }
+
+      const kpiName = kpi.name || kpi.kpiName || '';
+
+      // Si es un KPI de ventas, calcular historial desde sales_data
+      if (storage.isSalesKpi(kpiName)) {
+        console.log(`[GET /api/kpi-history/:kpiId] KPI de ventas detectado: ${kpiName}, calculando desde sales_data`);
+        
+        try {
+          const history = await calculateSalesKpiHistory(kpiName, resolvedCompanyId, months);
+          
+          // Formatear al formato esperado por el frontend (compatible con kpi_values)
+          // El formato debe coincidir exactamente con mapKpiValueRecord
+          const formattedHistory = history.map(h => {
+            const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const monthIndex = h.date.getMonth();
+            const monthName = monthNames[monthIndex];
+            const year = h.date.getFullYear();
+            // Formato de period debe ser: "Mes Año" (ej: "Enero 2025")
+            const periodString = `${monthName} ${year}`;
+            // month debe ser el nombre del mes (ej: "Enero"), no el número
+            const monthString = monthName;
+            
+            return {
+              id: 0, // Valor calculado, no tiene ID en BD
+              kpiId: kpiId,
+              companyId: resolvedCompanyId as 1 | 2,
+              value: h.value.toString(), // Sin unidad, solo el número como string
+              period: periodString,
+              month: monthString,
+              year: year,
+              date: h.date,
+              compliancePercentage: null,
+              status: null,
+              comments: 'Valor histórico calculado desde sales_data',
+              updatedBy: null
+            };
+          });
+          
+          console.log(`[GET /api/kpi-history/:kpiId] Retornando ${formattedHistory.length} registros calculados desde sales_data`);
+          return res.json(formattedHistory);
+        } catch (error) {
+          console.error(`[GET /api/kpi-history/:kpiId] Error calculando historial desde sales_data:`, error);
+          // Fallback a lógica tradicional si hay error
+          const kpiHistory = await storage.getKPIHistory(kpiId, months, resolvedCompanyId);
+          return res.json(kpiHistory);
+        }
+      }
+
+      // Si no es KPI de ventas, usar lógica tradicional (leer de kpi_values)
+      const kpiHistory = await storage.getKPIHistory(kpiId, months, resolvedCompanyId);
       res.json(kpiHistory);
     } catch (error) {
       console.error("[GET /api/kpi-history/:kpiId] Error:", error);
@@ -7863,12 +7929,24 @@ export function registerRoutes(app: express.Application) {
           ORDER BY sale_month ASC
         `, [resolvedCompanyId, selectedYear]);
       } else {
-        // Comportamiento legacy: últimos N meses
+        // Cuando no se especifica year, usar el último año completo con datos disponibles
+        // Esto es mejor que usar fechas relativas porque puede haber datos futuros
         const monthsCount = parseInt(months as string) || 12;
-        const currentDate = new Date();
-        const startDate = new Date(currentDate);
-        startDate.setMonth(startDate.getMonth() - monthsCount);
-
+        
+        // Primero obtener el último año con datos
+        const latestYearResult = await sql(`
+          SELECT MAX(sale_year) as max_year
+          FROM sales_data
+          WHERE company_id = $1
+        `, [resolvedCompanyId]);
+        
+        const latestYear = latestYearResult[0]?.max_year 
+          ? parseInt(latestYearResult[0].max_year) 
+          : new Date().getFullYear();
+        
+        console.log(`[GET /api/sales-monthly-trends] Último año con datos para companyId ${resolvedCompanyId}: ${latestYear}`);
+        
+        // Obtener los últimos N meses del último año con datos
         monthlyData = await sql(`
           SELECT
             sale_year,
@@ -7879,12 +7957,39 @@ export function registerRoutes(app: express.Application) {
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = $1
-            AND sale_date >= $2
-            AND sale_date <= $3
+            AND sale_year = $2
           GROUP BY sale_year, sale_month
-          ORDER BY sale_year DESC, sale_month DESC
-          LIMIT $4
-        `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
+          ORDER BY sale_month DESC
+          LIMIT $3
+        `, [resolvedCompanyId, latestYear, monthsCount]);
+        
+        // Si no hay suficientes datos en el último año, incluir también el año anterior
+        if (monthlyData.length < monthsCount && latestYear > 2020) {
+          const previousYear = latestYear - 1;
+          const remainingMonths = monthsCount - monthlyData.length;
+          
+          const previousYearData = await sql(`
+            SELECT
+              sale_year,
+              sale_month,
+              COALESCE(SUM(quantity), 0) as total_volume,
+              COALESCE(SUM(total_amount), 0) as total_amount,
+              COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
+              MAX(unit) as unit
+            FROM sales_data
+            WHERE company_id = $1
+              AND sale_year = $2
+            GROUP BY sale_year, sale_month
+            ORDER BY sale_month DESC
+            LIMIT $3
+          `, [resolvedCompanyId, previousYear, remainingMonths]);
+          
+          // Combinar datos: año anterior primero, luego último año
+          monthlyData = [...previousYearData.reverse(), ...monthlyData.reverse()];
+        } else {
+          // Invertir para tener orden cronológico (más antiguo primero)
+          monthlyData.reverse();
+        }
       }
 
       // Formatear datos para el gráfico

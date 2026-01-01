@@ -84,14 +84,15 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
       : 10300476;
 
   // Calculate current year total from monthly trends
+  // El endpoint devuelve 'volume', no 'totalQty'
   const currentYearTotal =
-    monthlyTrends?.reduce((sum: number, month: any) => sum + (month.totalQty || 0), 0) || 0;
+    monthlyTrends?.reduce((sum: number, month: any) => sum + (month.volume || 0), 0) || 0;
 
   // Get current month and previous month
   const currentMonth = monthlyTrends?.[monthlyTrends.length - 1];
   const previousMonth = monthlyTrends?.[monthlyTrends.length - 2];
-  const currentMonthVolume = currentMonth?.totalQty || 0;
-  const previousMonthVolume = previousMonth?.totalQty || 0;
+  const currentMonthVolume = currentMonth?.volume || 0;
+  const previousMonthVolume = previousMonth?.volume || 0;
   const monthGrowth =
     previousMonthVolume > 0
       ? ((currentMonthVolume - previousMonthVolume) / previousMonthVolume) * 100
@@ -249,4 +250,5 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     </div>
   );
 }
+
 

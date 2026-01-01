@@ -357,34 +357,38 @@ export async function calculateSalesKpiHistory(
   }
   
   try {
-    // Obtener los últimos N meses con datos
+    // Obtener los últimos N meses con datos, agrupados por año y mes
+    // Esto asegura que obtengamos todos los meses disponibles, no solo los últimos N desde hoy
     const latestDataQuery = `
-      SELECT DISTINCT sale_year, sale_month
+      SELECT 
+        sale_year,
+        sale_month,
+        COALESCE(SUM(quantity), 0) as total_volume
       FROM sales_data
       WHERE company_id = $1
+      GROUP BY sale_year, sale_month
       ORDER BY sale_year DESC, sale_month DESC
       LIMIT $2
     `;
     const periods = await sql(latestDataQuery, [companyId, months]);
     
-    const history = [];
-    for (const period of periods) {
-      const year = parseInt(period.sale_year);
-      const month = parseInt(period.sale_month);
-      const volume = await calculateVolume(companyId, year, month);
+    const history = periods.map((row: any) => {
+      const year = parseInt(row.sale_year);
+      const month = parseInt(row.sale_month);
+      const volume = parseFloat(row.total_volume || '0');
       
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const periodString = `${monthNames[month - 1]} ${year}`;
       const date = new Date(year, month - 1, 1);
       
-      history.push({
+      return {
         period: periodString,
         value: volume,
         date
-      });
-    }
+      };
+    });
     
-    // Ordenar por fecha ascendente
+    // Ordenar por fecha ascendente (más antiguo primero)
     history.sort((a, b) => a.date.getTime() - b.date.getTime());
     
     return history;

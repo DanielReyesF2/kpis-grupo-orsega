@@ -54,7 +54,7 @@ export function CompanySection({
 
   // Fetch KPI values for the KPIs
   const { data: kpiValues, isLoading: isLoadingKpiValues } = useQuery({
-    queryKey: ['/api/kpi-values'],
+    queryKey: ['/api/kpi-values', { companyId }],
     enabled: !!kpis && expanded,
   });
   

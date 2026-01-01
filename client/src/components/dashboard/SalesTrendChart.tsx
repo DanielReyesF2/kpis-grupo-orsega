@@ -78,11 +78,12 @@ export function SalesTrendChart({ companyId, months = 12 }: SalesTrendChartProps
   }
 
   // Procesar datos para el gráfico
+  // El endpoint devuelve 'volume', no 'totalQty'
   const chartData = monthlyTrends
     .slice(-months)
     .map((item: any) => ({
       month: item.month || `${item.monthNum}/${item.year}`,
-      value: item.totalQty || 0,
+      value: item.volume || 0, // Cambiado de totalQty a volume
       period: item.period || `${item.monthNum}/${item.year}`,
     }));
 
@@ -199,4 +200,5 @@ export function SalesTrendChart({ companyId, months = 12 }: SalesTrendChartProps
     </motion.div>
   );
 }
+
 

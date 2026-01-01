@@ -140,3 +140,4 @@ check-user-areas.js
 # Temporary data files
 *.json.bak
 *.sql.bak
+node_modules
