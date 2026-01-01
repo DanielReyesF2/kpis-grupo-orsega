@@ -16,6 +16,8 @@ import {
   Users,
   ArrowUp,
   ArrowDown,
+  AlertTriangle,
+  Percent,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { SalesMetrics } from "@shared/sales-types";
@@ -197,9 +199,120 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     },
   ];
 
+  // Agregar tarjetas adicionales para información del director general
+  const executiveCards = [
+    ...kpiCards,
+    {
+      id: 5,
+      title: "Meses Bajo Promedio",
+      value: salesMetrics?.monthsBelowAverage?.toString() || "0",
+      unit: "meses",
+      subtitle: `del año actual`,
+      badge: {
+        value: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6 
+          ? "Atención" 
+          : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+          ? "Moderado"
+          : "Bueno",
+        variant: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+          ? "destructive"
+          : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+          ? "secondary"
+          : "default",
+      },
+      icon: AlertTriangle,
+      gradient: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "from-red-50 to-rose-100/50 dark:from-red-950/20 dark:to-rose-900/10"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "from-amber-50 to-orange-100/50 dark:from-amber-950/20 dark:to-orange-900/10"
+        : "from-emerald-50 to-green-100/50 dark:from-emerald-950/20 dark:to-green-900/10",
+      borderColor: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "border-red-500"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "border-amber-500"
+        : "border-emerald-500",
+      iconColor: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "text-red-600"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "text-amber-600"
+        : "text-emerald-600",
+      iconBg: salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 6
+        ? "bg-red-500/20"
+        : salesMetrics?.monthsBelowAverage && salesMetrics.monthsBelowAverage > 3
+        ? "bg-amber-500/20"
+        : "bg-emerald-500/20",
+    },
+    {
+      id: 6,
+      title: "Rentabilidad",
+      value: salesMetrics?.profitability 
+        ? `${salesMetrics.profitability.toFixed(1)}%`
+        : "N/A",
+      unit: "",
+      subtitle: `margen bruto estimado`,
+      badge: {
+        value: salesMetrics?.profitability 
+          ? salesMetrics.profitability >= 20
+            ? "Excelente"
+            : salesMetrics.profitability >= 15
+            ? "Buena"
+            : salesMetrics.profitability >= 10
+            ? "Regular"
+            : "Baja"
+          : "N/A",
+        variant: salesMetrics?.profitability
+          ? salesMetrics.profitability >= 20
+            ? "default"
+            : salesMetrics.profitability >= 15
+            ? "default"
+            : salesMetrics.profitability >= 10
+            ? "secondary"
+            : "destructive"
+          : "secondary",
+      },
+      icon: Percent,
+      gradient: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "from-emerald-50 to-green-100/50 dark:from-emerald-950/20 dark:to-green-900/10"
+          : salesMetrics.profitability >= 15
+          ? "from-blue-50 to-cyan-100/50 dark:from-blue-950/20 dark:to-cyan-900/10"
+          : salesMetrics.profitability >= 10
+          ? "from-amber-50 to-orange-100/50 dark:from-amber-950/20 dark:to-orange-900/10"
+          : "from-red-50 to-rose-100/50 dark:from-red-950/20 dark:to-rose-900/10"
+        : "from-gray-50 to-slate-100/50 dark:from-gray-950/20 dark:to-slate-900/10",
+      borderColor: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "border-emerald-500"
+          : salesMetrics.profitability >= 15
+          ? "border-blue-500"
+          : salesMetrics.profitability >= 10
+          ? "border-amber-500"
+          : "border-red-500"
+        : "border-gray-500",
+      iconColor: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "text-emerald-600"
+          : salesMetrics.profitability >= 15
+          ? "text-blue-600"
+          : salesMetrics.profitability >= 10
+          ? "text-amber-600"
+          : "text-red-600"
+        : "text-gray-600",
+      iconBg: salesMetrics?.profitability
+        ? salesMetrics.profitability >= 20
+          ? "bg-emerald-500/20"
+          : salesMetrics.profitability >= 15
+          ? "bg-blue-500/20"
+          : salesMetrics.profitability >= 10
+          ? "bg-amber-500/20"
+          : "bg-red-500/20"
+        : "bg-gray-500/20",
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {kpiCards.map((kpi, index) => {
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      {executiveCards.map((kpi, index) => {
         const Icon = kpi.icon;
         return (
           <motion.div

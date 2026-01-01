@@ -112,6 +112,11 @@ export interface SalesMetrics {
   /** Métricas de clientes perdidos (churn) */
   clientChurn: ChurnMetrics;
   
+  /** Número de meses que están bajo el promedio mensual del año actual */
+  monthsBelowAverage: number;
+  /** Porcentaje de rentabilidad/margen bruto */
+  profitability: number;
+  
   // Metadata
   /** Información del período analizado */
   period: {
