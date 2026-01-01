@@ -7608,11 +7608,12 @@ export function registerRoutes(app: express.Application) {
   });
 
   // GET /api/sales-monthly-trends - Datos mensuales para gráficos
+  // Soporta: ?year=2025 para un año específico, o ?months=12 para últimos N meses
   app.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, months = 12 } = req.query;
+      const { companyId, months, year } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -7622,43 +7623,70 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const monthsCount = parseInt(months as string) || 12;
-      const currentDate = new Date();
-      const startDate = new Date(currentDate);
-      startDate.setMonth(startDate.getMonth() - monthsCount);
-      
-      // Obtener datos mensuales de los últimos N meses usando sale_date para datos históricos reales
-      // IMPORTANTE: Usar sale_date para capturar datos históricos de cualquier año
-      const monthlyData = await sql(`
-        SELECT
-          sale_year,
-          sale_month,
-          COALESCE(SUM(quantity), 0) as total_volume,
-          COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
-          MAX(unit) as unit
-        FROM sales_data
-        WHERE company_id = $1
-          AND sale_date >= $2
-          AND sale_date <= $3
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_year DESC, sale_month DESC
-        LIMIT $4
-      `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
+      let monthlyData;
+
+      // Si se especifica un año, filtrar por ese año completo
+      if (year) {
+        const selectedYear = parseInt(year as string);
+        monthlyData = await sql(`
+          SELECT
+            sale_year,
+            sale_month,
+            COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_year = $2
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_month ASC
+        `, [resolvedCompanyId, selectedYear]);
+      } else {
+        // Comportamiento legacy: últimos N meses
+        const monthsCount = parseInt(months as string) || 12;
+        const currentDate = new Date();
+        const startDate = new Date(currentDate);
+        startDate.setMonth(startDate.getMonth() - monthsCount);
+
+        monthlyData = await sql(`
+          SELECT
+            sale_year,
+            sale_month,
+            COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_date >= $2
+            AND sale_date <= $3
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_year DESC, sale_month DESC
+          LIMIT $4
+        `, [resolvedCompanyId, startDate.toISOString().split('T')[0], currentDate.toISOString().split('T')[0], monthsCount]);
+      }
 
       // Formatear datos para el gráfico
-      // Convertir a números para consistencia (PostgreSQL puede retornar strings)
       const formattedData = monthlyData.map((row: any) => {
         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         const saleMonth = parseInt(row.sale_month);
         const saleYear = parseInt(row.sale_year);
         return {
-          month: `${monthNames[saleMonth - 1]} ${saleYear}`,
+          month: `${monthNames[saleMonth - 1]}`,
+          monthFull: `${monthNames[saleMonth - 1]} ${saleYear}`,
           volume: parseFloat(row.total_volume || '0'),
+          amount: parseFloat(row.total_amount || '0'),
           clients: parseInt(row.active_clients || '0'),
           year: saleYear,
           monthNum: saleMonth
         };
-      }).reverse(); // Invertir para mostrar cronológicamente
+      });
+
+      // Solo invertir si es modo legacy (months)
+      if (!year) {
+        formattedData.reverse();
+      }
 
       res.json(formattedData);
     } catch (error) {
