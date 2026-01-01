@@ -61,88 +61,91 @@ export default function Dashboard() {
 
   return (
     <AppLayout title="Dashboard Ejecutivo">
-      <div id="dashboard-container" ref={dashboardRef}>
+      <div id="dashboard-container" ref={dashboardRef} className="min-h-screen">
         {/* Filters Bar (Oculto) */}
         <FiltersBar onFilterChange={handleFilterChange} />
 
-        {/* Header minimalista - Solo selector de empresa */}
-        <div className="mb-8 flex justify-end">
+        {/* Header elegante con selector */}
+        <div className="mb-10 flex items-center justify-between">
+          <div className="flex-1" />
           <CompanySelector
             selectedCompany={selectedCompany}
             onChange={handleCompanyChange}
           />
         </div>
 
-        {/* KPIs Principales */}
-        <section className="mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <ExecutiveKPICards companyId={selectedCompany} />
-          </motion.div>
-        </section>
-
-        {/* Gráficos de Tendencias */}
-        <section className="mb-12">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Layout principal: Grid asimétrico optimizado */}
+        <div className="grid grid-cols-12 gap-6 auto-rows-min">
+          {/* Columna izquierda: KPIs principales (8 columnas) */}
+          <div className="col-span-12 lg:col-span-8 space-y-6">
+            {/* KPIs Principales - Grid optimizado */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="xl:col-span-2"
+              transition={{ duration: 0.5 }}
+            >
+              <ExecutiveKPICards companyId={selectedCompany} />
+            </motion.div>
+
+            {/* Gráfico de tendencias principal */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
             >
               <SalesTrendChart companyId={selectedCompany} months={12} />
             </motion.div>
 
+            {/* Rankings en grid 2x1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <TopProductsChart
+                  companyId={selectedCompany}
+                  limit={5}
+                  period="month"
+                  variant="compact"
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <TopProductsChart
+                  companyId={selectedCompany}
+                  limit={5}
+                  period="year"
+                  variant="compact"
+                />
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Columna derecha: Sidebar con métricas complementarias (4 columnas) */}
+          <div className="col-span-12 lg:col-span-4 space-y-6">
+            {/* Comparativo anual - Sticky en desktop */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="xl:col-span-1"
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="lg:sticky lg:top-6"
             >
               <YearlyTotalsBarChart
                 companyId={selectedCompany}
                 variant="compact"
               />
             </motion.div>
-          </div>
-        </section>
 
-        {/* Rankings y Análisis */}
-        <section>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Clientes */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
-            >
-              <TopProductsChart
-                companyId={selectedCompany}
-                limit={5}
-                period="month"
-                variant="compact"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.4 }}
-            >
-              <TopProductsChart
-                companyId={selectedCompany}
-                limit={5}
-                period="year"
-                variant="compact"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.5 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
             >
               <TopClientsChart
                 companyId={selectedCompany}
@@ -152,7 +155,7 @@ export default function Dashboard() {
               />
             </motion.div>
           </div>
-        </section>
+        </div>
 
         {/* KPI Details Dialog */}
         <KpiDetailDialog

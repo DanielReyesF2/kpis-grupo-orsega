@@ -308,9 +308,9 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
   const executiveMetrics = executiveCards.slice(4); // Meses Bajo Promedio, Rentabilidad
 
   return (
-    <div className="space-y-6">
-      {/* Grupo 1: KPIs Principales de Ventas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-8">
+      {/* Grupo 1: KPIs Principales de Ventas - Grid optimizado */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {primaryKPIs.map((kpi, index) => {
           const Icon = kpi.icon;
           return (
@@ -318,127 +318,114 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
               key={kpi.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.05 }}
-              whileHover={{ y: -1, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.5, delay: index * 0.05 }}
+              whileHover={{ y: -2, transition: { duration: 0.2 } }}
             >
               <Card
-                    className={cn(
-                      "relative overflow-hidden rounded-lg border-l-4 shadow-sm hover:shadow transition-all duration-200",
-                      "bg-card",
-                      kpi.borderAccent,
-                      "group"
-                    )}
-                  >
+                className={cn(
+                  "relative overflow-hidden rounded-xl border transition-all duration-300",
+                  "bg-card/50 backdrop-blur-sm",
+                  "hover:shadow-lg hover:border-border/80",
+                  "group cursor-pointer"
+                )}
+              >
+                {/* Borde de acento sutil */}
+                <div className={cn(
+                  "absolute top-0 left-0 bottom-0 w-1",
+                  kpi.borderAccent.replace("border-l-", "bg-")
+                )} />
 
-                    <CardContent className="relative p-5">
-                      {/* Header minimalista */}
-                      <div className="flex items-start justify-between mb-4">
-                        <h3 className="text-sm font-medium text-muted-foreground leading-tight">
-                          {kpi.title}
-                        </h3>
-                        <div className={cn(
-                          "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-                          kpi.iconBg,
-                          "text-white"
-                        )}>
-                          <Icon className="w-5 h-5" />
-                        </div>
+                <CardContent className="relative p-6">
+                  {/* Header con icono */}
+                  <div className="flex items-start justify-between mb-5">
+                    <h3 className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider leading-tight">
+                      {kpi.title}
+                    </h3>
+                    <div className={cn(
+                      "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
+                      "transition-transform duration-300 group-hover:scale-110",
+                      kpi.iconBg,
+                      "text-white shadow-sm"
+                    )}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  {/* Valor principal con mejor jerarquía */}
+                  <div className="mb-5">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold text-foreground tracking-tight leading-none">
+                        {kpi.value}
+                      </span>
+                      {kpi.unit && (
+                        <span className="text-sm font-medium text-muted-foreground/70 ml-1">
+                          {kpi.unit}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Barra de progreso mejorada */}
+                  {kpi.progress !== undefined && kpi.id !== 6 && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-muted-foreground/60">
+                          {kpi.progress.toFixed(0)}%
+                        </span>
                       </div>
-
-                      {/* Valor principal */}
-                      <div className="mb-4">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-foreground tracking-tight">
-                            {kpi.value}
-                          </span>
-                          {kpi.unit && (
-                            <span className="text-sm text-muted-foreground">
-                              {kpi.unit}
-                            </span>
+                      <div className="h-2 bg-muted/20 rounded-full overflow-hidden">
+                        <motion.div
+                          className={cn(
+                            "h-full rounded-full shadow-sm",
+                            kpi.progress >= 75 ? "bg-emerald-500" :
+                            kpi.progress >= 50 ? "bg-blue-500" :
+                            kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
                           )}
-                        </div>
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
+                          transition={{ duration: 1, delay: index * 0.1 + 0.3, ease: "easeOut" }}
+                        />
                       </div>
+                    </div>
+                  )}
 
-                        {/* Barra de progreso */}
-                        {kpi.progress !== undefined && kpi.id !== 6 && (
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs text-muted-foreground">
-                                {kpi.progress.toFixed(0)}%
-                              </span>
-                            </div>
-                            <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                              <motion.div
-                                className={cn(
-                                  "h-full rounded-full",
-                                  kpi.progress >= 75 ? "bg-emerald-500" :
-                                  kpi.progress >= 50 ? "bg-blue-500" :
-                                  kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
-                                )}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
-                                transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
-                              />
-                            </div>
-                          </div>
+                  {/* Indicador de tendencia mejorado */}
+                  {kpi.trend !== undefined && kpi.trendLabel && (
+                    <div className="mb-4">
+                      <div className={cn(
+                        "flex items-center gap-1.5 text-sm font-semibold",
+                        kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-500" : "text-red-600 dark:text-red-500"
+                      )}>
+                        {kpi.trend >= 0 ? (
+                          <ArrowUp className="w-4 h-4" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4" />
                         )}
+                        <span>{kpi.trendLabel}</span>
+                      </div>
+                    </div>
+                  )}
 
-                      {/* Barra de rentabilidad */}
-                      {kpi.id === 6 && salesMetrics?.profitability && (
-                        <div className="mb-3">
-                          <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                            <motion.div
-                              className={cn(
-                                "h-full rounded-full",
-                                salesMetrics.profitability >= 20 ? "bg-emerald-500" :
-                                salesMetrics.profitability >= 15 ? "bg-blue-500" :
-                                salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
-                              )}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
-                              transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Indicador de tendencia */}
-                      {kpi.trend !== undefined && kpi.trendLabel && (
-                        <div className="mb-3">
-                          <div className={cn(
-                            "flex items-center gap-1 text-sm font-medium",
-                            kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                          )}>
-                            {kpi.trend >= 0 ? (
-                              <ArrowUp className="w-3.5 h-3.5" />
-                            ) : (
-                              <ArrowDown className="w-3.5 h-3.5" />
-                            )}
-                            <span>{kpi.trendLabel}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Badge de estado */}
-                      {kpi.badge && (
-                        <div className="pt-2 border-t border-border/30">
-                          <Badge
-                            variant={kpi.badge.variant as any}
-                            className="text-xs"
-                          >
-                            {kpi.badge.value}
-                          </Badge>
-                        </div>
-                      )}
-                    </CardContent>
+                  {/* Badge de estado minimalista */}
+                  {kpi.badge && (
+                    <div className="pt-3 border-t border-border/40">
+                      <Badge
+                        variant={kpi.badge.variant as any}
+                        className="text-xs font-medium px-2 py-0.5"
+                      >
+                        {kpi.badge.value}
+                      </Badge>
+                    </div>
+                  )}
+                </CardContent>
               </Card>
             </motion.div>
           );
         })}
       </div>
 
-      {/* Grupo 2: Métricas Ejecutivas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Grupo 2: Métricas Ejecutivas - Diseño ampliado */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {executiveMetrics.map((kpi, index) => {
           const Icon = kpi.icon;
           return (
@@ -446,113 +433,102 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
               key={kpi.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: (index + primaryKPIs.length) * 0.05 }}
-              whileHover={{ y: -1, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.5, delay: (index + primaryKPIs.length) * 0.05 }}
+              whileHover={{ y: -2, transition: { duration: 0.2 } }}
             >
               <Card
                 className={cn(
-                  "relative overflow-hidden rounded-lg border-l-4 shadow-sm hover:shadow transition-all duration-200",
-                  "bg-card",
-                  kpi.borderAccent,
-                  "group"
+                  "relative overflow-hidden rounded-xl border transition-all duration-300",
+                  "bg-card/50 backdrop-blur-sm",
+                  "hover:shadow-lg hover:border-border/80",
+                  "group cursor-pointer"
                 )}
               >
+                {/* Borde de acento sutil */}
+                <div className={cn(
+                  "absolute top-0 left-0 bottom-0 w-1",
+                  kpi.borderAccent.replace("border-l-", "bg-")
+                )} />
 
-                <CardContent className="relative p-5">
-                  {/* Header minimalista */}
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-sm font-medium text-muted-foreground leading-tight">
+                <CardContent className="relative p-6">
+                  {/* Header con icono */}
+                  <div className="flex items-start justify-between mb-5">
+                    <h3 className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider leading-tight">
                       {kpi.title}
                     </h3>
                     <div className={cn(
-                      "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
+                      "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
+                      "transition-transform duration-300 group-hover:scale-110",
                       kpi.iconBg,
-                      "text-white"
+                      "text-white shadow-sm"
                     )}>
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-4 h-4" />
                     </div>
                   </div>
 
-                  {/* Valor principal */}
-                  <div className="mb-4">
+                  {/* Valor principal con mejor jerarquía */}
+                  <div className="mb-5">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-foreground tracking-tight">
+                      <span className="text-4xl font-bold text-foreground tracking-tight leading-none">
                         {kpi.value}
                       </span>
                       {kpi.unit && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm font-medium text-muted-foreground/70 ml-1">
                           {kpi.unit}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Barra de progreso */}
+                  {/* Barra de progreso mejorada */}
                   {kpi.progress !== undefined && kpi.id !== 6 && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-muted-foreground">
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-muted-foreground/60">
                           {kpi.progress.toFixed(0)}%
                         </span>
                       </div>
-                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                      <div className="h-2 bg-muted/20 rounded-full overflow-hidden">
                         <motion.div
                           className={cn(
-                            "h-full rounded-full",
+                            "h-full rounded-full shadow-sm",
                             kpi.progress >= 75 ? "bg-emerald-500" :
                             kpi.progress >= 50 ? "bg-blue-500" :
                             kpi.progress >= 25 ? "bg-amber-500" : "bg-red-500"
                           )}
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(kpi.progress, 100)}%` }}
-                          transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                          transition={{ duration: 1, delay: (index + primaryKPIs.length) * 0.1 + 0.3, ease: "easeOut" }}
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* Barra de rentabilidad */}
+                  {/* Barra de rentabilidad mejorada */}
                   {kpi.id === 6 && salesMetrics?.profitability && (
-                    <div className="mb-3">
-                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                    <div className="mb-4">
+                      <div className="h-2 bg-muted/20 rounded-full overflow-hidden">
                         <motion.div
                           className={cn(
-                            "h-full rounded-full",
+                            "h-full rounded-full shadow-sm",
                             salesMetrics.profitability >= 20 ? "bg-emerald-500" :
                             salesMetrics.profitability >= 15 ? "bg-blue-500" :
                             salesMetrics.profitability >= 10 ? "bg-amber-500" : "bg-red-500"
                           )}
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min((salesMetrics.profitability / 30) * 100, 100)}%` }}
-                          transition={{ duration: 0.8, delay: index * 0.1 + 0.3 }}
+                          transition={{ duration: 1, delay: (index + primaryKPIs.length) * 0.1 + 0.3, ease: "easeOut" }}
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* Indicador de tendencia */}
-                  {kpi.trend !== undefined && kpi.trendLabel && (
-                    <div className="mb-3">
-                      <div className={cn(
-                        "flex items-center gap-1 text-sm font-medium",
-                        kpi.trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                      )}>
-                        {kpi.trend >= 0 ? (
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        )}
-                        <span>{kpi.trendLabel}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Badge de estado */}
+                  {/* Badge de estado minimalista */}
                   {kpi.badge && (
-                    <div className="pt-2 border-t border-border/30">
+                    <div className="pt-3 border-t border-border/40">
                       <Badge
                         variant={kpi.badge.variant as any}
-                        className="text-xs"
+                        className="text-xs font-medium px-2 py-0.5"
                       >
                         {kpi.badge.value}
                       </Badge>
