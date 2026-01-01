@@ -377,6 +377,97 @@ export function registerRoutes(app: express.Application) {
 
 
   // ========================================
+  // COPILOTKIT AI ASSISTANT (SIN AUTH - debe ir ANTES del middleware global)
+  // ========================================
+  // CopilotKit Runtime - Endpoint para el asistente AI
+  app.all("/api/copilotkit", async (req, res) => {
+    try {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'OpenAI API key not configured' });
+      }
+
+      const runtime = new CopilotRuntime({
+        actions: [
+          {
+            name: "searchData",
+            description: "Busca información en la base de datos del sistema: ventas, clientes, métricas, KPIs, tipos de cambio, embarques. Usa esta acción cuando el usuario pregunte sobre datos del negocio.",
+            parameters: [
+              {
+                name: "query",
+                type: "string",
+                description: "La pregunta o consulta del usuario sobre los datos del negocio",
+                required: true
+              }
+            ],
+            handler: async ({ query }: { query: string }) => {
+              try {
+                const result = await smartSearch(query);
+                return JSON.stringify({
+                  answer: result.answer,
+                  data: result.data,
+                  source: result.source
+                });
+              } catch (error) {
+                console.error('[CopilotKit Action] Error en searchData:', error);
+                return JSON.stringify({ error: 'Error al buscar datos' });
+              }
+            }
+          }
+        ]
+      });
+
+      const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o-mini" });
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/api/copilotkit",
+        runtime,
+        serviceAdapter
+      });
+
+      return handler(req, res);
+    } catch (error) {
+      console.error('[CopilotKit] Error:', error);
+      res.status(500).json({ error: 'Error en CopilotKit runtime' });
+    }
+  });
+
+  // CopilotKit sub-routes (info, etc) - también sin auth
+  app.all("/api/copilotkit/*", async (req, res) => {
+    try {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'OpenAI API key not configured' });
+      }
+
+      const runtime = new CopilotRuntime({
+        actions: [
+          {
+            name: "searchData",
+            description: "Busca información en la base de datos",
+            parameters: [{ name: "query", type: "string", description: "La pregunta", required: true }],
+            handler: async ({ query }: { query: string }) => {
+              const result = await smartSearch(query);
+              return JSON.stringify(result);
+            }
+          }
+        ]
+      });
+
+      const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o-mini" });
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/api/copilotkit",
+        runtime,
+        serviceAdapter
+      });
+
+      return handler(req, res);
+    } catch (error) {
+      console.error('[CopilotKit] Error:', error);
+      res.status(500).json({ error: 'Error en CopilotKit runtime' });
+    }
+  });
+
+  // ========================================
   // REGISTER CATALOG ROUTES WITH AUTH - VUL-001 fix
   // ========================================
   // IMPORTANTE: Estas rutas REQUIEREN autenticación JWT
@@ -8841,65 +8932,6 @@ export function registerRoutes(app: express.Application) {
         error: 'Error ejecutando query',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
-    }
-  });
-
-  // ========================================================================
-  // COPILOTKIT AI ASSISTANT ENDPOINT
-  // ========================================================================
-
-  // CopilotKit Runtime - Endpoint para el asistente AI
-  app.all("/api/copilotkit", async (req, res) => {
-    try {
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-
-      if (!openaiApiKey) {
-        return res.status(500).json({ error: 'OpenAI API key not configured' });
-      }
-
-      // Crear el runtime con OpenAI
-      const runtime = new CopilotRuntime({
-        actions: [
-          {
-            name: "searchData",
-            description: "Busca información en la base de datos del sistema: ventas, clientes, métricas, KPIs, tipos de cambio, embarques. Usa esta acción cuando el usuario pregunte sobre datos del negocio.",
-            parameters: [
-              {
-                name: "query",
-                type: "string",
-                description: "La pregunta o consulta del usuario sobre los datos del negocio",
-                required: true
-              }
-            ],
-            handler: async ({ query }: { query: string }) => {
-              try {
-                const result = await smartSearch(query);
-                return JSON.stringify({
-                  answer: result.answer,
-                  data: result.data,
-                  source: result.source
-                });
-              } catch (error) {
-                console.error('[CopilotKit Action] Error en searchData:', error);
-                return JSON.stringify({ error: 'Error al buscar datos' });
-              }
-            }
-          }
-        ]
-      });
-
-      const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o-mini" });
-
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: "/api/copilotkit",
-        runtime,
-        serviceAdapter
-      });
-
-      return handler(req, res);
-    } catch (error) {
-      console.error('[CopilotKit] Error:', error);
-      res.status(500).json({ error: 'Error en CopilotKit runtime' });
     }
   });
 
