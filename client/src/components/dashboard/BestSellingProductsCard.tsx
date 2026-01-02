@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { motion } from "framer-motion";
-import { ShoppingCart, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ShoppingCart, ChevronLeft, ChevronRight, Star, Package } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface BestSellingProductsCardProps {
   companyId: number;

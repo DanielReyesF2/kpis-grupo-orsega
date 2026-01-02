@@ -15,7 +15,7 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
-  Legend,
+  Tooltip,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,7 @@ function formatNumber(value: number): string {
 }
 
 export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
-  const { data: salesMetrics, isLoading } = {} } = useQuery({
+  const { data: salesMetrics, isLoading } = useQuery({
     queryKey: ["/api/sales-stats", companyId],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/sales-stats?companyId=${companyId}`);
