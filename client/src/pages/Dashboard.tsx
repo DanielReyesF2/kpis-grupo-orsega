@@ -18,6 +18,7 @@ import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
 import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
 import { SalesBySourceCard } from '@/components/dashboard/SalesBySourceCard';
 import { ProfitabilityByProductsCard } from '@/components/dashboard/ProfitabilityByProductsCard';
+import { TopClientsChart } from '@/components/dashboard/TopClientsChart';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -130,6 +131,22 @@ export default function Dashboard() {
               transition={{ duration: 0.5, delay: 0.25 }}
             >
               <ProfitabilityByProductsCard companyId={selectedCompany} />
+            </motion.div>
+          </div>
+
+          {/* Top Clientes - Nueva fila completa */}
+          <div className="col-span-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <TopClientsChart 
+                companyId={selectedCompany}
+                limit={5}
+                period="year"
+                variant="compact"
+              />
             </motion.div>
           </div>
         </div>

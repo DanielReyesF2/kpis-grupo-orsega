@@ -28,8 +28,6 @@ import {
   Sparkles
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CompanySelector } from "@/components/dashboard/CompanySelector";
-import { SidebarTopClients } from "./SidebarTopClients";
 
 interface NavItemProps {
   href: string;
@@ -90,6 +88,10 @@ function Sidebar() {
   const [isSalesOpen, setIsSalesOpen] = useState(
     location === "/sales" || location.startsWith("/sales/")
   );
+  const [selectedCompany, setSelectedCompany] = useState<number>(() => {
+    const storedCompany = localStorage.getItem('selectedCompanyId');
+    return storedCompany ? Number(storedCompany) : 1;
+  });
 
   // Auto-expandir cuando se navega a una ruta
   useEffect(() => {
@@ -181,23 +183,33 @@ function Sidebar() {
           </p>
         </div>
 
-        {/* Company Selector y Top Clientes */}
-        <div className="px-3 py-3 border-b border-border space-y-4">
-          {/* Company Selector */}
-          <div className="flex justify-center">
-            <CompanySelector
-              selectedCompany={selectedCompany}
-              onChange={(companyId) => {
-                localStorage.setItem('selectedCompanyId', String(companyId));
-                setSelectedCompany(companyId);
-                // Disparar evento para que otros componentes se actualicen
-                window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
-              }}
-            />
+        {/* Company Selector compacto */}
+        <div className="px-3 py-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Building className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-1">
+                  Empresa
+                </p>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => {
+                    const companyId = Number(e.target.value);
+                    localStorage.setItem('selectedCompanyId', String(companyId));
+                    setSelectedCompany(companyId);
+                    window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+                  }}
+                  className="w-full text-sm font-medium bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 cursor-pointer"
+                >
+                  <option value={1}>DURA</option>
+                  <option value={2}>ORSEGA</option>
+                </select>
+              </div>
+            </div>
           </div>
-          
-          {/* Top Clientes */}
-          <SidebarTopClients companyId={selectedCompany} />
         </div>
 
         {/* Navigation */}
