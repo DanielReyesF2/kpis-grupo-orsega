@@ -13,6 +13,7 @@ import { YearlyTotalsBarChart } from '@/components/dashboard/YearlyTotalsBarChar
 import { TopClientsChart } from '@/components/dashboard/TopClientsChart';
 import { TopProductsChart } from '@/components/dashboard/TopProductsChart';
 import { ProfitabilityMetrics } from '@/components/dashboard/ProfitabilityMetrics';
+import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -166,6 +167,17 @@ export default function Dashboard() {
             transition={{ duration: 0.5, delay: 0.3 }}
           >
             <ProfitabilityMetrics companyId={selectedCompany} />
+          </motion.div>
+        </section>
+
+        {/* Resumen Anual Ejecutivo */}
+        <section className="mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <AnnualSummary companyId={selectedCompany} />
           </motion.div>
         </section>
 

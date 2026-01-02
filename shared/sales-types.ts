@@ -141,3 +141,98 @@ export interface SalesMetricsOptions {
   includeClientDetails?: boolean;
 }
 
+/**
+ * Ventas mensuales para un año
+ */
+export interface MonthlySales {
+  month: number;
+  monthName: string;
+  volume: number;
+  revenue: number;
+  transactions: number;
+  clients: number;
+}
+
+/**
+ * Resumen de producto
+ */
+export interface ProductSummary {
+  name: string;
+  productId: number | null;
+  volume: number;
+  revenue: number;
+  transactions: number;
+  unit: string;
+}
+
+/**
+ * Resumen de cliente
+ */
+export interface ClientSummary {
+  name: string;
+  clientId: number | null;
+  revenue: number;
+  transactions: number;
+  avgTicket: number;
+  lastPurchaseDate: string;
+}
+
+/**
+ * Cliente inactivo (compró año anterior pero no este año)
+ */
+export interface InactiveClient {
+  name: string;
+  clientId: number | null;
+  lastPurchaseDate: string;
+  previousYearRevenue: number;
+}
+
+/**
+ * Resumen anual completo de una empresa
+ */
+export interface AnnualSummary {
+  year: number;
+  companyId: number;
+  
+  // Ventas
+  totalSales: number;
+  totalRevenue: number;
+  monthlySales: MonthlySales[];
+  growthVsPreviousYear: number;
+  
+  // Rentabilidad
+  profitability: number;
+  totalProfit: number;
+  
+  // Productos
+  topProduct: {
+    name: string;
+    volume: number;
+    revenue: number;
+    unit: string;
+  };
+  topProducts: ProductSummary[];
+  
+  // Clientes
+  totalClients: number;
+  newClients: number;
+  lostClients: number;
+  inactiveClients: number;
+  inactiveClientsList: InactiveClient[];
+  retentionRate: number;
+  topClients: ClientSummary[];
+  
+  // Operaciones
+  totalTransactions: number;
+  avgTicket: number;
+  monthsBelowAverage: number;
+  unit: string;
+  
+  // Comparación
+  previousYear?: {
+    totalSales: number;
+    totalRevenue: number;
+    totalClients: number;
+  };
+}
+

@@ -47,6 +47,7 @@ import { getSalesMetrics } from "./sales-metrics";
 import { handleSalesUpload } from "./sales-upload-handler-NEW";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
+import { getAnnualSummary, getAvailableYears } from "./annual-summary";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -8614,6 +8615,58 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('[GET /api/profitability-metrics] Error:', error);
       res.status(500).json({ error: 'Failed to fetch profitability metrics' });
+    }
+  });
+
+  // GET /api/annual-summary - Resumen anual ejecutivo
+  app.get("/api/annual-summary", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId, year } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      if (!year) {
+        return res.status(400).json({ error: 'Year parameter is required' });
+      }
+
+      const targetYear = parseInt(year as string);
+      const summary = await getAnnualSummary(resolvedCompanyId, targetYear);
+
+      res.json(summary);
+    } catch (error) {
+      console.error('[GET /api/annual-summary] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch annual summary' });
+    }
+  });
+
+  // GET /api/annual-summary/years - Obtener años disponibles
+  app.get("/api/annual-summary/years", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      const years = await getAvailableYears(resolvedCompanyId);
+      res.json(years);
+    } catch (error) {
+      console.error('[GET /api/annual-summary/years] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch available years' });
     }
   });
 
