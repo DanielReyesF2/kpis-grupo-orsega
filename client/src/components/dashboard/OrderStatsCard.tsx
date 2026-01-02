@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Package } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -28,14 +28,13 @@ function formatNumber(value: number): string {
 }
 
 export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
-  const { data: salesMetrics, isLoading } = useQuery({
-    queryKey: ["/api/sales-stats", companyId],
+  const { data: topProducts, isLoading } = useQuery({
+    queryKey: ["/api/sales-top-products", companyId, "year"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/sales-stats?companyId=${companyId}`);
+      const res = await apiRequest("GET", `/api/sales-top-products?companyId=${companyId}&period=year&limit=10`);
       return await res.json();
     },
-    staleTime: 30000,
-    refetchInterval: 60000,
+    staleTime: 60000,
   });
 
   if (isLoading) {
@@ -51,19 +50,25 @@ export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
     );
   }
 
-  // Simular datos de órdenes (en producción vendría de un endpoint real)
-  const totalTransactions = salesMetrics?.avgOrderValue ? Math.round(salesMetrics.currentVolume / (salesMetrics.avgOrderValue || 1)) : 0;
-  const completedOrders = Math.round(totalTransactions * 0.85);
-  const processingOrders = Math.round(totalTransactions * 0.12);
-  const cancelledOrders = Math.round(totalTransactions * 0.03);
+  // Obtener top 3 productos para el donut chart
+  const top3Products = (topProducts || []).slice(0, 3);
+  const otherProducts = (topProducts || []).slice(3);
+  const otherProductsTotal = otherProducts.reduce((sum: number, p: any) => sum + (p.volume || 0), 0);
 
-  const orderData = [
-    { name: "Completadas", value: completedOrders, color: "hsl(var(--chart-1))", icon: CheckCircle2 },
-    { name: "En Proceso", value: processingOrders, color: "hsl(var(--chart-2))", icon: Clock },
-    { name: "Canceladas", value: cancelledOrders, color: "hsl(var(--chart-4))", icon: XCircle },
+  const productData = [
+    ...top3Products.map((product: any, index: number) => ({
+      name: product.name,
+      value: product.volume || 0,
+      color: ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))"][index] || "hsl(var(--chart-1))",
+    })),
+    ...(otherProductsTotal > 0 ? [{
+      name: "Otros",
+      value: otherProductsTotal,
+      color: "hsl(var(--chart-4))",
+    }] : []),
   ];
 
-  const totalOrders = completedOrders + processingOrders + cancelledOrders;
+  const totalVolume = productData.reduce((sum, p) => sum + p.value, 0);
 
   return (
     <Card className="h-full">
