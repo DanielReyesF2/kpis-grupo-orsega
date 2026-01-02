@@ -116,6 +116,9 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
     );
   }
 
+  // Ordenar años de menor a mayor (ascendente)
+  const sortedYears = [...(availableYears || [])].sort((a, b) => a - b);
+
   return (
     <div className="space-y-6">
       {/* Tabs de años */}
@@ -128,15 +131,15 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
         </CardHeader>
         <CardContent>
           <Tabs value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-            <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-full">
-              {availableYears.map((year) => (
+            <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-muted/50 p-1.5 gap-1.5 w-full overflow-x-auto">
+              {sortedYears.map((year) => (
                 <TabsTrigger 
                   key={year} 
                   value={year.toString()}
                   className={cn(
-                    "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-                    "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-                    "data-[state=inactive]:text-muted-foreground hover:text-foreground"
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 min-w-[80px]",
+                    "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-primary/20",
+                    "data-[state=inactive]:bg-muted/80 data-[state=inactive]:text-foreground/80 data-[state=inactive]:border data-[state=inactive]:border-border/60 hover:bg-muted hover:text-foreground hover:border-border"
                   )}
                 >
                   {year}
@@ -144,7 +147,7 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
               ))}
             </TabsList>
 
-            {availableYears.map((year) => (
+            {sortedYears.map((year) => (
               <TabsContent key={year} value={year.toString()} className="mt-6">
                 {isLoadingSummary ? (
                   <div className="space-y-4">
