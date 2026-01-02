@@ -15,14 +15,9 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Package,
-  Users,
-  UserPlus,
-  UserMinus,
   ShoppingCart,
   Percent,
   Calendar,
-  Award,
   BarChart3,
 } from "lucide-react";
 import type { AnnualSummary } from "@shared/sales-types";
