@@ -841,36 +841,19 @@ export default function TreasuryPage() {
           </Button>
         </div>
 
-        {/* Kanban de Cuentas por Pagar - Colapsable */}
-        <Collapsible open={isKanbanExpanded} onOpenChange={setIsKanbanExpanded}>
-          <Card className="border border-border/50">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg font-semibold text-foreground">
-                      Cuentas por Pagar
-                    </CardTitle>
-                    <PendingTodayCard 
-                      count={repsPendingCount}
-                      onViewAll={() => setViewMode("vouchers")} 
-                    />
-                  </div>
-                  {isKanbanExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <ScheduledPaymentsKanban />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+        {/* Link a comprobantes */}
+        <Card className="border border-border/50">
+          <CardContent className="p-6 text-center">
+            <h3 className="text-lg font-semibold mb-2">Gestiona tus comprobantes de pago</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Ve a la sección de comprobantes para ver y gestionar todos tus pagos
+            </p>
+            <Button onClick={() => setViewMode("vouchers")} className="gap-2">
+              Ver Comprobantes
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Modal de formulario para actualizar tipo de cambio */}
