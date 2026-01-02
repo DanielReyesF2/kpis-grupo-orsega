@@ -6907,8 +6907,6 @@ export function registerRoutes(app: express.Application) {
         try {
           console.log(`📋 [Invoice Detection] Factura detectada, preparando datos para verificación`);
           
-          // Buscar proveedor/cliente por nombre o RFC
-          let supplierId = null;
           // Preservar null si no se extrajo (no convertir a '')
           const supplierName = analysis.extractedSupplierName ?? null;
           const taxId = analysis.extractedTaxId ?? null;
@@ -9318,7 +9316,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const vouchers = await storage.getPaymentVouchers();
       
-      // Obtener scheduled payments por empresa (ya que no hay método getAll)
+      // Obtener empresas y scheduled payments
       const allCompanies = await storage.getCompanies();
       const scheduledPayments: any[] = [];
       for (const company of allCompanies) {
@@ -9326,8 +9324,7 @@ export function registerRoutes(app: express.Application) {
         scheduledPayments.push(...companyPayments);
       }
       
-      // Obtener empresas para nombres
-      const allCompanies = await storage.getCompanies();
+      // Crear mapa de empresas para nombres
       const companiesMap = new Map(allCompanies.map(c => [c.id, c.name]));
       
       // Combinar vouchers y scheduled payments en documentos unificados
