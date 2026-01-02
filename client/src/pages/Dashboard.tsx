@@ -14,6 +14,12 @@ import { TopClientsChart } from '@/components/dashboard/TopClientsChart';
 import { TopProductsChart } from '@/components/dashboard/TopProductsChart';
 import { ProfitabilityMetrics } from '@/components/dashboard/ProfitabilityMetrics';
 import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
+import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
+import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
+import { CompactKPICards } from '@/components/dashboard/CompactKPICards';
+import { SalesBySourceCard } from '@/components/dashboard/SalesBySourceCard';
+import { ProductTrackingCard } from '@/components/dashboard/ProductTrackingCard';
+import { BestSellingProductsCard } from '@/components/dashboard/BestSellingProductsCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -67,8 +73,8 @@ export default function Dashboard() {
         {/* Filters Bar (Oculto) */}
         <FiltersBar onFilterChange={handleFilterChange} />
 
-        {/* Header elegante con selector */}
-        <div className="mb-10 flex items-center justify-between">
+        {/* Header con selector */}
+        <div className="mb-6 flex items-center justify-between">
           <div className="flex-1" />
           <CompanySelector
             selectedCompany={selectedCompany}
@@ -76,85 +82,71 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Layout principal: Grid asimétrico optimizado */}
-        <div className="grid grid-cols-12 gap-6 auto-rows-min">
-          {/* Columna izquierda: KPIs principales (8 columnas) */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
-            {/* KPIs Principales - Grid optimizado */}
+        {/* Layout principal: Grid denso estilo dashboard moderno */}
+        <div className="grid grid-cols-12 gap-4 auto-rows-min">
+          {/* Invoice Overview - Top Left (5 columnas) */}
+          <div className="col-span-12 lg:col-span-5">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <ExecutiveKPICards companyId={selectedCompany} />
+              <SalesOverviewCard companyId={selectedCompany} />
             </motion.div>
+          </div>
 
-            {/* Gráfico de tendencias principal */}
+          {/* Order Stats - Top Right (4 columnas) */}
+          <div className="col-span-12 lg:col-span-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <SalesTrendChart companyId={selectedCompany} months={12} />
+              <OrderStatsCard companyId={selectedCompany} />
             </motion.div>
-
-            {/* Rankings en grid 2x1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <TopProductsChart
-                  companyId={selectedCompany}
-                  limit={5}
-                  period="month"
-                  variant="compact"
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-              >
-                <TopProductsChart
-                  companyId={selectedCompany}
-                  limit={5}
-                  period="year"
-                  variant="compact"
-                />
-              </motion.div>
-            </div>
           </div>
 
-          {/* Columna derecha: Sidebar con métricas complementarias (4 columnas) */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            {/* Comparativo anual - Sticky en desktop */}
+          {/* KPIs Compactos - Top Right (3 columnas) */}
+          <div className="col-span-12 lg:col-span-3">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="lg:sticky lg:top-6"
             >
-              <YearlyTotalsBarChart
-                companyId={selectedCompany}
-                variant="compact"
-              />
+              <CompactKPICards companyId={selectedCompany} />
             </motion.div>
+          </div>
 
-            {/* Top Clientes */}
+          {/* Sales By Source - Bottom Left (5 columnas) */}
+          <div className="col-span-12 lg:col-span-5">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <SalesBySourceCard companyId={selectedCompany} />
+            </motion.div>
+          </div>
+
+          {/* Product Tracking - Middle (4 columnas) */}
+          <div className="col-span-12 lg:col-span-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
             >
-              <TopClientsChart
-                companyId={selectedCompany}
-                limit={5}
-                period="year"
-                variant="compact"
-              />
+              <ProductTrackingCard companyId={selectedCompany} />
+            </motion.div>
+          </div>
+
+          {/* Best Selling Products - Bottom Right (3 columnas) */}
+          <div className="col-span-12 lg:col-span-3">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <BestSellingProductsCard companyId={selectedCompany} />
             </motion.div>
           </div>
         </div>
