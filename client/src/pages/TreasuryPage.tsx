@@ -20,12 +20,13 @@ import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliers
 import { ExchangeRateForm } from "@/components/treasury/common/ExchangeRateForm";
 import { DofChart } from "@/components/dashboard/DofChart";
 import { ExchangeRateCards } from "@/components/dashboard/ExchangeRateCards";
-import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPaymentsKanban";
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
 import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
+import { EnhancedUploadZone } from "@/components/treasury/EnhancedUploadZone";
+import { PaymentSummaryCards } from "@/components/treasury/PaymentSummaryCards";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
@@ -55,7 +56,6 @@ export default function TreasuryPage() {
     return "main";
   });
   const [showRateForm, setShowRateForm] = useState(false);
-  const [dragOverUpload, setDragOverUpload] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedCompanyForUpload, setSelectedCompanyForUpload] = useState<number | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
@@ -486,105 +486,35 @@ export default function TreasuryPage() {
     return (
       <AppLayout title="Tesorería - Comprobantes de Pago">
         <div className="p-6 max-w-[1400px] mx-auto space-y-4">
-          {/* Acción Principal: Subir Documento */}
-          <Card 
-            data-onboarding="create-cxp"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDragOverUpload(true);
+          {/* Zona de Subida Mejorada */}
+          <EnhancedUploadZone
+            onFilesSelected={(files) => {
+              if (files.length > 0) {
+                setFilesToUpload(files);
+                setShowInvoiceWizard(true);
+              }
             }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDragOverUpload(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDragOverUpload(false);
-              setShowInvoiceWizard(true); // Abrir wizard en lugar de modal directo
-            }}
-            onClick={() => setShowInvoiceWizard(true)}
-            className={`relative border-2 border-dashed transition-all cursor-pointer ${
-              dragOverUpload 
-                ? "border-primary bg-primary/10 scale-[1.002] shadow-lg" 
-                : "border-primary/30 hover:border-primary/50 hover:bg-primary/5"
-            }`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-all ${
-                    dragOverUpload ? "bg-primary text-primary-foreground scale-110" : "bg-primary/10 text-primary"
-                  }`}>
-                    <FileUp className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-foreground">
-                      {dragOverUpload ? "Suelta aquí tus archivos" : "Subir Factura o Documento"}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Facturas (PDF, XML, JPG, PNG, JPEG) o Archivos Idrall (PDF, ZIP)
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="ml-4">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Seleccionar archivos
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+            maxFiles={10}
+            maxSizeMB={10}
+          />
 
-          {/* Resumen Semanal - Tarjetas de Pagos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Pagos Semana Actual */}
-            <Card className="border border-border/50">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                    {paymentsThisWeek.length}
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1">
-                    Pagos Semana Actual
-                  </div>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {format(weekStart, "dd MMM", { locale: es })} - {format(weekEnd, "dd MMM", { locale: es })}
-                  </div>
-                  <div className="text-base font-bold text-blue-700 dark:text-blue-500">
-                    ${totalThisWeek.toLocaleString("es-MX", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Pagos Siguiente Semana */}
-            <Card className="border border-border/50">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
-                    {paymentsNextWeek.length}
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1">
-                    Pagos Siguiente Semana
-                  </div>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {format(nextWeekStart, "dd MMM", { locale: es })} - {format(nextWeekEnd, "dd MMM", { locale: es })}
-                  </div>
-                  <div className="text-base font-bold text-green-700 dark:text-green-500">
-                    ${totalNextWeek.toLocaleString("es-MX", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Resumen Semanal - Tarjetas de Pagos Mejoradas */}
+          <PaymentSummaryCards
+            currentWeek={{
+              period: `${format(weekStart, "dd MMM", { locale: es })} - ${format(weekEnd, "dd MMM", { locale: es })}`,
+              count: paymentsThisWeek.length,
+              total: totalThisWeek,
+              currency: "MXN",
+            }}
+            nextWeek={{
+              period: `${format(nextWeekStart, "dd MMM", { locale: es })} - ${format(nextWeekEnd, "dd MMM", { locale: es })}`,
+              count: paymentsNextWeek.length,
+              total: totalNextWeek,
+              currency: "MXN",
+            }}
+            onViewHistory={() => setViewMode("history")}
+          />
 
           {/* Kanban de Comprobantes de Pago - NUEVO DISEÑO */}
           <div className="mt-6">
@@ -626,21 +556,6 @@ export default function TreasuryPage() {
             />
           </div>
 
-          {/* Kanban de Cuentas por Pagar */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-foreground">Cuentas por Pagar</h2>
-                <PendingTodayCard 
-                  count={repsPendingCount}
-                  onViewAll={() => {
-                    // Ya estamos en vouchers, el click puede hacer scroll o highlight la columna
-                  }} 
-                />
-              </div>
-            </div>
-            <ScheduledPaymentsKanban />
-          </div>
         </div>
 
         {/* Modal de Upload por Empresa */}
@@ -853,56 +768,18 @@ export default function TreasuryPage() {
   return (
     <AppLayout title="Tesorería">
       <div className="p-6 max-w-[1400px] mx-auto space-y-4">
-        {/* Acción Principal: Subir Documento - Más compacta */}
-        <Card 
-          data-onboarding="create-cxp"
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setDragOverUpload(true);
+        {/* Zona de Subida Mejorada */}
+        <EnhancedUploadZone
+          onFilesSelected={(files) => {
+            if (files.length > 0) {
+              setFilesToUpload(files);
+              setShowInvoiceWizard(true);
+            }
           }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setDragOverUpload(false);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setDragOverUpload(false);
-            setShowInvoiceWizard(true); // Abrir wizard en lugar de modal directo
-          }}
-          onClick={() => setShowInvoiceWizard(true)}
-          className={`relative border-2 border-dashed transition-all cursor-pointer ${
-            dragOverUpload
-              ? "border-primary bg-primary/10 scale-[1.002] shadow-lg"
-              : "border-primary/30 hover:border-primary/50 hover:bg-primary/5"
-          }`}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg transition-all ${
-                  dragOverUpload ? "bg-primary text-primary-foreground scale-110" : "bg-primary/10 text-primary"
-                }`}>
-                  <FileUp className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    {dragOverUpload ? "Suelta aquí tus archivos" : "Subir Factura o Documento"}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Facturas (PDF, XML, JPG, PNG, JPEG) o Archivos Idrall (PDF, ZIP)
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="ml-4">
-                <Upload className="h-4 w-4 mr-2" />
-                Seleccionar archivos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+          maxFiles={10}
+          maxSizeMB={10}
+        />
 
         {/* Resumen Semanal - Solo mostrar estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
