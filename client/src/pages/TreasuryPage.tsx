@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Upload, DollarSign, TrendingUp, Plus, X, Users, ChevronDown, ChevronUp, FileUp, Loader2, ArrowRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 import { PendingTodayCard } from "@/components/treasury/PendingTodayCard";
@@ -84,6 +86,8 @@ export default function TreasuryPage() {
     companyId: null as number | null,
   });
   const [showSmartUpload, setShowSmartUpload] = useState(true);
+  const [activeTab, setActiveTab] = useState<"vouchers" | "payments" | "automation">("vouchers");
+  const [showAdvancedViews, setShowAdvancedViews] = useState(false);
 
   // Mutación para subir factura directamente
   const uploadInvoiceMutation = useMutation({
@@ -570,166 +574,385 @@ export default function TreasuryPage() {
 
   // Si estamos en /treasury o /treasury/vouchers, mostrar vista completa de comprobantes
   if (location === "/treasury" || location === "/treasury/vouchers" || viewMode === "vouchers") {
+    // Filtrar solo alertas críticas (vencidas y de hoy)
+    const criticalAlerts = useMemo(() => {
+      return filteredPayments.filter((p) => {
+        if (p.status === "paid" || p.status === "cancelled") return false;
+        const dueDate = new Date(p.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate <= today;
+      });
+    }, [filteredPayments]);
+
     return (
       <AppLayout 
         title="Tesorería - Comprobantes de Pago"
         commandPalette={<CommandPalette />}
       >
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-          {/* Notificación Center en Header */}
-          <div className="flex justify-end mb-4">
+        <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-4">
+          {/* Header compacto con notificaciones */}
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-bold text-foreground">Tesorería</h1>
             <NotificationCenter />
           </div>
 
-          {/* Zona de Subida Inteligente */}
-          {showSmartUpload && (
-            <SmartUploadZone
-              onFilesProcessed={(groupedFiles) => {
-                // Procesar archivos agrupados
-                const allFiles = Object.values(groupedFiles).flat();
-                if (allFiles.length > 0) {
-                  setFilesToUpload(allFiles as File[]);
-                  setShowInvoiceWizard(true);
-                }
-              }}
-              onUpload={async (files) => {
-                // Si hay archivos, abrir wizard para seleccionar empresa y proveedor
-                if (files.length > 0) {
-                  setFilesToUpload(files as File[]);
-                  setShowInvoiceWizard(true);
-                }
-              }}
-              acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
-              maxFiles={20}
-              maxSizeMB={10}
-            />
-          )}
+          {/* Tabs para organizar vistas */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="vouchers">Comprobantes</TabsTrigger>
+              <TabsTrigger value="payments">Pagos</TabsTrigger>
+              <TabsTrigger value="automation">Automatizaciones</TabsTrigger>
+            </TabsList>
 
-          {/* Alternar entre subida inteligente y mejorada */}
-          <div className="flex justify-end">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowSmartUpload(!showSmartUpload)}
-            >
-              {showSmartUpload ? "Usar subida simple" : "Usar subida inteligente"}
-            </Button>
-          </div>
-
-          {!showSmartUpload && (
-            <EnhancedUploadZone
-              onFilesSelected={(files) => {
-                if (files.length > 0) {
-                  setFilesToUpload(files);
-                  setShowInvoiceWizard(true);
-                }
-              }}
-              acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
-              maxFiles={10}
-              maxSizeMB={10}
-            />
-          )}
-
-          {/* Resumen Semanal - Tarjetas de Pagos Mejoradas */}
-          <PaymentSummaryCards
-            currentWeek={{
-              period: `${format(weekStart, "dd MMM", { locale: es })} - ${format(weekEnd, "dd MMM", { locale: es })}`,
-              count: paymentsThisWeek.length,
-              total: totalThisWeek,
-              currency: "MXN",
-            }}
-            nextWeek={{
-              period: `${format(nextWeekStart, "dd MMM", { locale: es })} - ${format(nextWeekEnd, "dd MMM", { locale: es })}`,
-              count: paymentsNextWeek.length,
-              total: totalNextWeek,
-              currency: "MXN",
-            }}
-            onViewHistory={() => setViewMode("history")}
-          />
-
-          {/* Alertas de Pagos */}
-          <PaymentAlerts
-            payments={filteredPayments}
-            onPaymentClick={(payment) => {
-              // Navegar al pago o abrir detalle
-              console.log("Payment clicked:", payment);
-            }}
-          />
-
-          {/* Filtros de Pagos */}
-          <PaymentFilters
-            filters={paymentFilters}
-            onFiltersChange={setPaymentFilters}
-            suppliers={suppliers.map((s: any) => ({
-              id: s.id,
-              name: s.name || s.short_name,
-            }))}
-          />
-
-          {/* Vista de Pagos: Timeline, Calendario o Kanban */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Timeline de Pagos */}
-            <PaymentTimeline
-              payments={filteredPayments}
-              onPaymentClick={(payment) => {
-                console.log("Payment clicked:", payment);
-              }}
-            />
-
-            {/* Calendario de Pagos */}
-            <PaymentCalendar
-              payments={filteredPayments}
-              onDateClick={(date, datePayments) => {
-                console.log("Date clicked:", date, datePayments);
-              }}
-            />
-          </div>
-
-          {/* Kanban de Comprobantes de Pago - NUEVO DISEÑO */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-foreground">Comprobantes de Pago</h2>
+            {/* Tab: Comprobantes */}
+            <TabsContent value="vouchers" className="space-y-4 mt-4">
+              {/* Upload compacto */}
+              <div className="space-y-2">
+                {showSmartUpload ? (
+                  <SmartUploadZone
+                    onFilesProcessed={(groupedFiles) => {
+                      const allFiles = Object.values(groupedFiles).flat();
+                      if (allFiles.length > 0) {
+                        setFilesToUpload(allFiles as File[]);
+                        setShowInvoiceWizard(true);
+                      }
+                    }}
+                    onUpload={async (files) => {
+                      if (files.length > 0) {
+                        setFilesToUpload(files as File[]);
+                        setShowInvoiceWizard(true);
+                      }
+                    }}
+                    acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+                    maxFiles={20}
+                    maxSizeMB={10}
+                    className="mb-2"
+                  />
+                ) : (
+                  <EnhancedUploadZone
+                    onFilesSelected={(files) => {
+                      if (files.length > 0) {
+                        setFilesToUpload(files);
+                        setShowInvoiceWizard(true);
+                      }
+                    }}
+                    acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+                    maxFiles={10}
+                    maxSizeMB={10}
+                  />
+                )}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSmartUpload(!showSmartUpload)}
+                    className="text-xs"
+                  >
+                    {showSmartUpload ? "Modo simple" : "Modo inteligente"}
+                  </Button>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("history")}
-                className="font-semibold"
-              >
-                Ver Historial de Pagos
-              </Button>
-            </div>
-            <VoucherKanbanBoard 
-              vouchers={vouchers.map((v: any) => ({
-                id: v.id,
-                companyId: v.companyId || v.company_id,
-                payerCompanyId: v.payerCompanyId || v.payer_company_id,
-                clientId: v.clientId || v.client_id,
-                clientName: v.clientName || v.client_name,
-                status: v.status || 'factura_pagada',
-                voucherFileUrl: v.voucherFileUrl || v.voucher_file_url,
-                voucherFileName: v.voucherFileName || v.voucher_file_name,
-                extractedAmount: v.extractedAmount || v.extracted_amount,
-                extractedDate: v.extractedDate || v.extracted_date,
-                extractedBank: v.extractedBank || v.extracted_bank,
-                extractedReference: v.extractedReference || v.extracted_reference,
-                extractedCurrency: v.extractedCurrency || v.extracted_currency,
-                extractedOriginAccount: v.extractedOriginAccount || v.extracted_origin_account,
-                extractedDestinationAccount: v.extractedDestinationAccount || v.extracted_destination_account,
-                extractedTrackingKey: v.extractedTrackingKey || v.extracted_tracking_key,
-                extractedBeneficiaryName: v.extractedBeneficiaryName || v.extracted_beneficiary_name,
-                ocrConfidence: v.ocrConfidence || v.ocr_confidence,
-                notes: v.notes,
-                createdAt: v.createdAt || v.created_at,
-              }))} 
-            />
-          </div>
 
-          {/* Automatizaciones */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-            <AutoReminders />
-            <AutoReconciliation />
-          </div>
+              {/* Resumen compacto */}
+              <PaymentSummaryCards
+                currentWeek={{
+                  period: `${format(weekStart, "dd MMM", { locale: es })} - ${format(weekEnd, "dd MMM", { locale: es })}`,
+                  count: paymentsThisWeek.length,
+                  total: totalThisWeek,
+                  currency: "MXN",
+                }}
+                nextWeek={{
+                  period: `${format(nextWeekStart, "dd MMM", { locale: es })} - ${format(nextWeekEnd, "dd MMM", { locale: es })}`,
+                  count: paymentsNextWeek.length,
+                  total: totalNextWeek,
+                  currency: "MXN",
+                }}
+                onViewHistory={() => setViewMode("history")}
+              />
+
+              {/* Alertas críticas solo si hay */}
+              {criticalAlerts.length > 0 && (
+                <div className="border-l-4 border-red-500 bg-red-50 dark:bg-red-950/20 p-3 rounded-r">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-sm">⚠️ Alertas Críticas</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setActiveTab("payments")}
+                      className="text-xs"
+                    >
+                      Ver todas →
+                    </Button>
+                  </div>
+                  <PaymentAlerts
+                    payments={criticalAlerts.slice(0, 3)}
+                    onPaymentClick={(payment) => console.log("Payment clicked:", payment)}
+                    className="space-y-1"
+                  />
+                </div>
+              )}
+
+              {/* Kanban de Comprobantes */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold text-foreground">Comprobantes de Pago</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewMode("history")}
+                  >
+                    Historial
+                  </Button>
+                </div>
+                <VoucherKanbanBoard 
+                  vouchers={vouchers.map((v: any) => ({
+                    id: v.id,
+                    companyId: v.companyId || v.company_id,
+                    payerCompanyId: v.payerCompanyId || v.payer_company_id,
+                    clientId: v.clientId || v.client_id,
+                    clientName: v.clientName || v.client_name,
+                    status: v.status || 'factura_pagada',
+                    voucherFileUrl: v.voucherFileUrl || v.voucher_file_url,
+                    voucherFileName: v.voucherFileName || v.voucher_file_name,
+                    extractedAmount: v.extractedAmount || v.extracted_amount,
+                    extractedDate: v.extractedDate || v.extracted_date,
+                    extractedBank: v.extractedBank || v.extracted_bank,
+                    extractedReference: v.extractedReference || v.extracted_reference,
+                    extractedCurrency: v.extractedCurrency || v.extracted_currency,
+                    extractedOriginAccount: v.extractedOriginAccount || v.extracted_origin_account,
+                    extractedDestinationAccount: v.extractedDestinationAccount || v.extracted_destination_account,
+                    extractedTrackingKey: v.extractedTrackingKey || v.extracted_tracking_key,
+                    extractedBeneficiaryName: v.extractedBeneficiaryName || v.extracted_beneficiary_name,
+                    ocrConfidence: v.ocrConfidence || v.ocr_confidence,
+                    notes: v.notes,
+                    createdAt: v.createdAt || v.created_at,
+                  }))} 
+                />
+              </div>
+            </TabsContent>
+
+            {/* Tab: Pagos */}
+            <TabsContent value="payments" className="space-y-4 mt-4">
+              {/* Filtros compactos */}
+              <PaymentFilters
+                filters={paymentFilters}
+                onFiltersChange={setPaymentFilters}
+                suppliers={suppliers.map((s: any) => ({
+                  id: s.id,
+                  name: s.name || s.short_name,
+                }))}
+              />
+
+              {/* Alertas completas */}
+              <PaymentAlerts
+                payments={filteredPayments}
+                onPaymentClick={(payment) => console.log("Payment clicked:", payment)}
+              />
+
+              {/* Vistas avanzadas colapsables */}
+              <Accordion type="single" collapsible>
+                <AccordionItem value="views">
+                  <AccordionTrigger className="text-sm">
+                    Vistas Avanzadas (Timeline y Calendario)
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+                      <PaymentTimeline
+                        payments={filteredPayments}
+                        onPaymentClick={(payment) => console.log("Payment clicked:", payment)}
+                      />
+                      <PaymentCalendar
+                        payments={filteredPayments}
+                        onDateClick={(date, datePayments) => console.log("Date clicked:", date, datePayments)}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </TabsContent>
+
+            {/* Tab: Automatizaciones */}
+            <TabsContent value="automation" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <AutoReminders />
+                <AutoReconciliation />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Modal de Upload por Empresa */}
+          <Dialog open={showUploadModal} onOpenChange={(open) => setShowUploadModal(open)}>
+            <DialogContent className="max-w-5xl">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold text-foreground text-center">
+                  Selecciona la empresa
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                {/* Grupo Orsega */}
+                <Card
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                      const file = files[0];
+                      const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                      if (isIdrall) {
+                        setSelectedCompanyForUpload(2);
+                        setFilesToUpload(files);
+                        setViewMode("idrall");
+                        setShowUploadModal(false);
+                      } else {
+                        await handleDirectFileUpload(file, 2);
+                      }
+                    }
+                  }}
+                  onClick={() => {
+                    setSelectedCompanyForUpload(2);
+                    setShowUploadModal(false);
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.xml,.jpg,.jpeg,.png,.zip';
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                        if (isIdrall) {
+                          setFilesToUpload([file]);
+                          setViewMode("idrall");
+                        } else {
+                          await handleDirectFileUpload(file, 2);
+                        }
+                      }
+                    };
+                    input.click();
+                  }}
+                  className="relative border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all"
+                >
+                  <CardContent className="p-0">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <img 
+                          src="/logo orsega.jpg" 
+                          alt="Grupo Orsega Logo" 
+                          className="h-20 w-auto object-contain"
+                          style={{ maxWidth: '150px' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground mb-2">
+                          Grupo Orsega
+                        </h3>
+                        <p className="text-base text-muted-foreground mb-3 font-semibold">
+                          Suelta aquí tus archivos
+                        </p>
+                        <Upload className="h-10 w-10 mx-auto text-blue-500" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Dura International */}
+                <Card
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                      const file = files[0];
+                      const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                      if (isIdrall) {
+                        setSelectedCompanyForUpload(1);
+                        setFilesToUpload(files);
+                        setViewMode("idrall");
+                        setShowUploadModal(false);
+                      } else {
+                        await handleDirectFileUpload(file, 1);
+                      }
+                    }
+                  }}
+                  onClick={() => {
+                    setSelectedCompanyForUpload(1);
+                    setShowUploadModal(false);
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.xml,.jpg,.jpeg,.png,.zip';
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const isIdrall = file.name.toLowerCase().endsWith('.zip');
+                        if (isIdrall) {
+                          setFilesToUpload([file]);
+                          setViewMode("idrall");
+                        } else {
+                          await handleDirectFileUpload(file, 1);
+                        }
+                      }
+                    };
+                    input.click();
+                  }}
+                  className="relative border-2 border-dashed border-green-300 dark:border-green-700 rounded-lg p-8 text-center cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-950/20 transition-all"
+                >
+                  <CardContent className="p-0">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <div className="bg-white rounded-lg p-3 shadow-sm">
+                        <img 
+                          src="/logo dura.jpg" 
+                          alt="DURA International Logo" 
+                          className="h-20 w-auto object-contain"
+                          style={{ maxWidth: '150px' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground mb-2">
+                          DURA International
+                        </h3>
+                        <p className="text-base text-muted-foreground mb-3 font-semibold">
+                          Suelta aquí tus archivos
+                        </p>
+                        <Upload className="h-10 w-10 mx-auto text-green-500" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Wizard de Subida de Facturas */}
+          <InvoiceUploadWizard
+            isOpen={showInvoiceWizard}
+            onClose={() => {
+              setShowInvoiceWizard(false);
+              setFilesToUpload([]);
+            }}
+            onUploadComplete={(data) => {
+              queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+              setShowInvoiceWizard(false);
+              setFilesToUpload([]);
+            }}
+          />
 
         </div>
 
