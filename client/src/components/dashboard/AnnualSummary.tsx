@@ -20,6 +20,8 @@ import {
   Calendar,
   BarChart3,
   Users,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import type { AnnualSummary } from "@shared/sales-types";
 import { cn } from "@/lib/utils";
