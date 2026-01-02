@@ -28,6 +28,8 @@ import {
   Sparkles
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CompanySelector } from "@/components/dashboard/CompanySelector";
+import { SidebarTopClients } from "./SidebarTopClients";
 
 interface NavItemProps {
   href: string;
@@ -78,6 +80,10 @@ function Sidebar() {
   const { user, isAdmin, hasLogisticsAccess, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<number>(() => {
+    const storedCompany = localStorage.getItem('selectedCompanyId');
+    return storedCompany ? Number(storedCompany) : 1;
+  });
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(
     location === "/treasury" || location.startsWith("/treasury/")
   );
@@ -175,22 +181,24 @@ function Sidebar() {
           </p>
         </div>
 
-        {/* User info - compact */}
-        {user && (
-          <div className="px-3 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-xs font-semibold text-primary">
-                  {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.name?.split(' ')[0]}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.role === 'admin' ? 'Admin' : 'Usuario'}</p>
-              </div>
-            </div>
+        {/* Company Selector y Top Clientes */}
+        <div className="px-3 py-3 border-b border-border space-y-4">
+          {/* Company Selector */}
+          <div className="flex justify-center">
+            <CompanySelector
+              selectedCompany={selectedCompany}
+              onChange={(companyId) => {
+                localStorage.setItem('selectedCompanyId', String(companyId));
+                setSelectedCompany(companyId);
+                // Disparar evento para que otros componentes se actualicen
+                window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+              }}
+            />
           </div>
-        )}
+          
+          {/* Top Clientes */}
+          <SidebarTopClients companyId={selectedCompany} />
+        </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">

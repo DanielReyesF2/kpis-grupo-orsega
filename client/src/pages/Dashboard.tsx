@@ -29,6 +29,20 @@ export default function Dashboard() {
     const storedCompany = localStorage.getItem('selectedCompanyId');
     return storedCompany ? Number(storedCompany) : 1; // Por defecto DURA
   });
+
+  // Escuchar cambios de empresa desde el sidebar
+  React.useEffect(() => {
+    const handleCompanyChange = (event: CustomEvent) => {
+      const { companyId } = event.detail;
+      setSelectedCompany(companyId);
+      setFilters(prev => ({ ...prev, companyId }));
+    };
+
+    window.addEventListener('companyChanged', handleCompanyChange as EventListener);
+    return () => {
+      window.removeEventListener('companyChanged', handleCompanyChange as EventListener);
+    };
+  }, []);
   
   const [filters, setFilters] = useState({
     companyId: selectedCompany,
@@ -71,14 +85,7 @@ export default function Dashboard() {
         {/* Filters Bar (Oculto) */}
         <FiltersBar onFilterChange={handleFilterChange} />
 
-        {/* Header con selector */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex-1" />
-          <CompanySelector
-            selectedCompany={selectedCompany}
-            onChange={handleCompanyChange}
-          />
-        </div>
+        {/* Header - selector movido a sidebar */}
 
         {/* Layout principal: Grid denso estilo dashboard moderno */}
         <div className="grid grid-cols-12 gap-4 auto-rows-min">
