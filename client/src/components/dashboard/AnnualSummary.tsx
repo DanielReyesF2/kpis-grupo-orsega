@@ -248,77 +248,6 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
         </CardContent>
       </Card>
 
-      {/* Top Producto y Top Productos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Producto Destacado */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5" />
-              Producto Estrella del Año
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-primary/10 border-2 border-primary">
-                <p className="text-2xl font-bold mb-2">{summary.topProduct.name}</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Volumen</p>
-                    <p className="text-lg font-semibold">
-                      {formatNumber(summary.topProduct.volume)} {summary.topProduct.unit}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Ingresos</p>
-                    <p className="text-lg font-semibold">{formatCurrency(summary.topProduct.revenue)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Productos */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Top 10 Productos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {summary.topProducts.map((product, index) => (
-                <motion.div
-                  key={product.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
-                      {index + 1}
-                    </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatNumber(product.volume)} {product.unit}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-sm">{formatCurrency(product.revenue)}</p>
-                    <p className="text-xs text-muted-foreground">{product.transactions} trans.</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Métricas de Clientes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
@@ -345,49 +274,8 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
         />
       </div>
 
-      {/* Top Clientes y Clientes Inactivos */}
+      {/* Clientes Inactivos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Clientes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Top 10 Clientes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {summary.topClients.map((client, index) => (
-                <motion.div
-                  key={client.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
-                      {index + 1}
-                    </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{client.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {client.transactions} transacciones
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-sm">{formatCurrency(client.revenue)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatCurrency(client.avgTicket)} promedio
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Clientes Inactivos */}
         <Card>
           <CardHeader>
