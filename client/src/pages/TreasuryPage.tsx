@@ -25,6 +25,7 @@ import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVe
 import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
@@ -219,10 +220,20 @@ export default function TreasuryPage() {
     uploadInvoiceMutation.mutate({ file, payerCompanyId: companyId });
   };
 
-  // Estadísticas del mes
+  // Estadísticas del mes - Obtener comprobantes
   const { data: vouchers = [] } = useQuery<any[]>({
     queryKey: ["/api/payment-vouchers"],
     staleTime: 30000,
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch("/api/payment-vouchers", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch vouchers');
+      return await response.json();
+    },
   });
 
   const { data: payments = [] } = useQuery<any[]>({
@@ -575,8 +586,25 @@ export default function TreasuryPage() {
             </Card>
           </div>
 
-          {/* Kanban de Cuentas por Pagar - ÚNICO KANBAN */}
+          {/* Kanban de Comprobantes de Pago - NUEVO DISEÑO */}
           <div className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-foreground">Comprobantes de Pago</h2>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setViewMode("history")}
+                className="font-semibold"
+              >
+                Ver Historial de Pagos
+              </Button>
+            </div>
+            <VoucherKanbanBoard vouchers={vouchers} />
+          </div>
+
+          {/* Kanban de Cuentas por Pagar */}
+          <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold text-foreground">Cuentas por Pagar</h2>
@@ -587,13 +615,6 @@ export default function TreasuryPage() {
                   }} 
                 />
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("history")}
-                className="font-semibold"
-              >
-                Ver Historial de Pagos
-              </Button>
             </div>
             <ScheduledPaymentsKanban />
           </div>
