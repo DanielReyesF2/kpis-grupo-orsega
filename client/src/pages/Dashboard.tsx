@@ -112,6 +112,17 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
+          {/* Resumen Anual Ejecutivo - Inmediatamente después de Resumen de Ventas y Productos Vendidos */}
+          <div className="col-span-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+            >
+              <AnnualSummary companyId={selectedCompany} />
+            </motion.div>
+          </div>
+
           {/* Sales By Source - Bottom Left (5 columnas) */}
           <div className="col-span-12 lg:col-span-5">
             <motion.div
@@ -156,20 +167,9 @@ export default function Dashboard() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <ProfitabilityMetrics companyId={selectedCompany} />
-          </motion.div>
-        </section>
-
-        {/* Resumen Anual Ejecutivo */}
-        <section className="mt-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <AnnualSummary companyId={selectedCompany} />
+            <ProfitabilityMetrics companyId={selectedCompany} />
           </motion.div>
         </section>
 

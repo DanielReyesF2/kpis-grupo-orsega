@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -69,8 +69,20 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
   });
 
   // Usar el año más reciente por defecto
-  const defaultYear = availableYears && availableYears.length > 0 ? availableYears[0] : new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    // Inicializar con el año actual, se actualizará cuando availableYears se cargue
+    return new Date().getFullYear();
+  });
+
+  // Actualizar selectedYear cuando availableYears se carga
+  useEffect(() => {
+    if (availableYears && availableYears.length > 0) {
+      // Si el año seleccionado no está en los años disponibles, usar el más reciente
+      if (!availableYears.includes(selectedYear)) {
+        setSelectedYear(availableYears[0]);
+      }
+    }
+  }, [availableYears, selectedYear]);
 
   // Obtener resumen anual
   const { data: summary, isLoading: isLoadingSummary } = useQuery<AnnualSummary>({
