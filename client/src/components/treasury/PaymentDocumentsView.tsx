@@ -6,6 +6,8 @@ import { FileText, Download, Receipt, FileCheck, Image as ImageIcon, AlertCircle
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useState } from "react";
+import { PDFViewer } from "@/components/treasury/document-viewer/PDFViewer";
+import { ImageViewer } from "@/components/treasury/document-viewer/ImageViewer";
 
 interface PaymentDocumentsViewProps {
   isOpen: boolean;
@@ -184,51 +186,21 @@ export function PaymentDocumentsView({ isOpen, onClose, scheduledPaymentId }: Pa
                           <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/50">
                             {isImage(doc.name) && !imageErrors[index] ? (
                               <div className="relative w-full" style={{ minHeight: '400px', maxHeight: '600px' }}>
-                                <img
-                                  src={getDocumentUrl(doc.url)}
-                                  alt={doc.name}
-                                  className="w-full h-auto object-contain"
-                                  style={{ maxHeight: '600px' }}
-                                  onError={() => setImageErrors({ ...imageErrors, [index]: true })}
-                                  onLoad={(e) => {
-                                    const img = e.target as HTMLImageElement;
-                                    const container = img.parentElement;
-                                    if (container) {
-                                      container.style.height = 'auto';
-                                    }
-                                  }}
+                                <ImageViewer
+                                  imageUrl={getDocumentUrl(doc.url)}
+                                  imageName={doc.name}
+                                  onDownload={() => handleDownload(doc.url, doc.name)}
+                                  className="h-full"
                                 />
-                                <div className="absolute top-2 right-2">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => handleDownload(doc.url, doc.name)}
-                                    className="shadow-md"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                </div>
                               </div>
                             ) : isPDF(doc.name) ? (
                               <div className="relative w-full" style={{ height: '600px' }}>
-                                <iframe
-                                  src={getDocumentUrl(doc.url)}
-                                  className="w-full h-full"
-                                  title={doc.name}
-                                  onError={() => {
-                                    setImageErrors({ ...imageErrors, [index]: true });
-                                  }}
+                                <PDFViewer
+                                  fileUrl={getDocumentUrl(doc.url)}
+                                  fileName={doc.name}
+                                  onDownload={() => handleDownload(doc.url, doc.name)}
+                                  className="h-full"
                                 />
-                                <div className="absolute top-2 right-2">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => handleDownload(doc.url, doc.name)}
-                                    className="shadow-md"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                </div>
                               </div>
                             ) : (
                               <div className="flex flex-col items-center justify-center p-12 text-center" style={{ minHeight: '300px' }}>

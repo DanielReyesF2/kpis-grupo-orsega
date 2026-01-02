@@ -1,5 +1,7 @@
 import { FileText, Image as ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { PDFViewer } from "@/components/treasury/document-viewer/PDFViewer";
+import { ImageViewer } from "@/components/treasury/document-viewer/ImageViewer";
 
 interface PDFPreviewProps {
   file: File;
@@ -21,18 +23,18 @@ export function PDFPreview({ file, url }: PDFPreviewProps) {
           )}
           <p className="font-semibold text-base">{file.name}</p>
         </div>
-        <div className="border-2 border-border rounded-lg overflow-hidden">
+        <div className="border-2 border-border rounded-lg overflow-hidden h-96">
           {isImage ? (
-            <img
-              src={previewUrl}
-              alt={file.name}
-              className="w-full h-auto max-h-96 object-contain"
+            <ImageViewer
+              imageUrl={previewUrl}
+              imageName={file.name}
+              className="h-full"
             />
           ) : (
-            <iframe
-              src={previewUrl}
-              className="w-full h-96"
-              title={file.name}
+            <PDFViewer
+              fileUrl={previewUrl}
+              fileName={file.name}
+              className="h-full"
             />
           )}
         </div>

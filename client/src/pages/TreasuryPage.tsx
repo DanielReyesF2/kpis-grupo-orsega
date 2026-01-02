@@ -24,6 +24,7 @@ import { ScheduledPaymentsKanban } from "@/components/treasury/ScheduledPayments
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
 import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
@@ -1174,6 +1175,7 @@ export default function TreasuryPage() {
           }
         }}
       />
+      <CommandPalette />
     </AppLayout>
   );
 }
