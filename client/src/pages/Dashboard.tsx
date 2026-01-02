@@ -82,8 +82,8 @@ export default function Dashboard() {
 
         {/* Layout principal: Grid denso estilo dashboard moderno */}
         <div className="grid grid-cols-12 gap-4 auto-rows-min">
-          {/* Invoice Overview - Top Left (5 columnas) */}
-          <div className="col-span-12 lg:col-span-5">
+          {/* Invoice Overview - Top Left (60% - 7 columnas) */}
+          <div className="col-span-12 lg:col-span-7">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -93,8 +93,8 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
-          {/* Order Stats - Top Right (7 columnas) */}
-          <div className="col-span-12 lg:col-span-7">
+          {/* Order Stats - Top Right (40% - 5 columnas) */}
+          <div className="col-span-12 lg:col-span-5">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
