@@ -16,7 +16,6 @@ import { ProfitabilityMetrics } from '@/components/dashboard/ProfitabilityMetric
 import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
 import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
 import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
-import { CompactKPICards } from '@/components/dashboard/CompactKPICards';
 import { SalesBySourceCard } from '@/components/dashboard/SalesBySourceCard';
 import { ProfitabilityByProductsCard } from '@/components/dashboard/ProfitabilityByProductsCard';
 
@@ -94,25 +93,14 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
-          {/* Order Stats - Top Right (4 columnas) */}
-          <div className="col-span-12 lg:col-span-4">
+          {/* Order Stats - Top Right (7 columnas) */}
+          <div className="col-span-12 lg:col-span-7">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               <OrderStatsCard companyId={selectedCompany} />
-            </motion.div>
-          </div>
-
-          {/* KPIs Compactos - Top Right (3 columnas) */}
-          <div className="col-span-12 lg:col-span-3">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.15 }}
-            >
-              <CompactKPICards companyId={selectedCompany} />
             </motion.div>
           </div>
 
