@@ -88,10 +88,6 @@ function Sidebar() {
   const [isSalesOpen, setIsSalesOpen] = useState(
     location === "/sales" || location.startsWith("/sales/")
   );
-  const [selectedCompany, setSelectedCompany] = useState<number>(() => {
-    const storedCompany = localStorage.getItem('selectedCompanyId');
-    return storedCompany ? Number(storedCompany) : 1;
-  });
 
   // Auto-expandir cuando se navega a una ruta
   useEffect(() => {
@@ -185,29 +181,43 @@ function Sidebar() {
 
         {/* Company Selector compacto */}
         <div className="px-3 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Building className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-1">
-                  Empresa
-                </p>
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => {
-                    const companyId = Number(e.target.value);
-                    localStorage.setItem('selectedCompanyId', String(companyId));
-                    setSelectedCompany(companyId);
-                    window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
-                  }}
-                  className="w-full text-sm font-medium bg-background border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 cursor-pointer"
-                >
-                  <option value={1}>DURA</option>
-                  <option value={2}>ORSEGA</option>
-                </select>
-              </div>
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-1">
+              Empresa
+            </p>
+            <div className="flex gap-1.5 p-1 rounded-lg bg-muted/30 border border-border/60">
+              <button
+                onClick={() => {
+                  const companyId = 1;
+                  localStorage.setItem('selectedCompanyId', String(companyId));
+                  setSelectedCompany(companyId);
+                  window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+                }}
+                className={cn(
+                  "flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all",
+                  selectedCompany === 1
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                DURA
+              </button>
+              <button
+                onClick={() => {
+                  const companyId = 2;
+                  localStorage.setItem('selectedCompanyId', String(companyId));
+                  setSelectedCompany(companyId);
+                  window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+                }}
+                className={cn(
+                  "flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all",
+                  selectedCompany === 2
+                    ? "bg-purple-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                ORSEGA
+              </button>
             </div>
           </div>
         </div>
