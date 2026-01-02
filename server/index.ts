@@ -261,8 +261,8 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Permitir inline scripts para Vite HMR
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"], // Permitir blob URLs para previews de imágenes
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
+      connectSrc: ["'self'", "https://api.cloud.copilotkit.ai"], // Permitir CopilotKit API
+      fontSrc: ["'self'", "data:"], // Permitir fuentes embebidas (data URIs)
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "blob:"], // Permitir blob URLs para videos/audio
       frameSrc: ["'self'", "blob:"], // Permitir blob URLs para iframes de PDFs
