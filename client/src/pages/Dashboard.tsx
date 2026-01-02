@@ -18,8 +18,7 @@ import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
 import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
 import { CompactKPICards } from '@/components/dashboard/CompactKPICards';
 import { SalesBySourceCard } from '@/components/dashboard/SalesBySourceCard';
-import { ProductTrackingCard } from '@/components/dashboard/ProductTrackingCard';
-import { BestSellingProductsCard } from '@/components/dashboard/BestSellingProductsCard';
+import { ProfitabilityByProductsCard } from '@/components/dashboard/ProfitabilityByProductsCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -128,25 +127,14 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
-          {/* Product Tracking - Middle (4 columnas) */}
-          <div className="col-span-12 lg:col-span-4">
+          {/* Rentabilidad por Productos - Bottom Right (7 columnas) */}
+          <div className="col-span-12 lg:col-span-7">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
             >
-              <ProductTrackingCard companyId={selectedCompany} />
-            </motion.div>
-          </div>
-
-          {/* Best Selling Products - Bottom Right (3 columnas) */}
-          <div className="col-span-12 lg:col-span-3">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            >
-              <BestSellingProductsCard companyId={selectedCompany} />
+              <ProfitabilityByProductsCard companyId={selectedCompany} />
             </motion.div>
           </div>
         </div>

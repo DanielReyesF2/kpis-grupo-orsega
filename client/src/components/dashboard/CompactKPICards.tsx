@@ -7,20 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { motion } from "framer-motion";
-import { Users, DollarSign, TrendingUp, Percent } from "lucide-react";
+import { Users, TrendingUp, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CompactKPICardsProps {
   companyId: number;
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function formatNumber(value: number): string {
@@ -83,12 +74,6 @@ export function CompactKPICards({ companyId }: CompactKPICardsProps) {
       color: salesMetrics?.growth >= 0 
         ? "bg-emerald-500/20 text-emerald-600" 
         : "bg-red-500/20 text-red-600",
-    },
-    {
-      title: "Ticket Promedio",
-      value: formatCurrency(salesMetrics?.avgOrderValue || 0),
-      icon: DollarSign,
-      color: "bg-purple-500/20 text-purple-600",
     },
   ];
 

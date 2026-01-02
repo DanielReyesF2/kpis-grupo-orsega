@@ -69,8 +69,8 @@ export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
     <Card className="h-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Estadísticas de Órdenes</CardTitle>
-          <Badge variant="outline" className="text-xs">Mensual</Badge>
+          <CardTitle className="text-lg font-semibold">Productos Vendidos</CardTitle>
+          <Badge variant="outline" className="text-xs">Anual</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -79,7 +79,7 @@ export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={orderData}
+                data={productData}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
@@ -87,25 +87,25 @@ export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
                 paddingAngle={2}
                 dataKey="value"
               >
-                {orderData.map((entry, index) => (
+                {productData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                formatter={(value: number) => formatNumber(value)}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         {/* Leyenda y datos */}
         <div className="space-y-2">
-          {orderData.map((order, index) => {
-            const percentage = totalOrders > 0 ? (order.value / totalOrders) * 100 : 0;
-            const change = index === 0 ? 0.2 : index === 1 ? -0.7 : 0.4;
-            const Icon = order.icon;
+          {productData.map((product, index) => {
+            const percentage = totalVolume > 0 ? (product.value / totalVolume) * 100 : 0;
 
             return (
               <motion.div
-                key={order.name}
+                key={product.name}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
@@ -114,21 +114,18 @@ export function OrderStatsCard({ companyId }: OrderStatsCardProps) {
                 <div className="flex items-center gap-3">
                   <div 
                     className="w-4 h-4 rounded"
-                    style={{ backgroundColor: order.color }}
+                    style={{ backgroundColor: product.color }}
                   />
-                  <Icon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{order.name}</span>
+                  <Package className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate flex-1">{product.name}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold">{formatNumber(order.value)}</span>
+                  <span className="text-sm font-semibold">{formatNumber(product.value)}</span>
                   <Badge 
                     variant="outline" 
-                    className={cn(
-                      "text-xs",
-                      change >= 0 ? "border-emerald-500 text-emerald-600" : "border-red-500 text-red-600"
-                    )}
+                    className="text-xs"
                   >
-                    {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+                    {percentage.toFixed(1)}%
                   </Badge>
                 </div>
               </motion.div>

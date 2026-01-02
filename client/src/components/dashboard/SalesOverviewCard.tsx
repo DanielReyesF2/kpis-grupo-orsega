@@ -7,9 +7,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -41,7 +43,11 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('es-MX').format(value);
 }
 
+type PeriodType = 'year' | 'semester' | 'quarter';
+
 export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
+  const [period, setPeriod] = useState<PeriodType>('year');
+
   const { data: salesMetrics, isLoading } = useQuery({
     queryKey: ["/api/sales-stats", companyId],
     queryFn: async () => {
@@ -53,7 +59,7 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
   });
 
   const { data: monthlyTrends } = useQuery({
-    queryKey: ["/api/sales-monthly-trends", companyId],
+    queryKey: ["/api/sales-monthly-trends", companyId, period],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/sales-monthly-trends?companyId=${companyId}`);
       return await res.json();
@@ -83,30 +89,67 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
     );
   }
 
-  // Calcular revenue total del año
-  const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
+  // Filtrar datos según el periodo seleccionado
+  const getFilteredData = () => {
+    if (!monthlyTrends || monthlyTrends.length === 0) return [];
+    
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+
+    switch (period) {
+      case 'semester':
+        // Últimos 6 meses
+        return monthlyTrends.slice(-6);
+      case 'quarter':
+        // Últimos 3 meses
+        return monthlyTrends.slice(-3);
+      case 'year':
+      default:
+        // Todo el año
+        return monthlyTrends;
+    }
+  };
+
+  const filteredTrends = getFilteredData();
+
+  // Calcular revenue total según periodo
+  const totalRevenue = filteredTrends.reduce((sum: number, month: any) => sum + (month.amount || 0), 0);
   const profitability = profitabilityData?.overallProfitability || salesMetrics?.profitability || 18;
   const netProfit = totalRevenue * (profitability / 100);
   const netRevenue = totalRevenue;
 
-  // Obtener fecha range
-  const currentDate = new Date();
-  const firstMonth = monthlyTrends?.[0];
-  const lastMonth = monthlyTrends?.[monthlyTrends.length - 1];
-  const dateRange = firstMonth && lastMonth
-    ? `Desde ${firstMonth.monthFull} hasta ${lastMonth.monthFull}`
-    : `Año ${currentDate.getFullYear()}`;
+  // Obtener fecha range según periodo
+  const getDateRange = () => {
+    if (filteredTrends.length === 0) {
+      const currentDate = new Date();
+      return `Año ${currentDate.getFullYear()}`;
+    }
+    
+    const firstMonth = filteredTrends[0];
+    const lastMonth = filteredTrends[filteredTrends.length - 1];
+    
+    if (period === 'quarter') {
+      return `Último trimestre: ${firstMonth.monthFull} - ${lastMonth.monthFull}`;
+    } else if (period === 'semester') {
+      return `Último semestre: ${firstMonth.monthFull} - ${lastMonth.monthFull}`;
+    } else {
+      return `Desde ${firstMonth.monthFull} hasta ${lastMonth.monthFull}`;
+    }
+  };
+
+  const dateRange = getDateRange();
 
   // Calcular crecimiento
-  const previousYearRevenue = totalRevenue * 0.84; // Estimado
-  const growth = previousYearRevenue > 0 ? ((totalRevenue - previousYearRevenue) / previousYearRevenue) * 100 : 0;
+  const previousPeriodRevenue = totalRevenue * 0.84; // Estimado
+  const growth = previousPeriodRevenue > 0 ? ((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 : 0;
 
   // Preparar datos para gráficos
-  const chartData = monthlyTrends?.map((month: any) => ({
+  const chartData = filteredTrends.map((month: any) => ({
     month: month.month,
     revenue: month.amount || 0,
     volume: month.volume || 0,
-  })) || [];
+  }));
 
   // Datos para mini gráfico de línea
   const miniLineData = chartData.slice(-6).map((item: any) => ({
@@ -116,8 +159,22 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold">Resumen de Ventas</CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-semibold">Resumen de Ventas</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
+          </div>
+          <Select value={period} onValueChange={(value) => setPeriod(value as PeriodType)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Periodo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="year">Anual</SelectItem>
+              <SelectItem value="semester">Semestral</SelectItem>
+              <SelectItem value="quarter">Trimestral</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Total Revenue con mini gráfico */}
