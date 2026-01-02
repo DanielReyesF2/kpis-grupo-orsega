@@ -77,22 +77,58 @@ export function InvoiceUploadWizard({ isOpen, onClose, onUploadComplete }: Invoi
   const uploadMutation = useMutation({
     mutationFn: async ({ file, payerCompanyId, supplierId }: { file: File; payerCompanyId: number; supplierId: number }) => {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("voucher", file); // El endpoint espera 'voucher'
       formData.append("payerCompanyId", payerCompanyId.toString());
       formData.append("supplierId", supplierId.toString()); // Pre-selected supplier
 
-      const response = await fetch("/api/treasury/upload-document", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || `Error ${response.status}`);
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("No se encontró token de autenticación. Por favor, inicia sesión nuevamente.");
       }
 
-      return response.json();
+      console.log('📤 [InvoiceUploadWizard] Subiendo factura:', file.name, 'para empresa:', payerCompanyId, 'proveedor:', supplierId);
+
+      const response = await fetch("/api/payment-vouchers/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // NO incluir Content-Type - el navegador lo establecerá automáticamente para FormData
+        },
+        body: formData,
+      });
+
+      // Leer el body de la respuesta
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+      
+      let errorData: any;
+      const text = await response.text();
+      
+      if (isJson && text) {
+        try {
+          errorData = JSON.parse(text);
+        } catch (parseError) {
+          console.error('❌ [InvoiceUploadWizard] Error parseando JSON de respuesta:', parseError);
+          throw new Error(`Error al procesar respuesta del servidor: ${response.status} ${response.statusText}`);
+        }
+      } else {
+        errorData = text ? { message: text } : { message: response.statusText };
+      }
+
+      if (!response.ok) {
+        // Extraer mensaje de error más descriptivo
+        let errorMessage = `Error ${response.status}`;
+        if (errorData?.error) {
+          errorMessage = errorData.error;
+        } else if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+        throw new Error(errorMessage);
+      }
+
+      return errorData;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });

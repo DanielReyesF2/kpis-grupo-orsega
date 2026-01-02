@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,14 @@ import { CommandPalette } from "@/components/shared/CommandPalette";
 import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
 import { EnhancedUploadZone } from "@/components/treasury/EnhancedUploadZone";
 import { PaymentSummaryCards } from "@/components/treasury/PaymentSummaryCards";
+import { SmartUploadZone } from "@/components/treasury/SmartUploadZone";
+import { PaymentTimeline } from "@/components/treasury/payments/PaymentTimeline";
+import { PaymentFilters } from "@/components/treasury/payments/PaymentFilters";
+import { PaymentCalendar } from "@/components/treasury/payments/PaymentCalendar";
+import { PaymentAlerts } from "@/components/treasury/payments/PaymentAlerts";
+import { AutoReminders } from "@/components/treasury/automation/AutoReminders";
+import { AutoReconciliation } from "@/components/treasury/automation/AutoReconciliation";
+import { NotificationCenter } from "@/components/treasury/automation/NotificationCenter";
 
 type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
 
@@ -65,6 +73,17 @@ export default function TreasuryPage() {
   const [isKanbanExpanded, setIsKanbanExpanded] = useState(true);
   const [formSource, setFormSource] = useState<string | undefined>(undefined); // Para pre-seleccionar fuente desde tarjetas
   const [showInvoiceWizard, setShowInvoiceWizard] = useState(false); // Wizard de subida de facturas con selección de proveedor
+  const [paymentFilters, setPaymentFilters] = useState({
+    search: "",
+    supplierId: null as number | null,
+    status: null as string | null,
+    dateFrom: null as Date | null,
+    dateTo: null as Date | null,
+    amountMin: null as number | null,
+    amountMax: null as number | null,
+    companyId: null as number | null,
+  });
+  const [showSmartUpload, setShowSmartUpload] = useState(true);
 
   // Mutación para subir factura directamente
   const uploadInvoiceMutation = useMutation({
@@ -365,6 +384,74 @@ export default function TreasuryPage() {
     return isToday && isPending;
   });
 
+  // Obtener proveedores para filtros
+  const { data: suppliers = [] } = useQuery<any[]>({
+    queryKey: ["/api/suppliers"],
+    staleTime: 60000,
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch("/api/suppliers", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Filtrar pagos según filtros
+  const filteredPayments = useMemo(() => {
+    if (!payments || payments.length === 0) return [];
+    
+    let filtered = [...payments];
+
+    if (paymentFilters.search) {
+      const searchLower = paymentFilters.search.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          (p.supplierName || "").toLowerCase().includes(searchLower) ||
+          (p.invoiceNumber || "").toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (paymentFilters.supplierId) {
+      filtered = filtered.filter((p) => p.supplierId === paymentFilters.supplierId);
+    }
+
+    if (paymentFilters.status) {
+      filtered = filtered.filter((p) => p.status === paymentFilters.status);
+    }
+
+    if (paymentFilters.dateFrom) {
+      filtered = filtered.filter((p) => {
+        const date = new Date(p.dueDate || p.paymentDate || p.createdAt);
+        return date >= paymentFilters.dateFrom!;
+      });
+    }
+
+    if (paymentFilters.dateTo) {
+      filtered = filtered.filter((p) => {
+        const date = new Date(p.dueDate || p.paymentDate || p.createdAt);
+        return date <= paymentFilters.dateTo!;
+      });
+    }
+
+    if (paymentFilters.amountMin !== null) {
+      filtered = filtered.filter((p) => (p.amount || 0) >= paymentFilters.amountMin!);
+    }
+
+    if (paymentFilters.amountMax !== null) {
+      filtered = filtered.filter((p) => (p.amount || 0) <= paymentFilters.amountMax!);
+    }
+
+    if (paymentFilters.companyId) {
+      filtered = filtered.filter((p) => p.companyId === paymentFilters.companyId);
+    }
+
+    return filtered;
+  }, [payments, paymentFilters]);
+
   // Si estamos en un modo específico, mostrar ese flujo
   if (viewMode === "upload") {
     return (
@@ -484,20 +571,64 @@ export default function TreasuryPage() {
   // Si estamos en /treasury o /treasury/vouchers, mostrar vista completa de comprobantes
   if (location === "/treasury" || location === "/treasury/vouchers" || viewMode === "vouchers") {
     return (
-      <AppLayout title="Tesorería - Comprobantes de Pago">
-        <div className="p-6 max-w-[1400px] mx-auto space-y-4">
-          {/* Zona de Subida Mejorada */}
-          <EnhancedUploadZone
-            onFilesSelected={(files) => {
-              if (files.length > 0) {
-                setFilesToUpload(files);
-                setShowInvoiceWizard(true);
-              }
-            }}
-            acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
-            maxFiles={10}
-            maxSizeMB={10}
-          />
+      <AppLayout 
+        title="Tesorería - Comprobantes de Pago"
+        commandPalette={<CommandPalette />}
+      >
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+          {/* Notificación Center en Header */}
+          <div className="flex justify-end mb-4">
+            <NotificationCenter />
+          </div>
+
+          {/* Zona de Subida Inteligente */}
+          {showSmartUpload && (
+            <SmartUploadZone
+              onFilesProcessed={(groupedFiles) => {
+                // Procesar archivos agrupados
+                const allFiles = Object.values(groupedFiles).flat();
+                if (allFiles.length > 0) {
+                  setFilesToUpload(allFiles as File[]);
+                  setShowInvoiceWizard(true);
+                }
+              }}
+              onUpload={async (files) => {
+                // Si hay archivos, abrir wizard para seleccionar empresa y proveedor
+                if (files.length > 0) {
+                  setFilesToUpload(files as File[]);
+                  setShowInvoiceWizard(true);
+                }
+              }}
+              acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+              maxFiles={20}
+              maxSizeMB={10}
+            />
+          )}
+
+          {/* Alternar entre subida inteligente y mejorada */}
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSmartUpload(!showSmartUpload)}
+            >
+              {showSmartUpload ? "Usar subida simple" : "Usar subida inteligente"}
+            </Button>
+          </div>
+
+          {!showSmartUpload && (
+            <EnhancedUploadZone
+              onFilesSelected={(files) => {
+                if (files.length > 0) {
+                  setFilesToUpload(files);
+                  setShowInvoiceWizard(true);
+                }
+              }}
+              acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
+              maxFiles={10}
+              maxSizeMB={10}
+            />
+          )}
 
           {/* Resumen Semanal - Tarjetas de Pagos Mejoradas */}
           <PaymentSummaryCards
@@ -515,6 +646,44 @@ export default function TreasuryPage() {
             }}
             onViewHistory={() => setViewMode("history")}
           />
+
+          {/* Alertas de Pagos */}
+          <PaymentAlerts
+            payments={filteredPayments}
+            onPaymentClick={(payment) => {
+              // Navegar al pago o abrir detalle
+              console.log("Payment clicked:", payment);
+            }}
+          />
+
+          {/* Filtros de Pagos */}
+          <PaymentFilters
+            filters={paymentFilters}
+            onFiltersChange={setPaymentFilters}
+            suppliers={suppliers.map((s: any) => ({
+              id: s.id,
+              name: s.name || s.short_name,
+            }))}
+          />
+
+          {/* Vista de Pagos: Timeline, Calendario o Kanban */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Timeline de Pagos */}
+            <PaymentTimeline
+              payments={filteredPayments}
+              onPaymentClick={(payment) => {
+                console.log("Payment clicked:", payment);
+              }}
+            />
+
+            {/* Calendario de Pagos */}
+            <PaymentCalendar
+              payments={filteredPayments}
+              onDateClick={(date, datePayments) => {
+                console.log("Date clicked:", date, datePayments);
+              }}
+            />
+          </div>
 
           {/* Kanban de Comprobantes de Pago - NUEVO DISEÑO */}
           <div className="mt-6">
@@ -554,6 +723,12 @@ export default function TreasuryPage() {
                 createdAt: v.createdAt || v.created_at,
               }))} 
             />
+          </div>
+
+          {/* Automatizaciones */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+            <AutoReminders />
+            <AutoReconciliation />
           </div>
 
         </div>
