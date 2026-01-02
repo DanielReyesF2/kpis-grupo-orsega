@@ -277,47 +277,156 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
         />
       </div>
 
-      {/* Clientes Inactivos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Clientes Inactivos */}
-        <Card>
-          <CardHeader>
+      {/* Clientes Inactivos - Visualización Mejorada */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10">
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <UserMinus className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-amber-500/20">
+                <UserMinus className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
               Clientes Inactivos
-              <Badge variant="secondary">{summary.inactiveClients}</Badge>
+              <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800">
+                {summary.inactiveClients} clientes
+              </Badge>
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {summary.inactiveClientsList.slice(0, 10).map((client, index) => (
-                <motion.div
-                  key={client.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{client.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Última compra: {client.lastPurchaseDate}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Año anterior</p>
-                    <p className="font-semibold text-sm">{formatCurrency(client.previousYearRevenue)}</p>
-                  </div>
-                </motion.div>
-              ))}
-              {summary.inactiveClientsList.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay clientes inactivos
-                </p>
-              )}
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Revenue Perdido</p>
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                {formatCurrency(
+                  summary.inactiveClientsList.reduce((sum, c) => sum + (c.previousYearRevenue || 0), 0)
+                )}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {summary.inactiveClientsList.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">¡Excelente!</p>
+              <p className="text-xs text-muted-foreground mt-1">No hay clientes inactivos</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {summary.inactiveClientsList.slice(0, 12).map((client, index) => {
+                const revenue = client.previousYearRevenue || 0;
+                const isHighValue = revenue > 100000;
+                const isMediumValue = revenue > 50000;
+                
+                // Calcular días desde última compra
+                const lastPurchase = client.lastPurchaseDate 
+                  ? new Date(client.lastPurchaseDate) 
+                  : null;
+                const daysSince = lastPurchase 
+                  ? Math.floor((new Date().getTime() - lastPurchase.getTime()) / (1000 * 60 * 60 * 24))
+                  : null;
+                
+                return (
+                  <motion.div
+                    key={client.name}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={cn(
+                      "relative p-4 rounded-xl border-2 transition-all hover:shadow-lg hover:scale-[1.02]",
+                      isHighValue
+                        ? "border-red-300 dark:border-red-800 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/20"
+                        : isMediumValue
+                        ? "border-amber-300 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20"
+                        : "border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50/50 to-amber-50/30 dark:from-orange-950/20 dark:to-amber-950/10"
+                    )}
+                  >
+                    {/* Badge de prioridad */}
+                    {isHighValue && (
+                      <div className="absolute top-2 right-2">
+                        <Badge className="bg-red-500 text-white text-[10px] px-2 py-0.5">
+                          ALTA PRIORIDAD
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {/* Avatar/Iniciales */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0",
+                        isHighValue
+                          ? "bg-gradient-to-br from-red-500 to-red-600"
+                          : isMediumValue
+                          ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                          : "bg-gradient-to-br from-orange-400 to-amber-400"
+                      )}>
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{client.name}</p>
+                        {daysSince !== null && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {daysSince > 365 
+                              ? `${Math.floor(daysSince / 365)} año${Math.floor(daysSince / 365) > 1 ? 's' : ''} sin comprar`
+                              : daysSince > 30
+                              ? `${Math.floor(daysSince / 30)} mes${Math.floor(daysSince / 30) > 1 ? 'es' : ''} sin comprar`
+                              : `${daysSince} día${daysSince > 1 ? 's' : ''} sin comprar`
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Revenue perdido destacado */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-background/60 dark:bg-background/40">
+                        <span className="text-xs font-medium text-muted-foreground">Revenue Perdido</span>
+                        <span className={cn(
+                          "text-base font-bold",
+                          isHighValue ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                        )}>
+                          {formatCurrency(revenue)}
+                        </span>
+                      </div>
+                      
+                      {/* Barra de progreso visual */}
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min((revenue / 500000) * 100, 100)}%` }}
+                          transition={{ delay: index * 0.05 + 0.2, duration: 0.5 }}
+                          className={cn(
+                            "h-full rounded-full",
+                            isHighValue
+                              ? "bg-gradient-to-r from-red-500 to-red-600"
+                              : isMediumValue
+                              ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                              : "bg-gradient-to-r from-orange-400 to-amber-400"
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Fecha última compra */}
+                    {lastPurchase && (
+                      <div className="mt-3 pt-3 border-t border-border/50">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          <span>
+                            Última compra: {lastPurchase.toLocaleDateString('es-MX', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       </div>
 
       {/* Métricas adicionales */}
