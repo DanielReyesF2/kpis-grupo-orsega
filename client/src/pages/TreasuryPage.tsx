@@ -600,7 +600,30 @@ export default function TreasuryPage() {
                 Ver Historial de Pagos
               </Button>
             </div>
-            <VoucherKanbanBoard vouchers={vouchers} />
+            <VoucherKanbanBoard 
+              vouchers={vouchers.map((v: any) => ({
+                id: v.id,
+                companyId: v.companyId || v.company_id,
+                payerCompanyId: v.payerCompanyId || v.payer_company_id,
+                clientId: v.clientId || v.client_id,
+                clientName: v.clientName || v.client_name,
+                status: v.status || 'factura_pagada',
+                voucherFileUrl: v.voucherFileUrl || v.voucher_file_url,
+                voucherFileName: v.voucherFileName || v.voucher_file_name,
+                extractedAmount: v.extractedAmount || v.extracted_amount,
+                extractedDate: v.extractedDate || v.extracted_date,
+                extractedBank: v.extractedBank || v.extracted_bank,
+                extractedReference: v.extractedReference || v.extracted_reference,
+                extractedCurrency: v.extractedCurrency || v.extracted_currency,
+                extractedOriginAccount: v.extractedOriginAccount || v.extracted_origin_account,
+                extractedDestinationAccount: v.extractedDestinationAccount || v.extracted_destination_account,
+                extractedTrackingKey: v.extractedTrackingKey || v.extracted_tracking_key,
+                extractedBeneficiaryName: v.extractedBeneficiaryName || v.extracted_beneficiary_name,
+                ocrConfidence: v.ocrConfidence || v.ocr_confidence,
+                notes: v.notes,
+                createdAt: v.createdAt || v.created_at,
+              }))} 
+            />
           </div>
 
           {/* Kanban de Cuentas por Pagar */}
