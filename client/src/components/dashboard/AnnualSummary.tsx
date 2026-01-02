@@ -19,6 +19,7 @@ import {
   Percent,
   Calendar,
   BarChart3,
+  Users,
 } from "lucide-react";
 import type { AnnualSummary } from "@shared/sales-types";
 import { cn } from "@/lib/utils";
