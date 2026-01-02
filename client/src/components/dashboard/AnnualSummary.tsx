@@ -128,9 +128,17 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
         </CardHeader>
         <CardContent>
           <Tabs value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-            <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableYears.length}, 1fr)` }}>
+            <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-full">
               {availableYears.map((year) => (
-                <TabsTrigger key={year} value={year.toString()}>
+                <TabsTrigger 
+                  key={year} 
+                  value={year.toString()}
+                  className={cn(
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+                    "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+                    "data-[state=inactive]:text-muted-foreground hover:text-foreground"
+                  )}
+                >
                   {year}
                 </TabsTrigger>
               ))}
