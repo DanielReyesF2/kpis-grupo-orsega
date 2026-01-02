@@ -6918,71 +6918,220 @@ export function registerRoutes(app: express.Application) {
             return res.status(400).json({ error: 'PayerCompanyId requerido para procesar factura' });
           }
           const payerCompanyId = validatedData.payerCompanyId; // Type narrowing
-          const allClients = await storage.getClientsByCompany(payerCompanyId);
           
-          // Búsqueda mejorada: normalizar nombres y buscar coincidencias parciales
-          const normalizeName = (name: string): string => {
-            if (!name) return '';
-            return name
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "") // Remover acentos
-              .replace(/[^a-z0-9\s]/g, "") // Remover caracteres especiales
-              .replace(/\s+/g, " ") // Normalizar espacios
-              .trim();
-          };
-          
-          // Solo buscar si tenemos un nombre de proveedor extraído
-          let matchingClient = null;
-          if (supplierName) {
-            const normalizedSupplierName = normalizeName(supplierName);
+          // Función mejorada de matching de proveedores
+          const findBestSupplierMatch = async (
+            extractedName: string | null,
+            extractedTaxId: string | null
+          ): Promise<{ supplier: any; confidence: number; source: 'client' | 'supplier' } | null> => {
+            if (!extractedName && !extractedTaxId) return null;
             
-            // Buscar coincidencias exactas o parciales
-            matchingClient = allClients.find(client => {
-              const normalizedClientName = normalizeName(client.name);
-              
-              // Coincidencia exacta
-              if (normalizedClientName === normalizedSupplierName) {
-                return true;
-              }
-              
-              // Coincidencia parcial (una contiene a la otra)
-              if (normalizedClientName.includes(normalizedSupplierName) || 
-                  normalizedSupplierName.includes(normalizedClientName)) {
-                return true;
-              }
-              
-              // Coincidencia de palabras clave (al menos 2 palabras en común)
-              const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
-              const clientWords = normalizedClientName.split(/\s+/).filter(w => w.length > 3);
-              const commonWords = supplierWords.filter(w => clientWords.includes(w));
-              
-              if (commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3)) {
-                return true;
-              }
-              
-              return false;
-            });
+            // Normalizar nombres
+            const normalizeName = (name: string): string => {
+              if (!name) return '';
+              return name
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "") // Remover acentos
+                .replace(/[^a-z0-9\s]/g, "") // Remover caracteres especiales
+                .replace(/\s+/g, " ") // Normalizar espacios
+                .trim();
+            };
             
-            // También buscar por RFC si está disponible
-            if (!matchingClient && taxId) {
-              const clientByTaxId = allClients.find(client => {
-                // Aquí podrías buscar en una columna de RFC si existe
-                // Por ahora, solo buscamos por nombre
-                return false;
+            // Calcular similitud (Levenshtein simplificado)
+            const calculateSimilarity = (str1: string, str2: string): number => {
+              const longer = str1.length > str2.length ? str1 : str2;
+              const shorter = str1.length > str2.length ? str2 : str1;
+              if (longer.length === 0) return 1.0;
+              const distance = levenshteinDistance(longer, shorter);
+              return (longer.length - distance) / longer.length;
+            };
+            
+            const levenshteinDistance = (str1: string, str2: string): number => {
+              const matrix: number[][] = [];
+              for (let i = 0; i <= str2.length; i++) {
+                matrix[i] = [i];
+              }
+              for (let j = 0; j <= str1.length; j++) {
+                matrix[0][j] = j;
+              }
+              for (let i = 1; i <= str2.length; i++) {
+                for (let j = 1; j <= str1.length; j++) {
+                  if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                  } else {
+                    matrix[i][j] = Math.min(
+                      matrix[i - 1][j - 1] + 1,
+                      matrix[i][j - 1] + 1,
+                      matrix[i - 1][j] + 1
+                    );
+                  }
+                }
+              }
+              return matrix[str2.length][str1.length];
+            };
+            
+            const normalizedSupplierName = extractedName ? normalizeName(extractedName) : '';
+            
+            // ESTRATEGIA 1: Buscar por RFC/Tax ID (más confiable - 95% confianza)
+            if (extractedTaxId) {
+              // Buscar en clients (si tienen campo taxId/RFC)
+              const allClients = await storage.getClientsByCompany(payerCompanyId);
+              const clientByTaxId = allClients.find((client: any) => {
+                // Buscar en notes o en cualquier campo que pueda contener RFC
+                const clientText = JSON.stringify(client).toLowerCase();
+                const normalizedTaxId = extractedTaxId.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return clientText.includes(normalizedTaxId);
               });
+              
               if (clientByTaxId) {
-                supplierId = clientByTaxId.id;
-                matchingClient = clientByTaxId;
-                console.log(`🔗 [Invoice Detection] Proveedor encontrado por RFC: ${clientByTaxId.name} (ID: ${supplierId})`);
+                return { supplier: clientByTaxId, confidence: 0.95, source: 'client' };
+              }
+              
+              // Buscar en suppliers (si tienen campo taxId/RFC)
+              const { db } = await import('./db');
+              const { suppliers } = await import('../shared/schema');
+              const { eq, and, sql } = await import('drizzle-orm');
+              
+              const allSuppliers = await db.select().from(suppliers)
+                .where(and(
+                  eq(suppliers.companyId, payerCompanyId),
+                  eq(suppliers.isActive, true)
+                ));
+              
+              const supplierByTaxId = allSuppliers.find((supplier: any) => {
+                const supplierText = JSON.stringify(supplier).toLowerCase();
+                const normalizedTaxId = extractedTaxId.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return supplierText.includes(normalizedTaxId);
+              });
+              
+              if (supplierByTaxId) {
+                return { supplier: supplierByTaxId, confidence: 0.95, source: 'supplier' };
               }
             }
             
-            if (matchingClient) {
-              supplierId = matchingClient.id;
-              console.log(`🔗 [Invoice Detection] Proveedor encontrado: ${matchingClient.name} (ID: ${supplierId})`);
+            // ESTRATEGIA 2: Buscar por nombre exacto (85% confianza)
+            if (extractedName) {
+              const allClients = await storage.getClientsByCompany(payerCompanyId);
+              const exactMatch = allClients.find((client: any) => {
+                const normalizedClientName = normalizeName(client.name);
+                return normalizedClientName === normalizedSupplierName;
+              });
+              
+              if (exactMatch) {
+                return { supplier: exactMatch, confidence: 0.85, source: 'client' };
+              }
+              
+              // Buscar en suppliers también
+              const { db } = await import('./db');
+              const { suppliers } = await import('../shared/schema');
+              const { eq, and } = await import('drizzle-orm');
+              
+              const allSuppliers = await db.select().from(suppliers)
+                .where(and(
+                  eq(suppliers.companyId, payerCompanyId),
+                  eq(suppliers.isActive, true)
+                ));
+              
+              const exactSupplierMatch = allSuppliers.find((supplier: any) => {
+                const normalizedSupplierName2 = normalizeName(supplier.name || supplier.shortName || '');
+                return normalizedSupplierName2 === normalizedSupplierName;
+              });
+              
+              if (exactSupplierMatch) {
+                return { supplier: exactSupplierMatch, confidence: 0.85, source: 'supplier' };
+              }
+            }
+            
+            // ESTRATEGIA 3: Fuzzy matching (70-80% confianza)
+            if (extractedName) {
+              const allClients = await storage.getClientsByCompany(payerCompanyId);
+              const fuzzyMatches: Array<{ supplier: any; confidence: number; source: 'client' }> = [];
+              
+              allClients.forEach((client: any) => {
+                const normalizedClientName = normalizeName(client.name);
+                const similarity = calculateSimilarity(normalizedSupplierName, normalizedClientName);
+                
+                // Coincidencia parcial (una contiene a la otra)
+                const containsMatch = normalizedClientName.includes(normalizedSupplierName) || 
+                                     normalizedSupplierName.includes(normalizedClientName);
+                
+                // Coincidencia de palabras clave
+                const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
+                const clientWords = normalizedClientName.split(/\s+/).filter(w => w.length > 3);
+                const commonWords = supplierWords.filter(w => clientWords.includes(w));
+                const wordMatch = commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3);
+                
+                let confidence = 0;
+                if (similarity > 0.9) confidence = 0.8;
+                else if (similarity > 0.7) confidence = 0.75;
+                else if (containsMatch) confidence = 0.7;
+                else if (wordMatch) confidence = 0.7;
+                
+                if (confidence >= 0.7) {
+                  fuzzyMatches.push({ supplier: client, confidence, source: 'client' });
+                }
+              });
+              
+              // Buscar en suppliers también
+              const { db } = await import('./db');
+              const { suppliers } = await import('../shared/schema');
+              const { eq, and } = await import('drizzle-orm');
+              
+              const allSuppliers = await db.select().from(suppliers)
+                .where(and(
+                  eq(suppliers.companyId, payerCompanyId),
+                  eq(suppliers.isActive, true)
+                ));
+              
+              allSuppliers.forEach((supplier: any) => {
+                const supplierDisplayName = supplier.name || supplier.shortName || '';
+                const normalizedSupplierName2 = normalizeName(supplierDisplayName);
+                const similarity = calculateSimilarity(normalizedSupplierName, normalizedSupplierName2);
+                
+                const containsMatch = normalizedSupplierName2.includes(normalizedSupplierName) || 
+                                     normalizedSupplierName.includes(normalizedSupplierName2);
+                
+                const supplierWords = normalizedSupplierName.split(/\s+/).filter(w => w.length > 3);
+                const supplierWords2 = normalizedSupplierName2.split(/\s+/).filter(w => w.length > 3);
+                const commonWords = supplierWords.filter(w => supplierWords2.includes(w));
+                const wordMatch = commonWords.length >= 2 || (commonWords.length >= 1 && supplierWords.length <= 3);
+                
+                let confidence = 0;
+                if (similarity > 0.9) confidence = 0.8;
+                else if (similarity > 0.7) confidence = 0.75;
+                else if (containsMatch) confidence = 0.7;
+                else if (wordMatch) confidence = 0.7;
+                
+                if (confidence >= 0.7) {
+                  fuzzyMatches.push({ supplier, confidence, source: 'supplier' });
+                }
+              });
+              
+              // Retornar el mejor match
+              if (fuzzyMatches.length > 0) {
+                fuzzyMatches.sort((a, b) => b.confidence - a.confidence);
+                return fuzzyMatches[0];
+              }
+            }
+            
+            return null;
+          };
+          
+          // Usar la función mejorada de matching
+          let matchingSupplier = null;
+          let supplierId = null;
+          let matchConfidence = 0;
+          
+          if (supplierName || taxId) {
+            const matchResult = await findBestSupplierMatch(supplierName, taxId);
+            if (matchResult) {
+              matchingSupplier = matchResult.supplier;
+              supplierId = matchingSupplier.id;
+              matchConfidence = matchResult.confidence;
+              console.log(`🔗 [Invoice Detection] Proveedor encontrado (${matchResult.source}): ${matchingSupplier.name} (ID: ${supplierId}, Confianza: ${(matchConfidence * 100).toFixed(0)}%)`);
             } else {
-              console.log(`⚠️ [Invoice Detection] Proveedor "${supplierName}" no encontrado en base de datos, se creará con nombre: ${supplierName}`);
+              console.log(`⚠️ [Invoice Detection] Proveedor "${supplierName || 'N/A'}" no encontrado en base de datos, se requerirá selección manual`);
             }
           } else {
             console.log(`⚠️ [Invoice Detection] Proveedor no especificado en factura (extractedSupplierName es null), requerirá entrada manual`);
@@ -7049,6 +7198,15 @@ export function registerRoutes(app: express.Application) {
               extractedInvoiceNumber: analysis.extractedInvoiceNumber ?? null,
               extractedReference: analysis.extractedReference ?? null,
               extractedTaxId: analysis.extractedTaxId ?? null,
+              // Campos adicionales extraídos
+              extractedBank: analysis.extractedBank ?? null,
+              extractedOriginAccount: analysis.extractedOriginAccount ?? null,
+              extractedDestinationAccount: analysis.extractedDestinationAccount ?? null,
+              extractedTrackingKey: analysis.extractedTrackingKey ?? null,
+              extractedBeneficiaryName: analysis.extractedBeneficiaryName ?? null,
+              paymentMethod: analysis.paymentMethod ?? null,
+              paymentTerms: analysis.paymentTerms ?? null,
+              transferType: analysis.transferType ?? null,
             },
             invoiceFile: {
               path: invoiceFilePath,
@@ -7056,11 +7214,17 @@ export function registerRoutes(app: express.Application) {
             },
             supplier: {
               id: supplierId,
-              // Usar supplierName del análisis si existe, sino usar el nombre del cliente encontrado, sino null
-              name: supplierName ?? (matchingClient ? matchingClient.name : null) ?? null,
+              // Usar supplierName del análisis si existe, sino usar el nombre del proveedor encontrado, sino null
+              name: supplierName ?? (matchingSupplier ? matchingSupplier.name : null) ?? null,
             },
             payerCompanyId: payerCompanyId,
-            message: message
+            message: message,
+            matchConfidence: matchConfidence,
+            supplierSuggestions: matchingSupplier ? [{
+              id: matchingSupplier.id,
+              name: matchingSupplier.name,
+              confidence: matchConfidence,
+            }] : [],
           };
           
           // Log detallado de lo que se está retornando
@@ -9144,6 +9308,161 @@ export function registerRoutes(app: express.Application) {
       });
     }
   }
+
+  // ========================================================================
+  // ACCOUNTING HUB ENDPOINTS
+  // ========================================================================
+  
+  // GET /api/treasury/accounting/documents - Obtener todos los documentos para contabilidad
+  app.get("/api/treasury/accounting/documents", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const vouchers = await storage.getPaymentVouchers();
+      
+      // Obtener scheduled payments por empresa (ya que no hay método getAll)
+      const allCompanies = await storage.getCompanies();
+      const scheduledPayments: any[] = [];
+      for (const company of allCompanies) {
+        const companyPayments = await storage.getScheduledPaymentsByCompany(company.id);
+        scheduledPayments.push(...companyPayments);
+      }
+      
+      // Obtener empresas para nombres
+      const allCompanies = await storage.getCompanies();
+      const companiesMap = new Map(allCompanies.map(c => [c.id, c.name]));
+      
+      // Combinar vouchers y scheduled payments en documentos unificados
+      const documents = vouchers.map((v: any) => ({
+        id: v.id,
+        type: v.invoiceFileUrl ? "invoice" : "voucher",
+        companyId: v.payerCompanyId || v.payer_company_id,
+        companyName: companiesMap.get(v.payerCompanyId || v.payer_company_id) || "N/A",
+        supplierName: v.clientName || v.client_name,
+        amount: v.extractedAmount || v.extracted_amount || 0,
+        currency: v.extractedCurrency || v.extracted_currency || "MXN",
+        date: v.extractedDate || v.extracted_date || v.createdAt || v.created_at,
+        status: v.status || "factura_pagada",
+        files: {
+          invoice: v.invoiceFileUrl ? {
+            url: v.invoiceFileUrl,
+            name: v.invoiceFileName || "factura.pdf"
+          } : undefined,
+          voucher: v.voucherFileUrl ? {
+            url: v.voucherFileUrl,
+            name: v.voucherFileName || "comprobante.pdf"
+          } : undefined,
+          complement: v.complementFileUrl ? {
+            url: v.complementFileUrl,
+            name: v.complementFileName || "complemento.pdf"
+          } : undefined,
+        },
+        extractedData: {
+          invoiceNumber: v.extractedReference || v.extracted_reference,
+          taxId: null, // No está en payment_vouchers actualmente
+          bank: v.extractedBank || v.extracted_bank,
+          reference: v.extractedReference || v.extracted_reference,
+          trackingKey: v.extractedTrackingKey || v.extracted_tracking_key,
+        },
+      }));
+      
+      // Agregar scheduled payments como facturas pendientes
+      const invoiceDocuments = scheduledPayments
+        .filter((sp: any) => sp.status !== "payment_completed")
+        .map((sp: any) => ({
+          id: `sp-${sp.id}`,
+          type: "invoice" as const,
+          companyId: sp.companyId || sp.company_id,
+          companyName: companiesMap.get(sp.companyId || sp.company_id) || "N/A",
+          supplierName: sp.supplierName || sp.supplier_name || "N/A",
+          amount: sp.amount || 0,
+          currency: sp.currency || "MXN",
+          date: sp.dueDate || sp.due_date || sp.createdAt || sp.created_at,
+          status: sp.status || "pending",
+          files: {
+            invoice: sp.hydralFileUrl ? {
+              url: sp.hydralFileUrl,
+              name: sp.hydralFileName || "factura.pdf"
+            } : undefined,
+          },
+          extractedData: {
+            invoiceNumber: sp.reference,
+            taxId: null,
+            bank: null,
+            reference: sp.reference,
+            trackingKey: null,
+          },
+        }));
+      
+      res.json([...documents, ...invoiceDocuments]);
+    } catch (error) {
+      console.error("Error fetching accounting documents:", error);
+      res.status(500).json({ error: "Error al obtener documentos" });
+    }
+  });
+  
+  // POST /api/treasury/accounting/download-batch - Descarga masiva de documentos
+  app.post("/api/treasury/accounting/download-batch", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { documentIds } = req.body;
+      
+      if (!Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ error: "Se requiere un array de IDs de documentos" });
+      }
+      
+      // Por ahora, retornar error ya que necesitaríamos una librería de compresión
+      // En producción, usar archiver o similar
+      res.status(501).json({ 
+        error: "Descarga masiva en desarrollo",
+        message: "Esta funcionalidad está en desarrollo. Por favor descarga los documentos individualmente."
+      });
+    } catch (error) {
+      console.error("Error en descarga masiva:", error);
+      res.status(500).json({ error: "Error al procesar descarga masiva" });
+    }
+  });
+  
+  // GET /api/treasury/accounting/export - Exportar resumen a Excel
+  app.get("/api/treasury/accounting/export", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { type, company, status, dateFrom, dateTo } = req.query;
+      
+      // Obtener documentos filtrados (similar a /documents pero con filtros)
+      const vouchers = await storage.getPaymentVouchers();
+      
+      // Aplicar filtros básicos
+      let filtered = vouchers;
+      if (type && type !== "all") {
+        // Filtrar por tipo si es necesario
+      }
+      if (company && company !== "all") {
+        filtered = filtered.filter((v: any) => (v.payerCompanyId || v.payer_company_id) === parseInt(company as string));
+      }
+      if (status && status !== "all") {
+        filtered = filtered.filter((v: any) => (v.status || "factura_pagada") === status);
+      }
+      
+      // Generar CSV simple (en producción usar exceljs o similar)
+      const csvRows = [
+        ["Tipo", "Empresa", "Proveedor", "Monto", "Moneda", "Fecha", "Estado", "Referencia"].join(","),
+        ...filtered.map((v: any) => [
+          v.invoiceFileUrl ? "Factura" : "Comprobante",
+          v.payerCompanyId || v.payer_company_id,
+          v.clientName || v.client_name || "",
+          v.extractedAmount || v.extracted_amount || 0,
+          v.extractedCurrency || v.extracted_currency || "MXN",
+          v.extractedDate || v.extracted_date || "",
+          v.status || "factura_pagada",
+          v.extractedReference || v.extracted_reference || "",
+        ].join(","))
+      ];
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="resumen-contabilidad-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvRows.join("\n"));
+    } catch (error) {
+      console.error("Error exportando resumen:", error);
+      res.status(500).json({ error: "Error al exportar resumen" });
+    }
+  });
 
   // ========================================================================
   // SMART SEARCH / AI ASSISTANT ENDPOINT

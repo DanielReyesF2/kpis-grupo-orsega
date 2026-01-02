@@ -42,6 +42,8 @@ export interface DocumentAnalysisResult {
   extractedTaxId?: string | null;
   relatedInvoiceUUID?: string | null;
   paymentMethod?: string | null;
+  paymentTerms?: string | null;
+  transferType?: string | null;
 }
 
 // -----------------------------
@@ -78,6 +80,8 @@ export async function analyzePaymentDocument(
       extractedTaxId: null,
       relatedInvoiceUUID: null,
       paymentMethod: null,
+      paymentTerms: null,
+      transferType: null,
     };
   }
 
@@ -166,7 +170,10 @@ export async function analyzePaymentDocument(
 You are an expert in Mexican financial and fiscal documents. Analyze ANY format of invoice, receipt, or payment document and extract ALL available information.
 
 ### YOUR TASK
-Extract ALL visible data from the document, even if it's in different formats, layouts, or languages. Be VERY thorough and extract every piece of information you can see.
+Extract ALL visible data from the document, even if it's in different formats, layouts, or languages. Be VERY thorough and extract every piece of information you can see. This includes:
+- For INVOICES: supplier, amount, dates (issue and due), RFC, invoice number, payment terms, payment method, bank details if mentioned
+- For VOUCHERS: bank, reference, amount, date, origin/destination accounts, SPEI tracking key, beneficiary, payment method, transfer type
+- For REPS: related UUID, original invoice number, payment complement details, payment method
 
 ### SCHEMA
 {
@@ -185,7 +192,9 @@ Extract ALL visible data from the document, even if it's in different formats, l
   "invoiceNumber": string | null,
   "taxId": string | null,
   "relatedInvoiceUUID": string | null,
-  "paymentMethod": string | null
+  "paymentMethod": string | null,
+  "paymentTerms": string | null,
+  "transferType": string | null
 }
 
 ### CLASSIFICATION RULES (BE FLEXIBLE)
@@ -278,7 +287,9 @@ Output:
   "invoiceNumber": "001234",
   "taxId": "ABC123456789",
   "relatedInvoiceUUID": null,
-  "paymentMethod": null
+  "paymentMethod": "Transferencia",
+  "paymentTerms": "Net 30 días",
+  "transferType": null
 }
 
 Example 2 - CFDI Invoice with Emisor and Receptor:
@@ -308,12 +319,14 @@ Output:
   "invoiceNumber": "FEA0000000373",
   "taxId": "ECO123456789",
   "relatedInvoiceUUID": null,
-  "paymentMethod": null
+  "paymentMethod": "Transferencia",
+  "paymentTerms": "Net 30 días",
+  "transferType": null
 }
 NOTE: "GRUPO ORSEGA" is the RECEPTOR (buyer), NOT the supplier. The supplier is "ECONOVA S.A. DE C.V." from the EMISOR section.
 
 Example 3 - Bank Transfer:
-"Transferencia SPEI 12/05/2025 Banco Santander CLABE 012345678901234567 Monto $15,000.00 MXN Beneficiario Juan Pérez"
+"Transferencia SPEI 12/05/2025 Banco Santander CLABE 012345678901234567 Monto $15,000.00 MXN Beneficiario Juan Pérez Clave Rastreo: ABC123XYZ789"
 Output:
 {
   "documentType": "voucher",
@@ -321,17 +334,19 @@ Output:
   "currency": "MXN",
   "date": "2025-05-12",
   "bank": "Banco Santander",
-  "reference": null,
+  "reference": "SPEI-001234",
   "originAccount": null,
   "destinationAccount": "012345678901234567",
-  "trackingKey": null,
+  "trackingKey": "ABC123XYZ789",
   "beneficiaryName": "Juan Pérez",
   "supplierName": null,
   "dueDate": null,
   "invoiceNumber": null,
   "taxId": null,
   "relatedInvoiceUUID": null,
-  "paymentMethod": null
+  "paymentMethod": "Transferencia SPEI",
+  "paymentTerms": null,
+  "transferType": "SPEI"
 }
 
 ### CRITICAL REMINDERS
@@ -724,6 +739,8 @@ Now analyze the following document carefully and extract ALL available informati
       extractedTaxId: parsedData.taxId || null,
       relatedInvoiceUUID: parsedData.relatedInvoiceUUID || null,
       paymentMethod: parsedData.paymentMethod || null,
+      paymentTerms: parsedData.paymentTerms || null,
+      transferType: parsedData.transferType || null,
     };
 
     // Log detallado de extracción
@@ -781,6 +798,8 @@ Now analyze the following document carefully and extract ALL available informati
       extractedTaxId: null,
       relatedInvoiceUUID: null,
       paymentMethod: null,
+      paymentTerms: null,
+      transferType: null,
     };
   }
 }

@@ -37,8 +37,9 @@ import { PaymentAlerts } from "@/components/treasury/payments/PaymentAlerts";
 import { AutoReminders } from "@/components/treasury/automation/AutoReminders";
 import { AutoReconciliation } from "@/components/treasury/automation/AutoReconciliation";
 import { NotificationCenter } from "@/components/treasury/automation/NotificationCenter";
+import { AccountingHub } from "@/components/treasury/accounting/AccountingHub";
 
-type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history";
+type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history" | "accounting";
 
 export default function TreasuryPage() {
   const { user } = useAuth();

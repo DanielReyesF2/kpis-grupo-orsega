@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { CalendarIcon, FileText, CheckCircle2, XCircle, AlertCircle, CheckCircle, Eye, Badge } from "lucide-react";
+import { Badge as BadgeComponent } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -23,6 +24,14 @@ interface InvoiceAnalysis {
   extractedInvoiceNumber: string | null;
   extractedReference: string | null;
   extractedTaxId: string | null;
+  extractedBank?: string | null;
+  extractedOriginAccount?: string | null;
+  extractedDestinationAccount?: string | null;
+  extractedTrackingKey?: string | null;
+  extractedBeneficiaryName?: string | null;
+  paymentMethod?: string | null;
+  paymentTerms?: string | null;
+  transferType?: string | null;
 }
 
 interface InvoiceVerificationModalProps {
@@ -39,6 +48,12 @@ interface InvoiceVerificationModalProps {
       name: string;
     };
     payerCompanyId: number;
+    matchConfidence?: number;
+    supplierSuggestions?: Array<{
+      id: number;
+      name: string;
+      confidence: number;
+    }>;
   };
 }
 
@@ -81,6 +96,43 @@ export function InvoiceVerificationModal({
   const [reference, setReference] = useState(invoiceData.analysis.extractedInvoiceNumber || invoiceData.analysis.extractedReference || '');
   const [notes, setNotes] = useState('');
   const [taxId, setTaxId] = useState(invoiceData.analysis.extractedTaxId || '');
+  const [showPreview, setShowPreview] = useState(false);
+  
+  // Calcular confianza por campo
+  const getFieldConfidence = (field: string): number => {
+    const analysis = invoiceData.analysis;
+    switch (field) {
+      case 'supplierName':
+        return analysis.extractedSupplierName ? (invoiceData.matchConfidence || 0.8) : 0;
+      case 'amount':
+        return analysis.extractedAmount ? 0.9 : 0;
+      case 'dueDate':
+        return analysis.extractedDueDate ? 0.85 : (analysis.extractedDate ? 0.7 : 0);
+      case 'invoiceNumber':
+        return analysis.extractedInvoiceNumber ? 0.8 : 0;
+      case 'taxId':
+        return analysis.extractedTaxId ? 0.9 : 0;
+      default:
+        return 0.5;
+    }
+  };
+  
+  // Verificar si todos los campos críticos están presentes
+  const hasAllCriticalFields = useMemo(() => {
+    return !!(
+      supplierName.trim() &&
+      amount &&
+      dueDate &&
+      paymentDate
+    );
+  }, [supplierName, amount, dueDate, paymentDate]);
+  
+  // Calcular confianza general
+  const overallConfidence = useMemo(() => {
+    const fields = ['supplierName', 'amount', 'dueDate', 'invoiceNumber', 'taxId'];
+    const confidences = fields.map(f => getFieldConfidence(f));
+    return confidences.reduce((a, b) => a + b, 0) / fields.length;
+  }, [invoiceData]);
 
   // Sincronizar estados cuando cambien los datos
   useEffect(() => {
@@ -262,122 +314,258 @@ export function InvoiceVerificationModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary" />
-            Verificar Datos de Factura
-          </DialogTitle>
-          <DialogDescription>
-            Por favor verifica los datos extraídos de la factura y especifica la fecha de pago. 
-            Los campos marcados con * son obligatorios.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <FileText className="h-6 w-6 text-primary" />
+                Verificar Datos de Factura
+              </DialogTitle>
+              <DialogDescription className="mt-2">
+                Revisa y confirma los datos extraídos automáticamente. Los campos marcados con * son obligatorios.
+              </DialogDescription>
+            </div>
+            {overallConfidence > 0.8 && hasAllCriticalFields && (
+              <BadgeComponent className="bg-green-500 text-white">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Listo para confirmar
+              </BadgeComponent>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
-          {/* Información del archivo */}
+          {/* Información del archivo y preview */}
           <Card className="border-primary/20">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                <span>Archivo: {invoiceData.invoiceFile.originalName}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  <span>Archivo: {invoiceData.invoiceFile.originalName}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPreview(!showPreview)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  {showPreview ? "Ocultar" : "Ver"} documento
+                </Button>
               </div>
+              {showPreview && (
+                <div className="mt-4 border rounded-lg p-2 bg-muted/50">
+                  <iframe
+                    src={`/api/files/${encodeURIComponent(invoiceData.invoiceFile.path)}`}
+                    className="w-full h-96 rounded"
+                    title="Preview del documento"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
+          
+          {/* Indicador de confianza general */}
+          {overallConfidence > 0 && (
+            <Card className={cn(
+              "border-2",
+              overallConfidence > 0.8 ? "border-green-500/50 bg-green-50/50 dark:bg-green-950/20" :
+              overallConfidence > 0.6 ? "border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20" :
+              "border-red-500/50 bg-red-50/50 dark:bg-red-950/20"
+            )}>
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {overallConfidence > 0.8 ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : overallConfidence > 0.6 ? (
+                      <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="text-sm font-medium">
+                      Confianza de extracción: {(overallConfidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  {invoiceData.matchConfidence && invoiceData.matchConfidence > 0.8 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      Proveedor encontrado: {(invoiceData.matchConfidence * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Campos editables */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Proveedor */}
-            <div className="space-y-2">
-              <Label htmlFor="supplierName">
-                Proveedor <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="supplierName"
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
-                placeholder="Nombre del proveedor"
-                className="w-full"
-              />
-            </div>
-
-            {/* RFC / Tax ID */}
-            <div className="space-y-2">
-              <Label htmlFor="taxId">RFC / Tax ID</Label>
-              <Input
-                id="taxId"
-                value={taxId}
-                onChange={(e) => setTaxId(e.target.value)}
-                placeholder="RFC o Tax ID"
-                className="w-full"
-              />
-            </div>
-
-            {/* Monto */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">
-                Monto <span className="text-red-500">*</span>
-              </Label>
-              <div className="flex gap-2">
+          {/* Campos editables - Agrupados por sección */}
+          
+          {/* Sección 1: Datos del Proveedor */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground border-b pb-2">
+              Datos del Proveedor
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Proveedor */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supplierName">
+                    Proveedor <span className="text-red-500">*</span>
+                  </Label>
+                  {getFieldConfidence('supplierName') > 0.7 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      {(getFieldConfidence('supplierName') * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
                 <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="flex-1"
+                  id="supplierName"
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Nombre del proveedor"
+                  className={cn(
+                    "w-full",
+                    !supplierName.trim() && "border-red-300"
+                  )}
                 />
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="px-3 py-2 border rounded-md bg-background"
-                >
-                  <option value="MXN">MXN</option>
-                  <option value="USD">USD</option>
-                </select>
+                {invoiceData.supplierSuggestions && invoiceData.supplierSuggestions.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Proveedor sugerido: {invoiceData.supplierSuggestions[0].name} 
+                    ({(invoiceData.supplierSuggestions[0].confidence * 100).toFixed(0)}% confianza)
+                  </p>
+                )}
+              </div>
+
+              {/* RFC / Tax ID */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="taxId">RFC / Tax ID</Label>
+                  {getFieldConfidence('taxId') > 0.7 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      {(getFieldConfidence('taxId') * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
+                <Input
+                  id="taxId"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  placeholder="RFC o Tax ID"
+                  className="w-full"
+                />
               </div>
             </div>
+          </div>
+          
+          {/* Sección 2: Datos Financieros */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground border-b pb-2">
+              Datos Financieros
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            {/* Referencia / Número de factura */}
-            <div className="space-y-2">
-              <Label htmlFor="reference">Referencia / Número de Factura</Label>
-              <Input
-                id="reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Número de factura o referencia"
-                className="w-full"
-              />
-            </div>
-
-            {/* Fecha de vencimiento */}
-            <div className="space-y-2">
-              <Label>
-                Fecha de Vencimiento <span className="text-red-500">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
+              {/* Monto */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="amount">
+                    Monto <span className="text-red-500">*</span>
+                  </Label>
+                  {getFieldConfidence('amount') > 0.7 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      {(getFieldConfidence('amount') * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dueDate && "text-muted-foreground"
+                      "flex-1",
+                      (!amount || parseFloat(amount) <= 0) && "border-red-300"
                     )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP", { locale: es }) : "Seleccionar fecha"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate || undefined}
-                    onSelect={(date) => setDueDate(date || null)}
-                    initialFocus
                   />
-                </PopoverContent>
-              </Popover>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-background"
+                  >
+                    <option value="MXN">MXN</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Referencia / Número de factura */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="reference">Referencia / Número de Factura</Label>
+                  {getFieldConfidence('invoiceNumber') > 0.7 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      {(getFieldConfidence('invoiceNumber') * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
+                <Input
+                  id="reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="Número de factura o referencia"
+                  className="w-full"
+                />
+              </div>
             </div>
+          </div>
+          
+          {/* Sección 3: Fechas */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground border-b pb-2">
+              Fechas Importantes
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Fecha de vencimiento */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>
+                    Fecha de Vencimiento <span className="text-red-500">*</span>
+                  </Label>
+                  {getFieldConfidence('dueDate') > 0.7 && (
+                    <BadgeComponent variant="outline" className="text-xs">
+                      {(getFieldConfidence('dueDate') * 100).toFixed(0)}% confianza
+                    </BadgeComponent>
+                  )}
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dueDate && "text-muted-foreground border-red-300"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dueDate ? format(dueDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate || undefined}
+                      onSelect={(date) => setDueDate(date || null)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {!dueDate && (
+                  <p className="text-xs text-red-500 mt-1">
+                    ⚠️ Fecha de vencimiento requerida
+                  </p>
+                )}
+              </div>
 
             {/* Fecha de pago - OBLIGATORIA */}
             <div className="space-y-2">
@@ -416,7 +604,35 @@ export function InvoiceVerificationModal({
               )}
             </div>
           </div>
-
+          </div>
+          
+          {/* Sección 4: Información Adicional (si está disponible) */}
+          {(invoiceData.analysis.paymentTerms || invoiceData.analysis.paymentMethod) && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-foreground border-b pb-2">
+                Información Adicional Extraída
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {invoiceData.analysis.paymentTerms && (
+                  <div className="space-y-2">
+                    <Label>Términos de Pago</Label>
+                    <div className="p-3 bg-muted rounded-md text-sm">
+                      {invoiceData.analysis.paymentTerms}
+                    </div>
+                  </div>
+                )}
+                {invoiceData.analysis.paymentMethod && (
+                  <div className="space-y-2">
+                    <Label>Método de Pago</Label>
+                    <div className="p-3 bg-muted rounded-md text-sm">
+                      {invoiceData.analysis.paymentMethod}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* Notas */}
           <div className="space-y-2">
             <Label htmlFor="notes">Notas (opcional)</Label>
