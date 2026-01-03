@@ -1,20 +1,15 @@
 # Invoice Extractor - Dependencias Python
 
 # Web framework
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
 
 # invoice2data y dependencias
-invoice2data==0.4.5
-pdftotext==2.2.2  # Requiere poppler-utils instalado
-pdfminer.six==20231228
-pdfplumber==0.10.3
+invoice2data>=0.4.0
+pdfplumber>=0.10.0
 pillow>=10.0.0
 
-# OCR (opcional pero recomendado)
-# pytesseract==0.3.10  # Requiere tesseract instalado
-
 # Utilidades
-python-dateutil==2.8.2
+python-dateutil>=2.8.0
 pydantic>=2.0.0
