@@ -64,6 +64,22 @@ export function PageHeader({
     }
   };
 
+  // Render primary action button
+  const renderPrimaryAction = () => {
+    if (!primaryAction) return null;
+    const ActionIcon = primaryAction.icon;
+    return (
+      <Button
+        variant={primaryAction.variant || 'default'}
+        size="sm"
+        onClick={primaryAction.onClick}
+      >
+        {ActionIcon && <ActionIcon className="h-4 w-4 mr-2" />}
+        {primaryAction.label}
+      </Button>
+    );
+  };
+
   return (
     <div className={cn("space-y-4 pb-4 border-b", className)}>
       {/* Breadcrumbs */}
