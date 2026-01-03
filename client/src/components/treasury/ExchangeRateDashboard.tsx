@@ -140,11 +140,11 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                     <div className="space-y-1">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Compra:</span>
-                        <span className="font-bold text-lg">${rate.buyRate.toFixed(4)}</span>
+                        <span className="font-bold text-lg">${(rate.buyRate ?? 0).toFixed(4)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Venta:</span>
-                        <span className="font-bold text-lg">${rate.sellRate.toFixed(4)}</span>
+                        <span className="font-bold text-lg">${(rate.sellRate ?? 0).toFixed(4)}</span>
                       </div>
                     </div>
                   ) : (
@@ -262,11 +262,11 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                       <div className="flex gap-4 text-sm">
                         <span>
                           <span className="text-muted-foreground">Compra:</span>{" "}
-                          <span className="font-bold">${rate.buyRate.toFixed(4)}</span>
+                          <span className="font-bold">${(rate.buyRate ?? 0).toFixed(4)}</span>
                         </span>
                         <span>
                           <span className="text-muted-foreground">Venta:</span>{" "}
-                          <span className="font-bold">${rate.sellRate.toFixed(4)}</span>
+                          <span className="font-bold">${(rate.sellRate ?? 0).toFixed(4)}</span>
                         </span>
                       </div>
                     </div>
@@ -320,9 +320,9 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                         </span>
                       </div>
                       <div className="flex gap-3">
-                        <span className="font-mono">${rate.buyRate.toFixed(4)}</span>
+                        <span className="font-mono">${(rate.buyRate ?? 0).toFixed(4)}</span>
                         <span className="text-muted-foreground">/</span>
-                        <span className="font-mono">${rate.sellRate.toFixed(4)}</span>
+                        <span className="font-mono">${(rate.sellRate ?? 0).toFixed(4)}</span>
                       </div>
                     </div>
                   </CardContent>
