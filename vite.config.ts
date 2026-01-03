@@ -34,6 +34,23 @@ export default defineConfig({
     // Desactivar sourcemaps para build release estable
     sourcemap: false,
     rollupOptions: {
+      output: {
+        // Code splitting optimizado por rutas
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          'vendor-charts': ['recharts'],
+          'vendor-query': ['@tanstack/react-query'],
+          'salesforce-components': [
+            './client/src/components/salesforce/charts/GaugeChart',
+            './client/src/components/salesforce/charts/FunnelChart',
+            './client/src/components/salesforce/charts/EnhancedDonutChart',
+            './client/src/components/salesforce/layout/PageHeader',
+            './client/src/components/salesforce/layout/FilterBar',
+            './client/src/components/salesforce/layout/ChartCard',
+          ],
+        },
+      },
       onwarn(warning, warn) {
         // Reduce ruido de warnings no críticos en build
         if (warning.code === 'CIRCULAR_DEPENDENCY') return;
@@ -45,5 +62,7 @@ export default defineConfig({
     esbuild: {
       keepNames: false,
     },
+    // Chunk size warnings
+    chunkSizeWarningLimit: 1000,
   },
 });

@@ -203,8 +203,8 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
-      refetchOnWindowFocus: false,
-      staleTime: 30000, // 30 segundos
+      refetchOnWindowFocus: true, // Refetch on focus para datos críticos
+      staleTime: 5 * 60 * 1000, // 5 minutos para datos que cambian poco
       retry: (failureCount, error) => {
         // No reintentar en errores 401 (no autorizado)
         if (error instanceof Error && error.message.includes('401')) {
@@ -214,7 +214,7 @@ export const queryClient = new QueryClient({
         return failureCount < 1;
       },
       retryDelay: 1000, // 1 segundo fijo entre reintentos
-      gcTime: 10 * 60 * 1000, // 10 minutos para limpiar caché
+      gcTime: 30 * 60 * 1000, // 30 minutos para mantener datos en memoria (cacheTime)
     },
     mutations: {
       retry: 1,

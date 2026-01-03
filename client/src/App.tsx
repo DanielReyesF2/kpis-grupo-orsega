@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -5,40 +6,63 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "next-themes";
-import Dashboard from "@/pages/Dashboard";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import LogisticsPage from "@/pages/LogisticsPage";
-import TrendsAnalysisPage from "@/pages/TrendsAnalysisPage";
-
-import KpiControlCenter from "@/pages/KpiControlCenter";
-import SystemAdminPage from "@/pages/SystemAdminPage";
-import ProfilePage from "@/pages/ProfilePage";
-import UserActivation from "@/pages/UserActivation";
 import { SafeAuthProvider } from "@/components/SafeAuthProvider";
 import { CompanyFilterProvider } from "@/hooks/use-company-filter";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import ShipmentsPage from "@/pages/ShipmentsPage";
-import NewShipmentPage from "@/pages/NewShipmentPage";
-import TreasuryPage from "@/pages/TreasuryPage";
-import SalesPage from "@/pages/SalesPage";
+import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
+
+// Lazy load pages for better performance
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Login = lazy(() => import("@/pages/Login"));
+const Register = lazy(() => import("@/pages/Register"));
+const LogisticsPage = lazy(() => import("@/pages/LogisticsPage"));
+const TrendsAnalysisPage = lazy(() => import("@/pages/TrendsAnalysisPage"));
+const KpiControlCenter = lazy(() => import("@/pages/KpiControlCenter"));
+const SystemAdminPage = lazy(() => import("@/pages/SystemAdminPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const UserActivation = lazy(() => import("@/pages/UserActivation"));
+const ShipmentsPage = lazy(() => import("@/pages/ShipmentsPage"));
+const NewShipmentPage = lazy(() => import("@/pages/NewShipmentPage"));
+const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
+const SalesPage = lazy(() => import("@/pages/SalesPage"));
 
 // CopilotKit
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 
+// Wrapper component for lazy loaded routes with Suspense
+const LazyRoute = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<LoadingState variant="page" />}>
+    {children}
+  </Suspense>
+);
+
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/activate/:token" component={UserActivation} />
+      <Route path="/login">
+        <LazyRoute>
+          <Login />
+        </LazyRoute>
+      </Route>
+      <Route path="/register">
+        <LazyRoute>
+          <Register />
+        </LazyRoute>
+      </Route>
+      <Route path="/activate/:token">
+        <LazyRoute>
+          <UserActivation />
+        </LazyRoute>
+      </Route>
       
       <Route path="/">
         <ProtectedRoute>
-          <Dashboard />
+          <LazyRoute>
+            <Dashboard />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       
@@ -46,82 +70,109 @@ function Router() {
       
       <Route path="/logistics">
         <ProtectedRoute logisticsOnly>
-          <LogisticsPage />
+          <LazyRoute>
+            <LogisticsPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       
       <Route path="/shipments">
         <ProtectedRoute>
-          <ShipmentsPage />
+          <LazyRoute>
+            <ShipmentsPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
       <Route path="/new-shipment">
         <ProtectedRoute>
-          <NewShipmentPage />
+          <LazyRoute>
+            <NewShipmentPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
       <Route path="/trends-analysis">
         <ProtectedRoute executiveOnly>
-          <TrendsAnalysisPage />
+          <LazyRoute>
+            <TrendsAnalysisPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
-
       <Route path="/kpi-control">
         <ProtectedRoute>
-          <KpiControlCenter />
+          <LazyRoute>
+            <KpiControlCenter />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
       <Route path="/team-management">
         <ProtectedRoute adminOnly>
-          <SystemAdminPage />
+          <LazyRoute>
+            <SystemAdminPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
-      <Route path="/treasury" component={TreasuryPage}>
+      <Route path="/treasury">
         <ProtectedRoute>
-          <TreasuryPage />
+          <LazyRoute>
+            <TreasuryPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/treasury/vouchers">
         <ProtectedRoute>
-          <TreasuryPage />
+          <LazyRoute>
+            <TreasuryPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/treasury/exchange-rates">
         <ProtectedRoute>
-          <TreasuryPage />
+          <LazyRoute>
+            <TreasuryPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
-      <Route path="/sales" component={SalesPage}>
+      <Route path="/sales">
         <ProtectedRoute>
-          <SalesPage />
+          <LazyRoute>
+            <SalesPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/sales/dura">
         <ProtectedRoute>
-          <SalesPage />
+          <LazyRoute>
+            <SalesPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       <Route path="/sales/orsega">
         <ProtectedRoute>
-          <SalesPage />
+          <LazyRoute>
+            <SalesPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
       <Route path="/mi-perfil">
         <ProtectedRoute>
-          <ProfilePage />
+          <LazyRoute>
+            <ProfilePage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
 
       <Route path="/system-admin">
         <ProtectedRoute adminOnly>
-          <SystemAdminPage />
+          <LazyRoute>
+            <SystemAdminPage />
+          </LazyRoute>
         </ProtectedRoute>
       </Route>
       

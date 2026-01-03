@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface LoadingStateProps {
-  variant?: 'table' | 'card' | 'chart' | 'form' | 'list';
+  variant?: 'table' | 'card' | 'chart' | 'form' | 'list' | 'page';
   className?: string;
   rows?: number;
   columns?: number;
@@ -95,6 +95,28 @@ export function LoadingState({
             <Skeleton className="h-8 w-20" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (variant === 'page') {
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center p-8", className)}>
+        <div className="w-full max-w-4xl space-y-6">
+          <Skeleton className="h-12 w-64" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-32" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-32 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -174,7 +174,7 @@ export function GaugeChart({
       </svg>
 
       {/* Value display */}
-      <div className="mt-4 text-center">
+      <div className="mt-4 text-center" role="region" aria-label={`Gauge chart: ${label}, Value: ${displayValue}, Percentage: ${percentageDisplay}`}>
         <p className={cn(
           "font-semibold text-foreground",
           size === 'sm' ? 'text-lg' : size === 'md' ? 'text-xl' : 'text-2xl'
