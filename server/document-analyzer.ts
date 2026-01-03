@@ -2,13 +2,82 @@
 // 📄 document-analyzer.ts
 // Analizador HÍBRIDO de documentos:
 //   1. XML (CFDI) → Parser nativo (100% precisión)
-//   2. PDF → Templates + pdf-parse (alta precisión para proveedores conocidos)
-//   3. Fallback → OpenAI Vision (para documentos desconocidos)
+//   2. PDF → invoice2data Python microservice (95% precisión)
+//   3. PDF → Templates TypeScript + pdf-parse (alta precisión)
+//   4. Fallback → OpenAI Vision (para documentos desconocidos)
 // ================================================
 
 import OpenAI from "openai";
 import { isCFDI, parseCFDI, cfdiToInvoiceData } from "./cfdi-parser";
 import { findMatchingTemplate, extractWithTemplate, fallbackTemplate } from "./invoice-templates";
+
+// URL del microservicio Python de invoice2data
+const INVOICE2DATA_URL = process.env.INVOICE2DATA_URL || "http://localhost:5050";
+
+/**
+ * Llama al microservicio Python invoice2data para extraer datos
+ */
+async function callInvoice2DataService(fileBuffer: Buffer, fileName: string): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    // Crear FormData manualmente para Node.js
+    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    const fileContent = fileBuffer.toString('binary');
+
+    const body = [
+      `--${boundary}`,
+      `Content-Disposition: form-data; name="file"; filename="${fileName}"`,
+      'Content-Type: application/pdf',
+      '',
+      fileContent,
+      `--${boundary}--`,
+      ''
+    ].join('\r\n');
+
+    const response = await fetch(`${INVOICE2DATA_URL}/extract`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body: Buffer.from(body, 'binary'),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+
+    const result = await response.json();
+    return { success: result.success, data: result };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️ [invoice2data] Error conectando al servicio: ${errorMsg}`);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Verifica si el microservicio invoice2data está disponible
+ */
+async function isInvoice2DataAvailable(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+
+    const response = await fetch(`${INVOICE2DATA_URL}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 // Importación dinámica de pdfjs-dist para evitar errores si no está instalado
 let pdfjsLib: any = null;
@@ -101,6 +170,73 @@ export async function analyzePaymentDocument(
       }
     } else {
       console.log(`ℹ️ [CFDI] XML no es CFDI válido, continuando con análisis estándar`);
+    }
+  }
+
+  // ========================================
+  // PASO 1.5: Intentar microservicio invoice2data (Python)
+  // ========================================
+  if (fileType.includes('pdf')) {
+    console.log(`🐍 [invoice2data] Verificando disponibilidad del microservicio...`);
+
+    const serviceAvailable = await isInvoice2DataAvailable();
+
+    if (serviceAvailable) {
+      console.log(`✅ [invoice2data] Microservicio disponible, procesando PDF...`);
+
+      const i2dResult = await callInvoice2DataService(fileBuffer, 'invoice.pdf');
+
+      if (i2dResult.success && i2dResult.data) {
+        const data = i2dResult.data;
+        console.log(`✅ [invoice2data] Extracción exitosa con método: ${data.method}`);
+
+        // Parsear fecha
+        let invoiceDate: Date | null = null;
+        let dueDate: Date | null = null;
+
+        if (data.date) {
+          invoiceDate = new Date(data.date);
+          if (isNaN(invoiceDate.getTime())) invoiceDate = null;
+        }
+
+        if (data.due_date) {
+          dueDate = new Date(data.due_date);
+          if (isNaN(dueDate.getTime())) dueDate = null;
+        }
+
+        // Si no hay fecha de vencimiento, calcular +30 días
+        if (!dueDate && invoiceDate) {
+          dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 30);
+        }
+
+        return {
+          extractedAmount: data.amount || null,
+          extractedDate: invoiceDate,
+          extractedBank: null,
+          extractedReference: null,
+          extractedCurrency: data.currency || 'MXN',
+          extractedOriginAccount: null,
+          extractedDestinationAccount: null,
+          extractedTrackingKey: null,
+          extractedBeneficiaryName: null,
+          ocrConfidence: data.confidence || 0.95,
+          rawResponse: `invoice2data: ${data.method}`,
+          documentType: 'invoice',
+          extractedSupplierName: data.supplier_name || null,
+          extractedDueDate: dueDate,
+          extractedInvoiceNumber: data.invoice_number || null,
+          extractedTaxId: data.tax_id || null,
+          relatedInvoiceUUID: null,
+          paymentMethod: null,
+          paymentTerms: null,
+          transferType: null,
+        };
+      } else {
+        console.log(`⚠️ [invoice2data] No se pudo extraer: ${i2dResult.error || 'sin template match'}`);
+      }
+    } else {
+      console.log(`ℹ️ [invoice2data] Microservicio no disponible, usando fallback...`);
     }
   }
 
