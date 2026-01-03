@@ -1,5 +1,5 @@
-// DIAGNÓSTICO Error React #31 - PASO 5
-// Agregando: Router con solo Login
+// DIAGNÓSTICO Error React #31 - PASO 6
+// Agregando: Dashboard con ProtectedRoute
 
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,7 +9,9 @@ import { SafeAuthProvider } from "@/components/SafeAuthProvider";
 import { CompanyFilterProvider } from "@/hooks/use-company-filter";
 import { Toaster } from "@/components/ui/toaster";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "@/pages/Login";
+import Dashboard from "@/pages/Dashboard";
 
 function App() {
   return (
@@ -21,12 +23,18 @@ function App() {
               <Toaster />
               <Switch>
                 <Route path="/login">{() => <Login />}</Route>
+                <Route path="/">
+                  {() => (
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  )}
+                </Route>
                 <Route>
                   {() => (
                     <div className="p-8">
-                      <h1 className="text-2xl font-bold">Test - Paso 5</h1>
-                      <p>Router + Login agregados</p>
-                      <a href="/login" className="text-blue-500 underline">Ir a Login</a>
+                      <h1 className="text-2xl font-bold">Test - Paso 6</h1>
+                      <p>Dashboard + ProtectedRoute agregados</p>
                     </div>
                   )}
                 </Route>
