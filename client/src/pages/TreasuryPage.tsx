@@ -19,7 +19,7 @@ import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliers
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
 import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { SmartUploadZone } from "@/components/treasury/SmartUploadZone";
-import { ExchangeRateHistory } from "@/components/treasury/ExchangeRateHistory";
+import { ExchangeRateDashboard } from "@/components/treasury/ExchangeRateDashboard";
 
 type ViewMode = "main" | "suppliers" | "history" | "exchange-rates";
 
@@ -241,32 +241,21 @@ export default function TreasuryPage() {
     return (
       <AppLayout title="Tesorería - Tipos de Cambio">
         <div className="p-6 max-w-[1400px] mx-auto space-y-4">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Tipos de Cambio</h1>
               <p className="text-sm text-muted-foreground">
-                Historial de tipos de cambio USD/MXN
+                USD/MXN - Actualización diaria
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="default"
-                onClick={handleRefreshExchangeRates}
-                disabled={isRefreshingRates}
-              >
-                {isRefreshingRates ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Actualizar DOF
-              </Button>
-              <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
-                ← Volver
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
+              ← Volver
+            </Button>
           </div>
-          <ExchangeRateHistory />
+          <ExchangeRateDashboard
+            onRefreshDOF={handleRefreshExchangeRates}
+            isRefreshingDOF={isRefreshingRates}
+          />
         </div>
       </AppLayout>
     );
