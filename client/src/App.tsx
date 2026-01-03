@@ -25,10 +25,11 @@ import NewShipmentPage from "@/pages/NewShipmentPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import SalesPage from "@/pages/SalesPage";
 
-// CopilotKit
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+// CopilotKit - DESACTIVADO TEMPORALMENTE para diagnosticar error React #31
+// Los imports pueden causar side effects incluso si no se usan
+// import { CopilotKit } from "@copilotkit/react-core";
+// import { CopilotPopup } from "@copilotkit/react-ui";
+// import "@copilotkit/react-ui/styles.css";
 
 function Router() {
   return (
