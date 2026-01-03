@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, Users, History, Loader2, FileText, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
+import { Users, History, FileText, DollarSign, TrendingUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -17,14 +15,12 @@ import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanban
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
-import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
-import { SmartUploadZone } from "@/components/treasury/SmartUploadZone";
+import { InvoiceUploadFlow } from "@/components/treasury/InvoiceUploadFlow";
 import { ExchangeRateDashboard } from "@/components/treasury/ExchangeRateDashboard";
 
 type ViewMode = "main" | "suppliers" | "history" | "exchange-rates";
 
 export default function TreasuryPage() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
 
@@ -41,12 +37,8 @@ export default function TreasuryPage() {
   useEffect(() => {
     setViewMode(getInitialView());
   }, [location]);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
-  const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
   const [showInvoiceVerificationModal, setShowInvoiceVerificationModal] = useState(false);
   const [invoiceVerificationData, setInvoiceVerificationData] = useState<any>(null);
-  const [showInvoiceWizard, setShowInvoiceWizard] = useState(false);
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
 
   // Función para actualizar tipos de cambio
@@ -81,61 +73,6 @@ export default function TreasuryPage() {
       setIsRefreshingRates(false);
     }
   };
-
-  // Mutación para subir factura
-  const uploadInvoiceMutation = useMutation({
-    mutationFn: async ({ file, payerCompanyId }: { file: File; payerCompanyId: number }) => {
-      const formData = new FormData();
-      formData.append('voucher', file);
-      formData.append('payerCompanyId', payerCompanyId.toString());
-
-      const token = localStorage.getItem("authToken");
-      if (!token) throw new Error("No se encontró token de autenticación");
-
-      const res = await fetch("/api/payment-vouchers/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      const text = await res.text();
-      const responseData = text ? JSON.parse(text) : {};
-
-      if (!res.ok) {
-        throw new Error(responseData.details || responseData.error || responseData.message || `Error ${res.status}`);
-      }
-
-      return responseData;
-    },
-    onSuccess: (data) => {
-      if (data.requiresVerification && data.documentType === 'invoice') {
-        setInvoiceVerificationData(data);
-        setShowInvoiceVerificationModal(true);
-        setIsUploadingInvoice(false);
-        setShowUploadModal(false);
-        return;
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
-
-      toast({
-        title: "✅ Documento procesado",
-        description: data.message || "El documento ha sido procesado correctamente",
-      });
-
-      setIsUploadingInvoice(false);
-      setShowUploadModal(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error al procesar documento",
-        description: error?.message || "No se pudo procesar el documento",
-        variant: "destructive",
-      });
-      setIsUploadingInvoice(false);
-    },
-  });
 
   // Obtener comprobantes
   const { data: vouchers = [] } = useQuery<any[]>({
@@ -289,24 +226,14 @@ export default function TreasuryPage() {
           </div>
         </div>
 
-        {/* Zona de Upload */}
-        <SmartUploadZone
-          onFilesProcessed={(groupedFiles) => {
-            const allFiles = Object.values(groupedFiles).flat();
-            if (allFiles.length > 0) {
-              setFilesToUpload(allFiles as File[]);
-              setShowInvoiceWizard(true);
+        {/* Flujo de Subida de Facturas */}
+        <InvoiceUploadFlow
+          onUploadComplete={(data) => {
+            if (data?.requiresVerification) {
+              setInvoiceVerificationData(data);
+              setShowInvoiceVerificationModal(true);
             }
           }}
-          onUpload={async (files) => {
-            if (files.length > 0) {
-              setFilesToUpload(files as File[]);
-              setShowInvoiceWizard(true);
-            }
-          }}
-          acceptedTypes={[".pdf", ".xml", ".jpg", ".jpeg", ".png", ".zip"]}
-          maxFiles={20}
-          maxSizeMB={10}
         />
 
         {/* Resumen Semanal */}
@@ -383,24 +310,6 @@ export default function TreasuryPage() {
         </div>
       </div>
 
-      {/* Modal de Analizando Factura */}
-      <Dialog open={isUploadingInvoice || uploadInvoiceMutation.isPending}>
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className="text-center">Analizando Documento</DialogTitle>
-            <DialogDescription className="text-center">
-              Procesando con IA. Esto puede tomar unos segundos.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center py-8">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-sm text-muted-foreground">
-              Extrayendo datos del documento...
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Modal de Verificación de Factura */}
       {showInvoiceVerificationModal && invoiceVerificationData && (
         <InvoiceVerificationModal
@@ -413,24 +322,6 @@ export default function TreasuryPage() {
         />
       )}
 
-      {/* Wizard de Subida de Facturas */}
-      <InvoiceUploadWizard
-        isOpen={showInvoiceWizard}
-        onClose={() => {
-          setShowInvoiceWizard(false);
-          setFilesToUpload([]);
-        }}
-        onUploadComplete={(data) => {
-          queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
-          if (data.requiresVerification) {
-            setInvoiceVerificationData(data);
-            setShowInvoiceVerificationModal(true);
-          }
-          setShowInvoiceWizard(false);
-          setFilesToUpload([]);
-        }}
-      />
     </AppLayout>
   );
 }
