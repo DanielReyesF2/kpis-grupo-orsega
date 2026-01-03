@@ -1,18 +1,22 @@
-// VERSIÓN MÍNIMA PARA DIAGNÓSTICO - Error React #31
-// Vamos agregando componentes uno por uno para encontrar la causa
+// DIAGNÓSTICO Error React #31 - PASO 2
+// Agregando: QueryClientProvider + ThemeProvider
 
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { ThemeProvider } from "next-themes";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
-// PASO 1: Solo ErrorBoundary + div
-// Si esto falla, el problema está en ErrorBoundary
 
 function App() {
   return (
     <ErrorBoundary>
-      <div className="p-8">
-        <h1 className="text-2xl font-bold">Test Mínimo - Si ves esto, funciona</h1>
-        <p>Paso 1: ErrorBoundary + div simple</p>
-      </div>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="dark">
+          <div className="p-8">
+            <h1 className="text-2xl font-bold">Test - Paso 2</h1>
+            <p>QueryClientProvider + ThemeProvider agregados</p>
+          </div>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
