@@ -32,138 +32,145 @@ import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 
+// Wrapper components that handle Suspense internally
+const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<LoadingState variant="page" />}>
+    {children}
+  </Suspense>
+);
+
 function Router() {
   return (
     <Switch>
       <Route path="/login">
-        <Suspense fallback={<LoadingState variant="page" />}>
+        <LazyWrapper>
           <Login />
-        </Suspense>
+        </LazyWrapper>
       </Route>
       <Route path="/register">
-        <Suspense fallback={<LoadingState variant="page" />}>
+        <LazyWrapper>
           <Register />
-        </Suspense>
+        </LazyWrapper>
       </Route>
       <Route path="/activate/:token">
-        <Suspense fallback={<LoadingState variant="page" />}>
+        <LazyWrapper>
           <UserActivation />
-        </Suspense>
+        </LazyWrapper>
       </Route>
       
       <Route path="/">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <Dashboard />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       
       <Route path="/logistics">
         <ProtectedRoute logisticsOnly>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <LogisticsPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       
       <Route path="/shipments">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <ShipmentsPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/new-shipment">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <NewShipmentPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/trends-analysis">
         <ProtectedRoute executiveOnly>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <TrendsAnalysisPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/kpi-control">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <KpiControlCenter />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/team-management">
         <ProtectedRoute adminOnly>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <SystemAdminPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/treasury">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <TreasuryPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       <Route path="/treasury/vouchers">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <TreasuryPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       <Route path="/treasury/exchange-rates">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <TreasuryPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/sales">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <SalesPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       <Route path="/sales/dura">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <SalesPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       <Route path="/sales/orsega">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <SalesPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/mi-perfil">
         <ProtectedRoute>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <ProfilePage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
 
       <Route path="/system-admin">
         <ProtectedRoute adminOnly>
-          <Suspense fallback={<LoadingState variant="page" />}>
+          <LazyWrapper>
             <SystemAdminPage />
-          </Suspense>
+          </LazyWrapper>
         </ProtectedRoute>
       </Route>
       
