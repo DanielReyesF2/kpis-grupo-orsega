@@ -16,13 +16,23 @@ export default defineConfig({
         ]
       : []),
   ],
+  root: path.resolve(import.meta.dirname, "client"),
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
+      // Resolver date-fns explícitamente
+      "date-fns": path.resolve(import.meta.dirname, "node_modules/date-fns"),
+    },
+    // Optimizar resolución de módulos
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['date-fns', 'date-fns/locale'],
+    esbuildOptions: {
+      resolveExtensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
   server: {
     // En desarrollo, Vite se maneja a través del servidor Express
     // La configuración de HMR se maneja en server/vite.ts
@@ -33,24 +43,38 @@ export default defineConfig({
     emptyOutDir: true,
     // Desactivar sourcemaps para build release estable
     sourcemap: false,
+    commonjsOptions: {
+      include: [/date-fns/, /mermaid/, /node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
-      output: {
-        // Code splitting optimizado por rutas
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-          'vendor-charts': ['recharts'],
-          'vendor-query': ['@tanstack/react-query'],
-          'salesforce-components': [
-            './client/src/components/salesforce/charts/GaugeChart',
-            './client/src/components/salesforce/charts/FunnelChart',
-            './client/src/components/salesforce/charts/EnhancedDonutChart',
-            './client/src/components/salesforce/layout/PageHeader',
-            './client/src/components/salesforce/layout/FilterBar',
-            './client/src/components/salesforce/layout/ChartCard',
-          ],
-        },
+      external: (id) => {
+        // Excluir mermaid del bundle - es una dependencia de streamdown pero no se usa directamente
+        if (id === 'mermaid' || id.includes('mermaid/')) {
+          return true;
+        }
+        return false;
       },
+      // Temporalmente desactivar manualChunks para diagnosticar problema con date-fns
+      // output: {
+      //   manualChunks(id) {
+      //     if (id.includes('node_modules')) {
+      //       if (id.includes('react') || id.includes('react-dom')) {
+      //         return 'vendor-react';
+      //       }
+      //       if (id.includes('@radix-ui')) {
+      //         return 'vendor-ui';
+      //       }
+      //       if (id.includes('recharts')) {
+      //         return 'vendor-charts';
+      //       }
+      //       if (id.includes('@tanstack/react-query')) {
+      //         return 'vendor-query';
+      //       }
+      //       return 'vendor-other';
+      //     }
+      //   },
+      // },
       onwarn(warning, warn) {
         // Reduce ruido de warnings no críticos en build
         if (warning.code === 'CIRCULAR_DEPENDENCY') return;
