@@ -46,6 +46,23 @@ export function PageHeader({
 }: PageHeaderProps) {
   const primaryAction = actions.find(a => a.primary) || actions[0];
   const secondaryActions = actions.filter(a => !a.primary && a !== primaryAction);
+  
+  // Render icon safely
+  const renderIcon = () => {
+    if (!Icon) return null;
+    try {
+      // Check if it's a React component (has $$typeof)
+      if (typeof Icon === 'function') {
+        const IconComponent = Icon as LucideIcon;
+        return <IconComponent className="h-6 w-6 text-primary" />;
+      }
+      // If it's already a ReactNode, wrap it
+      return <>{Icon}</>;
+    } catch (error) {
+      console.error('Error rendering icon:', error);
+      return null;
+    }
+  };
 
   return (
     <div className={cn("space-y-4 pb-4 border-b", className)}>
@@ -76,11 +93,7 @@ export function PageHeader({
           {/* Object Icon */}
           {Icon && (
             <div className="flex-shrink-0 p-2 bg-primary/10 rounded-lg">
-              {typeof Icon === 'function' ? (
-                <Icon className="h-6 w-6 text-primary" />
-              ) : (
-                Icon
-              )}
+              {renderIcon()}
             </div>
           )}
 
@@ -134,6 +147,7 @@ export function PageHeader({
               const PrimaryIcon = primaryAction.icon;
               return (
                 <Button
+                  key="primary"
                   variant={primaryAction.variant || 'default'}
                   size="sm"
                   onClick={primaryAction.onClick}

@@ -56,11 +56,18 @@ export function EmptyState({
           "mb-4 text-muted-foreground",
           classes.icon
         )}>
-          {typeof Icon === 'function' ? (
-            <Icon className={classes.icon} />
-          ) : (
-            Icon
-          )}
+          {(() => {
+            try {
+              if (typeof Icon === 'function') {
+                const IconComponent = Icon as LucideIcon;
+                return <IconComponent className={classes.icon} />;
+              }
+              return <>{Icon}</>;
+            } catch (error) {
+              console.error('Error rendering icon:', error);
+              return null;
+            }
+          })()}
         </div>
       )}
       
