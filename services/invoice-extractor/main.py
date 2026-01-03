@@ -28,7 +28,8 @@ except ImportError:
 
 # Configuración
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
-PORT = int(os.environ.get("INVOICE_EXTRACTOR_PORT", 5050))
+# Railway usa PORT, localmente usa INVOICE_EXTRACTOR_PORT o 5050
+PORT = int(os.environ.get("PORT", os.environ.get("INVOICE_EXTRACTOR_PORT", 5050)))
 
 app = FastAPI(
     title="Invoice Extractor API",

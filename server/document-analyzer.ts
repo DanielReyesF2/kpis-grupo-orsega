@@ -177,7 +177,8 @@ export async function analyzePaymentDocument(
   // PASO 1.5: Intentar microservicio invoice2data (Python)
   // ========================================
   if (fileType.includes('pdf')) {
-    console.log(`🐍 [invoice2data] Verificando disponibilidad del microservicio...`);
+    const invoice2dataUrl = process.env.INVOICE2DATA_URL || "http://localhost:5050";
+    console.log(`🐍 [invoice2data] Verificando disponibilidad del microservicio en ${invoice2dataUrl}...`);
 
     const serviceAvailable = await isInvoice2DataAvailable();
 
@@ -348,8 +349,12 @@ export async function analyzePaymentDocument(
 
   // Si no hay API key, devolver resultado vacío para verificación manual
   if (!apiKey) {
-    console.warn("⚠️ [Document Analyzer] OPENAI_API_KEY no está configurado.");
-    console.warn("⚠️ [Document Analyzer] El documento se procesará sin análisis automático.");
+    console.warn("⚠️ [Document Analyzer] ==================================================");
+    console.warn("⚠️ [Document Analyzer] OPENAI_API_KEY NO ESTÁ CONFIGURADA");
+    console.warn("⚠️ [Document Analyzer] ==================================================");
+    console.warn("⚠️ [Document Analyzer] El microservicio invoice2data tampoco está disponible.");
+    console.warn("⚠️ [Document Analyzer] Los templates TypeScript tampoco extrajeron datos.");
+    console.warn("⚠️ [Document Analyzer] SOLUCIÓN: Configurar OPENAI_API_KEY en las variables de entorno.");
     console.warn("⚠️ [Document Analyzer] El usuario deberá completar todos los campos manualmente.");
 
     return {
@@ -363,8 +368,8 @@ export async function analyzePaymentDocument(
       extractedTrackingKey: null,
       extractedBeneficiaryName: null,
       ocrConfidence: 0,
-      rawResponse: 'OpenAI API key no configurada. Verificación manual requerida.',
-      documentType: 'unknown',
+      rawResponse: 'OPENAI_API_KEY no configurada y invoice2data no disponible. Configure la API key de OpenAI o despliegue el microservicio Python.',
+      documentType: 'invoice', // Asumir factura si viene de flujo de facturas
       extractedSupplierName: null,
       extractedDueDate: null,
       extractedInvoiceNumber: null,

@@ -25,12 +25,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código de la aplicación
 COPY . .
 
-# Puerto expuesto
+# Puerto expuesto (Railway asigna dinámicamente via $PORT)
 EXPOSE 5050
 
 # Variables de entorno
-ENV INVOICE_EXTRACTOR_PORT=5050
 ENV PYTHONUNBUFFERED=1
+# Railway provee PORT automáticamente, fallback a 5050 para desarrollo local
+ENV PORT=5050
 
 # Comando de inicio
 CMD ["python", "main.py"]
