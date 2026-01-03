@@ -93,18 +93,27 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
-      toast({
-        title: "✅ Factura procesada",
-        description: `Factura de ${selectedSupplier?.name} procesada exitosamente`,
-      });
-      // Reset form
-      setSelectedCompanyId(null);
-      setSelectedSupplier(null);
-      setFiles([]);
-      setSearchTerm("");
-      onUploadComplete?.(data);
+      // ✅ FIX: Solo mostrar toast de éxito si NO requiere verificación
+      if (data?.requiresVerification) {
+        // Factura requiere verificación - el modal se encargará
+        console.log('📋 [InvoiceUploadFlow] Factura requiere verificación, abriendo modal...');
+        // NO resetear form aún - esperar a que el modal complete
+        onUploadComplete?.(data);
+      } else {
+        // Procesado completamente (comprobante o factura auto-aprobada)
+        queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+        toast({
+          title: "✅ Documento procesado",
+          description: `Documento de ${selectedSupplier?.name} procesado exitosamente`,
+        });
+        // Reset form solo cuando está completamente procesado
+        setSelectedCompanyId(null);
+        setSelectedSupplier(null);
+        setFiles([]);
+        setSearchTerm("");
+        onUploadComplete?.(data);
+      }
     },
     onError: (error: any) => {
       toast({

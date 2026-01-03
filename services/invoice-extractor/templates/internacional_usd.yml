@@ -1,0 +1,76 @@
+# Template para facturas internacionales en USD
+
+issuer: International Invoice
+keywords:
+  - invoice
+  - bill to
+  - ship to
+  - usd
+  - united states
+  - total due
+  - amount due
+exclude_keywords:
+  - cfdi
+  - sat
+  - mxn
+  - pesos
+
+fields:
+  # Vendor/Supplier name
+  issuer:
+    parser: regex
+    regex: (?:From|Vendor|Supplier|Company)[\s:]+([A-Za-z0-9\s,\.&\-]{5,80}(?:Inc\.?|LLC\.?|Corp\.?)?)
+    group: 1
+
+  # Invoice number
+  invoice_number:
+    parser: regex
+    regex: (?:Invoice|Inv)[\s#:]+([A-Z0-9\-]{3,20})
+    group: 1
+
+  # Total amount
+  amount:
+    parser: regex
+    regex: (?:Total|Amount Due|Balance Due|Grand Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Subtotal
+  amount_untaxed:
+    parser: regex
+    regex: (?:Subtotal|Sub-Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Tax
+  vat:
+    parser: regex
+    regex: (?:Tax|Sales Tax|VAT)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Invoice date
+  date:
+    parser: regex
+    regex: (?:Invoice Date|Date|Dated)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    group: 1
+
+  # Due date
+  date_due:
+    parser: regex
+    regex: (?:Due Date|Payment Due|Pay By)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    group: 1
+
+  # Tax ID / EIN
+  vat_number:
+    parser: regex
+    regex: (?:Tax ID|EIN|VAT)[\s:]+([A-Z0-9\-]{9,15})
+    group: 1
+
+options:
+  currency: USD
+  date_formats:
+    - "%m/%d/%Y"
+    - "%m-%d-%Y"
+    - "%Y-%m-%d"
+  decimal_separator: "."

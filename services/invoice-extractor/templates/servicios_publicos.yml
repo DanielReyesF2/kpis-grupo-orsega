@@ -1,0 +1,50 @@
+# Template para recibos de servicios públicos (CFE, Telmex, etc.)
+
+issuer: Servicios Públicos México
+keywords:
+  - cfe
+  - comisión federal de electricidad
+  - telmex
+  - izzi
+  - totalplay
+  - megacable
+  - telcel
+
+fields:
+  # Empresa de servicios
+  issuer:
+    parser: regex
+    regex: (Comisión Federal de Electricidad|TELMEX|Izzi|Totalplay|Megacable|TELCEL)
+    group: 1
+
+  # Número de cuenta/servicio
+  invoice_number:
+    parser: regex
+    regex: (?:Número de Servicio|Cuenta|No\. de Cuenta)[\s:]+(\d{8,15})
+    group: 1
+
+  # Total a pagar
+  amount:
+    parser: regex
+    regex: (?:Total a Pagar|Importe)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Fecha límite de pago
+  date_due:
+    parser: regex
+    regex: (?:Fecha Límite|Vence|Pague antes del)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    group: 1
+
+  # Periodo de facturación
+  date:
+    parser: regex
+    regex: (?:Periodo|Fecha de Emisión)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    group: 1
+
+options:
+  currency: MXN
+  date_formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+  decimal_separator: "."

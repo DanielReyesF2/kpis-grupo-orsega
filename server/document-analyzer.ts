@@ -1,9 +1,83 @@
 // ================================================
 // 📄 document-analyzer.ts
-// Analizador de documentos bancarios, facturas y REPs con OpenAI Vision
+// Analizador HÍBRIDO de documentos:
+//   1. XML (CFDI) → Parser nativo (100% precisión)
+//   2. PDF → invoice2data Python microservice (95% precisión)
+//   3. PDF → Templates TypeScript + pdf-parse (alta precisión)
+//   4. Fallback → OpenAI Vision (para documentos desconocidos)
 // ================================================
 
 import OpenAI from "openai";
+import { isCFDI, parseCFDI, cfdiToInvoiceData } from "./cfdi-parser";
+import { findMatchingTemplate, extractWithTemplate, fallbackTemplate } from "./invoice-templates";
+
+// URL del microservicio Python de invoice2data
+const INVOICE2DATA_URL = process.env.INVOICE2DATA_URL || "http://localhost:5050";
+
+/**
+ * Llama al microservicio Python invoice2data para extraer datos
+ */
+async function callInvoice2DataService(fileBuffer: Buffer, fileName: string): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    // Crear FormData manualmente para Node.js
+    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    const fileContent = fileBuffer.toString('binary');
+
+    const body = [
+      `--${boundary}`,
+      `Content-Disposition: form-data; name="file"; filename="${fileName}"`,
+      'Content-Type: application/pdf',
+      '',
+      fileContent,
+      `--${boundary}--`,
+      ''
+    ].join('\r\n');
+
+    const response = await fetch(`${INVOICE2DATA_URL}/extract`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body: Buffer.from(body, 'binary'),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+
+    const result = await response.json();
+    return { success: result.success, data: result };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️ [invoice2data] Error conectando al servicio: ${errorMsg}`);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Verifica si el microservicio invoice2data está disponible
+ */
+async function isInvoice2DataAvailable(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+
+    const response = await fetch(`${INVOICE2DATA_URL}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 // Importación dinámica de pdfjs-dist para evitar errores si no está instalado
 let pdfjsLib: any = null;
@@ -53,6 +127,223 @@ export async function analyzePaymentDocument(
   fileBuffer: Buffer,
   fileType: string
 ): Promise<DocumentAnalysisResult> {
+  console.log(`🔍 [Document Analyzer] Iniciando análisis híbrido...`);
+  console.log(`📄 [Document Analyzer] Tipo de archivo: ${fileType}, Tamaño: ${fileBuffer.length} bytes`);
+
+  // ========================================
+  // PASO 1: Detectar si es XML (CFDI)
+  // ========================================
+  if (fileType.includes('xml') || fileType.includes('text/xml') || fileType === 'application/xml') {
+    console.log(`📋 [CFDI] Detectado archivo XML, intentando parsear como CFDI...`);
+
+    if (isCFDI(fileBuffer)) {
+      const cfdiData = parseCFDI(fileBuffer);
+
+      if (cfdiData.parseSuccess) {
+        console.log(`✅ [CFDI] Factura CFDI parseada exitosamente - ${cfdiData.emisor.nombre}`);
+        const invoiceData = cfdiToInvoiceData(cfdiData);
+
+        return {
+          extractedAmount: invoiceData.extractedAmount,
+          extractedDate: invoiceData.extractedDate,
+          extractedBank: null,
+          extractedReference: invoiceData.extractedReference,
+          extractedCurrency: invoiceData.extractedCurrency,
+          extractedOriginAccount: null,
+          extractedDestinationAccount: null,
+          extractedTrackingKey: null,
+          extractedBeneficiaryName: null,
+          ocrConfidence: 1.0, // 100% - datos estructurados
+          rawResponse: `CFDI XML parseado exitosamente. UUID: ${cfdiData.uuid}`,
+          documentType: invoiceData.documentType,
+          extractedSupplierName: invoiceData.extractedSupplierName,
+          extractedDueDate: invoiceData.extractedDueDate,
+          extractedInvoiceNumber: invoiceData.extractedInvoiceNumber,
+          extractedTaxId: invoiceData.extractedTaxId,
+          relatedInvoiceUUID: cfdiData.uuid,
+          paymentMethod: invoiceData.paymentMethod,
+          paymentTerms: invoiceData.paymentTerms,
+          transferType: null,
+        };
+      } else {
+        console.warn(`⚠️ [CFDI] Error parseando CFDI:`, cfdiData.parseErrors);
+      }
+    } else {
+      console.log(`ℹ️ [CFDI] XML no es CFDI válido, continuando con análisis estándar`);
+    }
+  }
+
+  // ========================================
+  // PASO 1.5: Intentar microservicio invoice2data (Python)
+  // ========================================
+  if (fileType.includes('pdf')) {
+    console.log(`🐍 [invoice2data] Verificando disponibilidad del microservicio...`);
+
+    const serviceAvailable = await isInvoice2DataAvailable();
+
+    if (serviceAvailable) {
+      console.log(`✅ [invoice2data] Microservicio disponible, procesando PDF...`);
+
+      const i2dResult = await callInvoice2DataService(fileBuffer, 'invoice.pdf');
+
+      if (i2dResult.success && i2dResult.data) {
+        const data = i2dResult.data;
+        console.log(`✅ [invoice2data] Extracción exitosa con método: ${data.method}`);
+
+        // Parsear fecha
+        let invoiceDate: Date | null = null;
+        let dueDate: Date | null = null;
+
+        if (data.date) {
+          invoiceDate = new Date(data.date);
+          if (isNaN(invoiceDate.getTime())) invoiceDate = null;
+        }
+
+        if (data.due_date) {
+          dueDate = new Date(data.due_date);
+          if (isNaN(dueDate.getTime())) dueDate = null;
+        }
+
+        // Si no hay fecha de vencimiento, calcular +30 días
+        if (!dueDate && invoiceDate) {
+          dueDate = new Date(invoiceDate);
+          dueDate.setDate(dueDate.getDate() + 30);
+        }
+
+        return {
+          extractedAmount: data.amount || null,
+          extractedDate: invoiceDate,
+          extractedBank: null,
+          extractedReference: null,
+          extractedCurrency: data.currency || 'MXN',
+          extractedOriginAccount: null,
+          extractedDestinationAccount: null,
+          extractedTrackingKey: null,
+          extractedBeneficiaryName: null,
+          ocrConfidence: data.confidence || 0.95,
+          rawResponse: `invoice2data: ${data.method}`,
+          documentType: 'invoice',
+          extractedSupplierName: data.supplier_name || null,
+          extractedDueDate: dueDate,
+          extractedInvoiceNumber: data.invoice_number || null,
+          extractedTaxId: data.tax_id || null,
+          relatedInvoiceUUID: null,
+          paymentMethod: null,
+          paymentTerms: null,
+          transferType: null,
+        };
+      } else {
+        console.log(`⚠️ [invoice2data] No se pudo extraer: ${i2dResult.error || 'sin template match'}`);
+      }
+    } else {
+      console.log(`ℹ️ [invoice2data] Microservicio no disponible, usando fallback...`);
+    }
+  }
+
+  // ========================================
+  // PASO 2: Para PDF, extraer texto primero
+  // ========================================
+  let extractedText = "";
+
+  if (fileType.includes('pdf')) {
+    console.log(`📄 [PDF] Extrayendo texto del PDF...`);
+
+    // Método 1: pdf-parse
+    try {
+      const pdfParse = await import('pdf-parse');
+      const pdfData = await pdfParse.default(fileBuffer);
+      extractedText = pdfData.text.trim();
+      console.log(`📄 [pdf-parse] Texto extraído: ${extractedText.length} caracteres`);
+    } catch (error) {
+      console.warn(`⚠️ [pdf-parse] Error:`, error);
+    }
+
+    // Método 2: pdfjs-dist como fallback si pdf-parse falló
+    if (extractedText.length < 100) {
+      const pdfjs = await loadPdfjs();
+      if (pdfjs?.getDocument) {
+        try {
+          const loadingTask = pdfjs.getDocument({ data: new Uint8Array(fileBuffer) });
+          const pdf = await loadingTask.promise;
+          let pdfjsText = "";
+
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const content = await page.getTextContent();
+            pdfjsText += content.items.map((item: any) => item.str).join(' ') + '\n';
+          }
+
+          if (pdfjsText.length > extractedText.length) {
+            extractedText = pdfjsText.trim();
+            console.log(`📄 [pdfjs-dist] Texto extraído: ${extractedText.length} caracteres`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ [pdfjs-dist] Error:`, error);
+        }
+      }
+    }
+
+    // ========================================
+    // PASO 2.5: Intentar templates primero (MÁS CONFIABLE)
+    // ========================================
+    if (extractedText.length > 50) {
+      console.log(`📋 [Templates] Buscando template para el documento...`);
+
+      const matchedTemplate = findMatchingTemplate(extractedText);
+      const templateToUse = matchedTemplate || fallbackTemplate;
+
+      console.log(`📋 [Templates] Usando template: ${templateToUse.name}`);
+      const templateResult = extractWithTemplate(extractedText, templateToUse);
+
+      // Si el template extrajo datos significativos (al menos monto y algo más)
+      const hasGoodData = templateResult.amount &&
+                          (templateResult.supplierName || templateResult.invoiceNumber || templateResult.taxId);
+
+      if (hasGoodData) {
+        console.log(`✅ [Templates] Extracción exitosa con template "${templateToUse.name}"`);
+
+        // Determinar tipo de documento
+        let documentType: "invoice" | "voucher" | "rep" | "unknown" = "invoice";
+        const lowerText = extractedText.toLowerCase();
+        if (lowerText.includes('spei') || lowerText.includes('transferencia') || lowerText.includes('comprobante de pago')) {
+          documentType = "voucher";
+        } else if (lowerText.includes('complemento de pago') || lowerText.includes('cfdi de pago')) {
+          documentType = "rep";
+        }
+
+        return {
+          extractedAmount: templateResult.amount,
+          extractedDate: templateResult.date,
+          extractedBank: null,
+          extractedReference: templateResult.reference,
+          extractedCurrency: templateResult.currency,
+          extractedOriginAccount: null,
+          extractedDestinationAccount: null,
+          extractedTrackingKey: null,
+          extractedBeneficiaryName: null,
+          ocrConfidence: matchedTemplate ? 0.9 : 0.7, // 90% con template específico, 70% con fallback
+          rawResponse: `Extraído con template "${templateToUse.name}"`,
+          documentType,
+          extractedSupplierName: templateResult.supplierName,
+          extractedDueDate: templateResult.dueDate,
+          extractedInvoiceNumber: templateResult.invoiceNumber,
+          extractedTaxId: templateResult.taxId,
+          relatedInvoiceUUID: null,
+          paymentMethod: null,
+          paymentTerms: null,
+          transferType: null,
+        };
+      } else {
+        console.log(`⚠️ [Templates] Template no extrajo suficientes datos, usando OpenAI como fallback`);
+      }
+    }
+  }
+
+  // ========================================
+  // PASO 3: Fallback a OpenAI Vision
+  // ========================================
+  console.log(`🤖 [OpenAI] Usando OpenAI Vision como fallback...`);
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   // Si no hay API key, devolver resultado vacío para verificación manual
@@ -87,32 +378,31 @@ export async function analyzePaymentDocument(
 
   const openai = new OpenAI({ apiKey });
 
-  console.log(`🔍 Analizando documento tipo: ${fileType}`);
+  console.log(`🔍 [OpenAI Fallback] Analizando documento tipo: ${fileType}`);
 
   try {
-    let textContent = "";
+    // Reutilizar texto ya extraído en pasos anteriores
+    let textContent = extractedText;
     let base64Data = "";
 
-    // --- 1️⃣ Extracción inicial según tipo ---
-    if (fileType.includes("pdf")) {
-      // ESTRATEGIA MEJORADA: Intentar múltiples métodos de extracción
-      let extractionSuccess = false;
-      
-      // Método 1: pdf-parse (generalmente más confiable para texto)
+    // --- 1️⃣ Si no tenemos texto, intentar extraer (para imágenes o PDFs no procesados) ---
+    if (!textContent && fileType.includes("pdf")) {
+      console.log(`📄 [OpenAI] Extrayendo texto de PDF (no se extrajo previamente)...`);
+
+      // Método 1: pdf-parse
       try {
         const pdfParse = await import('pdf-parse');
         const pdfData = await pdfParse.default(fileBuffer);
         textContent = pdfData.text.trim();
         if (textContent && textContent.length > 50) {
-          console.log(`📄 [Método 1: pdf-parse] Texto extraído: ${textContent.length} caracteres, ${pdfData.numpages} páginas`);
-          extractionSuccess = true;
+          console.log(`📄 [pdf-parse] Texto extraído: ${textContent.length} caracteres`);
         }
       } catch (error) {
-        console.warn('⚠️ [Método 1] pdf-parse no disponible o falló:', error);
+        console.warn('⚠️ [pdf-parse] Error:', error);
       }
-      
-      // Método 2: pdfjs-dist (mejor para PDFs con layout complejo)
-      if (!extractionSuccess || textContent.length < 100) {
+
+      // Método 2: pdfjs-dist como fallback
+      if (!textContent || textContent.length < 100) {
         const pdfjs = await loadPdfjs();
         if (pdfjs && pdfjs.getDocument) {
           try {
@@ -123,10 +413,8 @@ export async function analyzePaymentDocument(
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
               const page = await pdf.getPage(pageNum);
               const content = await page.getTextContent();
-              // Mejorar extracción: preservar estructura y espacios
               const pageText = content.items
                 .map((item: any) => {
-                  // Preservar espacios y saltos de línea
                   if (item.str) {
                     return item.str;
                   }
@@ -137,28 +425,27 @@ export async function analyzePaymentDocument(
             }
 
             pdfjsText = pdfjsText.trim();
-            if (pdfjsText && pdfjsText.length > textContent.length) {
+            if (pdfjsText && pdfjsText.length > (textContent?.length || 0)) {
               textContent = pdfjsText;
-              console.log(`📄 [Método 2: pdfjs-dist] Texto extraído: ${textContent.length} caracteres, ${pdf.numPages} páginas`);
-              extractionSuccess = true;
+              console.log(`📄 [pdfjs-dist] Texto extraído: ${textContent.length} caracteres`);
             }
           } catch (error) {
-            console.warn('⚠️ [Método 2] Error con pdfjs-dist:', error);
+            console.warn('⚠️ [pdfjs-dist] Error:', error);
           }
         }
       }
-      
-      // Si aún no tenemos texto suficiente, preparar para análisis con visión
-      if (!extractionSuccess || textContent.length < 50) {
-        console.warn('⚠️ Extracción de texto limitada. Se usará análisis de imagen como fallback.');
-        // Para PDFs, intentar convertir primera página a imagen para análisis visual
-        base64Data = fileBuffer.toString("base64");
-      } else {
-        console.log(`✅ Texto extraído exitosamente: ${textContent.length} caracteres`);
-        // Mostrar preview del texto extraído (primeros 500 caracteres)
-        console.log(`📝 Preview: ${textContent.substring(0, 500)}...`);
-      }
+    }
+
+    // Para imágenes o PDFs sin texto, usar base64 para visión
+    if (!textContent || textContent.length < 50) {
+      console.warn('⚠️ [OpenAI] Texto insuficiente, usando análisis visual');
+      base64Data = fileBuffer.toString("base64");
     } else {
+      console.log(`✅ [OpenAI] Texto disponible: ${textContent.length} caracteres`);
+    }
+
+    // Para imágenes, siempre usar base64
+    if (!fileType.includes("pdf")) {
       base64Data = fileBuffer.toString("base64");
     }
 

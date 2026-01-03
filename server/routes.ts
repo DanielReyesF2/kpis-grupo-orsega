@@ -6764,12 +6764,13 @@ export function registerRoutes(app: express.Application) {
       // Parsear datos manualmente para mayor control
       const validatedData = {
         payerCompanyId: parseNumber(req.body?.payerCompanyId),
+        supplierId: parseNumber(req.body?.supplierId), // ✅ FIX: Parsear supplierId del frontend
         clientId: parseNumber(req.body?.clientId),
         companyId: parseNumber(req.body?.companyId),
         scheduledPaymentId: parseNumber(req.body?.scheduledPaymentId),
         notes: req.body?.notes || undefined,
         notify: req.body?.notify === 'true' || req.body?.notify === '1' || req.body?.notify === true,
-        emailTo: req.body?.emailTo 
+        emailTo: req.body?.emailTo
           ? (Array.isArray(req.body.emailTo) ? req.body.emailTo : req.body.emailTo.split(',').map((e: string) => e.trim()).filter((e: string) => e))
           : [],
         emailCc: req.body?.emailCc
@@ -7117,22 +7118,44 @@ export function registerRoutes(app: express.Application) {
           };
           
           // Usar la función mejorada de matching
-          let matchingSupplier = null;
-          let supplierId = null;
+          let matchingSupplier: any = null;
+          let finalSupplierId: number | null = null;
           let matchConfidence = 0;
-          
-          if (supplierName || taxId) {
+
+          // ✅ FIX: Priorizar supplierId del frontend (usuario ya seleccionó proveedor)
+          if (validatedData.supplierId) {
+            console.log(`🔗 [Invoice Detection] Usando supplierId del frontend: ${validatedData.supplierId}`);
+
+            // Buscar el proveedor en la BD por ID
+            const { db } = await import('./db');
+            const { suppliers } = await import('../shared/schema');
+            const { eq } = await import('drizzle-orm');
+
+            const [supplierFromDb] = await db.select().from(suppliers).where(eq(suppliers.id, validatedData.supplierId));
+
+            if (supplierFromDb) {
+              matchingSupplier = supplierFromDb;
+              finalSupplierId = supplierFromDb.id;
+              matchConfidence = 1.0; // 100% confianza porque el usuario lo seleccionó
+              console.log(`✅ [Invoice Detection] Proveedor del frontend encontrado: ${supplierFromDb.name} (ID: ${finalSupplierId})`);
+            } else {
+              console.warn(`⚠️ [Invoice Detection] supplierId ${validatedData.supplierId} no encontrado en BD, intentando matching por extracción`);
+            }
+          }
+
+          // Si no hay supplierId del frontend o no se encontró, intentar matching por extracción
+          if (!matchingSupplier && (supplierName || taxId)) {
             const matchResult = await findBestSupplierMatch(supplierName, taxId);
             if (matchResult) {
               matchingSupplier = matchResult.supplier;
-              supplierId = matchingSupplier.id;
+              finalSupplierId = matchingSupplier.id;
               matchConfidence = matchResult.confidence;
-              console.log(`🔗 [Invoice Detection] Proveedor encontrado (${matchResult.source}): ${matchingSupplier.name} (ID: ${supplierId}, Confianza: ${(matchConfidence * 100).toFixed(0)}%)`);
+              console.log(`🔗 [Invoice Detection] Proveedor encontrado por extracción (${matchResult.source}): ${matchingSupplier.name} (ID: ${finalSupplierId}, Confianza: ${(matchConfidence * 100).toFixed(0)}%)`);
             } else {
-              console.log(`⚠️ [Invoice Detection] Proveedor "${supplierName || 'N/A'}" no encontrado en base de datos, se requerirá selección manual`);
+              console.log(`⚠️ [Invoice Detection] Proveedor "${supplierName || 'N/A'}" no encontrado en base de datos`);
             }
-          } else {
-            console.log(`⚠️ [Invoice Detection] Proveedor no especificado en factura (extractedSupplierName es null), requerirá entrada manual`);
+          } else if (!matchingSupplier) {
+            console.log(`⚠️ [Invoice Detection] Sin supplierId del frontend y sin datos de extracción, requerirá selección manual`);
           }
 
           // Guardar el archivo de factura temporalmente para verificación
@@ -7211,9 +7234,9 @@ export function registerRoutes(app: express.Application) {
               originalName: file.originalname,
             },
             supplier: {
-              id: supplierId,
-              // Usar supplierName del análisis si existe, sino usar el nombre del proveedor encontrado, sino null
-              name: supplierName ?? (matchingSupplier ? matchingSupplier.name : null) ?? null,
+              id: finalSupplierId,
+              // ✅ FIX: Priorizar nombre del proveedor seleccionado (del frontend) sobre el extraído
+              name: (matchingSupplier ? matchingSupplier.name : null) ?? supplierName ?? null,
             },
             payerCompanyId: payerCompanyId,
             message: message,
