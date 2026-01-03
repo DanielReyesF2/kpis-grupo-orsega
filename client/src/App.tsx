@@ -136,9 +136,10 @@ function App() {
           <ThemeProvider attribute="class" defaultTheme="dark">
             <SafeAuthProvider>
               <CompanyFilterProvider>
-                <CopilotKit runtimeUrl="/api/copilotkit">
-                  <Toaster />
-                  <Router />
+                <Toaster />
+                <Router />
+                {/* Temporalmente desactivar CopilotKit para diagnosticar */}
+                {/* <CopilotKit runtimeUrl="/api/copilotkit">
                   <CopilotPopup
                     instructions="Eres un asistente AI para Grupo Orsega. Ayudas a los usuarios a analizar datos de ventas, logística, tesorería y KPIs. Responde siempre en español. Sé conciso y profesional."
                     labels={{
@@ -149,7 +150,7 @@ function App() {
                     defaultOpen={false}
                     clickOutsideToClose={true}
                   />
-                </CopilotKit>
+                </CopilotKit> */}
               </CompanyFilterProvider>
             </SafeAuthProvider>
           </ThemeProvider>
