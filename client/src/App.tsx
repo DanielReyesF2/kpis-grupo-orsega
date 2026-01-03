@@ -2,7 +2,8 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+// TooltipProvider removido temporalmente para diagnóstico
+// import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "next-themes";
 import { SafeAuthProvider } from "@/components/SafeAuthProvider";
@@ -133,29 +134,14 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <ThemeProvider attribute="class" defaultTheme="dark">
-            <SafeAuthProvider>
-              <CompanyFilterProvider>
-                <Toaster />
-                <Router />
-                {/* Temporalmente desactivar CopilotKit para diagnosticar */}
-                {/* <CopilotKit runtimeUrl="/api/copilotkit">
-                  <CopilotPopup
-                    instructions="Eres un asistente AI para Grupo Orsega. Ayudas a los usuarios a analizar datos de ventas, logística, tesorería y KPIs. Responde siempre en español. Sé conciso y profesional."
-                    labels={{
-                      title: "Asistente AI",
-                      initial: "¡Hola! Soy tu asistente AI. ¿En qué puedo ayudarte hoy?",
-                      placeholder: "Escribe tu pregunta aquí...",
-                    }}
-                    defaultOpen={false}
-                    clickOutsideToClose={true}
-                  />
-                </CopilotKit> */}
-              </CompanyFilterProvider>
-            </SafeAuthProvider>
-          </ThemeProvider>
-        </TooltipProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark">
+          <SafeAuthProvider>
+            <CompanyFilterProvider>
+              <Toaster />
+              <Router />
+            </CompanyFilterProvider>
+          </SafeAuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
