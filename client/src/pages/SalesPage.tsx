@@ -52,8 +52,9 @@ import { MultiYearTrendChart } from "@/components/dashboard/MultiYearTrendChart"
 import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
 import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
+import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
 
-type ViewMode = "overview" | "upload" | "comparison" | "alerts" | "analytics";
+type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics";
 
 export default function SalesPage() {
   const { user } = useAuth();
@@ -69,7 +70,7 @@ export default function SalesPage() {
     return user?.companyId || 1;
   };
 
-  const [viewMode, setViewMode] = useState<ViewMode>("overview");
+  const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
   const [selectedCompany, setSelectedCompany] = useState<number>(getInitialCompany());
 
   // Sincronizar selectedCompany con la URL cuando cambie
@@ -368,6 +369,9 @@ export default function SalesPage() {
         </div>
 
         {/* Vista según modo seleccionado */}
+        {viewMode === "dashboard" && (
+          <SalesDashboard companyId={selectedCompany} />
+        )}
         {viewMode === "overview" && (
           <div className="space-y-8">
             {/* KPIs Overview - Diseño Minimalista */}

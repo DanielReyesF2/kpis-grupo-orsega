@@ -38,8 +38,9 @@ import { AutoReminders } from "@/components/treasury/automation/AutoReminders";
 import { AutoReconciliation } from "@/components/treasury/automation/AutoReconciliation";
 import { NotificationCenter } from "@/components/treasury/automation/NotificationCenter";
 import { AccountingHub } from "@/components/treasury/accounting/AccountingHub";
+import { TreasuryDashboard } from "@/components/treasury/dashboard/TreasuryDashboard";
 
-type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history" | "accounting";
+type ViewMode = "main" | "upload" | "vouchers" | "payments" | "exchange-rates" | "idrall" | "suppliers" | "history" | "accounting" | "dashboard";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
@@ -87,7 +88,7 @@ export default function TreasuryPage() {
     companyId: null as number | null,
   });
   const [showSmartUpload, setShowSmartUpload] = useState(true);
-  const [activeTab, setActiveTab] = useState<"vouchers" | "payments" | "automation">("vouchers");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "vouchers" | "payments" | "automation">("dashboard");
   const [showAdvancedViews, setShowAdvancedViews] = useState(false);
 
   // Mutación para subir factura directamente
@@ -601,11 +602,17 @@ export default function TreasuryPage() {
 
           {/* Tabs para organizar vistas */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="vouchers">Comprobantes</TabsTrigger>
               <TabsTrigger value="payments">Pagos</TabsTrigger>
               <TabsTrigger value="automation">Automatizaciones</TabsTrigger>
             </TabsList>
+
+            {/* Tab: Dashboard */}
+            <TabsContent value="dashboard" className="space-y-4 mt-4">
+              <TreasuryDashboard companyId={selectedCompanyForUpload || undefined} />
+            </TabsContent>
 
             {/* Tab: Comprobantes */}
             <TabsContent value="vouchers" className="space-y-4 mt-4">
