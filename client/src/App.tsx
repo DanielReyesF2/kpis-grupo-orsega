@@ -1,5 +1,5 @@
-// DIAGNÓSTICO Error React #31 - PASO 7
-// Probando: Dashboard mínimo solo con AppLayout
+// DIAGNÓSTICO Error React #31 - PASO 8
+// Probando: AppLayout + PageHeader
 
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,13 +12,23 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Login from "@/pages/Login";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/salesforce/layout/PageHeader";
+import { BarChart3 } from "lucide-react";
 
 function MinimalDashboard() {
   return (
     <AppLayout title="Test Dashboard">
+      <PageHeader
+        objectIcon={BarChart3}
+        title="Dashboard Ejecutivo"
+        subtitle="Test - Paso 8"
+        breadcrumbs={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Dashboard' },
+        ]}
+      />
       <div className="p-8">
-        <h1 className="text-2xl font-bold">Test - Paso 7</h1>
-        <p>AppLayout funciona - si ves esto, el problema está en otro componente del Dashboard</p>
+        <p>PageHeader agregado - si ves esto, PageHeader funciona</p>
       </div>
     </AppLayout>
   );
