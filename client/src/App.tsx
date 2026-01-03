@@ -1,9 +1,11 @@
-// DIAGNÓSTICO Error React #31 - PASO 2
-// Agregando: QueryClientProvider + ThemeProvider
+// DIAGNÓSTICO Error React #31 - PASO 3
+// Agregando: SafeAuthProvider + CompanyFilterProvider
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { ThemeProvider } from "next-themes";
+import { SafeAuthProvider } from "@/components/SafeAuthProvider";
+import { CompanyFilterProvider } from "@/hooks/use-company-filter";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 function App() {
@@ -11,10 +13,14 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider attribute="class" defaultTheme="dark">
-          <div className="p-8">
-            <h1 className="text-2xl font-bold">Test - Paso 2</h1>
-            <p>QueryClientProvider + ThemeProvider agregados</p>
-          </div>
+          <SafeAuthProvider>
+            <CompanyFilterProvider>
+              <div className="p-8">
+                <h1 className="text-2xl font-bold">Test - Paso 3</h1>
+                <p>SafeAuthProvider + CompanyFilterProvider agregados</p>
+              </div>
+            </CompanyFilterProvider>
+          </SafeAuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
