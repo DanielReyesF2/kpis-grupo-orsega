@@ -143,20 +143,7 @@ export function PageHeader({
                 </Button>
               );
             })}
-            {primaryAction && (() => {
-              const PrimaryIcon = primaryAction.icon;
-              return (
-                <Button
-                  key="primary"
-                  variant={primaryAction.variant || 'default'}
-                  size="sm"
-                  onClick={primaryAction.onClick}
-                >
-                  {PrimaryIcon && <PrimaryIcon className="h-4 w-4 mr-2" />}
-                  {primaryAction.label}
-                </Button>
-              );
-            })()}
+            {renderPrimaryAction()}
           </div>
         )}
       </div>
