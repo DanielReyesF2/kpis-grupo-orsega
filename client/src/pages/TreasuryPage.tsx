@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, Users, History, Loader2, FileText, DollarSign, TrendingUp } from "lucide-react";
+import { Upload, Users, History, Loader2, FileText, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -47,6 +47,40 @@ export default function TreasuryPage() {
   const [showInvoiceVerificationModal, setShowInvoiceVerificationModal] = useState(false);
   const [invoiceVerificationData, setInvoiceVerificationData] = useState<any>(null);
   const [showInvoiceWizard, setShowInvoiceWizard] = useState(false);
+  const [isRefreshingRates, setIsRefreshingRates] = useState(false);
+
+  // Función para actualizar tipos de cambio
+  const handleRefreshExchangeRates = async () => {
+    setIsRefreshingRates(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch("/api/treasury/exchange-rates/refresh-dof", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar tipos de cambio");
+      }
+
+      const data = await response.json();
+      toast({
+        title: "✅ Tipos de cambio actualizados",
+        description: data.message || "Se actualizaron los tipos de cambio del DOF",
+      });
+
+      // Invalidar queries para refrescar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/treasury/exchange-rates"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron actualizar los tipos de cambio",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingRates(false);
+    }
+  };
 
   // Mutación para subir factura
   const uploadInvoiceMutation = useMutation({
@@ -214,9 +248,23 @@ export default function TreasuryPage() {
                 Historial de tipos de cambio USD/MXN
               </p>
             </div>
-            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
-              ← Volver
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                onClick={handleRefreshExchangeRates}
+                disabled={isRefreshingRates}
+              >
+                {isRefreshingRates ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Actualizar DOF
+              </Button>
+              <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
+                ← Volver
+              </Button>
+            </div>
           </div>
           <ExchangeRateHistory />
         </div>
