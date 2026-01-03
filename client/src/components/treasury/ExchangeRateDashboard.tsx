@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, TrendingDown, Clock, Plus } from "lucide-react";
+import { Loader2, TrendingUp, Clock, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { queryClient } from "@/lib/queryClient";
@@ -31,6 +31,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
   const [selectedSource, setSelectedSource] = useState<"Santander" | "MONEX">("Santander");
   const [buyRate, setBuyRate] = useState("");
   const [sellRate, setSellRate] = useState("");
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
   // Obtener todos los tipos de cambio de hoy
   const { data: allRates = [], isLoading } = useQuery<ExchangeRate[]>({
@@ -277,37 +278,60 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
         )}
       </div>
 
-      {/* Historial Reciente (últimos 7 días) */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Historial Reciente</h2>
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-          {allRates.slice(0, 30).map((rate) => {
-            const colors = sourceColors[rate.source] || sourceColors.DOF;
-            const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
-            return (
-              <Card key={rate.id} className={`${colors.bg} ${colors.border} ${isToday ? "ring-2 ring-primary/20" : ""}`}>
-                <CardContent className="p-2 px-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <Badge className={colors.text} variant="outline" style={{ fontSize: "10px", padding: "2px 6px" }}>
-                        {rate.source}
-                      </Badge>
-                      <span className="text-muted-foreground text-xs">
-                        {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
-                      </span>
+      {/* Historial Reciente */}
+      {allRates.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Historial</h2>
+            {allRates.length > 10 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullHistory(!showFullHistory)}
+              >
+                {showFullHistory ? (
+                  <>
+                    <ChevronUp className="h-4 w-4 mr-1" />
+                    Ver menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4 mr-1" />
+                    Ver más ({allRates.length - 10})
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+          <div className={`space-y-2 ${showFullHistory ? "max-h-[500px] overflow-y-auto" : ""}`}>
+            {allRates.slice(0, showFullHistory ? 50 : 10).map((rate) => {
+              const colors = sourceColors[rate.source] || sourceColors.DOF;
+              const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
+              return (
+                <Card key={rate.id} className={`${colors.bg} ${colors.border} ${isToday ? "ring-2 ring-primary/20" : ""}`}>
+                  <CardContent className="p-2 px-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge className={colors.text} variant="outline" style={{ fontSize: "10px", padding: "2px 6px" }}>
+                          {rate.source}
+                        </Badge>
+                        <span className="text-muted-foreground text-xs">
+                          {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
+                        </span>
+                      </div>
+                      <div className="flex gap-3">
+                        <span className="font-mono">${rate.buyRate.toFixed(4)}</span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="font-mono">${rate.sellRate.toFixed(4)}</span>
+                      </div>
                     </div>
-                    <div className="flex gap-3">
-                      <span className="font-mono">${rate.buyRate.toFixed(4)}</span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="font-mono">${rate.sellRate.toFixed(4)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
