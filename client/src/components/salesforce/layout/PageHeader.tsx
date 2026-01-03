@@ -11,14 +11,14 @@ import {
 } from "@/components/ui/breadcrumb";
 import { cn } from "@/lib/utils";
 
-export interface BreadcrumbItem {
+export interface BreadcrumbItemData {
   label: string;
   href?: string;
 }
 
 export interface PageHeaderProps {
   objectIcon?: LucideIcon | ReactNode;
-  breadcrumbs?: BreadcrumbItem[];
+  breadcrumbs?: BreadcrumbItemData[];
   title: string;
   subtitle?: string;
   actions?: Array<{
