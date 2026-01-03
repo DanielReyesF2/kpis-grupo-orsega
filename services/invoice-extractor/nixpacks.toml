@@ -1,0 +1,14 @@
+# Configuración de Nixpacks para Railway
+# Forzar uso de Python (no Node.js)
+
+[phases.setup]
+nixPkgs = ["python311", "poppler_utils", "tesseract", "tesseract-data-spa"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python main.py"
+
+[variables]
+PYTHONUNBUFFERED = "1"
