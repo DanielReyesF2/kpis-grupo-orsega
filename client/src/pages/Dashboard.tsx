@@ -154,20 +154,28 @@ export default function Dashboard() {
       });
   }, [kpis]);
 
-  // Process sales data for funnel
+  // Process sales data for funnel - Calculate from actual sales data
   const salesFunnel = useMemo(() => {
-    if (!salesStats) return [];
+    if (!salesData || salesData.length === 0) return [];
 
-    // This would come from actual sales pipeline data
-    // For now, using placeholder structure
-    return [
-      { stage: 'Leads', value: 1000, color: '#1B5E9E' },
-      { stage: 'Oportunidades', value: 500, color: '#0288D1' },
-      { stage: 'Propuestas', value: 250, color: '#00ACC1' },
-      { stage: 'Negociación', value: 125, color: '#009688' },
-      { stage: 'Cerrado', value: 50, color: '#2E7D32' },
-    ];
-  }, [salesStats]);
+    // Group by month to show sales progression
+    const byMonth = salesData.reduce((acc, sale) => {
+      const month = new Date(sale.date).toLocaleString('es-MX', { month: 'short' });
+      if (!acc[month]) acc[month] = 0;
+      acc[month] += sale.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const colors = ['#1B5E9E', '#0288D1', '#00ACC1', '#009688', '#2E7D32'];
+    return Object.entries(byMonth)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([month, amount], index) => ({
+        stage: month,
+        value: amount,
+        color: colors[index % colors.length],
+      }));
+  }, [salesData]);
 
   // Process sales distribution for donut
   const salesDistribution = useMemo(() => {

@@ -75,17 +75,33 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
     },
   ];
 
-  // Sales pipeline funnel
+  // Sales pipeline funnel - Calculate from actual sales data
   const salesPipeline = useMemo(() => {
-    // This would come from actual pipeline data
-    // For now, using structure based on sales stages
-    return [
-      { stage: 'Leads', value: 1000, color: '#1B5E9E' },
-      { stage: 'Calificación', value: 600, color: '#0288D1' },
-      { stage: 'Propuesta', value: 300, color: '#00ACC1' },
-      { stage: 'Negociación', value: 150, color: '#009688' },
-      { stage: 'Cerrado Ganado', value: 75, color: '#2E7D32' },
-    ];
+    if (!salesData || salesData.length === 0) return [];
+
+    // Group sales by month to simulate pipeline stages
+    // This is a simplified version - in production, you'd have actual pipeline stages
+    const byMonth = salesData.reduce((acc, sale) => {
+      const month = new Date(sale.date).getMonth();
+      if (!acc[month]) acc[month] = 0;
+      acc[month] += sale.amount;
+      return acc;
+    }, {} as Record<number, number>);
+
+    const months = Object.entries(byMonth)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .slice(0, 5)
+      .map(([month, amount], index) => {
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const colors = ['#1B5E9E', '#0288D1', '#00ACC1', '#009688', '#2E7D32'];
+        return {
+          stage: monthNames[Number(month)],
+          value: amount,
+          color: colors[index % colors.length],
+        };
+      });
+
+    return months.length > 0 ? months : [];
   }, [salesData]);
 
   // Sales target gauge

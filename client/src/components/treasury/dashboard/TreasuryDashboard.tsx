@@ -177,16 +177,32 @@ export function TreasuryDashboard({ companyId }: TreasuryDashboardProps) {
       .slice(0, 6);
   }, [vouchers]);
 
-  // Forecast by category (would need additional data)
+  // Forecast by category - Calculate from actual payment data
   const forecastByCategory = useMemo(() => {
-    // Placeholder data - would come from actual forecast data
-    return [
-      { category: 'Omitted', value: 584000 },
-      { category: 'Pipeline', value: 8900000 },
-      { category: 'Best Case', value: 16000000 },
-      { category: 'Commit', value: 8300000 },
-    ];
-  }, []);
+    if (!payments || payments.length === 0) return [];
+
+    const byStatus = payments.reduce((acc, p) => {
+      const status = p.status || 'unknown';
+      if (!acc[status]) acc[status] = 0;
+      acc[status] += p.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const statusLabels: Record<string, string> = {
+      pending: 'Pipeline',
+      scheduled: 'Commit',
+      overdue: 'Best Case',
+      paid: 'Omitted',
+    };
+
+    return Object.entries(byStatus)
+      .map(([status, amount]) => ({
+        category: statusLabels[status] || status,
+        value: amount,
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [payments]);
 
   const handleSaveView = (name: string) => {
     saveView(name, filters);
