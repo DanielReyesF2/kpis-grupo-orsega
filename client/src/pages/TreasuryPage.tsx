@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, Users, History, Loader2, FileText, DollarSign } from "lucide-react";
+import { Upload, Users, History, Loader2, FileText, DollarSign, TrendingUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -19,15 +19,28 @@ import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliers
 import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
 import { InvoiceUploadWizard } from "@/components/treasury/modals/InvoiceUploadWizard";
 import { SmartUploadZone } from "@/components/treasury/SmartUploadZone";
+import { ExchangeRateHistory } from "@/components/treasury/ExchangeRateHistory";
 
-type ViewMode = "main" | "suppliers" | "history";
+type ViewMode = "main" | "suppliers" | "history" | "exchange-rates";
 
 export default function TreasuryPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("main");
+  // Detectar vista basada en URL
+  const getInitialView = (): ViewMode => {
+    if (location.includes("/exchange-rates")) return "exchange-rates";
+    if (location.includes("/vouchers")) return "main";
+    return "main";
+  };
+
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialView);
+
+  // Sincronizar viewMode con URL
+  useEffect(() => {
+    setViewMode(getInitialView());
+  }, [location]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
@@ -162,7 +175,7 @@ export default function TreasuryPage() {
   if (viewMode === "suppliers") {
     return (
       <AppLayout title="Tesorería - Proveedores">
-        <ManageSuppliersFlow onBack={() => setViewMode("main")} />
+        <ManageSuppliersFlow onBack={() => { setViewMode("main"); setLocation("/treasury"); }} />
       </AppLayout>
     );
   }
@@ -179,11 +192,33 @@ export default function TreasuryPage() {
                 Consulta todos los pagos completados y sus documentos
               </p>
             </div>
-            <Button variant="outline" onClick={() => setViewMode("main")}>
+            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
               ← Volver
             </Button>
           </div>
           <PaymentHistory />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Vista de Tipos de Cambio
+  if (viewMode === "exchange-rates") {
+    return (
+      <AppLayout title="Tesorería - Tipos de Cambio">
+        <div className="p-6 max-w-[1400px] mx-auto space-y-4">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Tipos de Cambio</h1>
+              <p className="text-sm text-muted-foreground">
+                Historial de tipos de cambio USD/MXN
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
+              ← Volver
+            </Button>
+          </div>
+          <ExchangeRateHistory />
         </div>
       </AppLayout>
     );
@@ -209,6 +244,10 @@ export default function TreasuryPage() {
             <Button variant="outline" size="sm" onClick={() => setViewMode("history")}>
               <History className="h-4 w-4 mr-2" />
               Historial
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setViewMode("exchange-rates"); setLocation("/treasury/exchange-rates"); }}>
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Tipo de Cambio
             </Button>
           </div>
         </div>
