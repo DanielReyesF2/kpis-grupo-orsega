@@ -698,12 +698,35 @@ Now analyze the following document carefully and extract ALL available informati
           max_tokens: 1200,
         });
       } else {
-        // Si no hay texto en absoluto, el análisis manual intentará extraer datos básicos
+        // Si no hay texto en absoluto, usar OpenAI Vision para analizar el PDF como imagen
         console.warn('⚠️ [PDF] PDF sin texto extraíble detectado. Esto podría ser una imagen escaneada.');
-        console.warn('⚠️ [PDF] El análisis será limitado, pero se intentará extraer datos básicos mediante análisis manual.');
-        // No hacer llamada a OpenAI, dejar que el análisis manual maneje esto
-        // Crear una respuesta vacía para que el análisis manual pueda procesar
-        response = null as any;
+        console.log('📸 [OpenAI Vision] Intentando análisis visual del PDF...');
+
+        // Convertir PDF a base64 para análisis visual
+        const pdfBase64 = fileBuffer.toString('base64');
+        const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
+
+        try {
+          response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: documentTypePrompt },
+                  { type: "image_url", image_url: { url: pdfDataUrl, detail: "high" } },
+                ],
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 1200,
+          });
+          console.log('✅ [OpenAI Vision] Análisis visual completado');
+        } catch (visionError: any) {
+          console.error('❌ [OpenAI Vision] Error en análisis visual:', visionError.message);
+          // Si falla el análisis visual, continuar con análisis manual
+          response = null as any;
+        }
       }
     } else {
       // Para imágenes (PNG, JPG), usar análisis de visión
