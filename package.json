@@ -25,6 +25,7 @@
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@langchain/core": "^1.1.8",
+    "@napi-rs/canvas": "^0.1.88",
     "@neondatabase/serverless": "^0.10.4",
     "@nextui-org/react": "^2.6.11",
     "@nodecfdi/cfdi-to-json": "^2.0.1",
