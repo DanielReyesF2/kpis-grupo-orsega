@@ -127,15 +127,83 @@ if (typeof globalThis.Path2D === 'undefined') {
 const INVOICE2DATA_URL = process.env.INVOICE2DATA_URL || "http://localhost:5050";
 
 // ========================================
-// DIAGNÓSTICO DE CONFIGURACIÓN
+// DIAGNÓSTICO DE CONFIGURACIÓN Y DEPENDENCIAS
 // ========================================
 const CONFIG_STATUS = {
   OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+  OPENAI_API_KEY_PREFIX: process.env.OPENAI_API_KEY?.substring(0, 7) || 'NOT_SET',
   INVOICE2DATA_URL: process.env.INVOICE2DATA_URL || 'default:localhost:5050',
   NODE_ENV: process.env.NODE_ENV || 'development',
 };
 
+console.log('📊 [Document Analyzer] ====================================================');
+console.log('📊 [Document Analyzer] MÓDULO CARGADO - Diagnóstico de inicio');
+console.log('📊 [Document Analyzer] ====================================================');
 console.log('📊 [Document Analyzer] Configuración:', JSON.stringify(CONFIG_STATUS, null, 2));
+
+// Verificar dependencias críticas al cargar el módulo
+(async () => {
+  console.log('🔍 [Dependency Check] Verificando dependencias críticas...');
+
+  // 1. Verificar pdf-parse
+  try {
+    const pdfParse = await import('pdf-parse');
+    console.log('✅ [Dependency Check] pdf-parse: OK');
+  } catch (e: any) {
+    console.error('❌ [Dependency Check] pdf-parse: ERROR -', e.message);
+  }
+
+  // 2. Verificar pdfjs-dist
+  try {
+    const pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.js');
+    const pdfjs = pdfjsModule.default || pdfjsModule;
+    console.log('✅ [Dependency Check] pdfjs-dist: OK');
+    console.log('   - getDocument:', typeof pdfjs.getDocument === 'function' ? 'disponible' : 'NO disponible');
+  } catch (e: any) {
+    console.error('❌ [Dependency Check] pdfjs-dist: ERROR -', e.message);
+  }
+
+  // 3. Verificar @napi-rs/canvas
+  try {
+    const canvas = await import('@napi-rs/canvas');
+    console.log('✅ [Dependency Check] @napi-rs/canvas: OK');
+    console.log('   - createCanvas:', typeof canvas.createCanvas === 'function' ? 'disponible' : 'NO disponible');
+  } catch (e: any) {
+    console.error('❌ [Dependency Check] @napi-rs/canvas: ERROR -', e.message);
+  }
+
+  // 4. Verificar OpenAI
+  try {
+    const openai = await import('openai');
+    console.log('✅ [Dependency Check] openai: OK');
+  } catch (e: any) {
+    console.error('❌ [Dependency Check] openai: ERROR -', e.message);
+  }
+
+  // 5. Verificar polyfills
+  console.log('🔧 [Dependency Check] Polyfills:');
+  console.log('   - DOMMatrix:', typeof globalThis.DOMMatrix !== 'undefined' ? '✅ OK' : '❌ NO disponible');
+  console.log('   - Path2D:', typeof globalThis.Path2D !== 'undefined' ? '✅ OK' : '❌ NO disponible');
+
+  // 6. Verificar microservicio invoice2data
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(`${INVOICE2DATA_URL}/health`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (response.ok) {
+      console.log('✅ [Dependency Check] invoice2data microservice: OK (disponible en', INVOICE2DATA_URL + ')');
+    } else {
+      console.warn('⚠️ [Dependency Check] invoice2data microservice: HTTP', response.status);
+    }
+  } catch (e: any) {
+    console.warn('⚠️ [Dependency Check] invoice2data microservice: NO disponible -', e.message?.substring(0, 50));
+  }
+
+  console.log('📊 [Document Analyzer] ====================================================');
+  console.log('📊 [Document Analyzer] Diagnóstico completado');
+  console.log('📊 [Document Analyzer] ====================================================');
+})();
 
 /**
  * Llama al microservicio Python invoice2data para extraer datos
