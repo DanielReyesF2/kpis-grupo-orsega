@@ -11,8 +11,131 @@ import OpenAI from "openai";
 import { isCFDI, parseCFDI, cfdiToInvoiceData } from "./cfdi-parser";
 import { findMatchingTemplate, extractWithTemplate, fallbackTemplate } from "./invoice-templates";
 
+// ========================================
+// POLYFILL: DOMMatrix para Node.js
+// pdfjs-dist requiere DOMMatrix que no existe en Node.js puro
+// ========================================
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  console.log('🔧 [Polyfill] Instalando DOMMatrix polyfill para Node.js');
+  (globalThis as any).DOMMatrix = class DOMMatrix {
+    a: number; b: number; c: number; d: number; e: number; f: number;
+    m11: number; m12: number; m13: number; m14: number;
+    m21: number; m22: number; m23: number; m24: number;
+    m31: number; m32: number; m33: number; m34: number;
+    m41: number; m42: number; m43: number; m44: number;
+    is2D: boolean; isIdentity: boolean;
+
+    constructor(init?: string | number[]) {
+      // Identity matrix
+      this.a = this.m11 = 1; this.b = this.m12 = 0;
+      this.c = this.m21 = 0; this.d = this.m22 = 1;
+      this.e = this.m41 = 0; this.f = this.m42 = 0;
+      this.m13 = 0; this.m14 = 0;
+      this.m23 = 0; this.m24 = 0;
+      this.m31 = 0; this.m32 = 0; this.m33 = 1; this.m34 = 0;
+      this.m43 = 0; this.m44 = 1;
+      this.is2D = true; this.isIdentity = true;
+
+      if (Array.isArray(init) && init.length >= 6) {
+        [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+        this.m11 = this.a; this.m12 = this.b;
+        this.m21 = this.c; this.m22 = this.d;
+        this.m41 = this.e; this.m42 = this.f;
+        this.isIdentity = false;
+      }
+    }
+
+    multiply(other: DOMMatrix): DOMMatrix {
+      const result = new DOMMatrix();
+      result.a = this.a * other.a + this.c * other.b;
+      result.b = this.b * other.a + this.d * other.b;
+      result.c = this.a * other.c + this.c * other.d;
+      result.d = this.b * other.c + this.d * other.d;
+      result.e = this.a * other.e + this.c * other.f + this.e;
+      result.f = this.b * other.e + this.d * other.f + this.f;
+      return result;
+    }
+
+    translate(tx: number, ty: number): DOMMatrix {
+      const result = new DOMMatrix([this.a, this.b, this.c, this.d, this.e + tx, this.f + ty]);
+      return result;
+    }
+
+    scale(sx: number, sy?: number): DOMMatrix {
+      sy = sy ?? sx;
+      return new DOMMatrix([this.a * sx, this.b * sx, this.c * sy, this.d * sy, this.e, this.f]);
+    }
+
+    inverse(): DOMMatrix {
+      const det = this.a * this.d - this.b * this.c;
+      if (det === 0) return new DOMMatrix();
+      return new DOMMatrix([
+        this.d / det, -this.b / det,
+        -this.c / det, this.a / det,
+        (this.c * this.f - this.d * this.e) / det,
+        (this.b * this.e - this.a * this.f) / det
+      ]);
+    }
+
+    transformPoint(point: {x: number, y: number}): {x: number, y: number} {
+      return {
+        x: this.a * point.x + this.c * point.y + this.e,
+        y: this.b * point.x + this.d * point.y + this.f
+      };
+    }
+
+    static fromMatrix(other: any): DOMMatrix {
+      return new DOMMatrix([other.a || 1, other.b || 0, other.c || 0, other.d || 1, other.e || 0, other.f || 0]);
+    }
+  };
+}
+
+// Path2D polyfill si no existe
+if (typeof globalThis.Path2D === 'undefined') {
+  console.log('🔧 [Polyfill] Instalando Path2D polyfill para Node.js');
+  (globalThis as any).Path2D = class Path2D {
+    private commands: any[] = [];
+    constructor(path?: string | Path2D) {
+      if (typeof path === 'string') {
+        // SVG path parsing (simplificado)
+        this.commands.push({ type: 'path', data: path });
+      }
+    }
+    addPath(path: Path2D) { this.commands.push({ type: 'addPath', path }); }
+    closePath() { this.commands.push({ type: 'closePath' }); }
+    moveTo(x: number, y: number) { this.commands.push({ type: 'moveTo', x, y }); }
+    lineTo(x: number, y: number) { this.commands.push({ type: 'lineTo', x, y }); }
+    bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number) {
+      this.commands.push({ type: 'bezierCurveTo', cp1x, cp1y, cp2x, cp2y, x, y });
+    }
+    quadraticCurveTo(cpx: number, cpy: number, x: number, y: number) {
+      this.commands.push({ type: 'quadraticCurveTo', cpx, cpy, x, y });
+    }
+    arc(x: number, y: number, radius: number, startAngle: number, endAngle: number, counterclockwise?: boolean) {
+      this.commands.push({ type: 'arc', x, y, radius, startAngle, endAngle, counterclockwise });
+    }
+    ellipse(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number, counterclockwise?: boolean) {
+      this.commands.push({ type: 'ellipse', x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise });
+    }
+    rect(x: number, y: number, w: number, h: number) {
+      this.commands.push({ type: 'rect', x, y, w, h });
+    }
+  };
+}
+
 // URL del microservicio Python de invoice2data
 const INVOICE2DATA_URL = process.env.INVOICE2DATA_URL || "http://localhost:5050";
+
+// ========================================
+// DIAGNÓSTICO DE CONFIGURACIÓN
+// ========================================
+const CONFIG_STATUS = {
+  OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+  INVOICE2DATA_URL: process.env.INVOICE2DATA_URL || 'default:localhost:5050',
+  NODE_ENV: process.env.NODE_ENV || 'development',
+};
+
+console.log('📊 [Document Analyzer] Configuración:', JSON.stringify(CONFIG_STATUS, null, 2));
 
 /**
  * Llama al microservicio Python invoice2data para extraer datos
@@ -97,60 +220,191 @@ async function loadPdfjs() {
 /**
  * Convierte la primera página de un PDF a imagen PNG base64
  * Usa @napi-rs/canvas para renderizar sin dependencias nativas de Cairo
+ *
+ * SOLUCIÓN MEJORADA: Con mejor manejo de errores y diagnóstico
  */
 async function convertPdfToImage(fileBuffer: Buffer): Promise<string | null> {
+  const startTime = Date.now();
+  console.log('🖼️ [PDF to Image] ========================================');
+  console.log('🖼️ [PDF to Image] Iniciando conversión de PDF a imagen...');
+  console.log(`🖼️ [PDF to Image] Buffer size: ${fileBuffer.length} bytes`);
+
   try {
-    console.log('🖼️ [PDF to Image] Iniciando conversión de PDF a imagen...');
-
-    // Cargar @napi-rs/canvas
-    const { createCanvas } = await import('@napi-rs/canvas');
-    const pdfjs = await loadPdfjs();
-
-    if (!pdfjs || !pdfjs.getDocument) {
-      console.warn('⚠️ [PDF to Image] pdfjs-dist no disponible');
+    // Paso 1: Verificar que @napi-rs/canvas esté disponible
+    let createCanvas: any;
+    try {
+      const canvasModule = await import('@napi-rs/canvas');
+      createCanvas = canvasModule.createCanvas;
+      console.log('✅ [PDF to Image] @napi-rs/canvas cargado correctamente');
+    } catch (canvasError: any) {
+      console.error('❌ [PDF to Image] @napi-rs/canvas NO disponible:', canvasError.message);
+      console.error('❌ [PDF to Image] Sugerencia: Ejecutar "npm install @napi-rs/canvas"');
       return null;
     }
 
-    // Cargar el PDF
-    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(fileBuffer) });
+    // Paso 2: Cargar pdfjs-dist
+    const pdfjs = await loadPdfjs();
+    if (!pdfjs) {
+      console.error('❌ [PDF to Image] pdfjs-dist NO disponible');
+      return null;
+    }
+
+    if (!pdfjs.getDocument) {
+      console.error('❌ [PDF to Image] pdfjs.getDocument NO disponible');
+      console.error('❌ [PDF to Image] pdfjs keys:', Object.keys(pdfjs).join(', '));
+      return null;
+    }
+
+    console.log('✅ [PDF to Image] pdfjs-dist cargado correctamente');
+
+    // Paso 3: Cargar el PDF con opciones de diagnóstico
+    console.log('📄 [PDF to Image] Cargando documento PDF...');
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(fileBuffer),
+      // Desactivar worker para evitar problemas en Node.js
+      isEvalSupported: false,
+      disableFontFace: true,
+    });
+
     const pdf = await loadingTask.promise;
+    console.log(`✅ [PDF to Image] PDF cargado: ${pdf.numPages} página(s)`);
 
-    console.log(`📄 [PDF to Image] PDF cargado: ${pdf.numPages} página(s)`);
-
-    // Obtener la primera página
+    // Paso 4: Obtener la primera página
     const page = await pdf.getPage(1);
+    console.log('✅ [PDF to Image] Primera página obtenida');
 
-    // Escala para buena resolución (2x para mejor OCR)
+    // Paso 5: Configurar viewport con escala apropiada
+    // Escala 2.0 para buena resolución, pero no demasiado grande para evitar problemas de memoria
     const scale = 2.0;
     const viewport = page.getViewport({ scale });
 
-    // Crear canvas con @napi-rs/canvas
-    const canvas = createCanvas(viewport.width, viewport.height);
+    // Limitar tamaño máximo para evitar problemas de memoria
+    const maxDimension = 4000;
+    let finalScale = scale;
+    if (viewport.width > maxDimension || viewport.height > maxDimension) {
+      const scaleDown = maxDimension / Math.max(viewport.width, viewport.height);
+      finalScale = scale * scaleDown;
+      console.log(`⚠️ [PDF to Image] Reduciendo escala a ${finalScale.toFixed(2)} para evitar problemas de memoria`);
+    }
+
+    const finalViewport = page.getViewport({ scale: finalScale });
+    console.log(`📐 [PDF to Image] Viewport: ${Math.round(finalViewport.width)}x${Math.round(finalViewport.height)}`);
+
+    // Paso 6: Crear canvas
+    const canvas = createCanvas(Math.round(finalViewport.width), Math.round(finalViewport.height));
     const context = canvas.getContext('2d');
 
-    // Fondo blanco
-    context.fillStyle = 'white';
-    context.fillRect(0, 0, viewport.width, viewport.height);
+    if (!context) {
+      console.error('❌ [PDF to Image] No se pudo obtener contexto 2D del canvas');
+      return null;
+    }
 
-    // Renderizar la página del PDF
+    // Paso 7: Fondo blanco
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, finalViewport.width, finalViewport.height);
+    console.log('✅ [PDF to Image] Canvas preparado con fondo blanco');
+
+    // Paso 8: Renderizar la página del PDF
+    console.log('🎨 [PDF to Image] Renderizando página...');
     const renderContext = {
-      canvasContext: context,
-      viewport: viewport,
+      canvasContext: context as any, // Cast necesario por diferencias de tipos
+      viewport: finalViewport,
+      // Opciones adicionales para mejor compatibilidad
+      background: 'white',
     };
 
-    await page.render(renderContext).promise;
+    try {
+      await page.render(renderContext).promise;
+      console.log('✅ [PDF to Image] Página renderizada exitosamente');
+    } catch (renderError: any) {
+      console.error('❌ [PDF to Image] Error en page.render():', renderError.message);
+      console.error('❌ [PDF to Image] Stack:', renderError.stack?.split('\n').slice(0, 5).join('\n'));
 
-    console.log(`✅ [PDF to Image] Página renderizada: ${viewport.width}x${viewport.height}`);
+      // Intentar obtener al menos la imagen del canvas (puede tener contenido parcial)
+      try {
+        const partialBuffer = canvas.toBuffer('image/png');
+        if (partialBuffer && partialBuffer.length > 1000) {
+          console.warn('⚠️ [PDF to Image] Retornando imagen parcial después de error de render');
+          return partialBuffer.toString('base64');
+        }
+      } catch (e) {
+        // Ignorar error de imagen parcial
+      }
+      return null;
+    }
 
-    // Convertir a PNG base64
+    // Paso 9: Convertir a PNG base64
+    console.log('📦 [PDF to Image] Convirtiendo a PNG...');
     const pngBuffer = canvas.toBuffer('image/png');
     const base64 = pngBuffer.toString('base64');
 
+    const elapsed = Date.now() - startTime;
+    console.log(`✅ [PDF to Image] ========================================`);
     console.log(`✅ [PDF to Image] Imagen generada: ${Math.round(base64.length / 1024)} KB`);
+    console.log(`✅ [PDF to Image] Tiempo total: ${elapsed}ms`);
+    console.log(`✅ [PDF to Image] ========================================`);
 
     return base64;
   } catch (error: any) {
-    console.error('❌ [PDF to Image] Error convirtiendo PDF a imagen:', error.message);
+    const elapsed = Date.now() - startTime;
+    console.error('❌ [PDF to Image] ========================================');
+    console.error('❌ [PDF to Image] Error convirtiendo PDF a imagen');
+    console.error(`❌ [PDF to Image] Error: ${error.message}`);
+    console.error(`❌ [PDF to Image] Tipo: ${error.name || 'Unknown'}`);
+    console.error(`❌ [PDF to Image] Tiempo: ${elapsed}ms`);
+    if (error.stack) {
+      console.error('❌ [PDF to Image] Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+    }
+    console.error('❌ [PDF to Image] ========================================');
+    return null;
+  }
+}
+
+/**
+ * Método alternativo: Enviar PDF directamente a OpenAI como base64
+ * OpenAI puede procesar PDFs directamente en algunos casos
+ */
+async function sendPdfDirectlyToVision(fileBuffer: Buffer, openai: OpenAI, prompt: string): Promise<string | null> {
+  console.log('📄 [Direct PDF] Intentando enviar PDF directamente a OpenAI Vision...');
+  console.log(`📄 [Direct PDF] Tamaño del PDF: ${fileBuffer.length} bytes`);
+
+  // OpenAI tiene un límite de ~20MB para archivos codificados en base64
+  if (fileBuffer.length > 15 * 1024 * 1024) { // 15MB límite seguro
+    console.warn('⚠️ [Direct PDF] PDF demasiado grande para enviar directamente');
+    return null;
+  }
+
+  try {
+    const base64Pdf = fileBuffer.toString('base64');
+    const dataUrl = `data:application/pdf;base64,${base64Pdf}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: dataUrl,
+                detail: "high"
+              }
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 1500,
+    });
+
+    const content = response.choices[0]?.message?.content?.trim() || null;
+    console.log(`✅ [Direct PDF] Respuesta recibida: ${content?.length || 0} caracteres`);
+    return content;
+  } catch (error: any) {
+    console.warn('⚠️ [Direct PDF] Error enviando PDF directamente:', error.message);
+    // Esto es esperado - OpenAI puede no soportar PDFs directamente
     return null;
   }
 }
@@ -188,11 +442,22 @@ export async function analyzePaymentDocument(
   fileBuffer: Buffer,
   fileType: string
 ): Promise<DocumentAnalysisResult> {
-  // 🔄 BUILD VERSION: 2024-01-04-v2 - Si ves este log, el código nuevo está activo
-  console.log(`🚀 [Document Analyzer] ====== VERSIÓN 2024-01-04-v2 ======`);
+  // 🔄 BUILD VERSION: 2026-01-04-v3 - MEJORAS: Polyfills DOMMatrix/Path2D, mejor diagnóstico, fallback robusto
+  const buildVersion = '2026-01-04-v3';
+  const startTimeTotal = Date.now();
+
+  console.log(`🚀 [Document Analyzer] ====================================================`);
+  console.log(`🚀 [Document Analyzer] VERSIÓN: ${buildVersion}`);
+  console.log(`🚀 [Document Analyzer] ====================================================`);
   console.log(`🔍 [Document Analyzer] Iniciando análisis híbrido...`);
-  console.log(`📄 [Document Analyzer] Tipo de archivo: ${fileType}, Tamaño: ${fileBuffer.length} bytes`);
-  console.log(`🔑 [Document Analyzer] OPENAI_API_KEY presente: ${!!process.env.OPENAI_API_KEY}`);
+  console.log(`📄 [Document Analyzer] Tipo de archivo: ${fileType}`);
+  console.log(`📄 [Document Analyzer] Tamaño: ${fileBuffer.length} bytes (${(fileBuffer.length / 1024).toFixed(1)} KB)`);
+  console.log(`🔑 [Document Analyzer] OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? '✅ Configurada' : '❌ NO CONFIGURADA'}`);
+  console.log(`🐍 [Document Analyzer] INVOICE2DATA_URL: ${process.env.INVOICE2DATA_URL || '⚠️ No configurada (usando default localhost:5050)'}`);
+  console.log(`🌐 [Document Analyzer] NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔧 [Document Analyzer] DOMMatrix polyfill: ${typeof globalThis.DOMMatrix !== 'undefined' ? '✅ Activo' : '❌ No disponible'}`);
+  console.log(`🔧 [Document Analyzer] Path2D polyfill: ${typeof globalThis.Path2D !== 'undefined' ? '✅ Activo' : '❌ No disponible'}`);
+  console.log(`🚀 [Document Analyzer] ====================================================`);
 
   // ========================================
   // PASO 1: Detectar si es XML (CFDI)
@@ -791,8 +1056,35 @@ Now analyze the following document carefully and extract ALL available informati
             response = null as any;
           }
         } else {
+          // ========================================
+          // FALLBACK MEJORADO: Intentar enviar PDF directamente
+          // ========================================
           console.error('❌ [PDF to Image] No se pudo convertir el PDF a imagen');
-          response = null as any;
+          console.log('🔄 [Fallback] Intentando método alternativo: enviar PDF directamente a OpenAI...');
+
+          // Intentar enviar PDF directamente (algunos modelos lo soportan)
+          const directPdfResponse = await sendPdfDirectlyToVision(fileBuffer, openai, documentTypePrompt);
+
+          if (directPdfResponse) {
+            console.log('✅ [Fallback] PDF procesado directamente por OpenAI');
+            // Crear una respuesta simulada con el contenido
+            response = {
+              choices: [{
+                message: {
+                  content: directPdfResponse
+                }
+              }]
+            } as any;
+          } else {
+            console.error('❌ [Fallback] Todos los métodos de análisis visual fallaron');
+            console.error('❌ [Fallback] Posibles causas:');
+            console.error('   1. @napi-rs/canvas no instalado correctamente');
+            console.error('   2. pdfjs-dist incompatible con el entorno Node.js');
+            console.error('   3. PDF con formato no soportado o corrupto');
+            console.error('   4. Límites de memoria excedidos');
+            console.log('📝 [Fallback] El usuario deberá completar los datos manualmente');
+            response = null as any;
+          }
         }
       }
     } else {
@@ -1140,11 +1432,16 @@ Now analyze the following document carefully and extract ALL available informati
       confidence: (result.ocrConfidence * 100).toFixed(1) + "%"
     });
 
-    console.log(
-      `✅ Resultado final (${docType}): monto=${result.extractedAmount} confianza=${(
-        result.ocrConfidence * 100
-      ).toFixed(1)}%`
-    );
+    const elapsedTotal = Date.now() - startTimeTotal;
+    console.log(`🚀 [Document Analyzer] ====================================================`);
+    console.log(`✅ [Document Analyzer] Análisis completado`);
+    console.log(`📊 [Document Analyzer] Tipo: ${docType}`);
+    console.log(`💰 [Document Analyzer] Monto: ${result.extractedAmount || 'NO ENCONTRADO'}`);
+    console.log(`🏢 [Document Analyzer] Proveedor: ${supplierName || 'NO ENCONTRADO'}`);
+    console.log(`📅 [Document Analyzer] Fecha vencimiento: ${dueDate ? dueDate.toISOString().split('T')[0] : 'NO ENCONTRADO'}`);
+    console.log(`📈 [Document Analyzer] Confianza: ${(result.ocrConfidence * 100).toFixed(1)}%`);
+    console.log(`⏱️ [Document Analyzer] Tiempo total: ${elapsedTotal}ms (${(elapsedTotal / 1000).toFixed(2)}s)`);
+    console.log(`🚀 [Document Analyzer] ====================================================`);
 
     return result;
   } catch (error) {
