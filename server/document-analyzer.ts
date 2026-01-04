@@ -127,8 +127,11 @@ export async function analyzePaymentDocument(
   fileBuffer: Buffer,
   fileType: string
 ): Promise<DocumentAnalysisResult> {
+  // 🔄 BUILD VERSION: 2024-01-04-v2 - Si ves este log, el código nuevo está activo
+  console.log(`🚀 [Document Analyzer] ====== VERSIÓN 2024-01-04-v2 ======`);
   console.log(`🔍 [Document Analyzer] Iniciando análisis híbrido...`);
   console.log(`📄 [Document Analyzer] Tipo de archivo: ${fileType}, Tamaño: ${fileBuffer.length} bytes`);
+  console.log(`🔑 [Document Analyzer] OPENAI_API_KEY presente: ${!!process.env.OPENAI_API_KEY}`);
 
   // ========================================
   // PASO 1: Detectar si es XML (CFDI)
