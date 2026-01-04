@@ -94,6 +94,67 @@ async function loadPdfjs() {
   }
 }
 
+/**
+ * Convierte la primera página de un PDF a imagen PNG base64
+ * Usa @napi-rs/canvas para renderizar sin dependencias nativas de Cairo
+ */
+async function convertPdfToImage(fileBuffer: Buffer): Promise<string | null> {
+  try {
+    console.log('🖼️ [PDF to Image] Iniciando conversión de PDF a imagen...');
+
+    // Cargar @napi-rs/canvas
+    const { createCanvas } = await import('@napi-rs/canvas');
+    const pdfjs = await loadPdfjs();
+
+    if (!pdfjs || !pdfjs.getDocument) {
+      console.warn('⚠️ [PDF to Image] pdfjs-dist no disponible');
+      return null;
+    }
+
+    // Cargar el PDF
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(fileBuffer) });
+    const pdf = await loadingTask.promise;
+
+    console.log(`📄 [PDF to Image] PDF cargado: ${pdf.numPages} página(s)`);
+
+    // Obtener la primera página
+    const page = await pdf.getPage(1);
+
+    // Escala para buena resolución (2x para mejor OCR)
+    const scale = 2.0;
+    const viewport = page.getViewport({ scale });
+
+    // Crear canvas con @napi-rs/canvas
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext('2d');
+
+    // Fondo blanco
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, viewport.width, viewport.height);
+
+    // Renderizar la página del PDF
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+
+    await page.render(renderContext).promise;
+
+    console.log(`✅ [PDF to Image] Página renderizada: ${viewport.width}x${viewport.height}`);
+
+    // Convertir a PNG base64
+    const pngBuffer = canvas.toBuffer('image/png');
+    const base64 = pngBuffer.toString('base64');
+
+    console.log(`✅ [PDF to Image] Imagen generada: ${Math.round(base64.length / 1024)} KB`);
+
+    return base64;
+  } catch (error: any) {
+    console.error('❌ [PDF to Image] Error convirtiendo PDF a imagen:', error.message);
+    return null;
+  }
+}
+
 // -----------------------------
 // Interfaces
 // -----------------------------
@@ -698,33 +759,39 @@ Now analyze the following document carefully and extract ALL available informati
           max_tokens: 1200,
         });
       } else {
-        // Si no hay texto en absoluto, usar OpenAI Vision para analizar el PDF como imagen
+        // Si no hay texto en absoluto, convertir PDF a imagen y usar OpenAI Vision
         console.warn('⚠️ [PDF] PDF sin texto extraíble detectado. Esto podría ser una imagen escaneada.');
-        console.log('📸 [OpenAI Vision] Intentando análisis visual del PDF...');
+        console.log('🖼️ [PDF to Image] Convirtiendo PDF a imagen PNG para análisis visual...');
 
-        // Convertir PDF a base64 para análisis visual
-        const pdfBase64 = fileBuffer.toString('base64');
-        const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
+        // Convertir PDF a imagen PNG usando @napi-rs/canvas
+        const pngBase64 = await convertPdfToImage(fileBuffer);
 
-        try {
-          response = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: documentTypePrompt },
-                  { type: "image_url", image_url: { url: pdfDataUrl, detail: "high" } },
-                ],
-              },
-            ],
-            temperature: 0.1,
-            max_tokens: 1200,
-          });
-          console.log('✅ [OpenAI Vision] Análisis visual completado');
-        } catch (visionError: any) {
-          console.error('❌ [OpenAI Vision] Error en análisis visual:', visionError.message);
-          // Si falla el análisis visual, continuar con análisis manual
+        if (pngBase64) {
+          console.log('📸 [OpenAI Vision] Enviando imagen PNG a OpenAI Vision...');
+          const pngDataUrl = `data:image/png;base64,${pngBase64}`;
+
+          try {
+            response = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: documentTypePrompt },
+                    { type: "image_url", image_url: { url: pngDataUrl, detail: "high" } },
+                  ],
+                },
+              ],
+              temperature: 0.1,
+              max_tokens: 1200,
+            });
+            console.log('✅ [OpenAI Vision] Análisis visual completado');
+          } catch (visionError: any) {
+            console.error('❌ [OpenAI Vision] Error en análisis visual:', visionError.message);
+            response = null as any;
+          }
+        } else {
+          console.error('❌ [PDF to Image] No se pudo convertir el PDF a imagen');
           response = null as any;
         }
       }
