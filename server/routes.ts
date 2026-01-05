@@ -4821,7 +4821,7 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // GET /api/scheduled-payments/:id/documents - Obtener repertorio de documentos
+  // GET /api/scheduled-payments/:id/documents - Obtener repertorio de documentos y detalles del pago
   app.get("/api/scheduled-payments/:id/documents", jwtAuthMiddleware, async (req, res) => {
     try {
       const scheduledPaymentId = parseInt(req.params.id);
@@ -4830,9 +4830,9 @@ export function registerRoutes(app: express.Application) {
       const { db } = await import('./db');
       const { scheduledPayments, paymentVouchers } = await import('../shared/schema');
       const { eq } = await import('drizzle-orm');
-      
+
       const [payment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
-      
+
       if (!payment) {
         return res.status(404).json({ error: 'Cuenta por pagar no encontrada' });
       }
@@ -4876,8 +4876,22 @@ export function registerRoutes(app: express.Application) {
         }
       }
 
+      // Incluir detalles del pago en la respuesta
       res.json({
         scheduledPaymentId,
+        payment: {
+          id: payment.id,
+          supplierName: payment.supplierName,
+          amount: payment.amount,
+          currency: payment.currency,
+          dueDate: payment.dueDate,
+          paymentDate: payment.paymentDate,
+          status: payment.status,
+          reference: payment.reference,
+          notes: payment.notes,
+          sourceType: payment.sourceType,
+          createdAt: payment.createdAt,
+        },
         documents,
       });
     } catch (error) {
