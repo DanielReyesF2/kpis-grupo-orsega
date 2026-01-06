@@ -75,14 +75,14 @@ export function ClientTrendsTable({ companyId, limit = 10 }: ClientTrendsTablePr
       subtitle={`${data.currentYear} vs ${data.previousYear} - Cambio YoY`}
     >
       <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead className="bg-slate-700 text-white">
             <tr>
-              <th className="text-left p-3 font-semibold">Cliente</th>
-              <th className="text-right p-3 font-semibold">{data.previousYear}</th>
-              <th className="text-right p-3 font-semibold">{data.currentYear}</th>
-              <th className="text-right p-3 font-semibold">Cambio</th>
-              <th className="text-right p-3 font-semibold">%</th>
+              <th className="text-left px-2 py-2 font-semibold">Cliente</th>
+              <th className="text-right px-2 py-2 font-semibold">{data.previousYear}</th>
+              <th className="text-right px-2 py-2 font-semibold">{data.currentYear}</th>
+              <th className="text-right px-2 py-2 font-semibold">Cambio</th>
+              <th className="text-right px-2 py-2 font-semibold">%</th>
             </tr>
           </thead>
           <tbody>
@@ -90,28 +90,28 @@ export function ClientTrendsTable({ companyId, limit = 10 }: ClientTrendsTablePr
               const isPositive = client.changePercent >= 0;
               return (
                 <tr key={client.name} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="p-3 font-medium">{client.name}</td>
-                  <td className="p-3 text-right text-muted-foreground">
-                    {formatNumber(client.qtyPrevious)} {client.unit || data.unit}
+                  <td className="px-2 py-1.5 font-medium truncate max-w-[140px]" title={client.name}>{client.name}</td>
+                  <td className="px-2 py-1.5 text-right text-muted-foreground whitespace-nowrap">
+                    {formatNumber(client.qtyPrevious)} <span className="text-[10px]">{client.unit || data.unit}</span>
                   </td>
-                  <td className="p-3 text-right font-semibold">
-                    {formatNumber(client.qtyCurrent)} {client.unit || data.unit}
+                  <td className="px-2 py-1.5 text-right font-semibold whitespace-nowrap">
+                    {formatNumber(client.qtyCurrent)} <span className="text-[10px]">{client.unit || data.unit}</span>
                   </td>
                   <td className={cn(
-                    "p-3 text-right font-semibold",
+                    "px-2 py-1.5 text-right font-semibold whitespace-nowrap",
                     isPositive ? "text-emerald-600" : "text-red-600"
                   )}>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-0.5">
                       {isPositive ? (
-                        <TrendingUp className="h-4 w-4" />
+                        <TrendingUp className="h-3 w-3" />
                       ) : (
-                        <TrendingDown className="h-4 w-4" />
+                        <TrendingDown className="h-3 w-3" />
                       )}
-                      {isPositive ? '+' : ''}{formatNumber(client.change)} {client.unit || data.unit}
+                      {isPositive ? '+' : ''}{formatNumber(client.change)}
                     </div>
                   </td>
                   <td className={cn(
-                    "p-3 text-right font-bold",
+                    "px-2 py-1.5 text-right font-bold",
                     isPositive ? "text-emerald-600" : "text-red-600"
                   )}>
                     {isPositive ? '+' : ''}{client.changePercent.toFixed(1)}%

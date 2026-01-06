@@ -90,9 +90,9 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
   const totalVolume = data.reduce((sum: number, product: any) => sum + product.volume, 0);
   const totalRevenue = data.reduce((sum: number, product: any) => sum + product.revenue, 0);
 
-  // Preparar datos para gráfico (mostrar la métrica seleccionada)
+  // Preparar datos para gráfico (mostrar la métrica seleccionada) - sin truncar nombres
   const chartData = data.map((product: any, index: number) => ({
-    name: product.name.length > 15 ? product.name.substring(0, 15) + '...' : product.name,
+    name: product.name,
     fullName: product.name,
     volume: product.volume,
     revenue: product.revenue,
@@ -139,17 +139,17 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
       </div>
       <div className="space-y-4">
         {/* Gráfico de barras horizontal */}
-        <div className="h-64">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(value) => {
@@ -162,10 +162,10 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
-                width={90}
+                width={70}
               />
               <Tooltip
                 contentStyle={{
@@ -190,18 +190,18 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
           </ResponsiveContainer>
         </div>
 
-        {/* Tabla de detalles */}
+        {/* Tabla de detalles - compacta */}
         <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead className="bg-slate-700 text-white">
               <tr>
-                <th className="text-left p-3 font-semibold">Producto</th>
-                <th className="text-right p-3 font-semibold">Volumen</th>
-                <th className="text-right p-3 font-semibold">Revenue</th>
-                <th className="text-right p-3 font-semibold">Rentabilidad</th>
-                <th className="text-right p-3 font-semibold">Clientes</th>
-                <th className="text-right p-3 font-semibold">Transacciones</th>
-                <th className="text-right p-3 font-semibold">% del Total</th>
+                <th className="text-left px-2 py-2 font-semibold">Producto</th>
+                <th className="text-right px-2 py-2 font-semibold whitespace-nowrap">Volumen</th>
+                <th className="text-right px-2 py-2 font-semibold">Revenue</th>
+                <th className="text-right px-2 py-2 font-semibold whitespace-nowrap">$/KG</th>
+                <th className="text-right px-2 py-2 font-semibold">Clts</th>
+                <th className="text-right px-2 py-2 font-semibold">Txns</th>
+                <th className="text-right px-2 py-2 font-semibold">%</th>
               </tr>
             </thead>
             <tbody>
@@ -209,20 +209,19 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
                 const percentage = totalVolume > 0 ? (product.volume / totalVolume) * 100 : 0;
                 return (
                   <tr key={product.name} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-3 font-medium">{product.name}</td>
-                    <td className="p-3 text-right">
-                      {formatNumber(product.volume)} {product.unit || ''}
+                    <td className="px-2 py-1.5 font-medium">{product.name}</td>
+                    <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                      {formatNumber(product.volume)} <span className="text-muted-foreground">{product.unit || ''}</span>
                     </td>
-                    <td className="p-3 text-right font-semibold">
+                    <td className="px-2 py-1.5 text-right font-semibold whitespace-nowrap">
                       {product.revenue ? formatCurrency(product.revenue, companyId) : '-'}
                     </td>
-                    <td className="p-3 text-right font-medium">
+                    <td className="px-2 py-1.5 text-right whitespace-nowrap">
                       {product.profitability ? formatCurrency(product.profitability, companyId) : '-'}
-                      <span className="text-xs text-muted-foreground ml-1">/ {product.unit || 'unidad'}</span>
                     </td>
-                    <td className="p-3 text-right">{product.uniqueClients}</td>
-                    <td className="p-3 text-right">{product.transactions}</td>
-                    <td className="p-3 text-right font-semibold">
+                    <td className="px-2 py-1.5 text-right">{product.uniqueClients}</td>
+                    <td className="px-2 py-1.5 text-right">{product.transactions}</td>
+                    <td className="px-2 py-1.5 text-right font-semibold">
                       {sortBy === 'revenue' 
                         ? (totalRevenue > 0 ? ((product.revenue / totalRevenue) * 100).toFixed(1) : '0.0')
                         : percentage.toFixed(1)}%
