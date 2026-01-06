@@ -8637,6 +8637,7 @@ export function registerRoutes(app: express.Application) {
         SELECT
           client_name,
           COALESCE(SUM(quantity), 0) as total_volume,
+          COALESCE(SUM(total_amount), 0) as total_revenue,
           COUNT(*) as transactions,
           MAX(unit) as unit
         FROM sales_data
@@ -8654,6 +8655,7 @@ export function registerRoutes(app: express.Application) {
           SELECT
             client_name,
             COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
             COUNT(*) as transactions,
             MAX(unit) as unit
           FROM sales_data
@@ -8670,6 +8672,7 @@ export function registerRoutes(app: express.Application) {
       const formatted = (topClients || []).map((row: any) => ({
         name: row.client_name,
         volume: parseFloat(row.total_volume || '0'),
+        revenue: parseFloat(row.total_revenue || '0'),
         transactions: parseInt(row.transactions || '0'),
         unit: row.unit
       }));
@@ -8723,6 +8726,7 @@ export function registerRoutes(app: express.Application) {
         SELECT
           product_name,
           COALESCE(SUM(quantity), 0) as total_volume,
+          COALESCE(SUM(total_amount), 0) as total_revenue,
           COUNT(DISTINCT client_name) as unique_clients,
           COUNT(*) as transactions,
           MAX(unit) as unit
@@ -8741,6 +8745,7 @@ export function registerRoutes(app: express.Application) {
           SELECT
             product_name,
             COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
             COUNT(DISTINCT client_name) as unique_clients,
             COUNT(*) as transactions,
             MAX(unit) as unit
@@ -8758,6 +8763,7 @@ export function registerRoutes(app: express.Application) {
       const formatted = (topProducts || []).map((row: any) => ({
         name: row.product_name || 'Sin nombre',
         volume: parseFloat(row.total_volume) || 0,
+        revenue: parseFloat(row.total_revenue) || 0,
         uniqueClients: parseInt(row.unique_clients) || 0,
         transactions: parseInt(row.transactions) || 0,
         unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
@@ -8909,7 +8915,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, clientId, year, month, limit = '100' } = req.query;
+      const { companyId, clientId, productId, year, month, startDate, endDate, limit = '1000' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8921,8 +8927,9 @@ export function registerRoutes(app: express.Application) {
 
       let query = `
         SELECT
-          id, client_id, client_name, product_name, quantity, unit,
-          sale_date, sale_month, sale_year, invoice_number, notes
+          id, company_id, client_id, product_id, client_name, product_name, 
+          quantity, unit, unit_price, total_amount,
+          sale_date, sale_month, sale_year, invoice_number, folio, notes
         FROM sales_data
         WHERE company_id = $1
       `;
@@ -8936,6 +8943,12 @@ export function registerRoutes(app: express.Application) {
         paramIndex++;
       }
 
+      if (productId) {
+        query += ` AND product_id = $${paramIndex}`;
+        params.push(parseInt(productId as string));
+        paramIndex++;
+      }
+
       if (year) {
         query += ` AND sale_year = $${paramIndex}`;
         params.push(parseInt(year as string));
@@ -8945,6 +8958,18 @@ export function registerRoutes(app: express.Application) {
       if (month) {
         query += ` AND sale_month = $${paramIndex}`;
         params.push(parseInt(month as string));
+        paramIndex++;
+      }
+
+      if (startDate) {
+        query += ` AND sale_date >= $${paramIndex}`;
+        params.push(startDate as string);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND sale_date <= $${paramIndex}`;
+        params.push(endDate as string);
         paramIndex++;
       }
 

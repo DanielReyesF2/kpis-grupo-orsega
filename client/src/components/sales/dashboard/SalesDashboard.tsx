@@ -1,23 +1,30 @@
-import { useMemo } from "react";
+/**
+ * Dashboard de Ventas - Rediseñado completamente con datos reales
+ */
+
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, Target, Users, Package } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Package, Target } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 // Salesforce components
 import { PageHeader } from "@/components/salesforce/layout/PageHeader";
 import { FilterBar } from "@/components/salesforce/layout/FilterBar";
-import { ChartCard } from "@/components/salesforce/layout/ChartCard";
 import { GaugeChart } from "@/components/salesforce/charts/GaugeChart";
-import { FunnelChart } from "@/components/salesforce/charts/FunnelChart";
-import { EnhancedDonutChart } from "@/components/salesforce/charts/EnhancedDonutChart";
-import { Path } from "@/components/salesforce/navigation/Path";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
-import { EmptyState } from "@/components/salesforce/feedback/EmptyState";
 import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
 
 // Hooks
-import { useRealSalesData } from "@/hooks/useRealSalesData";
 import { useFilters } from "@/hooks/useFilters";
 import { useSavedViews } from "@/hooks/useSavedViews";
+
+// New components
+import { SalesKPICard, formatCurrency, formatNumber } from "./SalesKPICard";
+import { MonthlyTrendsChart } from "./MonthlyTrendsChart";
+import { TopClientsTable } from "./TopClientsTable";
+import { TopProductsTable } from "./TopProductsTable";
+import { YearlyComparisonChart } from "./YearlyComparisonChart";
+import { ClientTrendsTable } from "./ClientTrendsTable";
 
 interface SalesDashboardProps {
   companyId?: number;
@@ -27,9 +34,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
   // Filters
   const { filters, updateFilters } = useFilters({
     companyId,
-    period: 'all',
-    productId: undefined,
-    clientId: undefined,
+    period: 'year',
   }, {
     syncWithURL: true,
     persistInLocalStorage: true,
@@ -39,16 +44,36 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
   // Saved views
   const { savedViews, saveView, loadView } = useSavedViews();
 
-  // Real data
-  const { salesData, clients, products, stats, isLoading, error } = useRealSalesData(
-    filters.companyId as number | undefined,
-    {
-      startDate: filters.startDate as string | undefined,
-      endDate: filters.endDate as string | undefined,
-      productId: filters.productId as number | undefined,
-      clientId: filters.clientId as number | undefined,
-    }
-  );
+  const resolvedCompanyId = (filters.companyId as number) || companyId || 1;
+
+  // Fetch sales stats for KPIs
+  const { data: salesStats, isLoading: isLoadingStats, error: statsError } = useQuery({
+    queryKey: ['/api/sales-stats', resolvedCompanyId],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-stats?companyId=${resolvedCompanyId}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch sales stats: ${res.statusText}`);
+      }
+      return await res.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch monthly trends to calculate total revenue
+  const { data: monthlyTrends } = useQuery({
+    queryKey: ['/api/sales-monthly-trends', resolvedCompanyId],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${resolvedCompanyId}`);
+      if (!res.ok) {
+        return [];
+      }
+      return await res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Calculate total revenue from monthly trends
+  const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
 
   // Filter options
   const quickFilters = [
@@ -60,115 +85,36 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         { value: '1', label: 'DURA' },
         { value: '2', label: 'Orsega' },
       ],
-      defaultValue: String(companyId || 1),
+      defaultValue: String(resolvedCompanyId),
     },
     {
       key: 'period',
       label: 'Período',
       type: 'select' as const,
       options: [
-        { value: 'all', label: 'Todos' },
-        { value: 'month', label: 'Este mes' },
-        { value: 'quarter', label: 'Este trimestre' },
         { value: 'year', label: 'Este año' },
+        { value: 'quarter', label: 'Este trimestre' },
+        { value: 'month', label: 'Este mes' },
+        { value: 'all', label: 'Todos' },
       ],
+      defaultValue: 'year',
     },
   ];
 
-  // Sales pipeline funnel - Calculate from actual sales data
-  const salesPipeline = useMemo(() => {
-    if (!salesData || salesData.length === 0) return [];
-
-    // Group sales by month to simulate pipeline stages
-    // This is a simplified version - in production, you'd have actual pipeline stages
-    const byMonth = salesData.reduce((acc, sale) => {
-      const month = new Date(sale.date).getMonth();
-      if (!acc[month]) acc[month] = 0;
-      acc[month] += sale.amount;
-      return acc;
-    }, {} as Record<number, number>);
-
-    const months = Object.entries(byMonth)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .slice(0, 5)
-      .map(([month, amount], index) => {
-        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const colors = ['#1B5E9E', '#0288D1', '#00ACC1', '#009688', '#2E7D32'];
-        return {
-          stage: monthNames[Number(month)],
-          value: amount,
-          color: colors[index % colors.length],
-        };
-      });
-
-    return months.length > 0 ? months : [];
-  }, [salesData]);
-
-  // Sales target gauge
-  const salesTarget = useMemo(() => {
-    if (!stats) return null;
-
-    const target = 50000000; // 50M target
-    const current = stats.totalAmount;
-    const max = target * 1.5;
-
-    return {
-      value: current,
-      min: 0,
-      max,
-      target,
-      zones: [
-        { min: 0, max: target * 0.8, color: '#C62828' }, // Red
-        { min: target * 0.8, max: target, color: '#F57C00' }, // Orange
-        { min: target, max: max, color: '#2E7D32' }, // Green
-      ],
-    };
-  }, [stats]);
-
-  // Distribution by product
-  const distributionByProduct = useMemo(() => {
-    if (!stats?.byProduct) return [];
-
-    return Object.entries(stats.byProduct)
-      .slice(0, 6)
-      .map(([productId, data], index) => {
-        const product = products?.find(p => p.id === Number(productId));
-        return {
-          name: product?.name || `Producto ${productId}`,
-          value: data.amount,
-          color: `hsl(${(index * 360) / 6}, 70%, 50%)`,
-        };
-      })
-      .sort((a, b) => b.value - a.value);
-  }, [stats, products]);
-
-  // Distribution by client
-  const distributionByClient = useMemo(() => {
-    if (!stats?.byClient) return [];
-
-    return Object.entries(stats.byClient)
-      .slice(0, 6)
-      .map(([clientId, data], index) => {
-        const client = clients?.find(c => c.id === Number(clientId));
-        return {
-          name: client?.name || `Cliente ${clientId}`,
-          value: data.amount,
-          color: `hsl(${(index * 360) / 6}, 70%, 50%)`,
-        };
-      })
-      .sort((a, b) => b.value - a.value);
-  }, [stats, clients]);
-
-  // Sales process path stages
-  const salesProcessStages = useMemo(() => {
-    return [
-      { id: 'lead', label: 'Lead', status: 'completed' as const },
-      { id: 'qualification', label: 'Calificación', status: 'completed' as const },
-      { id: 'proposal', label: 'Propuesta', status: 'current' as const },
-      { id: 'negotiation', label: 'Negociación', status: 'upcoming' as const },
-      { id: 'closed', label: 'Cerrado', status: 'upcoming' as const },
-    ];
-  }, []);
+  // Calculate sales target (use totalRevenue, default 50M target)
+  // For Dura (USD): 50M USD, For Orsega (MXN): 50M MXN
+  const defaultTarget = 50000000;
+  const salesTargetValue = totalRevenue || 0;
+  const salesTarget = {
+    value: salesTargetValue,
+    target: defaultTarget,
+    max: defaultTarget * 1.5, // 75M max
+    zones: [
+      { min: 0, max: defaultTarget * 0.8, color: '#C62828' }, // Red
+      { min: defaultTarget * 0.8, max: defaultTarget, color: '#F57C00' }, // Orange
+      { min: defaultTarget, max: defaultTarget * 1.5, color: '#2E7D32' }, // Green
+    ],
+  };
 
   const handleSaveView = (name: string) => {
     saveView(name, filters);
@@ -180,6 +126,9 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       updateFilters(viewFilters);
     }
   };
+
+  // Calculate growth percentage
+  const growthPercent = salesStats?.growth || 0;
 
   return (
     <div className="space-y-6">
@@ -211,139 +160,112 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         onSaveView={handleSaveView}
         savedViews={savedViews}
         onLoadView={handleLoadView}
-        resultCount={salesData.length}
+        resultCount={0}
       />
 
-      {/* Sales Process Path */}
+      {/* KPIs Principales - Grid 4 columnas */}
+      {isLoadingStats ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+      ) : statsError ? (
+        <ErrorState variant="page" message="Error al cargar métricas de ventas" />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SalesKPICard
+            title="Revenue Total"
+            value={formatCurrency(totalRevenue, resolvedCompanyId)}
+            subtitle={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'} vendidos`}
+            icon={DollarSign}
+            trend={growthPercent !== undefined ? {
+              value: growthPercent,
+              label: "vs período anterior"
+            } : undefined}
+            variant="success"
+          />
+          <SalesKPICard
+            title="Clientes Activos"
+            value={salesStats?.activeClients || 0}
+            subtitle={`${salesStats?.activeClientsMetrics?.last3Months || 0} últimos 3 meses`}
+            icon={Users}
+            variant="default"
+          />
+          <SalesKPICard
+            title="Crecimiento"
+            value={`${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(1)}%`}
+            subtitle="vs período anterior"
+            icon={TrendingUp}
+            variant={growthPercent >= 0 ? "success" : "danger"}
+          />
+          <SalesKPICard
+            title="Retención"
+            value={`${(salesStats?.retentionRate?.rate || 0).toFixed(1)}%`}
+            subtitle={`${salesStats?.retentionRate?.retainedClients || 0} clientes retenidos`}
+            icon={Target}
+            variant="default"
+          />
+        </div>
+      )}
+
+      {/* Objetivo de Ventas */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <ChartCard
-          title="Proceso de Venta"
-          subtitle="Estado actual del proceso"
-        >
-          <Path
-            stages={salesProcessStages}
-            currentStage="proposal"
-            variant="default"
-          />
-        </ChartCard>
+        {isLoadingStats ? (
+          <LoadingState variant="chart" />
+        ) : salesTargetValue > 0 ? (
+          <div className="bg-card border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Objetivo de Ventas</h3>
+                <p className="text-sm text-muted-foreground">
+                  Actual: {formatCurrency(salesTarget.value, resolvedCompanyId)} | 
+                  Objetivo: {formatCurrency(salesTarget.target, resolvedCompanyId)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Progreso: {((salesTarget.value / salesTarget.target) * 100).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+            <GaugeChart
+              value={salesTarget.value}
+              min={0}
+              max={salesTarget.max}
+              zones={salesTarget.zones}
+              label="Revenue vs Objetivo"
+              unit={resolvedCompanyId === 1 ? " USD" : " MXN"}
+              formatValue={(value) => formatCurrency(value, resolvedCompanyId)}
+              size="lg"
+              animated
+            />
+          </div>
+        ) : (
+          <div className="bg-card border rounded-lg p-6">
+            <div className="text-center py-8">
+              <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No hay datos suficientes para mostrar el objetivo de ventas</p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
-      {/* Main Dashboard Grid */}
+      {/* Tendencias Mensuales */}
+      <MonthlyTrendsChart companyId={resolvedCompanyId} />
+
+      {/* Comparativo Anual */}
+      <YearlyComparisonChart companyId={resolvedCompanyId} />
+
+      {/* Top Clientes y Top Productos - Grid 2 columnas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales Target Gauge */}
-        {salesTarget && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <ChartCard
-              title="Objetivo de Ventas"
-              subtitle={`Actual: $${(salesTarget.value / 1000000).toFixed(1)}M | Objetivo: $${(salesTarget.target / 1000000).toFixed(1)}M`}
-              onViewReport={() => {}}
-            >
-              {isLoading ? (
-                <LoadingState variant="chart" />
-              ) : error ? (
-                <ErrorState variant="card" message="Error al cargar datos" />
-              ) : (
-                <GaugeChart
-                  value={salesTarget.value}
-                  min={salesTarget.min}
-                  max={salesTarget.max}
-                  zones={salesTarget.zones}
-                  label="Ventas vs Objetivo"
-                  unit=" USD"
-                  formatValue={(value) => `$${(value / 1000000).toFixed(1)}M`}
-                  size="lg"
-                  animated
-                />
-              )}
-            </ChartCard>
-          </motion.div>
-        )}
-
-        {/* Sales Pipeline Funnel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <ChartCard
-            title="Pipeline de Ventas"
-            subtitle="Ventas por etapa del proceso"
-            onViewReport={() => {}}
-          >
-            {isLoading ? (
-              <LoadingState variant="chart" />
-            ) : error ? (
-              <ErrorState variant="card" message="Error al cargar datos" />
-            ) : salesPipeline.length === 0 ? (
-              <EmptyState
-                icon={TrendingUp}
-                title="Sin pipeline"
-                description="No hay datos de pipeline disponibles"
-                size="sm"
-              />
-            ) : (
-              <FunnelChart
-                data={salesPipeline}
-                showPercentages
-                formatValue={(value) => value.toLocaleString()}
-              />
-            )}
-          </ChartCard>
-        </motion.div>
-
-        {/* Distribution by Product */}
-        {distributionByProduct.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <ChartCard
-              title="Distribución por Producto"
-              subtitle="Ventas por producto"
-              onViewReport={() => {}}
-            >
-              <EnhancedDonutChart
-                data={distributionByProduct}
-                centerLabel="Total Ventas"
-                centerValue={stats?.totalAmount || 0}
-                showLegend
-                legendPosition="right"
-              />
-            </ChartCard>
-          </motion.div>
-        )}
-
-        {/* Distribution by Client */}
-        {distributionByClient.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <ChartCard
-              title="Distribución por Cliente"
-              subtitle="Ventas por cliente"
-              onViewReport={() => {}}
-            >
-              <EnhancedDonutChart
-                data={distributionByClient}
-                centerLabel="Total Ventas"
-                centerValue={stats?.totalAmount || 0}
-                showLegend
-                legendPosition="right"
-              />
-            </ChartCard>
-          </motion.div>
-        )}
+        <TopClientsTable companyId={resolvedCompanyId} limit={10} period="year" />
+        <TopProductsTable companyId={resolvedCompanyId} limit={10} period="year" />
       </div>
+
+      {/* Tendencias de Clientes */}
+      <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
     </div>
   );
 }
-
