@@ -8243,6 +8243,20 @@ export function registerRoutes(app: express.Application) {
       const compareYear1 = year1 ? parseInt(year1 as string) : 2024; // Siempre 2024 por defecto
       const compareYear2 = year2 ? parseInt(year2 as string) : 2025; // Siempre 2025 por defecto
 
+      // Verificar qué años realmente existen en la base de datos
+      const availableYearsCheck = await sql(`
+        SELECT DISTINCT sale_year, COUNT(*) as count
+        FROM sales_data
+        WHERE company_id = $1
+        GROUP BY sale_year
+        ORDER BY sale_year DESC
+      `, [resolvedCompanyId]);
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Años disponibles en BD para companyId ${resolvedCompanyId}:`, 
+          availableYearsCheck.map((r: any) => ({ year: r.sale_year, count: r.count })));
+      }
+      
       // Verificar si hay datos de 2026 para incluir automáticamente
       const year2026Check = await sql(`
         SELECT COUNT(*) as count
@@ -8252,6 +8266,22 @@ export function registerRoutes(app: express.Application) {
       
       const has2026Data = parseInt(year2026Check[0]?.count || '0') > 0;
       const yearsToCompare = has2026Data ? [compareYear1, compareYear2, 2026] : [compareYear1, compareYear2];
+      
+      // Verificar que los años que queremos comparar realmente existan
+      const existingYears = availableYearsCheck.map((r: any) => {
+        const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : Number(r.sale_year);
+        return year;
+      });
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Años a comparar: ${yearsToCompare.join(', ')}`);
+        console.log(`[GET /api/sales-yearly-comparison] Años existentes en BD: ${existingYears.join(', ')}`);
+        yearsToCompare.forEach(year => {
+          if (!existingYears.includes(year)) {
+            console.warn(`[GET /api/sales-yearly-comparison] ⚠️ Año ${year} no encontrado en BD para companyId ${resolvedCompanyId}`);
+          }
+        });
+      }
 
       // Obtener datos mensuales para los años a comparar (2 o 3 años)
       // Usar parámetros dinámicos según la cantidad de años
