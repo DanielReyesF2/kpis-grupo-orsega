@@ -176,17 +176,17 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
       />
 
       {/* Executive Summary */}
-      <ExecutiveSummary insights={insights} />
+      <ExecutiveSummary insights={insights} companyId={companyId} />
 
       {/* Focus Areas - Grid de 2 columnas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ClientFocusSection insights={insights} />
+        <ClientFocusSection insights={insights} companyId={companyId} />
         <ProductOpportunitiesSection insights={insights} />
       </div>
 
       {/* Strategic Insights and Action Items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <StrategicInsightsSection insights={insights} />
+        <StrategicInsightsSection insights={insights} companyId={companyId} />
         <ActionItemsSection insights={insights} />
       </div>
     </div>

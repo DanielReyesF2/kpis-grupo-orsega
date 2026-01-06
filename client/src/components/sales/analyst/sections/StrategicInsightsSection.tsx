@@ -12,18 +12,20 @@ import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 
 interface StrategicInsightsSectionProps {
   insights: SalesAnalystInsights;
+  companyId: number;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, companyId: number): string {
+  const currency = companyId === 1 ? 'USD' : 'MXN';
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'MXN',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-export function StrategicInsightsSection({ insights }: StrategicInsightsSectionProps) {
+export function StrategicInsightsSection({ insights, companyId }: StrategicInsightsSectionProps) {
   const recommendations = insights.strategicRecommendations;
 
   const getRecommendationIcon = (type: string) => {
@@ -106,7 +108,7 @@ export function StrategicInsightsSection({ insights }: StrategicInsightsSectionP
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">Valor estimado:</span>
                           <span className="font-medium text-emerald-600">
-                            {formatCurrency(rec.estimatedValue)}
+                            {formatCurrency(rec.estimatedValue, companyId)}
                           </span>
                         </div>
                       )}

@@ -11,18 +11,20 @@ import { cn } from "@/lib/utils";
 
 interface ExecutiveSummaryProps {
   insights: SalesAnalystInsights;
+  companyId: number;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, companyId: number): string {
+  const currency = companyId === 1 ? 'USD' : 'MXN';
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'MXN',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-export function ExecutiveSummary({ insights }: ExecutiveSummaryProps) {
+export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps) {
   const criticalCount = insights.focusClients.critical.length;
   const warningCount = insights.focusClients.warning.length;
   const opportunitiesCount = insights.focusClients.opportunities.length;
@@ -65,7 +67,7 @@ export function ExecutiveSummary({ insights }: ExecutiveSummaryProps) {
             <span className="text-sm text-muted-foreground">clientes</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Caída >30% vs año anterior
+            Caída {'>'}30% vs año anterior
           </p>
         </div>
       </ChartCard>
@@ -78,7 +80,7 @@ export function ExecutiveSummary({ insights }: ExecutiveSummaryProps) {
         <div className="space-y-2">
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-red-600">
-              {formatCurrency(revenueAtRisk)}
+              {formatCurrency(revenueAtRisk, companyId)}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">

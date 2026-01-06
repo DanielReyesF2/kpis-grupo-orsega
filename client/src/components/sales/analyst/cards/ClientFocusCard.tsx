@@ -11,18 +11,20 @@ import type { ClientFocus } from "@shared/sales-analyst-types";
 
 interface ClientFocusCardProps {
   client: ClientFocus;
+  companyId: number;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, companyId: number): string {
+  const currency = companyId === 1 ? 'USD' : 'MXN';
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'MXN',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-export function ClientFocusCard({ client }: ClientFocusCardProps) {
+export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
   const priorityConfig = useMemo(() => {
     switch (client.priority) {
       case 'critical':
@@ -95,12 +97,12 @@ export function ClientFocusCard({ client }: ClientFocusCardProps) {
               <div className="pt-1 border-t border-border/50">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Revenue histórico:</span>
-                  <span className="font-medium">{formatCurrency(client.previousYearRevenue)}</span>
+                  <span className="font-medium">{formatCurrency(client.previousYearRevenue, companyId)}</span>
                 </div>
                 {client.currentYearRevenue > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Revenue actual:</span>
-                    <span className="font-medium">{formatCurrency(client.currentYearRevenue)}</span>
+                    <span className="font-medium">{formatCurrency(client.currentYearRevenue, companyId)}</span>
                   </div>
                 )}
               </div>

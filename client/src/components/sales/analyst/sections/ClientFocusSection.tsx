@@ -12,9 +12,10 @@ import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 
 interface ClientFocusSectionProps {
   insights: SalesAnalystInsights;
+  companyId: number;
 }
 
-export function ClientFocusSection({ insights }: ClientFocusSectionProps) {
+export function ClientFocusSection({ insights, companyId }: ClientFocusSectionProps) {
   const { critical, warning, opportunities } = insights.focusClients;
 
   return (
@@ -48,7 +49,7 @@ export function ClientFocusSection({ insights }: ClientFocusSectionProps) {
             />
           ) : (
             critical.slice(0, 10).map((client) => (
-              <ClientFocusCard key={client.name} client={client} />
+              <ClientFocusCard key={client.name} client={client} companyId={companyId} />
             ))
           )}
         </TabsContent>
@@ -63,7 +64,7 @@ export function ClientFocusSection({ insights }: ClientFocusSectionProps) {
             />
           ) : (
             warning.slice(0, 10).map((client) => (
-              <ClientFocusCard key={client.name} client={client} />
+              <ClientFocusCard key={client.name} client={client} companyId={companyId} />
             ))
           )}
         </TabsContent>
@@ -78,7 +79,7 @@ export function ClientFocusSection({ insights }: ClientFocusSectionProps) {
             />
           ) : (
             opportunities.slice(0, 10).map((client) => (
-              <ClientFocusCard key={client.name} client={client} />
+              <ClientFocusCard key={client.name} client={client} companyId={companyId} />
             ))
           )}
         </TabsContent>
