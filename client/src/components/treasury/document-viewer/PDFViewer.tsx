@@ -1,14 +1,7 @@
-import { useState, useRef } from "react";
-import { Viewer, Worker } from "@react-pdf-viewer/core";
-import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
-import { zoomPlugin } from "@react-pdf-viewer/zoom";
-import { searchPlugin } from "@react-pdf-viewer/search";
-import type { RenderViewer } from "@react-pdf-viewer/core";
-import { Download, Maximize2, Minimize2 } from "lucide-react";
+import { useState } from "react";
+import { Download, ExternalLink, FileText, Maximize2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import "@react-pdf-viewer/core/lib/styles/index.css";
-import "@react-pdf-viewer/default-layout/lib/styles/index.css";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface PDFViewerProps {
   fileUrl: string;
@@ -17,92 +10,137 @@ interface PDFViewerProps {
   className?: string;
 }
 
-export function PDFViewer({ fileUrl, fileName, onDownload, className = "" }: PDFViewerProps) {
+export function PDFViewer({ fileUrl, fileName = "documento.pdf", onDownload, className = "" }: PDFViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasError, setHasError] = useState(false);
 
-  // Plugins
-  const zoomPluginInstance = zoomPlugin();
-  const { ZoomInButton, ZoomOutButton, ZoomPopover } = zoomPluginInstance;
+  // Construir URL completa si es relativa
+  const fullUrl = fileUrl.startsWith("http") 
+    ? fileUrl 
+    : `${window.location.origin}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
 
-  const searchPluginInstance = searchPlugin();
-  const { ShowSearchPopover } = searchPluginInstance;
+  const handleDownload = () => {
+    if (onDownload) {
+      onDownload();
+    } else {
+      const link = document.createElement("a");
+      link.href = fullUrl;
+      link.download = fileName;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
-  const defaultLayoutPluginInstance = defaultLayoutPlugin({
-    sidebarTabs: (defaultTabs) => [
-      defaultTabs[0], // Thumbnail tab
-      defaultTabs[1], // Bookmark tab
-    ],
-  });
-
-  const renderViewer: RenderViewer = (props) => {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between p-2 border-b bg-gray-50 dark:bg-gray-900">
-          <div className="flex items-center gap-2">
-            <ZoomOutButton />
-            <ZoomPopover />
-            <ZoomInButton />
-            <ShowSearchPopover />
-          </div>
-          <div className="flex items-center gap-2">
-            {onDownload && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onDownload}
-                className="h-8"
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Descargar
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="h-8"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto">
-          {props.canvasLayer.children}
-          {props.annotationLayer.children}
-          {props.textLayer.children}
-        </div>
-      </div>
-    );
+  const handleOpenInNewTab = () => {
+    window.open(fullUrl, "_blank");
   };
 
   const viewerContent = (
-    <div ref={containerRef} className={`w-full h-full ${className}`}>
-      <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-        <Viewer
-          fileUrl={fileUrl}
-          plugins={[
-            defaultLayoutPluginInstance,
-            zoomPluginInstance,
-            searchPluginInstance,
-          ]}
-          renderViewer={renderViewer}
-        />
-      </Worker>
+    <div className={`flex flex-col bg-white rounded-lg border ${className}`}>
+      {/* Header con acciones */}
+      <div className="flex items-center justify-between p-3 border-b bg-slate-50">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-emerald-600" />
+          <span className="font-medium text-slate-800 truncate max-w-[200px]">{fileName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleOpenInNewTab}
+            className="h-8 text-slate-700 border-slate-300 hover:bg-slate-100"
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
+            Abrir
+          </Button>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleDownload}
+            className="h-8 bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Descargar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsFullscreen(true)}
+            className="h-8 border-slate-300 hover:bg-slate-100"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Visor del PDF usando iframe nativo del navegador */}
+      <div className="flex-1 min-h-[400px] bg-slate-100">
+        {hasError ? (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+            <p className="text-slate-700 font-medium mb-2">No se puede mostrar la vista previa</p>
+            <p className="text-slate-500 text-sm mb-4">Puedes descargar el archivo para verlo</p>
+            <Button onClick={handleDownload} className="bg-emerald-600 hover:bg-emerald-700">
+              <Download className="h-4 w-4 mr-2" />
+              Descargar {fileName}
+            </Button>
+          </div>
+        ) : (
+          <iframe
+            src={`${fullUrl}#toolbar=1&navpanes=0`}
+            className="w-full h-full min-h-[400px] border-0"
+            title={fileName}
+            onError={() => setHasError(true)}
+          />
+        )}
+      </div>
     </div>
   );
 
   if (isFullscreen) {
     return (
-      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0">
-          <div className="w-full h-full">{viewerContent}</div>
-        </DialogContent>
-      </Dialog>
+      <>
+        {viewerContent}
+        <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-[90vh] p-0">
+            <DialogHeader className="p-4 border-b bg-slate-50">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600" />
+                {fileName}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 h-full p-4">
+              <div className="flex gap-2 mb-4">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleOpenInNewTab}
+                  className="text-slate-700"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Abrir en nueva pestaña
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={handleDownload}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Descargar
+                </Button>
+              </div>
+              <iframe
+                src={`${fullUrl}#toolbar=1&navpanes=0`}
+                className="w-full h-[calc(100%-60px)] border rounded-lg"
+                title={fileName}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
