@@ -76,7 +76,7 @@ export function ClientTrendsTable({ companyId, limit = 10 }: ClientTrendsTablePr
     >
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-100 dark:bg-slate-800">
+          <thead className="bg-slate-700 text-white">
             <tr>
               <th className="text-left p-3 font-semibold">Cliente</th>
               <th className="text-right p-3 font-semibold">{data.previousYear}</th>

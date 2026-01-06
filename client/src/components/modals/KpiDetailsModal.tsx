@@ -330,12 +330,12 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                   ) : kpiValues && kpiValues.length > 0 ? (
                     <div className="bg-white border border-secondary-200 rounded-lg overflow-hidden">
                       <table className="min-w-full divide-y divide-secondary-200">
-                        <thead>
+                        <thead className="bg-slate-700">
                           <tr>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Periodo</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Valor</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Estado</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Fecha</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Periodo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Valor</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Estado</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Fecha</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-secondary-200">
