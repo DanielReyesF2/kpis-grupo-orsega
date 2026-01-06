@@ -18,9 +18,6 @@ import {
   Percent,
   Calendar,
   BarChart3,
-  Users,
-  UserPlus,
-  UserMinus,
 } from "lucide-react";
 import type { AnnualSummary } from "@shared/sales-types";
 import { cn } from "@/lib/utils";
@@ -165,7 +162,7 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
 
 function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Métricas principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
@@ -197,7 +194,7 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
         />
       </div>
 
-      {/* Gráfico mensual */}
+      {/* Gráfico mensual - Final del Dashboard */}
       <Card>
         <CardHeader>
           <CardTitle>Tendencias Mensuales</CardTitle>
@@ -249,192 +246,6 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Métricas de Clientes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Clientes"
-          value={formatNumber(summary.totalClients)}
-          icon={Users}
-        />
-        <MetricCard
-          title="Nuevos Clientes"
-          value={formatNumber(summary.newClients)}
-          icon={UserPlus}
-          variant="success"
-        />
-        <MetricCard
-          title="Clientes Perdidos"
-          value={formatNumber(summary.lostClients)}
-          icon={UserMinus}
-          variant="danger"
-        />
-        <MetricCard
-          title="Tasa Retención"
-          value={`${summary.retentionRate.toFixed(1)}%`}
-          icon={TrendingUp}
-        />
-      </div>
-
-      {/* Clientes Inactivos - Diseño Minimalista */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <UserMinus className="w-4 h-4 text-muted-foreground" />
-              Clientes Inactivos
-              <Badge variant="secondary" className="ml-1">
-                {summary.inactiveClients}
-              </Badge>
-            </CardTitle>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Revenue Perdido</p>
-              <p className="text-sm font-semibold">
-                {formatCurrency(
-                  summary.inactiveClientsList.reduce((sum, c) => sum + (c.previousYearRevenue || 0), 0)
-                )}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {summary.inactiveClientsList.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground">No hay clientes inactivos</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {summary.inactiveClientsList.slice(0, 15).map((client) => {
-                const revenue = client.previousYearRevenue || 0;
-                const isHighValue = revenue > 100000;
-                
-                // Calcular días desde última compra
-                const lastPurchase = client.lastPurchaseDate 
-                  ? new Date(client.lastPurchaseDate) 
-                  : null;
-                const daysSince = lastPurchase 
-                  ? Math.floor((new Date().getTime() - lastPurchase.getTime()) / (1000 * 60 * 60 * 24))
-                  : null;
-                
-                const daysText = daysSince !== null
-                  ? daysSince > 365 
-                    ? `${Math.floor(daysSince / 365)} año${Math.floor(daysSince / 365) > 1 ? 's' : ''}`
-                    : daysSince > 30
-                    ? `${Math.floor(daysSince / 30)} mes${Math.floor(daysSince / 30) > 1 ? 'es' : ''}`
-                    : `${daysSince} día${daysSince > 1 ? 's' : ''}`
-                  : 'N/A';
-                
-                return (
-                  <div
-                    key={client.name}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-muted/50",
-                      isHighValue && "border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10"
-                    )}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0",
-                        isHighValue
-                          ? "bg-amber-500 text-white"
-                          : "bg-muted text-muted-foreground"
-                      )}>
-                        {client.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{client.name}</p>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          {lastPurchase && (
-                            <span className="text-xs text-muted-foreground">
-                              {lastPurchase.toLocaleDateString('es-MX', { 
-                                month: 'short', 
-                                day: 'numeric',
-                                year: 'numeric'
-                              })}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">•</span>
-                          <span className="text-xs text-muted-foreground">{daysText} sin comprar</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right ml-4 flex-shrink-0">
-                      <p className={cn(
-                        "text-sm font-semibold",
-                        isHighValue ? "text-amber-600 dark:text-amber-400" : "text-foreground"
-                      )}>
-                        {formatCurrency(revenue)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Métricas adicionales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Meses Bajo Promedio</p>
-                <p className="text-3xl font-bold">{summary.monthsBelowAverage}</p>
-                <p className="text-xs text-muted-foreground mt-1">de {summary.monthlySales.length} meses</p>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Crecimiento Anual</p>
-                <p className={cn(
-                  "text-3xl font-bold",
-                  summary.growthVsPreviousYear >= 0 ? "text-emerald-600" : "text-red-600"
-                )}>
-                  {summary.growthVsPreviousYear >= 0 ? '+' : ''}{summary.growthVsPreviousYear.toFixed(1)}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">vs año anterior</p>
-              </div>
-              <div className={cn(
-                "w-12 h-12 rounded-lg flex items-center justify-center",
-                summary.growthVsPreviousYear >= 0 ? "bg-emerald-500/20" : "bg-red-500/20"
-              )}>
-                {summary.growthVsPreviousYear >= 0 ? (
-                  <TrendingUp className="w-6 h-6 text-emerald-600" />
-                ) : (
-                  <TrendingDown className="w-6 h-6 text-red-600" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Utilidad Total</p>
-                <p className="text-3xl font-bold">{formatCurrency(summary.totalProfit)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {summary.profitability.toFixed(1)}% de {formatCurrency(summary.totalRevenue)}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
