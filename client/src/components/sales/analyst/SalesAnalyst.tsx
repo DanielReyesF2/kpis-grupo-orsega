@@ -233,6 +233,26 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
           </div>
         </div>
 
+        {/* AI Insights Banner */}
+        {insights.statisticalContext?.aiInsights && (
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-xl border border-purple-200/50 dark:border-purple-800/30 p-5 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
+                  Análisis con IA
+                  <span className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-full">GPT-4</span>
+                </h3>
+                <p className="text-purple-800 dark:text-purple-200 leading-relaxed">
+                  {insights.statisticalContext.aiInsights}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Executive Summary */}
         <ExecutiveSummary insights={insights} companyId={companyId} />
 

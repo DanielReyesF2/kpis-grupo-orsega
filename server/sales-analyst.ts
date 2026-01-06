@@ -1,15 +1,16 @@
 /**
- * Módulo de Analista de Ventas
+ * Módulo de Analista de Ventas con IA
  * Proporciona análisis estratégico consolidado para el jefe de ventas
  * 
- * Optimizaciones:
+ * Características:
  * - Usa CTEs para calcular múltiples métricas en una sola query
- * - Agrupa cálculos relacionados para mejor performance
+ * - Integración con OpenAI para análisis inteligente
  * - Genera recomendaciones estratégicas basadas en datos históricos
  */
 
 import { neon, neonConfig } from '@neondatabase/serverless';
 import WebSocket from 'ws';
+import OpenAI from 'openai';
 import type {
   SalesAnalystInsights,
   ClientFocus,
@@ -21,6 +22,109 @@ import type {
 
 neonConfig.webSocketConstructor = WebSocket;
 const sql = neon(process.env.DATABASE_URL!);
+
+// Inicializar OpenAI si está configurado
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+
+/**
+ * Genera recomendaciones estratégicas usando IA
+ */
+async function generateAIRecommendations(
+  clientData: any[],
+  productData: any[],
+  inactiveClients: any[],
+  companyId: number
+): Promise<{ aiInsights: string; aiRecommendations: string[] }> {
+  if (!openai) {
+    console.log('[AI] OpenAI no configurado, usando recomendaciones estáticas');
+    return { aiInsights: '', aiRecommendations: [] };
+  }
+
+  try {
+    // Preparar resumen de datos para el prompt
+    const topClients = clientData
+      .filter(c => c.currentYearRevenue > 0)
+      .sort((a, b) => (b.currentYearRevenue || 0) - (a.currentYearRevenue || 0))
+      .slice(0, 10);
+    
+    const decliningClients = clientData
+      .filter(c => c.yoyChange < -20 && c.previousYearRevenue > 10000)
+      .slice(0, 10);
+    
+    const topProducts = productData
+      .filter(p => p.amtCurrentYear > 0)
+      .sort((a, b) => (b.amtCurrentYear || 0) - (a.amtCurrentYear || 0))
+      .slice(0, 10);
+    
+    const growingProducts = productData
+      .filter(p => p.growthRate > 20)
+      .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0))
+      .slice(0, 5);
+
+    const companyName = companyId === 1 ? 'Dura International' : 'Grupo Orsega';
+    const currency = companyId === 1 ? 'USD' : 'MXN';
+
+    const prompt = `Eres un analista de ventas experto para ${companyName}. Analiza los siguientes datos y proporciona insights accionables en español:
+
+## TOP 10 CLIENTES POR REVENUE
+${topClients.map(c => `- ${c.name}: ${currency} ${(c.currentYearRevenue || 0).toLocaleString()} (cambio YoY: ${(c.yoyChange || 0).toFixed(1)}%)`).join('\n')}
+
+## CLIENTES CON CAÍDA SIGNIFICATIVA (>20% menos que año anterior)
+${decliningClients.length > 0 
+  ? decliningClients.map(c => `- ${c.name}: de ${currency} ${(c.previousYearRevenue || 0).toLocaleString()} a ${currency} ${(c.currentYearRevenue || 0).toLocaleString()} (${(c.yoyChange || 0).toFixed(1)}%)`).join('\n')
+  : 'No hay clientes con caída significativa'}
+
+## CLIENTES INACTIVOS (compraron antes pero no este año)
+${inactiveClients.slice(0, 5).map(c => `- ${c.name}: ${c.daysSincePurchase} días sin compra, revenue anterior: ${currency} ${(c.previousYearRevenue || 0).toLocaleString()}`).join('\n')}
+Total clientes inactivos: ${inactiveClients.length}
+
+## TOP PRODUCTOS
+${topProducts.map(p => `- ${p.name}: ${currency} ${(p.amtCurrentYear || 0).toLocaleString()} (crecimiento: ${(p.growthRate || 0).toFixed(1)}%)`).join('\n')}
+
+## PRODUCTOS EN CRECIMIENTO
+${growingProducts.map(p => `- ${p.name}: +${(p.growthRate || 0).toFixed(1)}%, ${p.uniqueClients} clientes`).join('\n')}
+
+Genera un análisis ejecutivo con:
+1. Un párrafo de RESUMEN EJECUTIVO (2-3 oraciones sobre el estado general)
+2. 5 RECOMENDACIONES ESTRATÉGICAS específicas y accionables (máximo 50 palabras cada una)
+
+Responde SOLO en formato JSON:
+{
+  "resumen": "...",
+  "recomendaciones": ["...", "...", "...", "...", "..."]
+}`;
+
+    console.log('[AI] Enviando análisis a OpenAI...');
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Eres un analista de ventas B2B experto. Responde siempre en español y en formato JSON válido.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    const content = response.choices[0]?.message?.content || '';
+    console.log('[AI] Respuesta recibida:', content.substring(0, 200));
+
+    // Parsear respuesta JSON
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        aiInsights: parsed.resumen || '',
+        aiRecommendations: parsed.recomendaciones || []
+      };
+    }
+
+    return { aiInsights: '', aiRecommendations: [] };
+  } catch (error) {
+    console.error('[AI] Error generando recomendaciones:', error);
+    return { aiInsights: '', aiRecommendations: [] };
+  }
+}
 
 /**
  * Funciones de estadística para cálculos adaptativos
@@ -183,9 +287,34 @@ async function calculateAverageMargin(companyId: number): Promise<number> {
 export async function generateSalesAnalystInsights(
   companyId: number
 ): Promise<SalesAnalystInsights> {
-  const currentYear = new Date().getFullYear();
-  const lastYear = currentYear - 1;
   const now = new Date();
+  
+  // Obtener el último año con datos para esta empresa
+  let currentYear: number;
+  let lastYear: number;
+  
+  try {
+    const yearsQuery = await sql(`
+      SELECT MAX(sale_year) as max_year 
+      FROM sales_data 
+      WHERE company_id = $1 AND sale_year IS NOT NULL
+    `, [companyId]);
+    
+    const maxYear = yearsQuery[0]?.max_year;
+    if (maxYear) {
+      currentYear = Number(maxYear);
+      lastYear = currentYear - 1;
+    } else {
+      // Fallback si no hay datos
+      currentYear = 2025;
+      lastYear = 2024;
+    }
+  } catch (e) {
+    console.error('[generateSalesAnalystInsights] Error obteniendo años:', e);
+    currentYear = 2025;
+    lastYear = 2024;
+  }
+  
   const periodStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
   const periodEnd = now.toISOString().split('T')[0];
 
@@ -324,7 +453,7 @@ export async function generateSalesAnalystInsights(
   // Procesar productos y categorizar
   const productOpportunities = categorizeProducts(productData, averageMargin);
   
-  // Generar recomendaciones estratégicas
+  // Generar recomendaciones estratégicas básicas
   const recommendations = generateRecommendations(focusClients, productOpportunities, inactiveData);
   
   // Generar action items
@@ -332,6 +461,26 @@ export async function generateSalesAnalystInsights(
   
   // Análisis de riesgo
   const riskAnalysis = calculateRiskAnalysis(focusClients, inactiveData);
+
+  // 🤖 Generar análisis con IA (si OpenAI está disponible)
+  console.log(`[generateSalesAnalystInsights] Generando análisis con IA...`);
+  const aiAnalysis = await generateAIRecommendations(clientData, productData, inactiveData, companyId);
+  
+  // Agregar recomendaciones de IA a las existentes
+  if (aiAnalysis.aiRecommendations.length > 0) {
+    aiAnalysis.aiRecommendations.forEach((rec, idx) => {
+      recommendations.push({
+        id: `ai-rec-${idx + 1}`,
+        type: 'strategy',
+        title: `🤖 ${rec.substring(0, 50)}${rec.length > 50 ? '...' : ''}`,
+        description: rec,
+        priority: idx < 2 ? 'high' : 'medium',
+        impact: idx < 2 ? 'high' : 'medium',
+        effort: 'medium',
+        relatedEntities: {}
+      });
+    });
+  }
 
   // Calcular contexto estadístico para insights mejorados
   const statisticalContext = {
@@ -341,7 +490,8 @@ export async function generateSalesAnalystInsights(
       mean: yoyStats.mean,
       stdDev: yoyStats.stdDev
     },
-    averageMargin
+    averageMargin,
+    aiInsights: aiAnalysis.aiInsights || undefined
   };
 
     console.log(`[generateSalesAnalystInsights] Generando insights finales...`);

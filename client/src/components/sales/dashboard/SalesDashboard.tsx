@@ -156,44 +156,52 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
 
       {/* Modal de KPIS */}
-      {showKPIsModal && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Overlay */}
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowKPIsModal(false)}
-          />
-          
-          {/* Panel lateral */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-background shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
-            {/* Header del modal */}
-            <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Target className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Panel de KPIs</h2>
-                  <p className="text-sm text-white/80">Análisis estratégico y recomendaciones</p>
-                </div>
+      <div 
+        className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ease-out ${
+          showKPIsModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Overlay */}
+        <div 
+          className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+            showKPIsModal ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={() => setShowKPIsModal(false)}
+        />
+        
+        {/* Panel lateral */}
+        <div 
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-background shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
+            showKPIsModal ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Header del modal */}
+          <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Target className="h-6 w-6" />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowKPIsModal(false)}
-                className="text-white hover:bg-white/20"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div>
+                <h2 className="text-xl font-bold">Panel de KPIs</h2>
+                <p className="text-sm text-white/80">Análisis estratégico con IA</p>
+              </div>
             </div>
-            
-            {/* Contenido del modal */}
-            <div className="p-6">
-              <SalesAnalyst companyId={resolvedCompanyId} embedded={true} />
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowKPIsModal(false)}
+              className="text-white hover:bg-white/20"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          {/* Contenido del modal */}
+          <div className="p-6">
+            {showKPIsModal && <SalesAnalyst companyId={resolvedCompanyId} embedded={true} />}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

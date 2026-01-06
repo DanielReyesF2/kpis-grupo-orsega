@@ -103,6 +103,7 @@ export interface SalesAnalystInsights {
       stdDev: number;                   // Desviación estándar de cambios YoY
     };
     averageMargin: number;              // Margen promedio histórico
+    aiInsights?: string;                // Resumen ejecutivo generado por IA
   };
 }
 
