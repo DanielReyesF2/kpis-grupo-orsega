@@ -76,7 +76,7 @@ export function ClientTrendsTable({ companyId, limit = 10 }: ClientTrendsTablePr
     >
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
+          <thead className="bg-slate-100 dark:bg-slate-800">
             <tr>
               <th className="text-left p-3 font-semibold">Cliente</th>
               <th className="text-right p-3 font-semibold">{data.previousYear}</th>
@@ -89,7 +89,7 @@ export function ClientTrendsTable({ companyId, limit = 10 }: ClientTrendsTablePr
             {data.clients.map((client: any) => {
               const isPositive = client.changePercent >= 0;
               return (
-                <tr key={client.name} className="border-t hover:bg-muted/30">
+                <tr key={client.name} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="p-3 font-medium">{client.name}</td>
                   <td className="p-3 text-right text-muted-foreground">
                     {formatNumber(client.qtyPrevious)} {client.unit || data.unit}

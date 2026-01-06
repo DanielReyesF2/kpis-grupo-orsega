@@ -111,25 +111,25 @@ export function TopClientsTable({ companyId, limit = 10, period = 'year' }: TopC
       subtitle={`Top ${limit} clientes por ${sortBy === 'revenue' ? 'revenue' : 'volumen'} (${period === 'year' ? 'año actual' : period === 'month' ? 'mes actual' : 'últimos 3 meses'})`}
     >
       {/* Selector de ordenamiento */}
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Ordenar por:</span>
+      <div className="mb-4 flex items-center gap-3">
+        <span className="text-sm font-medium text-foreground">Ordenar por:</span>
         <div className="flex gap-2">
           <button
             onClick={() => setSortBy('revenue')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            className={`px-4 py-2 text-sm rounded-md font-medium transition-all ${
               sortBy === 'revenue'
-                ? 'bg-primary text-primary-foreground font-medium'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                ? 'bg-primary text-white shadow-sm'
+                : 'bg-white border-2 border-border text-foreground hover:border-primary/50 hover:bg-primary/5'
             }`}
           >
             Revenue
           </button>
           <button
             onClick={() => setSortBy('volume')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            className={`px-4 py-2 text-sm rounded-md font-medium transition-all ${
               sortBy === 'volume'
-                ? 'bg-primary text-primary-foreground font-medium'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                ? 'bg-primary text-white shadow-sm'
+                : 'bg-white border-2 border-border text-foreground hover:border-primary/50 hover:bg-primary/5'
             }`}
           >
             Volumen
@@ -192,7 +192,7 @@ export function TopClientsTable({ companyId, limit = 10, period = 'year' }: TopC
         {/* Tabla de detalles */}
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-slate-100 dark:bg-slate-800">
               <tr>
                 <th className="text-left p-3 font-semibold">Cliente</th>
                 <th className="text-right p-3 font-semibold">Volumen</th>
@@ -206,7 +206,7 @@ export function TopClientsTable({ companyId, limit = 10, period = 'year' }: TopC
               {data.map((client: any, index: number) => {
                 const percentage = totalVolume > 0 ? (client.volume / totalVolume) * 100 : 0;
                 return (
-                  <tr key={client.name} className="border-t hover:bg-muted/30">
+                  <tr key={client.name} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="p-3 font-medium">{client.name}</td>
                     <td className="p-3 text-right">
                       {formatNumber(client.volume)} {client.unit || ''}
