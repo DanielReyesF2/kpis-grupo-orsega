@@ -8351,6 +8351,17 @@ export function registerRoutes(app: express.Application) {
         ORDER BY sale_year DESC
       `, [resolvedCompanyId]);
 
+      // Log para debugging (solo en desarrollo)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Comparando años: ${yearsToCompare.join(', ')}`);
+        console.log(`[GET /api/sales-yearly-comparison] Total registros encontrados: ${monthlyData.length}`);
+        console.log(`[GET /api/sales-yearly-comparison] Totales calculados:`, totals);
+        console.log(`[GET /api/sales-yearly-comparison] Años disponibles:`, availableYears.map((r: any) => {
+          const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
+          return year;
+        }));
+      }
+
       res.json({
         companyId: resolvedCompanyId,
         year1: compareYear1,
@@ -8367,7 +8378,10 @@ export function registerRoutes(app: express.Application) {
             ? ((totals[`amt_${compareYear2}`] - totals[`amt_${compareYear1}`]) / totals[`amt_${compareYear1}`]) * 100
             : 0,
         },
-        availableYears: availableYears.map((r: any) => parseInt(r.sale_year)),
+        availableYears: availableYears.map((r: any) => {
+          const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
+          return year;
+        }),
         unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
       });
     } catch (error) {
