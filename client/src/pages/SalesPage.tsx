@@ -378,7 +378,13 @@ export default function SalesPage() {
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         {/* Vista según modo seleccionado */}
         {viewMode === "dashboard" && (
-          <SalesDashboard companyId={selectedCompany} />
+          <SalesDashboard 
+            companyId={selectedCompany} 
+            onViewChange={(view) => {
+              console.log('[SalesPage] onViewChange called with:', view);
+              setViewMode(view as ViewMode);
+            }}
+          />
         )}
         {viewMode === "overview" && (
           <div className="space-y-8">
