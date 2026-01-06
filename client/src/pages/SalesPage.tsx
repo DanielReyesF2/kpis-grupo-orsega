@@ -331,44 +331,44 @@ export default function SalesPage() {
   return (
     <AppLayout title={`Módulo de Ventas - ${companyColors.name}`}>
       <div className="container mx-auto py-8 px-4 max-w-7xl">
-        {/* Header - Minimalista */}
-        <div className={`mb-8 ${companyColors.bg} rounded-lg p-6 border-l-4 ${companyColors.border}`}>
-          <div className="flex items-start justify-between mb-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-sales-h1-dark">
-                  Módulo de Ventas
-                </h1>
-                <Badge 
-                  variant="outline" 
-                  className={`${companyColors.border} ${companyColors.text} font-semibold`}
-                >
-                  {companyColors.name}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Análisis comparativo y seguimiento de clientes
-              </p>
-            </div>
-
-            <Button
-              onClick={() => setViewMode("upload")}
-              variant="default"
-              size="sm"
-              className={`shrink-0 ${companyColors.button}`}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Subir Excel
-            </Button>
-          </div>
-        </div>
-
         {/* Vista según modo seleccionado */}
         {viewMode === "dashboard" && (
           <SalesDashboard companyId={selectedCompany} />
         )}
         {viewMode === "overview" && (
           <div className="space-y-8">
+            {/* Header - Minimalista */}
+            <div className={`mb-8 ${companyColors.bg} rounded-lg p-6 border-l-4 ${companyColors.border}`}>
+              <div className="flex items-start justify-between mb-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-sales-h1-dark">
+                      Módulo de Ventas
+                    </h1>
+                    <Badge 
+                      variant="outline" 
+                      className={`${companyColors.border} ${companyColors.text} font-semibold`}
+                    >
+                      {companyColors.name}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Análisis comparativo y seguimiento de clientes
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => setViewMode("upload")}
+                  variant="default"
+                  size="sm"
+                  className={`shrink-0 ${companyColors.button}`}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Subir Excel
+                </Button>
+              </div>
+            </div>
+
             {/* KPIs Overview - Diseño Minimalista */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>

@@ -4,7 +4,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, DollarSign, Users, Target, Brain, Sparkles } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -78,15 +78,15 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         ]}
         actions={[
           {
-            label: "Analista IA",
+            label: "KPIS",
             onClick: () => {
               // Navegar a la página de ventas con modo analyst
               const basePath = resolvedCompanyId === 1 ? '/sales/dura' : '/sales/orsega';
               setLocation(`${basePath}?view=analyst`);
             },
-            variant: "outline" as const,
-            icon: Brain,
-            primary: false
+            variant: "default" as const,
+            icon: Target,
+            primary: true
           }
         ]}
       />
