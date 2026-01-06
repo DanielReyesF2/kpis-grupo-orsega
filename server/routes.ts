@@ -8239,9 +8239,9 @@ export function registerRoutes(app: express.Application) {
 
       // Años a comparar (por defecto: 2024 vs 2025)
       // Cuando haya datos de 2026, automáticamente se incluirán los 3 años
-      const currentYear = new Date().getFullYear();
-      const compareYear1 = year1 ? parseInt(year1 as string) : (currentYear - 1); // 2024 por defecto
-      const compareYear2 = year2 ? parseInt(year2 as string) : currentYear; // 2025 por defecto
+      // Forzar 2024 y 2025 por defecto, independientemente del año actual
+      const compareYear1 = year1 ? parseInt(year1 as string) : 2024; // Siempre 2024 por defecto
+      const compareYear2 = year2 ? parseInt(year2 as string) : 2025; // Siempre 2025 por defecto
 
       // Verificar si hay datos de 2026 para incluir automáticamente
       const year2026Check = await sql(`

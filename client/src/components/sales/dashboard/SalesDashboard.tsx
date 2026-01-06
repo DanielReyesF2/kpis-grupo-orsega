@@ -162,6 +162,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
               value={salesTarget.value}
               min={0}
               max={salesTarget.max}
+              target={salesTarget.target}
               zones={salesTarget.zones}
               label="Revenue vs Objetivo"
               unit={resolvedCompanyId === 1 ? " USD" : " MXN"}

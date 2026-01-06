@@ -90,9 +90,10 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
   }
 
   // Detectar si hay datos de 2026 para mostrar 3 años
+  // Siempre usar 2024 y 2025 por defecto, agregar 2026 solo si hay datos
   const availableYears = data.availableYears || [];
   const has2026 = availableYears.includes(2026);
-  const yearsToShow = has2026 ? [2024, 2025, 2026] : [data.year1, data.year2];
+  const yearsToShow = has2026 ? [2024, 2025, 2026] : [2024, 2025];
 
   // Preparar datos para el gráfico (soporta 2 o 3 años)
   const chartData = data.data.map((item: any) => {
@@ -120,7 +121,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
       title="Comparativo Anual"
       subtitle={has2026 
         ? `${yearsToShow.join(' vs ')} - Revenue por mes`
-        : `${data.year1} vs ${data.year2} - Revenue por mes`}
+        : `2024 vs 2025 - Revenue por mes`}
     >
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">

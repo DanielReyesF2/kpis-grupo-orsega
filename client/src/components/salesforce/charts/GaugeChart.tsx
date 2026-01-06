@@ -17,6 +17,7 @@ export interface GaugeChartProps {
   animated?: boolean;
   isLoading?: boolean;
   error?: string | null;
+  target?: number; // Target value for percentage calculation (if different from max)
 }
 
 export function GaugeChart({
@@ -30,7 +31,8 @@ export function GaugeChart({
   size = 'md',
   animated = true,
   isLoading = false,
-  error = null
+  error = null,
+  target
 }: GaugeChartProps) {
   const sizeConfig = {
     sm: { width: 200, height: 120, fontSize: 14, centerY: 100 },
@@ -45,13 +47,17 @@ export function GaugeChart({
   const endAngle = 0;
   const angleRange = endAngle - startAngle;
 
-  // Calculate needle angle
-  const percentage = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
-  const needleAngle = startAngle + (percentage / 100) * angleRange;
+  // Calculate needle angle based on max (for visual positioning)
+  const percentageForNeedle = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+  const needleAngle = startAngle + (percentageForNeedle / 100) * angleRange;
+
+  // Calculate percentage for display based on target (if provided) or max
+  const targetValue = target !== undefined ? target : max;
+  const percentageForDisplay = Math.max(0, Math.min(100, ((value - min) / (targetValue - min)) * 100));
 
   // Format value
   const displayValue = formatValue ? formatValue(value) : `${value.toLocaleString()}${unit}`;
-  const percentageDisplay = `${Math.round(percentage)}%`;
+  const percentageDisplay = `${Math.round(percentageForDisplay)}%`;
 
   // Determine which zone the value is in
   const currentZone = useMemo(() => {
