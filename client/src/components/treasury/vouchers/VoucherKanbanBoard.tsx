@@ -36,6 +36,7 @@ import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
 import { VoucherFilters } from "./VoucherFilters";
 import { useVoucherFilters } from "@/hooks/useVoucherFilters";
 import { PayVoucherModal } from "./PayVoucherModal";
+import { DeleteVoucherModal } from "../modals/DeleteVoucherModal";
 
 // Lazy load del panel de detalles para mejor performance
 const VoucherDetailPanel = lazy(() =>
@@ -74,9 +75,10 @@ interface KanbanColumnProps {
   vouchers: PaymentVoucher[];
   onVoucherClick: (voucher: PaymentVoucher) => void;
   onPayVoucher: (voucher: PaymentVoucher) => void;
+  onDeleteVoucher: (voucher: PaymentVoucher) => void;
 }
 
-function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher }: KanbanColumnProps) {
+function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDeleteVoucher }: KanbanColumnProps) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   const { setNodeRef, isOver } = useDroppable({
@@ -98,12 +100,12 @@ function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher }: Kanban
         <CardHeader className={`${config.headerColor} border-b`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Icon className="h-5 w-5" />
-              <CardTitle className="text-base font-semibold">
+              <Icon className="h-5 w-5 text-slate-700" />
+              <CardTitle className="text-base font-semibold text-slate-800">
                 {config.label}
               </CardTitle>
             </div>
-            <Badge variant="secondary" className="font-semibold">
+            <Badge variant="secondary" className="font-semibold bg-white/80">
               {vouchers.length}
             </Badge>
           </div>
@@ -127,6 +129,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher }: Kanban
                     voucher={voucher}
                     onClick={() => onVoucherClick(voucher)}
                     onPay={() => onPayVoucher(voucher)}
+                    onDelete={() => onDeleteVoucher(voucher)}
                   />
                 ))
               )}
@@ -147,6 +150,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
   const [activeVoucher, setActiveVoucher] = useState<PaymentVoucher | null>(null);
   const [selectedVoucher, setSelectedVoucher] = useState<PaymentVoucher | null>(null);
   const [payingVoucher, setPayingVoucher] = useState<PaymentVoucher | null>(null);
+  const [deletingVoucher, setDeletingVoucher] = useState<PaymentVoucher | null>(null);
   const { filters } = useVoucherFilters();
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
 
@@ -338,6 +342,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
                   vouchers={groupedVouchers[status]}
                   onVoucherClick={setSelectedVoucher}
                   onPayVoucher={setPayingVoucher}
+                  onDeleteVoucher={setDeletingVoucher}
                 />
               )
             )}
@@ -362,6 +367,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
               voucher={voucher}
               onClick={() => setSelectedVoucher(voucher)}
               onPay={() => setPayingVoucher(voucher)}
+              onDelete={() => setDeletingVoucher(voucher)}
             />
           ))}
         </div>
@@ -386,6 +392,18 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           onSuccess={() => {
             setPayingVoucher(null);
             queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+          }}
+        />
+      )}
+
+      {/* Modal para eliminar voucher */}
+      {deletingVoucher && (
+        <DeleteVoucherModal
+          isOpen={!!deletingVoucher}
+          onClose={() => setDeletingVoucher(null)}
+          voucher={deletingVoucher}
+          onSuccess={() => {
+            setDeletingVoucher(null);
           }}
         />
       )}

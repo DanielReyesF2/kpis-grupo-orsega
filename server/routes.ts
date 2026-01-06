@@ -17,7 +17,7 @@ interface AuthRequest extends Request {
 }
 import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi, paymentVouchers, deletedPaymentVouchers } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
@@ -7909,6 +7909,71 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'Validación fallida', details: error.errors });
       }
       res.status(500).json({ error: 'Failed to update payment voucher' });
+    }
+  });
+
+  // DELETE /api/payment-vouchers/:id - Eliminar comprobante con razón (soft delete - se archiva)
+  app.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const voucherId = parseInt(req.params.id);
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Validar razón de eliminación
+      const deleteSchema = z.object({
+        reason: z.string().min(3, 'La razón debe tener al menos 3 caracteres').max(500, 'La razón no puede exceder 500 caracteres'),
+      });
+
+      const { reason } = deleteSchema.parse(req.body);
+
+      // Obtener el voucher original antes de eliminar
+      const originalVoucher = await db.query.paymentVouchers.findFirst({
+        where: eq(paymentVouchers.id, voucherId),
+      });
+
+      if (!originalVoucher) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+
+      // Guardar en la tabla de eliminados (soft delete)
+      await db.insert(deletedPaymentVouchers).values({
+        originalVoucherId: originalVoucher.id,
+        companyId: originalVoucher.companyId,
+        payerCompanyId: originalVoucher.payerCompanyId,
+        clientId: originalVoucher.clientId,
+        clientName: originalVoucher.clientName,
+        status: originalVoucher.status,
+        voucherFileUrl: originalVoucher.voucherFileUrl,
+        voucherFileName: originalVoucher.voucherFileName,
+        extractedAmount: originalVoucher.extractedAmount,
+        extractedCurrency: originalVoucher.extractedCurrency,
+        extractedReference: originalVoucher.extractedReference,
+        extractedBank: originalVoucher.extractedBank,
+        originalCreatedAt: originalVoucher.createdAt,
+        deletionReason: reason,
+        deletedBy: userId,
+        originalData: JSON.stringify(originalVoucher), // Backup completo
+      });
+
+      // Eliminar el voucher original
+      await db.delete(paymentVouchers).where(eq(paymentVouchers.id, voucherId));
+
+      console.log(`🗑️ [Delete Voucher] Voucher ${voucherId} eliminado por usuario ${userId}. Razón: ${reason}`);
+
+      res.json({ 
+        success: true, 
+        message: 'Comprobante eliminado y archivado correctamente',
+        voucherId 
+      });
+    } catch (error) {
+      console.error('Error deleting payment voucher:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+      }
+      res.status(500).json({ error: 'Error al eliminar el comprobante' });
     }
   });
 
