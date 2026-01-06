@@ -9,14 +9,9 @@ import { apiRequest } from "@/lib/queryClient";
 
 // Salesforce components
 import { PageHeader } from "@/components/salesforce/layout/PageHeader";
-import { FilterBar } from "@/components/salesforce/layout/FilterBar";
 import { GaugeChart } from "@/components/salesforce/charts/GaugeChart";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
 import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
-
-// Hooks
-import { useFilters } from "@/hooks/useFilters";
-import { useSavedViews } from "@/hooks/useSavedViews";
 
 // New components
 import { SalesKPICard } from "./SalesKPICard";
@@ -32,20 +27,8 @@ interface SalesDashboardProps {
 }
 
 export function SalesDashboard({ companyId }: SalesDashboardProps) {
-  // Filters
-  const { filters, updateFilters } = useFilters({
-    companyId,
-    period: 'year',
-  }, {
-    syncWithURL: true,
-    persistInLocalStorage: true,
-    storageKey: 'sales_filters'
-  });
-
-  // Saved views
-  const { savedViews, saveView, loadView } = useSavedViews();
-
-  const resolvedCompanyId = (filters.companyId as number) || companyId || 1;
+  // Usar directamente companyId del prop (viene del contexto/URL)
+  const resolvedCompanyId = companyId || 1;
 
   // Fetch sales stats for KPIs
   const { data: salesStats, isLoading: isLoadingStats, error: statsError } = useQuery({
@@ -76,32 +59,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
   // Calculate total revenue from monthly trends
   const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
 
-  // Filter options
-  const quickFilters = [
-    {
-      key: 'companyId',
-      label: 'Empresa',
-      type: 'select' as const,
-      options: [
-        { value: '1', label: 'DURA' },
-        { value: '2', label: 'Orsega' },
-      ],
-      defaultValue: String(resolvedCompanyId),
-    },
-    {
-      key: 'period',
-      label: 'Período',
-      type: 'select' as const,
-      options: [
-        { value: 'year', label: 'Este año' },
-        { value: 'quarter', label: 'Este trimestre' },
-        { value: 'month', label: 'Este mes' },
-        { value: 'all', label: 'Todos' },
-      ],
-      defaultValue: 'year',
-    },
-  ];
-
   // Calculate sales target (use totalRevenue, default 50M target)
   // For Dura (USD): 50M USD, For Orsega (MXN): 50M MXN
   const defaultTarget = 50000000;
@@ -115,17 +72,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       { min: defaultTarget * 0.8, max: defaultTarget, color: '#F57C00' }, // Orange
       { min: defaultTarget, max: defaultTarget * 1.5, color: '#2E7D32' }, // Green
     ],
-  };
-
-  const handleSaveView = (name: string) => {
-    saveView(name, filters);
-  };
-
-  const handleLoadView = (viewId: string) => {
-    const viewFilters = loadView(viewId);
-    if (viewFilters) {
-      updateFilters(viewFilters);
-    }
   };
 
   // Calculate growth percentage
@@ -143,25 +89,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
           { label: 'Ventas', href: '/sales' },
           { label: 'Dashboard' },
         ]}
-        actions={[
-          {
-            label: 'Nueva Venta',
-            onClick: () => {},
-            variant: 'default',
-            primary: true,
-          },
-        ]}
-      />
-
-      {/* Filter Bar */}
-      <FilterBar
-        quickFilters={quickFilters}
-        filters={filters}
-        onFiltersChange={updateFilters}
-        onSaveView={handleSaveView}
-        savedViews={savedViews}
-        onLoadView={handleLoadView}
-        resultCount={0}
       />
 
       {/* KPIs Principales - Grid 4 columnas */}

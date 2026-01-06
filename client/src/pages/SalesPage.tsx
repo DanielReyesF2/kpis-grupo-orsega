@@ -25,8 +25,7 @@ import {
   UserMinus,
   DollarSign,
   RefreshCw,
-  TableIcon,
-  Calendar
+  TableIcon
 } from "lucide-react";
 import type { SalesMetrics } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
@@ -86,11 +85,6 @@ export default function SalesPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
 
-  // Año seleccionado para vista - por default año actual
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const availableYears = [2025, 2024, 2023, 2022]; // Años disponibles
-
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
   const canViewOrsega = user?.role === 'admin' || user?.companyId === 2;
@@ -128,11 +122,12 @@ export default function SalesPage() {
     refetchInterval: 60000
   });
 
-  // Query para tendencias mensuales del año seleccionado
+  // Query para tendencias mensuales del año actual
+  const currentYear = new Date().getFullYear();
   const { data: monthlyTrends, isLoading: isLoadingTrends } = useQuery({
-    queryKey: ['/api/sales-monthly-trends', selectedCompany, selectedYear],
+    queryKey: ['/api/sales-monthly-trends', selectedCompany, currentYear],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&year=${selectedYear}`);
+      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&year=${currentYear}`);
       return await res.json();
     },
     enabled: !!user && viewMode === 'overview',
@@ -332,29 +327,6 @@ export default function SalesPage() {
               <p className="text-sm text-muted-foreground">
                 Análisis comparativo y seguimiento de clientes
               </p>
-
-              {/* Selector de Año */}
-              <div className="flex items-center gap-2 mt-3">
-                <Calendar className={`h-4 w-4 ${companyColors.iconColor}`} />
-                <span className="text-sm text-muted-foreground">Año:</span>
-                <div className="flex gap-1">
-                  {availableYears.map((year) => (
-                    <Button
-                      key={year}
-                      variant={selectedYear === year ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedYear(year)}
-                      className={`h-7 px-3 text-xs ${
-                        selectedYear === year
-                          ? companyColors.button
-                          : `hover:${companyColors.bg}`
-                      }`}
-                    >
-                      {year}
-                    </Button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <Button
@@ -783,7 +755,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    Tendencias Mensuales {selectedYear}
+                    Tendencias Mensuales {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Evolución del volumen de ventas por mes
@@ -859,7 +831,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    Volumen Mensual {selectedYear}
+                    Volumen Mensual {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Comparación de volumen por mes del año seleccionado
@@ -985,7 +957,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
-                    Resumen {selectedYear}
+                    Resumen {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Métricas clave del año seleccionado
@@ -1023,7 +995,7 @@ export default function SalesPage() {
                         <p className="text-2xl font-semibold text-foreground tabular-nums">
                           {monthlyTrends?.length || 0}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">Año {selectedYear}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Año {currentYear}</p>
                       </div>
                       <Button
                         onClick={() => setViewMode("upload")}
