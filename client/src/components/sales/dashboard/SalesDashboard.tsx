@@ -9,7 +9,6 @@ import { apiRequest } from "@/lib/queryClient";
 
 // Salesforce components
 import { PageHeader } from "@/components/salesforce/layout/PageHeader";
-import { GaugeChart } from "@/components/salesforce/charts/GaugeChart";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
 import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
 
@@ -58,21 +57,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
 
   // Calculate total revenue from monthly trends
   const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
-
-  // Calculate sales target (use totalRevenue, default 50M target)
-  // For Dura (USD): 50M USD, For Orsega (MXN): 50M MXN
-  const defaultTarget = 50000000;
-  const salesTargetValue = totalRevenue || 0;
-  const salesTarget = {
-    value: salesTargetValue,
-    target: defaultTarget,
-    max: defaultTarget * 1.5, // 75M max
-    zones: [
-      { min: 0, max: defaultTarget * 0.8, color: '#C62828' }, // Red
-      { min: defaultTarget * 0.8, max: defaultTarget, color: '#F57C00' }, // Orange
-      { min: defaultTarget, max: defaultTarget * 1.5, color: '#2E7D32' }, // Green
-    ],
-  };
 
   // Calculate growth percentage
   const growthPercent = salesStats?.growth || 0;
@@ -137,53 +121,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         </div>
       )}
 
-      {/* Objetivo de Ventas */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        {isLoadingStats ? (
-          <LoadingState variant="chart" />
-        ) : salesTargetValue > 0 ? (
-          <div className="bg-card border rounded-lg p-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold">Objetivo de Ventas</h3>
-                <p className="text-sm text-muted-foreground">
-                  Actual: {formatCurrency(salesTarget.value, resolvedCompanyId)} | 
-                  Objetivo: {formatCurrency(salesTarget.target, resolvedCompanyId)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Progreso: {((salesTarget.value / salesTarget.target) * 100).toFixed(1)}%
-                </p>
-              </div>
-            </div>
-            <GaugeChart
-              value={salesTarget.value}
-              min={0}
-              max={salesTarget.max}
-              target={salesTarget.target}
-              zones={salesTarget.zones}
-              label="Revenue vs Objetivo"
-              unit={resolvedCompanyId === 1 ? " USD" : " MXN"}
-              formatValue={(value) => formatCurrency(value, resolvedCompanyId)}
-              size="lg"
-              animated
-            />
-          </div>
-        ) : (
-          <div className="bg-card border rounded-lg p-6">
-            <div className="text-center py-8">
-              <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No hay datos suficientes para mostrar el objetivo de ventas</p>
-            </div>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Tendencias Mensuales */}
-      <MonthlyTrendsChart companyId={resolvedCompanyId} />
-
       {/* Comparativo Anual */}
       <YearlyComparisonChart companyId={resolvedCompanyId} />
 
@@ -192,6 +129,9 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         <TopClientsTable companyId={resolvedCompanyId} limit={10} period="year" />
         <TopProductsTable companyId={resolvedCompanyId} limit={10} period="year" />
       </div>
+
+      {/* Tendencias Mensuales */}
+      <MonthlyTrendsChart companyId={resolvedCompanyId} />
 
       {/* Tendencias de Clientes */}
       <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
