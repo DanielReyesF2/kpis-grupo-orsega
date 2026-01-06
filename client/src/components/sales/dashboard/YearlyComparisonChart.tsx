@@ -169,23 +169,39 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                 padding: "12px",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
-              formatter={(value: number, name: string, props: any) => {
-                const year = parseInt(name);
-                const percentChange = props.payload[`percent_${year}`];
-                const formattedValue = formatCurrency(value, companyId);
-                
-                if (year !== 2024 && percentChange !== undefined && percentChange !== 0) {
-                  return [
-                    <div key={name}>
-                      <div>{formattedValue}</div>
-                      <div className={`text-xs mt-1 ${percentChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% vs 2024
-                      </div>
-                    </div>,
-                    name
-                  ];
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  return (
+                    <div className="bg-card border rounded-lg p-3 shadow-lg">
+                      <p className="font-semibold mb-2">{label}</p>
+                      {payload.map((entry: any, index: number) => {
+                        const year = parseInt(entry.dataKey);
+                        const value = entry.value as number;
+                        const percentChange = entry.payload[`percent_${year}`];
+                        const formattedValue = formatCurrency(value, companyId);
+                        
+                        return (
+                          <div key={index} className="mb-1">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="font-medium">{entry.name}:</span>
+                              <span>{formattedValue}</span>
+                            </div>
+                            {year !== 2024 && percentChange !== undefined && percentChange !== 0 && (
+                              <div className={`text-xs ml-5 mt-0.5 ${percentChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% vs 2024
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 }
-                return [formattedValue, name];
+                return null;
               }}
             />
             <Legend 
