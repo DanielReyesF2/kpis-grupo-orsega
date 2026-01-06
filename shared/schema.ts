@@ -741,7 +741,6 @@ export const paymentVouchers = pgTable("payment_vouchers", {
   payerCompanyId: integer("payer_company_id").notNull(), // Empresa pagadora (Orsega/Dura)
   clientId: integer("client_id").notNull(), // Cliente/beneficiario (payeeClientId)
   clientName: text("client_name").notNull(), // Nombre del cliente (denormalizado para búsqueda rápida)
-  supplierId: integer("supplier_id"), // ID del proveedor (opcional)
   
   // Vinculación opcional a pago programado
   scheduledPaymentId: integer("scheduled_payment_id"), // Opcional

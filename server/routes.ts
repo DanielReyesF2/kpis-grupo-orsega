@@ -4785,7 +4785,6 @@ export function registerRoutes(app: express.Application) {
         payerCompanyId: validatedData.payerCompanyId,
         clientId: validatedData.supplierId || 0, // Usar supplierId si existe
         clientName: validatedData.supplierName,
-        supplierId: validatedData.supplierId || null,
         scheduledPaymentId: createdScheduledPayment.id,
         status: 'pago_programado' as const, // ✅ Nuevo status para Kanban
         voucherFileUrl: `/uploads/facturas/${year}/${month}/${invoiceFileName}`,
