@@ -4,8 +4,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, DollarSign, Users, Target } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target, Brain, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 // Salesforce components
 import { PageHeader } from "@/components/salesforce/layout/PageHeader";
@@ -28,6 +30,7 @@ interface SalesDashboardProps {
 export function SalesDashboard({ companyId }: SalesDashboardProps) {
   // Usar directamente companyId del prop (viene del contexto/URL)
   const resolvedCompanyId = companyId || 1;
+  const [, setLocation] = useLocation();
 
   // Fetch sales stats for KPIs
   const { data: salesStats, isLoading: isLoadingStats, error: statsError } = useQuery({
@@ -72,6 +75,19 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
           { label: 'Inicio', href: '/' },
           { label: 'Ventas', href: '/sales' },
           { label: 'Dashboard' },
+        ]}
+        actions={[
+          {
+            label: "Analista IA",
+            onClick: () => {
+              // Navegar a la página de ventas con modo analyst
+              const basePath = resolvedCompanyId === 1 ? '/sales/dura' : '/sales/orsega';
+              setLocation(`${basePath}?view=analyst`);
+            },
+            variant: "outline" as const,
+            icon: Brain,
+            primary: false
+          }
         ]}
       />
 

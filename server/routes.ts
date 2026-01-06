@@ -8675,8 +8675,9 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const currentYear = new Date().getFullYear();
-      const lastYear = currentYear - 1;
+      // Usar 2024 vs 2025 (igual que el comparativo anual)
+      const currentYear = 2025;
+      const lastYear = 2024;
 
       const clientTrends = await sql(`
         SELECT

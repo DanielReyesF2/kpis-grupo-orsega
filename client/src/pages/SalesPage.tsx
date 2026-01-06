@@ -70,7 +70,19 @@ export default function SalesPage() {
     return user?.companyId || 1;
   };
 
-  const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
+  // Leer viewMode desde query params si existe
+  const getInitialViewMode = (): ViewMode => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+        return view as ViewMode;
+      }
+    }
+    return "dashboard";
+  };
+
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode());
   const [selectedCompany, setSelectedCompany] = useState<number>(getInitialCompany());
 
   // Sincronizar selectedCompany con la URL cuando cambie
@@ -79,6 +91,16 @@ export default function SalesPage() {
       setSelectedCompany(1);
     } else if (location === "/sales/orsega") {
       setSelectedCompany(2);
+    }
+    
+    // Leer viewMode desde query params
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+      setViewMode(view as ViewMode);
+    } else if (!view && location.includes('/sales')) {
+      // Si no hay view param pero estamos en /sales, usar dashboard
+      setViewMode("dashboard");
     }
   }, [location]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
