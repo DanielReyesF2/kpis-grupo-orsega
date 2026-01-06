@@ -6,8 +6,6 @@
 import { useMemo } from "react";
 import { Brain, Download, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/salesforce/layout/PageHeader";
-import { FilterBar } from "@/components/salesforce/layout/FilterBar";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
 import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
 import { useSalesAnalyst } from "@/hooks/useSalesAnalyst";
@@ -78,27 +76,42 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
     console.log('Exportar reporte', insights);
   };
 
-  // Header component reutilizable
+  // Header component reutilizable - Diseño completamente distintivo
   const AnalystHeader = () => (
-    <div className="space-y-4 pb-4 border-b border-primary/20">
-      <div className="flex items-start justify-between gap-4">
+    <div className="relative overflow-hidden bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-xl shadow-xl p-6 text-white">
+      {/* Patrón de fondo decorativo */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 translate-y-1/2"></div>
+      </div>
+      
+      <div className="relative flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1 min-w-0">
-          <div className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg">
-            <Brain className="h-6 w-6 text-white" />
+          {/* Icono grande con efecto glow */}
+          <div className="flex-shrink-0 p-4 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg border border-white/30">
+            <Brain className="h-8 w-8 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-semibold text-foreground" id="page-title">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <h1 className="text-3xl font-bold text-white" id="page-title">
                 Analista de Ventas
               </h1>
-              <span className="px-2 py-1 text-xs font-semibold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 dark:from-purple-900/50 dark:to-indigo-900/50 dark:text-purple-300 rounded-md border border-purple-200 dark:border-purple-800">
-                <Sparkles className="h-3 w-3 inline mr-1" />
-                IA
+              <span className="px-3 py-1.5 text-xs font-bold bg-white/20 backdrop-blur-sm text-white rounded-full border border-white/30 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Análisis con IA
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Análisis estratégico inteligente y recomendaciones accionables para el jefe de ventas
+            <p className="text-purple-100 text-base leading-relaxed">
+              Análisis estratégico inteligente y recomendaciones accionables para optimizar las ventas
             </p>
+            {/* Breadcrumbs minimalistas */}
+            <div className="flex items-center gap-2 mt-3 text-sm text-purple-100">
+              <span>Inicio</span>
+              <span>/</span>
+              <span>Ventas</span>
+              <span>/</span>
+              <span className="text-white font-medium">Analista</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -106,14 +119,15 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
             onClick={handleExport}
             variant="outline"
             size="sm"
+            className="bg-white/10 hover:bg-white/20 border-white/30 text-white backdrop-blur-sm"
           >
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
           <Button
             onClick={handleRefresh}
-            variant="default"
             size="sm"
+            className="bg-white text-purple-600 hover:bg-purple-50 font-semibold shadow-lg"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualizar
@@ -125,64 +139,100 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <AnalystHeader />
-        <LoadingState variant="page" />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+        <div className="container mx-auto px-4 py-6 space-y-6">
+          <AnalystHeader />
+          <LoadingState variant="page" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <AnalystHeader />
-        <ErrorState
-          variant="page"
-          message={error instanceof Error ? error.message : 'Error al cargar datos del analista'}
-          onRetry={handleRefresh}
-        />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+        <div className="container mx-auto px-4 py-6 space-y-6">
+          <AnalystHeader />
+          <ErrorState
+            variant="page"
+            message={error instanceof Error ? error.message : 'Error al cargar datos del analista'}
+            onRetry={handleRefresh}
+          />
+        </div>
       </div>
     );
   }
 
   if (!insights) {
     return (
-      <div className="space-y-6">
-        <AnalystHeader />
-        <ErrorState
-          variant="page"
-          message="No se encontraron datos para el análisis"
-        />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+        <div className="container mx-auto px-4 py-6 space-y-6">
+          <AnalystHeader />
+          <ErrorState
+            variant="page"
+            message="No se encontraron datos para el análisis"
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header - Diseño distintivo para Analista */}
-      <AnalystHeader />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+      {/* Wrapper con padding y fondo distintivo */}
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Page Header - Diseño distintivo para Analista */}
+        <AnalystHeader />
 
-      {/* Filter Bar */}
-      <FilterBar
-        quickFilters={quickFilters}
-        filters={filters}
-        onFiltersChange={updateFilters}
-        resultCount={insights.focusClients.critical.length + insights.focusClients.warning.length + insights.focusClients.opportunities.length}
-      />
+        {/* Filtros simplificados - No usar FilterBar de Salesforce */}
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg border border-purple-200/50 dark:border-purple-800/30 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</label>
+              <select
+                value={filters.period as string || 'year'}
+                onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="year">Año actual</option>
+                <option value="quarter">Trimestre actual</option>
+                <option value="month">Mes actual</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Prioridad:</label>
+              <select
+                value={filters.priority as string || 'all'}
+                onChange={(e) => updateFilters({ ...filters, priority: e.target.value })}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Todas</option>
+                <option value="critical">Crítica</option>
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+                <option value="low">Baja</option>
+              </select>
+            </div>
+            <div className="ml-auto text-sm text-gray-600 dark:text-gray-400">
+              {insights.focusClients.critical.length + insights.focusClients.warning.length + insights.focusClients.opportunities.length} clientes analizados
+            </div>
+          </div>
+        </div>
 
-      {/* Executive Summary */}
-      <ExecutiveSummary insights={insights} companyId={companyId} />
+        {/* Executive Summary */}
+        <ExecutiveSummary insights={insights} companyId={companyId} />
 
-      {/* Focus Areas - Grid de 2 columnas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ClientFocusSection insights={insights} companyId={companyId} />
-        <ProductOpportunitiesSection insights={insights} />
-      </div>
+        {/* Focus Areas - Grid de 2 columnas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ClientFocusSection insights={insights} companyId={companyId} />
+          <ProductOpportunitiesSection insights={insights} />
+        </div>
 
-      {/* Strategic Insights and Action Items */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <StrategicInsightsSection insights={insights} companyId={companyId} />
-        <ActionItemsSection insights={insights} />
+        {/* Strategic Insights and Action Items */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <StrategicInsightsSection insights={insights} companyId={companyId} />
+          <ActionItemsSection insights={insights} />
+        </div>
       </div>
     </div>
   );
