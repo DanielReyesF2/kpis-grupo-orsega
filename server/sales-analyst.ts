@@ -64,7 +64,7 @@ async function generateAIRecommendations(
     const companyName = companyId === 1 ? 'Dura International' : 'Grupo Orsega';
     const currency = companyId === 1 ? 'USD' : 'MXN';
 
-    const prompt = `Eres un analista de ventas experto para ${companyName}. Analiza los siguientes datos y proporciona insights accionables en español:
+    const prompt = `Analiza los datos de ventas 2024-2025 de ${companyName} y proporciona insights accionables:
 
 ## TOP 10 CLIENTES POR REVENUE
 ${topClients.map(c => `- ${c.name}: ${currency} ${(c.currentYearRevenue || 0).toLocaleString()} (cambio YoY: ${(c.yoyChange || 0).toFixed(1)}%)`).join('\n')}
@@ -84,26 +84,23 @@ ${topProducts.map(p => `- ${p.name}: ${currency} ${(p.amtCurrentYear || 0).toLoc
 ## PRODUCTOS EN CRECIMIENTO
 ${growingProducts.map(p => `- ${p.name}: +${(p.growthRate || 0).toFixed(1)}%, ${p.uniqueClients} clientes`).join('\n')}
 
-Genera un análisis ejecutivo con:
-1. Un párrafo de RESUMEN EJECUTIVO (2-3 oraciones sobre el estado general)
-2. 5 RECOMENDACIONES ESTRATÉGICAS específicas y accionables (máximo 50 palabras cada una)
+Genera:
+1. RESUMEN: 2 oraciones sobre el estado de ventas 2024-2025
+2. 4 RECOMENDACIONES concretas (máximo 40 palabras cada una)
 
-Responde SOLO en formato JSON:
-{
-  "resumen": "...",
-  "recomendaciones": ["...", "...", "...", "...", "..."]
-}`;
+Responde SOLO en JSON:
+{"resumen": "...", "recomendaciones": ["...", "...", "...", "..."]}`;
 
     console.log('[AI] Enviando análisis a OpenAI...');
     
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Eres un analista de ventas B2B experto. Responde siempre en español y en formato JSON válido.' },
+        { role: 'system', content: 'Eres EconovaAI, un analista de ventas B2B experto. Responde siempre en español y en formato JSON válido. Sé conciso y directo.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 1000
+      max_tokens: 800
     });
 
     const content = response.choices[0]?.message?.content || '';
@@ -289,31 +286,9 @@ export async function generateSalesAnalystInsights(
 ): Promise<SalesAnalystInsights> {
   const now = new Date();
   
-  // Obtener el último año con datos para esta empresa
-  let currentYear: number;
-  let lastYear: number;
-  
-  try {
-    const yearsQuery = await sql(`
-      SELECT MAX(sale_year) as max_year 
-      FROM sales_data 
-      WHERE company_id = $1 AND sale_year IS NOT NULL
-    `, [companyId]);
-    
-    const maxYear = yearsQuery[0]?.max_year;
-    if (maxYear) {
-      currentYear = Number(maxYear);
-      lastYear = currentYear - 1;
-    } else {
-      // Fallback si no hay datos
-      currentYear = 2025;
-      lastYear = 2024;
-    }
-  } catch (e) {
-    console.error('[generateSalesAnalystInsights] Error obteniendo años:', e);
-    currentYear = 2025;
-    lastYear = 2024;
-  }
+  // Usar explícitamente 2025 y 2024 para análisis histórico completo
+  const currentYear = 2025;
+  const lastYear = 2024;
   
   const periodStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
   const periodEnd = now.toISOString().split('T')[0];

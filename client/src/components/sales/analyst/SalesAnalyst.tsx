@@ -142,14 +142,14 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
     </div>
   );
 
-  // Modo embedded (para modal) - sin header ni fondo grande
+  // Modo embedded (para modal) - diseño minimalista
   const wrapperClass = embedded 
-    ? "space-y-6" 
-    : "min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20";
+    ? "space-y-5" 
+    : "min-h-screen bg-slate-50 dark:bg-slate-900";
   
   const containerClass = embedded
-    ? "space-y-6"
-    : "container mx-auto px-4 py-6 space-y-6";
+    ? "space-y-5"
+    : "container mx-auto px-4 py-6 space-y-5";
 
   if (isLoading) {
     return (
@@ -198,54 +198,47 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
         {/* Page Header - Diseño distintivo para Analista (solo si no está embedded) */}
         {!embedded && <AnalystHeader />}
 
-        {/* Filtros simplificados - No usar FilterBar de Salesforce */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg border border-purple-200/50 dark:border-purple-800/30 p-4 shadow-sm">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</label>
-              <select
-                value={filters.period as string || 'year'}
-                onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
-                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="year">Año actual</option>
-                <option value="quarter">Trimestre actual</option>
-                <option value="month">Mes actual</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Prioridad:</label>
-              <select
-                value={filters.priority as string || 'all'}
-                onChange={(e) => updateFilters({ ...filters, priority: e.target.value })}
-                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">Todas</option>
-                <option value="critical">Crítica</option>
-                <option value="high">Alta</option>
-                <option value="medium">Media</option>
-                <option value="low">Baja</option>
-              </select>
-            </div>
-            <div className="ml-auto text-sm text-gray-600 dark:text-gray-400">
-              {insights.focusClients.critical.length + insights.focusClients.warning.length + insights.focusClients.opportunities.length} clientes analizados
-            </div>
+        {/* Filtros minimalistas */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-4">
+            <select
+              value={filters.period as string || 'year'}
+              onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
+              className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+            >
+              <option value="year">2024-2025</option>
+              <option value="quarter">Último trimestre</option>
+              <option value="month">Último mes</option>
+            </select>
+            <select
+              value={filters.priority as string || 'all'}
+              onChange={(e) => updateFilters({ ...filters, priority: e.target.value })}
+              className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+            >
+              <option value="all">Todas las prioridades</option>
+              <option value="critical">Crítica</option>
+              <option value="high">Alta</option>
+              <option value="medium">Media</option>
+            </select>
           </div>
+          <span className="text-sm text-slate-500">
+            {insights.focusClients.critical.length + insights.focusClients.warning.length + insights.focusClients.opportunities.length} clientes · {insights.inactiveClients.length} inactivos
+          </span>
         </div>
 
-        {/* AI Insights Banner */}
+        {/* AI Insights Banner - Minimalista */}
         {insights.statisticalContext?.aiInsights && (
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-xl border border-purple-200/50 dark:border-purple-800/30 p-5 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-                <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
-                  Análisis con IA
-                  <span className="text-xs px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-full">GPT-4</span>
-                </h3>
-                <p className="text-purple-800 dark:text-purple-200 leading-relaxed">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Resumen Ejecutivo</h3>
+                  <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded">EconovaAI</span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {insights.statisticalContext.aiInsights}
                 </p>
               </div>

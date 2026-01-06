@@ -155,7 +155,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       {/* Tendencias de Clientes */}
       <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
 
-      {/* Modal de KPIS */}
+      {/* Modal de KPIS - Diseño minimalista */}
       <div 
         className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ease-out ${
           showKPIsModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
@@ -163,34 +163,34 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       >
         {/* Overlay */}
         <div 
-          className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
             showKPIsModal ? 'opacity-100' : 'opacity-0'
           }`}
           onClick={() => setShowKPIsModal(false)}
         />
         
-        {/* Panel lateral */}
+        {/* Panel lateral - Minimalista */}
         <div 
-          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-background shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-slate-50 dark:bg-slate-900 shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
             showKPIsModal ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          {/* Header del modal */}
-          <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+          {/* Header minimalista */}
+          <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Target className="h-6 w-6" />
+              <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                <Target className="h-5 w-5 text-slate-700 dark:text-slate-300" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">Panel de KPIs</h2>
-                <p className="text-sm text-white/80">Análisis estratégico con IA</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">KPIs de Ventas</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Análisis 2024-2025</p>
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setShowKPIsModal(false)}
-              className="text-white hover:bg-white/20"
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
             >
               <X className="h-5 w-5" />
             </Button>
