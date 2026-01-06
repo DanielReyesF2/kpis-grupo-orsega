@@ -18,6 +18,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
+  LabelList,
 } from "recharts";
 import { formatCurrency } from "@/lib/sales-utils";
 
@@ -94,7 +96,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
   const has2026 = availableYears.includes(2026);
   const yearsToShow = has2026 ? [2024, 2025, 2026] : [2024, 2025];
 
-  // Preparar datos para el gráfico (soporta 2 o 3 años)
+  // Preparar datos para el gráfico (soporta 2 o 3 años) con porcentajes
   const chartData = data.data.map((item: any) => {
     const dataPoint: any = {
       mes: item.mes.substring(0, 3), // Primeras 3 letras del mes
@@ -105,14 +107,26 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
       dataPoint[String(year)] = item[`amt_${year}`] || 0;
     });
     
+    // Calcular porcentaje de diferencia vs 2024 para cada año
+    const base2024 = item[`amt_2024`] || 0;
+    yearsToShow.forEach((year) => {
+      if (year !== 2024 && base2024 > 0) {
+        const currentValue = item[`amt_${year}`] || 0;
+        const percentChange = ((currentValue - base2024) / base2024) * 100;
+        dataPoint[`percent_${year}`] = percentChange;
+      } else {
+        dataPoint[`percent_${year}`] = 0;
+      }
+    });
+    
     return dataPoint;
   });
 
-  // Colores para las barras (soporta hasta 3 años)
+  // Colores más contrastantes y distinguibles
   const barColors = [
-    'hsl(var(--chart-1))',
-    'hsl(var(--chart-2))',
-    'hsl(var(--chart-3))'
+    '#1B5E9E', // Azul oscuro para 2024
+    '#2E7D32', // Verde para 2025
+    '#F57C00'  // Naranja para 2026
   ];
 
   return (
@@ -155,7 +169,24 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                 padding: "12px",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
-              formatter={(value: number) => formatCurrency(value, companyId)}
+              formatter={(value: number, name: string, props: any) => {
+                const year = parseInt(name);
+                const percentChange = props.payload[`percent_${year}`];
+                const formattedValue = formatCurrency(value, companyId);
+                
+                if (year !== 2024 && percentChange !== undefined && percentChange !== 0) {
+                  return [
+                    <div key={name}>
+                      <div>{formattedValue}</div>
+                      <div className={`text-xs mt-1 ${percentChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% vs 2024
+                      </div>
+                    </div>,
+                    name
+                  ];
+                }
+                return [formattedValue, name];
+              }}
             />
             <Legend 
               wrapperStyle={{ paddingTop: "20px" }}
@@ -169,9 +200,25 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                   dataKey={String(year)}
                   fill={barColors[index]}
                   radius={[6, 6, 0, 0]}
-                  opacity={hasData ? 0.85 : 0.3}
+                  opacity={hasData ? 1 : 0.3}
                   name={`${year}${!hasData ? ' (sin datos)' : ''}`}
-                />
+                >
+                  {year !== 2024 && hasData && (
+                    <LabelList
+                      dataKey={`percent_${year}`}
+                      position="top"
+                      formatter={(value: number) => {
+                        if (value === 0 || value === undefined) return '';
+                        return `${value >= 0 ? '+' : ''}${value.toFixed(0)}%`;
+                      }}
+                      style={{
+                        fontSize: '10px',
+                        fill: year === 2025 ? '#2E7D32' : '#F57C00',
+                        fontWeight: 600,
+                      }}
+                    />
+                  )}
+                </Bar>
               );
             })}
           </BarChart>
