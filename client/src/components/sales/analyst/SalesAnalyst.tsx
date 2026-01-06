@@ -4,7 +4,8 @@
  */
 
 import { useMemo } from "react";
-import { TrendingUp, Download, RefreshCw } from "lucide-react";
+import { Brain, Download, RefreshCw, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/salesforce/layout/PageHeader";
 import { FilterBar } from "@/components/salesforce/layout/FilterBar";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
@@ -77,19 +78,55 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
     console.log('Exportar reporte', insights);
   };
 
+  // Header component reutilizable
+  const AnalystHeader = () => (
+    <div className="space-y-4 pb-4 border-b border-primary/20">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <div className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg">
+            <Brain className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-semibold text-foreground" id="page-title">
+                Analista de Ventas
+              </h1>
+              <span className="px-2 py-1 text-xs font-semibold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 dark:from-purple-900/50 dark:to-indigo-900/50 dark:text-purple-300 rounded-md border border-purple-200 dark:border-purple-800">
+                <Sparkles className="h-3 w-3 inline mr-1" />
+                IA
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Análisis estratégico inteligente y recomendaciones accionables para el jefe de ventas
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            size="sm"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
+          <Button
+            onClick={handleRefresh}
+            variant="default"
+            size="sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          objectIcon={TrendingUp}
-          title="Analista de Ventas"
-          subtitle="Análisis estratégico y recomendaciones para el jefe de ventas"
-          breadcrumbs={[
-            { label: 'Inicio', href: '/' },
-            { label: 'Ventas', href: '/sales' },
-            { label: 'Analista' }
-          ]}
-        />
+        <AnalystHeader />
         <LoadingState variant="page" />
       </div>
     );
@@ -98,16 +135,7 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          objectIcon={TrendingUp}
-          title="Analista de Ventas"
-          subtitle="Análisis estratégico y recomendaciones para el jefe de ventas"
-          breadcrumbs={[
-            { label: 'Inicio', href: '/' },
-            { label: 'Ventas', href: '/sales' },
-            { label: 'Analista' }
-          ]}
-        />
+        <AnalystHeader />
         <ErrorState
           variant="page"
           message={error instanceof Error ? error.message : 'Error al cargar datos del analista'}
@@ -120,16 +148,7 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
   if (!insights) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          objectIcon={TrendingUp}
-          title="Analista de Ventas"
-          subtitle="Análisis estratégico y recomendaciones para el jefe de ventas"
-          breadcrumbs={[
-            { label: 'Inicio', href: '/' },
-            { label: 'Ventas', href: '/sales' },
-            { label: 'Analista' }
-          ]}
-        />
+        <AnalystHeader />
         <ErrorState
           variant="page"
           message="No se encontraron datos para el análisis"
@@ -140,32 +159,8 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <PageHeader
-        objectIcon={TrendingUp}
-        title="Analista de Ventas"
-        subtitle="Análisis estratégico y recomendaciones para el jefe de ventas"
-        breadcrumbs={[
-          { label: 'Inicio', href: '/' },
-          { label: 'Ventas', href: '/sales' },
-          { label: 'Analista' }
-        ]}
-        actions={[
-          {
-            label: 'Exportar Reporte',
-            onClick: handleExport,
-            icon: Download,
-            variant: 'outline'
-          },
-          {
-            label: 'Actualizar',
-            onClick: handleRefresh,
-            icon: RefreshCw,
-            variant: 'default',
-            primary: true
-          }
-        ]}
-      />
+      {/* Page Header - Diseño distintivo para Analista */}
+      <AnalystHeader />
 
       {/* Filter Bar */}
       <FilterBar

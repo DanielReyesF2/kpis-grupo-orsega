@@ -30,10 +30,11 @@ interface SalesOverviewCardProps {
   companyId: number;
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, companyId: number): string {
+  const currency = companyId === 1 ? 'USD' : 'MXN';
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'MXN',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
@@ -180,7 +181,7 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
         {/* Total Revenue con mini gráfico */}
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-3xl font-bold">{formatCurrency(totalRevenue)}</p>
+            <p className="text-3xl font-bold">{formatCurrency(totalRevenue, companyId)}</p>
             <div className="flex items-center gap-2 mt-2">
               <div className="h-12 w-24">
                 <ResponsiveContainer width="100%" height="100%">
@@ -213,13 +214,13 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
           <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
             <p className="text-xs text-muted-foreground mb-1">Utilidad Neta</p>
             <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-              {formatCurrency(netProfit)}
+              {formatCurrency(netProfit, companyId)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
             <p className="text-xs text-muted-foreground mb-1">Ingresos Netos</p>
             <p className="text-lg font-bold text-purple-700 dark:text-purple-400">
-              {formatCurrency(netRevenue)}
+              {formatCurrency(netRevenue, companyId)}
             </p>
           </div>
         </div>
@@ -251,7 +252,7 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px"
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number) => formatCurrency(value, companyId)}
               />
               <Bar 
                 dataKey="revenue" 
