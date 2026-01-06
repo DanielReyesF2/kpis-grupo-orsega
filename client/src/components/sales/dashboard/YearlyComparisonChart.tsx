@@ -123,20 +123,25 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
         ? `${yearsToShow.join(' vs ')} - Revenue por mes`
         : `2024 vs 2025 - Revenue por mes`}
     >
-      <div className="h-80">
+      <div className="h-96 py-4">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+          <BarChart 
+            data={chartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.2} />
             <XAxis
               dataKey="mes"
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
               axisLine={false}
               tickLine={false}
+              padding={{ left: 10, right: 10 }}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
               axisLine={false}
               tickLine={false}
+              width={80}
               tickFormatter={(value) => {
                 if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
                 if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
@@ -148,20 +153,28 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                 backgroundColor: "hsl(var(--card))",
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "8px",
+                padding: "12px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
               formatter={(value: number) => formatCurrency(value, companyId)}
             />
-            <Legend />
-            {yearsToShow.map((year, index) => (
-              <Bar
-                key={year}
-                dataKey={String(year)}
-                fill={barColors[index]}
-                radius={[4, 4, 0, 0]}
-                opacity={0.8}
-                name={`${year}`}
-              />
-            ))}
+            <Legend 
+              wrapperStyle={{ paddingTop: "20px" }}
+              iconType="square"
+            />
+            {yearsToShow.map((year, index) => {
+              const hasData = data.totals && (data.totals[`amt_${year}`] || 0) > 0;
+              return (
+                <Bar
+                  key={year}
+                  dataKey={String(year)}
+                  fill={barColors[index]}
+                  radius={[6, 6, 0, 0]}
+                  opacity={hasData ? 0.85 : 0.3}
+                  name={`${year}${!hasData ? ' (sin datos)' : ''}`}
+                />
+              );
+            })}
           </BarChart>
         </ResponsiveContainer>
       </div>

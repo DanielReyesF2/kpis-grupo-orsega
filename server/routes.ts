@@ -8301,7 +8301,12 @@ export function registerRoutes(app: express.Application) {
 
         // Agregar datos de todos los años a comparar
         yearsToCompare.forEach((year) => {
-          const yearData = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === year);
+          // Buscar datos del año y mes, asegurando que la comparación funcione con strings o números
+          const yearData = monthlyData.find((r: any) => {
+            const rMonth = typeof r.sale_month === 'string' ? parseInt(r.sale_month) : r.sale_month;
+            const rYear = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
+            return rMonth === monthNum && rYear === year;
+          });
           dataPoint[`qty_${year}`] = parseFloat(yearData?.total_quantity || '0');
           dataPoint[`amt_${year}`] = parseFloat(yearData?.total_amount || '0');
         });

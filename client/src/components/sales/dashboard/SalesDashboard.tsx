@@ -78,7 +78,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
   const growthPercent = salesStats?.growth || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page Header */}
       <PageHeader
         objectIcon={TrendingUp}
@@ -145,7 +145,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         {isLoadingStats ? (
           <LoadingState variant="chart" />
         ) : salesTargetValue > 0 ? (
-          <div className="bg-card border rounded-lg p-6">
+          <div className="bg-card border rounded-lg p-8">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold">Objetivo de Ventas</h3>
