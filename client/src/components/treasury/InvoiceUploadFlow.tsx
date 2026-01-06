@@ -51,15 +51,18 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState<string>("");
   const [foundData, setFoundData] = useState<{ field: string; value: string }[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [processedFiles, setProcessedFiles] = useState<{ name: string; success: boolean; error?: string }[]>([]);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
 
   // Pasos de análisis simulados para mejor UX
   const analysisSteps = [
-    { message: "Analizando documento...", progress: 10, duration: 800 },
-    { message: "Buscando RFC...", progress: 25, duration: 1000 },
-    { message: "Extrayendo monto...", progress: 40, duration: 900 },
-    { message: "Detectando fecha de vencimiento...", progress: 55, duration: 800 },
-    { message: "Identificando proveedor...", progress: 70, duration: 700 },
-    { message: "Verificando datos...", progress: 85, duration: 600 },
+    { message: "Analizando documento...", progress: 10, duration: 600 },
+    { message: "Buscando RFC...", progress: 25, duration: 700 },
+    { message: "Extrayendo monto...", progress: 40, duration: 600 },
+    { message: "Detectando fecha de vencimiento...", progress: 55, duration: 500 },
+    { message: "Identificando proveedor...", progress: 70, duration: 500 },
+    { message: "Verificando datos...", progress: 85, duration: 400 },
   ];
 
   const runAnalysisAnimation = async () => {
@@ -218,12 +221,45 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
   const handleUpload = async () => {
     if (!selectedCompanyId || !selectedSupplier || files.length === 0) return;
 
-    for (const file of files) {
-      await uploadMutation.mutateAsync({
-        file,
-        payerCompanyId: selectedCompanyId,
-        supplierId: selectedSupplier.id,
+    setIsProcessingBatch(true);
+    setProcessedFiles([]);
+    setCurrentFileIndex(0);
+
+    const results: { name: string; success: boolean; error?: string }[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentFileIndex(i);
+      setAnalysisStep(`Procesando ${i + 1} de ${files.length}...`);
+      
+      try {
+        await uploadMutation.mutateAsync({
+          file,
+          payerCompanyId: selectedCompanyId,
+          supplierId: selectedSupplier.id,
+        });
+        results.push({ name: file.name, success: true });
+      } catch (error: any) {
+        results.push({ name: file.name, success: false, error: error.message });
+      }
+      
+      setProcessedFiles([...results]);
+    }
+
+    setIsProcessingBatch(false);
+    
+    // Mostrar resumen si fueron múltiples archivos
+    if (files.length > 1) {
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      toast({
+        title: `✅ ${successful} de ${files.length} facturas procesadas`,
+        description: failed > 0 ? `${failed} facturas tuvieron errores` : "Todas las facturas fueron procesadas exitosamente",
+        variant: failed > 0 ? "default" : "default",
       });
+      
+      resetForm();
     }
   };
 
@@ -450,41 +486,96 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
                         )} />
                       </div>
                       <p className="text-sm font-medium text-foreground mb-1">
-                        {isDragging ? "Suelta el archivo aquí" : "Arrastra tu factura"}
+                        {isDragging ? "Suelta los archivos aquí" : "Arrastra tus facturas"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        o <span className="text-primary font-medium">selecciona un archivo</span>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        o <span className="text-primary font-medium">selecciona archivos</span>
                       </p>
+                      <Badge variant="secondary" className="text-xs">
+                        💡 Puedes subir varias facturas a la vez
+                      </Badge>
                     </div>
                   ) : (
-                    <div className="w-full p-4 space-y-2">
-                      {files.map((file, index) => (
-                        <div 
-                          key={index} 
-                          className="flex items-center gap-3 p-3 bg-white rounded-lg border shadow-sm"
+                    <div className="w-full p-3 space-y-2">
+                      {/* Header con contador */}
+                      <div className="flex items-center justify-between pb-2 border-b">
+                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                          {files.length} {files.length === 1 ? 'factura' : 'facturas'} seleccionadas
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
                         >
-                          <div className="p-2 rounded-lg bg-emerald-100">
-                            <FileText className="h-4 w-4 text-emerald-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(file.size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFiles(files.filter((_, i) => i !== index));
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
+                          <Upload className="h-3 w-3" />
+                          Agregar más
+                        </Button>
+                      </div>
+                      
+                      {/* Lista de archivos */}
+                      <div className="max-h-[160px] overflow-y-auto space-y-1.5">
+                        {files.map((file, index) => {
+                          const processed = processedFiles.find(p => p.name === file.name);
+                          const isCurrentlyProcessing = isProcessingBatch && currentFileIndex === index;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg border transition-all",
+                                processed?.success ? "bg-emerald-50 border-emerald-200" :
+                                processed && !processed.success ? "bg-red-50 border-red-200" :
+                                isCurrentlyProcessing ? "bg-primary/5 border-primary/30 animate-pulse" :
+                                "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className={cn(
+                                "p-1.5 rounded-lg",
+                                processed?.success ? "bg-emerald-100" :
+                                processed && !processed.success ? "bg-red-100" :
+                                isCurrentlyProcessing ? "bg-primary/20" :
+                                "bg-slate-100"
+                              )}>
+                                {processed?.success ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                ) : processed && !processed.success ? (
+                                  <X className="h-3.5 w-3.5 text-red-600" />
+                                ) : isCurrentlyProcessing ? (
+                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                                ) : (
+                                  <FileText className="h-3.5 w-3.5 text-slate-500" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{file.name}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {(file.size / 1024).toFixed(0)} KB
+                                  {processed?.error && (
+                                    <span className="text-red-500 ml-2">{processed.error}</span>
+                                  )}
+                                </p>
+                              </div>
+                              {!isProcessingBatch && !processed && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFiles(files.filter((_, i) => i !== index));
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -556,19 +647,25 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
                 {/* Botón de subida */}
                 <Button
                   onClick={handleUpload}
-                  disabled={!canUpload || uploadMutation.isPending}
+                  disabled={!canUpload || uploadMutation.isPending || isProcessingBatch}
                   className="w-full h-11 text-sm font-medium gap-2"
                   size="lg"
                 >
-                  {uploadMutation.isPending ? (
+                  {uploadMutation.isPending || isProcessingBatch ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Analizando...
+                      {files.length > 1 
+                        ? `Procesando ${currentFileIndex + 1} de ${files.length}...`
+                        : "Analizando..."
+                      }
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4" />
-                      Procesar Factura
+                      {files.length > 1 
+                        ? `Procesar ${files.length} Facturas`
+                        : "Procesar Factura"
+                      }
                     </>
                   )}
                 </Button>
