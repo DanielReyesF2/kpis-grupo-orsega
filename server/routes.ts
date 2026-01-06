@@ -4779,8 +4779,37 @@ export function registerRoutes(app: express.Application) {
         companyId: updatedPayment.companyId,
       });
 
+      // ✅ NUEVO: Crear paymentVoucher con status pago_programado para el Kanban
+      const voucherData = {
+        companyId: validatedData.payerCompanyId,
+        payerCompanyId: validatedData.payerCompanyId,
+        clientId: validatedData.supplierId || 0, // Usar supplierId si existe
+        clientName: validatedData.supplierName,
+        supplierId: validatedData.supplierId || null,
+        scheduledPaymentId: createdScheduledPayment.id,
+        status: 'pago_programado' as const, // ✅ Nuevo status para Kanban
+        voucherFileUrl: `/uploads/facturas/${year}/${month}/${invoiceFileName}`,
+        voucherFileName: validatedData.invoiceFileName,
+        voucherFileType: validatedData.invoiceFileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        extractedAmount: validatedData.amount,
+        extractedDate: dueDate,
+        extractedBank: null,
+        extractedReference: validatedData.reference || validatedData.extractedInvoiceNumber || null,
+        extractedCurrency: validatedData.currency || 'MXN',
+        extractedOriginAccount: null,
+        extractedDestinationAccount: null,
+        extractedTrackingKey: null,
+        extractedBeneficiaryName: null,
+        ocrConfidence: 0.9, // Alta confianza porque ya fue verificado
+        uploadedBy: user.id,
+      };
+
+      const createdVoucher = await storage.createPaymentVoucher(voucherData);
+      console.log(`✅ [Confirm Invoice] PaymentVoucher creado para Kanban: ID ${createdVoucher.id}, status: pago_programado`);
+
       res.status(201).json({
         scheduledPayment: updatedPayment,
+        paymentVoucher: createdVoucher,
         message: 'Cuenta por pagar creada exitosamente con fecha de pago'
       });
     } catch (error) {
@@ -7673,6 +7702,7 @@ export function registerRoutes(app: express.Application) {
       // Validar request body - solo valores válidos del enum en la base de datos
       const statusSchema = z.object({
         status: z.enum([
+          'pago_programado', // ✅ Nuevo status
           'factura_pagada',
           'pendiente_complemento',
           'complemento_recibido',
@@ -7696,6 +7726,150 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'Validación fallida', details: error.errors });
       }
       res.status(500).json({ error: 'Failed to update payment voucher status' });
+    }
+  });
+
+  // POST /api/payment-vouchers/:id/pay - Subir comprobante de pago para un voucher (factura)
+  // Este endpoint recibe el comprobante de pago y actualiza el status según si requiere REP
+  console.log('✅ [Routes] Registrando endpoint POST /api/payment-vouchers/:id/pay');
+  app.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next) => {
+    voucherUpload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('❌ [Pay] Error de Multer:', err);
+        return res.status(400).json({ error: 'Error al procesar archivo', details: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const voucherId = parseInt(req.params.id);
+      const user = getAuthUser(req as AuthRequest);
+      const file = req.file;
+
+      console.log(`💳 [Pay] Procesando pago para voucher ID: ${voucherId}`);
+
+      if (!file) {
+        return res.status(400).json({ error: 'No se subió ningún archivo de comprobante' });
+      }
+
+      // Obtener el voucher actual
+      const existingVoucher = await storage.getPaymentVoucher(voucherId);
+      if (!existingVoucher) {
+        return res.status(404).json({ error: 'Voucher no encontrado' });
+      }
+
+      // Verificar que esté en estado pago_programado o factura_pagada
+      if (!['pago_programado', 'factura_pagada'].includes(existingVoucher.status)) {
+        return res.status(400).json({ 
+          error: 'El voucher no está en estado de pago programado',
+          currentStatus: existingVoucher.status
+        });
+      }
+
+      // Analizar el comprobante con OpenAI
+      const fs = await import('fs');
+      const path = await import('path');
+      const { analyzePaymentDocument } = await import("./document-analyzer");
+      const fileBuffer = fs.readFileSync(file.path);
+      const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+
+      console.log(`💳 [Pay] Análisis del comprobante:`, {
+        amount: analysis?.extractedAmount,
+        date: analysis?.extractedDate,
+        reference: analysis?.extractedReference
+      });
+
+      // Guardar el comprobante en la ubicación final
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const voucherDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
+      
+      if (!fs.existsSync(voucherDir)) {
+        fs.mkdirSync(voucherDir, { recursive: true });
+      }
+
+      const voucherFileName = `${Date.now()}-pago-${file.originalname}`;
+      const finalPath = path.join(voucherDir, voucherFileName);
+      fs.renameSync(file.path, finalPath);
+
+      // Verificar si el proveedor requiere REP
+      // Buscar el supplier/client para verificar requiresPaymentComplement
+      const { db } = await import('./db');
+      const { suppliers } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      let requiresREP = false;
+      
+      // Buscar el proveedor asociado usando scheduledPaymentId o supplierId
+      const { scheduledPayments } = await import('../shared/schema');
+      
+      // Primero intentar obtener el supplierId desde el scheduled payment
+      let supplierId = null;
+      if (existingVoucher.scheduledPaymentId) {
+        const [scheduledPayment] = await db.select()
+          .from(scheduledPayments)
+          .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
+        supplierId = scheduledPayment?.supplierId;
+      }
+      
+      if (supplierId) {
+        const [supplier] = await db.select()
+          .from(suppliers)
+          .where(eq(suppliers.id, supplierId));
+        
+        requiresREP = supplier?.requiresRep === true;
+        console.log(`💳 [Pay] Supplier ${supplier?.name} requiresREP: ${requiresREP}`);
+      }
+
+      // Determinar nuevo status basado en REP
+      // Si requiere REP → pendiente_complemento
+      // Si NO requiere REP → cierre_contable
+      const newStatus = requiresREP ? 'pendiente_complemento' : 'cierre_contable';
+      console.log(`💳 [Pay] Nuevo status: ${newStatus} (requiresREP: ${requiresREP})`);
+
+      // Actualizar el voucher con los datos del comprobante de pago
+      const updatedVoucher = await storage.updatePaymentVoucher(voucherId, {
+        status: newStatus as any,
+        // Guardar datos del comprobante en campos adicionales si los hay
+        extractedAmount: analysis?.extractedAmount || existingVoucher.extractedAmount,
+        extractedDate: analysis?.extractedDate || existingVoucher.extractedDate,
+        extractedBank: analysis?.extractedBank || existingVoucher.extractedBank,
+        extractedReference: analysis?.extractedReference || existingVoucher.extractedReference,
+        extractedTrackingKey: analysis?.extractedTrackingKey || existingVoucher.extractedTrackingKey,
+        ocrConfidence: analysis?.ocrConfidence || existingVoucher.ocrConfidence,
+        notes: `${existingVoucher.notes || ''}\nComprobante de pago subido: ${file.originalname}`.trim(),
+      });
+
+      // También actualizar el scheduled payment vinculado si existe
+      if (existingVoucher.scheduledPaymentId) {
+        const { scheduledPayments } = await import('../shared/schema');
+        await db.update(scheduledPayments)
+          .set({
+            status: requiresREP ? 'voucher_uploaded' : 'payment_completed',
+            paidAt: new Date(),
+            paidBy: user.id,
+          })
+          .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
+        console.log(`💳 [Pay] Scheduled payment ${existingVoucher.scheduledPaymentId} actualizado a ${requiresREP ? 'voucher_uploaded' : 'payment_completed'}`);
+      }
+
+      console.log(`✅ [Pay] Pago registrado exitosamente. Voucher ${voucherId} actualizado a ${newStatus}`);
+
+      res.json({
+        voucher: updatedVoucher,
+        requiresREP,
+        newStatus,
+        message: requiresREP 
+          ? 'Pago registrado. El proveedor requiere REP, pendiente complemento.'
+          : 'Pago completado y cerrado contablemente.'
+      });
+    } catch (error) {
+      console.error('❌ [Pay] Error:', error);
+      res.status(500).json({ 
+        error: 'Error al procesar pago',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      });
     }
   });
 

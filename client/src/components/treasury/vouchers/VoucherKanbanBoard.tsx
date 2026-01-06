@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
 import { VoucherFilters } from "./VoucherFilters";
 import { useVoucherFilters } from "@/hooks/useVoucherFilters";
+import { PayVoucherModal } from "./PayVoucherModal";
 
 // Lazy load del panel de detalles para mejor performance
 const VoucherDetailPanel = lazy(() =>
@@ -42,8 +43,8 @@ const VoucherDetailPanel = lazy(() =>
 );
 
 const STATUS_CONFIG = {
-  factura_pagada: {
-    label: "Factura Pagada",
+  pago_programado: {
+    label: "Pago Programado",
     icon: ClipboardCheck,
     color: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
     headerColor: "bg-blue-100 dark:bg-blue-900/30",
@@ -72,9 +73,10 @@ interface KanbanColumnProps {
   status: keyof typeof STATUS_CONFIG;
   vouchers: PaymentVoucher[];
   onVoucherClick: (voucher: PaymentVoucher) => void;
+  onPayVoucher: (voucher: PaymentVoucher) => void;
 }
 
-function KanbanColumn({ status, vouchers, onVoucherClick }: KanbanColumnProps) {
+function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher }: KanbanColumnProps) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   const { setNodeRef, isOver } = useDroppable({
@@ -124,6 +126,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick }: KanbanColumnProps) {
                     key={voucher.id}
                     voucher={voucher}
                     onClick={() => onVoucherClick(voucher)}
+                    onPay={() => onPayVoucher(voucher)}
                   />
                 ))
               )}
@@ -143,6 +146,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
   const { toast } = useToast();
   const [activeVoucher, setActiveVoucher] = useState<PaymentVoucher | null>(null);
   const [selectedVoucher, setSelectedVoucher] = useState<PaymentVoucher | null>(null);
+  const [payingVoucher, setPayingVoucher] = useState<PaymentVoucher | null>(null);
   const { filters } = useVoucherFilters();
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
 
@@ -251,15 +255,17 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
 
   const groupedVouchers = useMemo(() => {
     const grouped = {
-      factura_pagada: [] as PaymentVoucher[],
+      pago_programado: [] as PaymentVoucher[],
       pendiente_complemento: [] as PaymentVoucher[],
       complemento_recibido: [] as PaymentVoucher[],
       cierre_contable: [] as PaymentVoucher[],
     };
 
     filteredVouchers.forEach((voucher) => {
-      if (grouped[voucher.status]) {
-        grouped[voucher.status].push(voucher);
+      // Mapear factura_pagada (legacy) a pago_programado
+      const status = voucher.status === 'factura_pagada' ? 'pago_programado' : voucher.status;
+      if (grouped[status as keyof typeof grouped]) {
+        grouped[status as keyof typeof grouped].push(voucher);
       }
     });
 
@@ -331,6 +337,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
                   status={status}
                   vouchers={groupedVouchers[status]}
                   onVoucherClick={setSelectedVoucher}
+                  onPayVoucher={setPayingVoucher}
                 />
               )
             )}
@@ -354,6 +361,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
               key={voucher.id}
               voucher={voucher}
               onClick={() => setSelectedVoucher(voucher)}
+              onPay={() => setPayingVoucher(voucher)}
             />
           ))}
         </div>
@@ -368,6 +376,19 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           onSave={handleSave}
         />
       </Suspense>
+
+      {/* Modal para pagar voucher */}
+      {payingVoucher && (
+        <PayVoucherModal
+          isOpen={!!payingVoucher}
+          onClose={() => setPayingVoucher(null)}
+          voucher={payingVoucher}
+          onSuccess={() => {
+            setPayingVoucher(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+          }}
+        />
+      )}
     </div>
   );
 }

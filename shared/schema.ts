@@ -640,8 +640,9 @@ export type Product = typeof products.$inferSelect;
 // IMPORTANTE: Estos valores deben coincidir exactamente con el enum en la base de datos
 // Ver migraciones/0000_quick_gateway.sql línea 2
 export const voucherStatusEnum = pgEnum('voucher_status', [
-  'factura_pagada',          // Factura pagada (estado inicial después del upload)
-  'pendiente_complemento',   // Esperando complemento del proveedor
+  'pago_programado',         // Pago programado (factura subida, pendiente comprobante)
+  'factura_pagada',          // Factura pagada (estado después de subir comprobante)
+  'pendiente_complemento',   // Esperando complemento del proveedor (requiere REP)
   'complemento_recibido',    // Complemento ya subido
   'cierre_contable'          // Finalizado contablemente
 ]);
@@ -740,6 +741,7 @@ export const paymentVouchers = pgTable("payment_vouchers", {
   payerCompanyId: integer("payer_company_id").notNull(), // Empresa pagadora (Orsega/Dura)
   clientId: integer("client_id").notNull(), // Cliente/beneficiario (payeeClientId)
   clientName: text("client_name").notNull(), // Nombre del cliente (denormalizado para búsqueda rápida)
+  supplierId: integer("supplier_id"), // ID del proveedor (opcional)
   
   // Vinculación opcional a pago programado
   scheduledPaymentId: integer("scheduled_payment_id"), // Opcional

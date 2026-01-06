@@ -13,6 +13,7 @@ import {
   Send,
   MoreVertical,
   Download,
+  CreditCard,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -30,7 +31,8 @@ export interface PaymentVoucher {
   payerCompanyId?: number;
   clientId: number;
   clientName: string;
-  status: "factura_pagada" | "pendiente_complemento" | "complemento_recibido" | "cierre_contable";
+  supplierId?: number;
+  status: "pago_programado" | "factura_pagada" | "pendiente_complemento" | "complemento_recibido" | "cierre_contable";
   voucherFileUrl: string;
   voucherFileName: string;
   extractedAmount: number | null;
@@ -51,6 +53,7 @@ interface VoucherCardProps {
   onDelete?: () => void;
   onResend?: () => void;
   onDownload?: () => void;
+  onPay?: () => void;
   isDragging?: boolean;
 }
 
@@ -61,6 +64,7 @@ export const VoucherCard = memo(function VoucherCard({
   onDelete,
   onResend,
   onDownload,
+  onPay,
   isDragging = false,
 }: VoucherCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -205,6 +209,22 @@ export const VoucherCard = memo(function VoucherCard({
                 </Badge>
               )}
             </div>
+          )}
+
+          {/* Botón Pagar - solo para pagos programados */}
+          {(voucher.status === 'pago_programado' || voucher.status === 'factura_pagada') && onPay && (
+            <Button
+              size="sm"
+              variant="default"
+              className="w-full h-9 font-medium bg-emerald-600 hover:bg-emerald-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPay();
+              }}
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Pagar
+            </Button>
           )}
 
           {/* Información adicional */}
