@@ -28,11 +28,10 @@ interface YearlyComparisonChartProps {
 }
 
 export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyComparisonChartProps) {
-  // Por defecto: comparar 2024 vs 2025 (año anterior vs año actual)
+  // Por defecto: comparar 2024 vs 2025 (SIEMPRE, independientemente del año actual)
   // Cuando haya datos de 2026, se mostrarán automáticamente los 3 años
-  const currentYear = new Date().getFullYear();
-  const defaultYear1 = year1 || (currentYear - 1); // 2024
-  const defaultYear2 = year2 || currentYear; // 2025
+  const defaultYear1 = year1 || 2024; // SIEMPRE 2024 por defecto
+  const defaultYear2 = year2 || 2025; // SIEMPRE 2025 por defecto
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/sales-yearly-comparison', companyId, defaultYear1, defaultYear2],
