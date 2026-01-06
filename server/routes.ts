@@ -8269,7 +8269,7 @@ export function registerRoutes(app: express.Application) {
           WHERE company_id = $1
             AND sale_year IN ($2, $3, $4)
           GROUP BY sale_year, sale_month
-          ORDER BY sale_month
+          ORDER BY sale_year, sale_month
         `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
       } else {
         monthlyData = await sql(`
@@ -8284,8 +8284,22 @@ export function registerRoutes(app: express.Application) {
           WHERE company_id = $1
             AND sale_year IN ($2, $3)
           GROUP BY sale_year, sale_month
-          ORDER BY sale_month
+          ORDER BY sale_year, sale_month
         `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
+      }
+
+      // Log para debugging
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Query ejecutada para años: ${yearsToCompare.join(', ')}`);
+        console.log(`[GET /api/sales-yearly-comparison] Registros retornados: ${monthlyData.length}`);
+        if (monthlyData.length > 0) {
+          console.log(`[GET /api/sales-yearly-comparison] Primeros 5 registros:`, monthlyData.slice(0, 5).map((r: any) => ({
+            sale_year: r.sale_year,
+            sale_month: r.sale_month,
+            total_amount: r.total_amount,
+            total_quantity: r.total_quantity
+          })));
+        }
       }
 
       // Organizar datos por mes
@@ -8303,12 +8317,24 @@ export function registerRoutes(app: express.Application) {
         yearsToCompare.forEach((year) => {
           // Buscar datos del año y mes, asegurando que la comparación funcione con strings o números
           const yearData = monthlyData.find((r: any) => {
-            const rMonth = typeof r.sale_month === 'string' ? parseInt(r.sale_month) : r.sale_month;
-            const rYear = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
-            return rMonth === monthNum && rYear === year;
+            // Normalizar sale_month y sale_year a números
+            const rMonth = typeof r.sale_month === 'string' ? parseInt(r.sale_month) : Number(r.sale_month);
+            const rYear = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : Number(r.sale_year);
+            const match = rMonth === monthNum && rYear === year;
+            
+            // Log para debugging del primer mes
+            if (process.env.NODE_ENV !== 'production' && index === 0 && match) {
+              console.log(`[GET /api/sales-yearly-comparison] Match encontrado: año=${rYear}, mes=${rMonth}, total_amount=${r.total_amount}`);
+            }
+            
+            return match;
           });
-          dataPoint[`qty_${year}`] = parseFloat(yearData?.total_quantity || '0');
-          dataPoint[`amt_${year}`] = parseFloat(yearData?.total_amount || '0');
+          
+          const qty = yearData ? parseFloat(yearData.total_quantity || '0') : 0;
+          const amt = yearData ? parseFloat(yearData.total_amount || '0') : 0;
+          
+          dataPoint[`qty_${year}`] = qty;
+          dataPoint[`amt_${year}`] = amt;
         });
 
         // Calcular diferencias y porcentajes (solo entre los dos primeros años para compatibilidad)
