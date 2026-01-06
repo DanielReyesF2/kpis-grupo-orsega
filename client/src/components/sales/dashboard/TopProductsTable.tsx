@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { useState } from "react";
 import { formatNumber, formatCurrency } from "@/lib/sales-utils";
 
 interface TopProductsTableProps {
@@ -27,13 +28,17 @@ interface TopProductsTableProps {
   period?: 'month' | 'year' | '3months';
 }
 
+type SortBy = 'volume' | 'revenue';
+
 const COLORS = ['#1B5E9E', '#0288D1', '#00ACC1', '#009688', '#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107', '#FF9800'];
 
 export function TopProductsTable({ companyId, limit = 10, period = 'year' }: TopProductsTableProps) {
+  const [sortBy, setSortBy] = useState<SortBy>('revenue'); // Por defecto ordenar por revenue
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/sales-top-products', companyId, limit, period],
+    queryKey: ['/api/sales-top-products', companyId, limit, period, sortBy],
     queryFn: async () => {
-      const queryString = `?companyId=${companyId}&limit=${limit}&period=${period}`;
+      const queryString = `?companyId=${companyId}&limit=${limit}&period=${period}&sortBy=${sortBy}`;
       const res = await apiRequest('GET', `/api/sales-top-products${queryString}`);
       if (!res.ok) {
         throw new Error(`Failed to fetch top products: ${res.statusText}`);
@@ -81,25 +86,57 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
     );
   }
 
-  // Calcular total para porcentajes
+  // Calcular totales para porcentajes
   const totalVolume = data.reduce((sum: number, product: any) => sum + product.volume, 0);
+  const totalRevenue = data.reduce((sum: number, product: any) => sum + product.revenue, 0);
 
-  // Preparar datos para gráfico
+  // Preparar datos para gráfico (mostrar la métrica seleccionada)
   const chartData = data.map((product: any, index: number) => ({
     name: product.name.length > 15 ? product.name.substring(0, 15) + '...' : product.name,
     fullName: product.name,
     volume: product.volume,
+    revenue: product.revenue,
+    profitability: product.profitability || 0,
     uniqueClients: product.uniqueClients,
     transactions: product.transactions,
-    percentage: totalVolume > 0 ? (product.volume / totalVolume) * 100 : 0,
+    value: sortBy === 'revenue' ? product.revenue : product.volume,
+    percentage: sortBy === 'revenue' 
+      ? (totalRevenue > 0 ? (product.revenue / totalRevenue) * 100 : 0)
+      : (totalVolume > 0 ? (product.volume / totalVolume) * 100 : 0),
     color: COLORS[index % COLORS.length],
   }));
 
   return (
     <ChartCard
       title="Top Productos"
-      subtitle={`Top ${limit} productos por volumen (${period === 'year' ? 'año actual' : period === 'month' ? 'mes actual' : 'últimos 3 meses'})`}
+      subtitle={`Top ${limit} productos por ${sortBy === 'revenue' ? 'revenue' : 'volumen'} (${period === 'year' ? 'año actual' : period === 'month' ? 'mes actual' : 'últimos 3 meses'})`}
     >
+      {/* Selector de ordenamiento */}
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Ordenar por:</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSortBy('revenue')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              sortBy === 'revenue'
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            Revenue
+          </button>
+          <button
+            onClick={() => setSortBy('volume')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              sortBy === 'volume'
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            Volumen
+          </button>
+        </div>
+      </div>
       <div className="space-y-4">
         {/* Gráfico de barras horizontal */}
         <div className="h-64">
@@ -115,7 +152,12 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
                 tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(value) => formatNumber(value)}
+                tickFormatter={(value) => {
+                  if (sortBy === 'revenue') {
+                    return formatCurrency(value, companyId);
+                  }
+                  return formatNumber(value);
+                }}
               />
               <YAxis
                 type="category"
@@ -131,13 +173,15 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string, props: any) => [
-                  `${formatNumber(value)} ${data[chartData.indexOf(props.payload)]?.unit || ''}`,
-                  'Volumen'
-                ]}
+                formatter={(value: number, name: string, props: any) => {
+                  if (sortBy === 'revenue') {
+                    return [formatCurrency(value, companyId), 'Revenue'];
+                  }
+                  return [`${formatNumber(value)} ${data[chartData.indexOf(props.payload)]?.unit || ''}`, 'Volumen'];
+                }}
                 labelFormatter={(label) => `Producto: ${label}`}
               />
-              <Bar dataKey="volume" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {chartData.map((entry: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
@@ -154,6 +198,7 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
                 <th className="text-left p-3 font-semibold">Producto</th>
                 <th className="text-right p-3 font-semibold">Volumen</th>
                 <th className="text-right p-3 font-semibold">Revenue</th>
+                <th className="text-right p-3 font-semibold">Rentabilidad</th>
                 <th className="text-right p-3 font-semibold">Clientes</th>
                 <th className="text-right p-3 font-semibold">Transacciones</th>
                 <th className="text-right p-3 font-semibold">% del Total</th>
@@ -171,10 +216,16 @@ export function TopProductsTable({ companyId, limit = 10, period = 'year' }: Top
                     <td className="p-3 text-right font-semibold">
                       {product.revenue ? formatCurrency(product.revenue, companyId) : '-'}
                     </td>
+                    <td className="p-3 text-right font-medium">
+                      {product.profitability ? formatCurrency(product.profitability, companyId) : '-'}
+                      <span className="text-xs text-muted-foreground ml-1">/ {product.unit || 'unidad'}</span>
+                    </td>
                     <td className="p-3 text-right">{product.uniqueClients}</td>
                     <td className="p-3 text-right">{product.transactions}</td>
                     <td className="p-3 text-right font-semibold">
-                      {percentage.toFixed(1)}%
+                      {sortBy === 'revenue' 
+                        ? (totalRevenue > 0 ? ((product.revenue / totalRevenue) * 100).toFixed(1) : '0.0')
+                        : percentage.toFixed(1)}%
                     </td>
                   </tr>
                 );

@@ -8730,7 +8730,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5, period = '3months' } = req.query;
+      const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8775,7 +8775,7 @@ export function registerRoutes(app: express.Application) {
           ${dateFilter}
           AND client_name IS NOT NULL AND client_name <> ''
         GROUP BY client_name
-        ORDER BY total_volume DESC
+        ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $${params.length}
       `, params);
 
@@ -8794,18 +8794,25 @@ export function registerRoutes(app: express.Application) {
             AND sale_date <= CURRENT_DATE
             AND client_name IS NOT NULL AND client_name <> ''
           GROUP BY client_name
-          ORDER BY total_volume DESC
+          ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
       }
 
-      const formatted = (topClients || []).map((row: any) => ({
-        name: row.client_name,
-        volume: parseFloat(row.total_volume || '0'),
-        revenue: parseFloat(row.total_revenue || '0'),
-        transactions: parseInt(row.transactions || '0'),
-        unit: row.unit
-      }));
+      const formatted = (topClients || []).map((row: any) => {
+        const volume = parseFloat(row.total_volume || '0');
+        const revenue = parseFloat(row.total_revenue || '0');
+        const profitability = volume > 0 ? revenue / volume : 0; // Revenue por unidad de volumen
+        
+        return {
+          name: row.client_name,
+          volume: volume,
+          revenue: revenue,
+          profitability: profitability,
+          transactions: parseInt(row.transactions || '0'),
+          unit: row.unit
+        };
+      });
 
       res.json(formatted);
     } catch (error) {
@@ -8819,7 +8826,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5, period = '3months' } = req.query;
+      const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8865,7 +8872,7 @@ export function registerRoutes(app: express.Application) {
           ${dateFilter}
           AND product_name IS NOT NULL AND product_name <> ''
         GROUP BY product_name
-        ORDER BY total_volume DESC
+        ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $${params.length}
       `, params);
 
@@ -8885,19 +8892,26 @@ export function registerRoutes(app: express.Application) {
             AND sale_date <= CURRENT_DATE
             AND product_name IS NOT NULL AND product_name <> ''
           GROUP BY product_name
-          ORDER BY total_volume DESC
+          ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
       }
 
-      const formatted = (topProducts || []).map((row: any) => ({
-        name: row.product_name || 'Sin nombre',
-        volume: parseFloat(row.total_volume) || 0,
-        revenue: parseFloat(row.total_revenue) || 0,
-        uniqueClients: parseInt(row.unique_clients) || 0,
-        transactions: parseInt(row.transactions) || 0,
-        unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
-      }));
+      const formatted = (topProducts || []).map((row: any) => {
+        const volume = parseFloat(row.total_volume) || 0;
+        const revenue = parseFloat(row.total_revenue) || 0;
+        const profitability = volume > 0 ? revenue / volume : 0; // Revenue por unidad de volumen
+        
+        return {
+          name: row.product_name || 'Sin nombre',
+          volume: volume,
+          revenue: revenue,
+          profitability: profitability,
+          uniqueClients: parseInt(row.unique_clients) || 0,
+          transactions: parseInt(row.transactions) || 0,
+          unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
+        };
+      });
 
       res.json(formatted);
     } catch (error) {
