@@ -8237,26 +8237,56 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      // Años a comparar (por defecto: año actual vs año anterior)
+      // Años a comparar (por defecto: 2024 vs 2025)
+      // Cuando haya datos de 2026, automáticamente se incluirán los 3 años
       const currentYear = new Date().getFullYear();
-      const compareYear1 = year1 ? parseInt(year1 as string) : currentYear - 1;
-      const compareYear2 = year2 ? parseInt(year2 as string) : currentYear;
+      const compareYear1 = year1 ? parseInt(year1 as string) : (currentYear - 1); // 2024 por defecto
+      const compareYear2 = year2 ? parseInt(year2 as string) : currentYear; // 2025 por defecto
 
-      // Obtener datos mensuales para ambos años
-      const monthlyData = await sql(`
-        SELECT
-          sale_month,
-          sale_year,
-          COALESCE(SUM(quantity), 0) as total_quantity,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) as unique_clients,
-          MAX(unit) as unit
+      // Verificar si hay datos de 2026 para incluir automáticamente
+      const year2026Check = await sql(`
+        SELECT COUNT(*) as count
         FROM sales_data
-        WHERE company_id = $1
-          AND sale_year IN ($2, $3)
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_month
-      `, [resolvedCompanyId, compareYear1, compareYear2]);
+        WHERE company_id = $1 AND sale_year = 2026
+      `, [resolvedCompanyId]);
+      
+      const has2026Data = parseInt(year2026Check[0]?.count || '0') > 0;
+      const yearsToCompare = has2026Data ? [compareYear1, compareYear2, 2026] : [compareYear1, compareYear2];
+
+      // Obtener datos mensuales para los años a comparar (2 o 3 años)
+      // Usar parámetros dinámicos según la cantidad de años
+      let monthlyData;
+      if (yearsToCompare.length === 3) {
+        monthlyData = await sql(`
+          SELECT
+            sale_month,
+            sale_year,
+            COALESCE(SUM(quantity), 0) as total_quantity,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) as unique_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_year IN ($2, $3, $4)
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_month
+        `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
+      } else {
+        monthlyData = await sql(`
+          SELECT
+            sale_month,
+            sale_year,
+            COALESCE(SUM(quantity), 0) as total_quantity,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) as unique_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_year IN ($2, $3)
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_month
+        `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
+      }
 
       // Organizar datos por mes
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -8264,37 +8294,49 @@ export function registerRoutes(app: express.Application) {
 
       const comparisonData = monthNames.map((mes, index) => {
         const monthNum = index + 1;
-        // Convertir a números para comparación correcta (PostgreSQL puede retornar strings)
-        const year1Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear1);
-        const year2Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear2);
-
-        const qty1 = parseFloat(year1Data?.total_quantity || '0');
-        const qty2 = parseFloat(year2Data?.total_quantity || '0');
-        const amt1 = parseFloat(year1Data?.total_amount || '0');
-        const amt2 = parseFloat(year2Data?.total_amount || '0');
-
-        return {
+        const dataPoint: any = {
           mes,
           monthNum,
-          [`qty_${compareYear1}`]: qty1,
-          [`qty_${compareYear2}`]: qty2,
-          [`amt_${compareYear1}`]: amt1,
-          [`amt_${compareYear2}`]: amt2,
-          qty_diff: qty2 - qty1,
-          qty_percent: qty1 > 0 ? ((qty2 - qty1) / qty1) * 100 : (qty2 > 0 ? 100 : 0),
-          amt_diff: amt2 - amt1,
-          amt_percent: amt1 > 0 ? ((amt2 - amt1) / amt1) * 100 : (amt2 > 0 ? 100 : 0),
-          unit: year2Data?.unit || year1Data?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades')
         };
+
+        // Agregar datos de todos los años a comparar
+        yearsToCompare.forEach((year) => {
+          const yearData = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === year);
+          dataPoint[`qty_${year}`] = parseFloat(yearData?.total_quantity || '0');
+          dataPoint[`amt_${year}`] = parseFloat(yearData?.total_amount || '0');
+        });
+
+        // Calcular diferencias y porcentajes (solo entre los dos primeros años para compatibilidad)
+        const qty1 = dataPoint[`qty_${compareYear1}`] || 0;
+        const qty2 = dataPoint[`qty_${compareYear2}`] || 0;
+        const amt1 = dataPoint[`amt_${compareYear1}`] || 0;
+        const amt2 = dataPoint[`amt_${compareYear2}`] || 0;
+
+        dataPoint.qty_diff = qty2 - qty1;
+        dataPoint.qty_percent = qty1 > 0 ? ((qty2 - qty1) / qty1) * 100 : (qty2 > 0 ? 100 : 0);
+        dataPoint.amt_diff = amt2 - amt1;
+        dataPoint.amt_percent = amt1 > 0 ? ((amt2 - amt1) / amt1) * 100 : (amt2 > 0 ? 100 : 0);
+        
+        // Determinar unidad
+        const firstYearData = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === yearsToCompare[0]);
+        dataPoint.unit = firstYearData?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades');
+
+        return dataPoint;
       });
 
-      // Calcular totales
-      const totals = comparisonData.reduce((acc, row) => ({
-        [`qty_${compareYear1}`]: acc[`qty_${compareYear1}`] + row[`qty_${compareYear1}`],
-        [`qty_${compareYear2}`]: acc[`qty_${compareYear2}`] + row[`qty_${compareYear2}`],
-        [`amt_${compareYear1}`]: acc[`amt_${compareYear1}`] + row[`amt_${compareYear1}`],
-        [`amt_${compareYear2}`]: acc[`amt_${compareYear2}`] + row[`amt_${compareYear2}`],
-      }), { [`qty_${compareYear1}`]: 0, [`qty_${compareYear2}`]: 0, [`amt_${compareYear1}`]: 0, [`amt_${compareYear2}`]: 0 });
+      // Calcular totales para todos los años
+      const totals = comparisonData.reduce((acc, row) => {
+        const totalsObj: any = { ...acc };
+        yearsToCompare.forEach((year) => {
+          totalsObj[`qty_${year}`] = (totalsObj[`qty_${year}`] || 0) + (row[`qty_${year}`] || 0);
+          totalsObj[`amt_${year}`] = (totalsObj[`amt_${year}`] || 0) + (row[`amt_${year}`] || 0);
+        });
+        return totalsObj;
+      }, yearsToCompare.reduce((acc: any, year) => {
+        acc[`qty_${year}`] = 0;
+        acc[`amt_${year}`] = 0;
+        return acc;
+      }, {}));
 
       // Obtener años disponibles para selector
       const availableYears = await sql(`

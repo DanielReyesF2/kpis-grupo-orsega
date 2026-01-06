@@ -28,12 +28,20 @@ interface YearlyComparisonChartProps {
 }
 
 export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyComparisonChartProps) {
+  // Por defecto: comparar 2024 vs 2025 (año anterior vs año actual)
+  // Cuando haya datos de 2026, se mostrarán automáticamente los 3 años
+  const currentYear = new Date().getFullYear();
+  const defaultYear1 = year1 || (currentYear - 1); // 2024
+  const defaultYear2 = year2 || currentYear; // 2025
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/sales-yearly-comparison', companyId, year1, year2],
+    queryKey: ['/api/sales-yearly-comparison', companyId, defaultYear1, defaultYear2],
     queryFn: async () => {
-      const params = new URLSearchParams({ companyId: String(companyId) });
-      if (year1) params.append('year1', String(year1));
-      if (year2) params.append('year2', String(year2));
+      const params = new URLSearchParams({ 
+        companyId: String(companyId),
+        year1: String(defaultYear1),
+        year2: String(defaultYear2)
+      });
       const res = await apiRequest('GET', `/api/sales-yearly-comparison?${params.toString()}`);
       if (!res.ok) {
         throw new Error(`Failed to fetch yearly comparison: ${res.statusText}`);
@@ -81,17 +89,38 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
     );
   }
 
-  // Preparar datos para el gráfico
-  const chartData = data.data.map((item: any) => ({
-    mes: item.mes.substring(0, 3), // Primeras 3 letras del mes
-    [`${data.year1}`]: item[`amt_${data.year1}`],
-    [`${data.year2}`]: item[`amt_${data.year2}`],
-  }));
+  // Detectar si hay datos de 2026 para mostrar 3 años
+  const availableYears = data.availableYears || [];
+  const has2026 = availableYears.includes(2026);
+  const yearsToShow = has2026 ? [2024, 2025, 2026] : [data.year1, data.year2];
+
+  // Preparar datos para el gráfico (soporta 2 o 3 años)
+  const chartData = data.data.map((item: any) => {
+    const dataPoint: any = {
+      mes: item.mes.substring(0, 3), // Primeras 3 letras del mes
+    };
+    
+    // Agregar datos de todos los años disponibles
+    yearsToShow.forEach((year) => {
+      dataPoint[String(year)] = item[`amt_${year}`] || 0;
+    });
+    
+    return dataPoint;
+  });
+
+  // Colores para las barras (soporta hasta 3 años)
+  const barColors = [
+    'hsl(var(--chart-1))',
+    'hsl(var(--chart-2))',
+    'hsl(var(--chart-3))'
+  ];
 
   return (
     <ChartCard
       title="Comparativo Anual"
-      subtitle={`${data.year1} vs ${data.year2} - Revenue por mes`}
+      subtitle={has2026 
+        ? `${yearsToShow.join(' vs ')} - Revenue por mes`
+        : `${data.year1} vs ${data.year2} - Revenue por mes`}
     >
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -122,44 +151,45 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
               formatter={(value: number) => formatCurrency(value, companyId)}
             />
             <Legend />
-            <Bar
-              dataKey={String(data.year1)}
-              fill="hsl(var(--chart-1))"
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-              name={`${data.year1}`}
-            />
-            <Bar
-              dataKey={String(data.year2)}
-              fill="hsl(var(--chart-2))"
-              radius={[4, 4, 0, 0]}
-              opacity={0.8}
-              name={`${data.year2}`}
-            />
+            {yearsToShow.map((year, index) => (
+              <Bar
+                key={year}
+                dataKey={String(year)}
+                fill={barColors[index]}
+                radius={[4, 4, 0, 0]}
+                opacity={0.8}
+                name={`${year}`}
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
       
       {/* Resumen de totales */}
       {data.totals && (
-        <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-muted-foreground mb-1">Total {data.year1}</p>
-            <p className="text-lg font-semibold">
-              {formatCurrency(data.totals[`amt_${data.year1}`], companyId)}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-1">Total {data.year2}</p>
-            <p className="text-lg font-semibold">
-              {formatCurrency(data.totals[`amt_${data.year2}`], companyId)}
-            </p>
-            {data.totals.amt_percent !== undefined && (
-              <p className={`text-xs mt-1 ${data.totals.amt_percent >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {data.totals.amt_percent >= 0 ? '+' : ''}{data.totals.amt_percent.toFixed(1)}% vs {data.year1}
-              </p>
-            )}
-          </div>
+        <div className={`mt-4 pt-4 border-t grid gap-4 text-sm ${has2026 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {yearsToShow.map((year) => {
+            const total = data.totals[`amt_${year}`] || 0;
+            const isLastYear = year === yearsToShow[yearsToShow.length - 1];
+            const prevYear = yearsToShow[yearsToShow.indexOf(year) - 1];
+            const percent = prevYear && data.totals[`amt_${prevYear}`] > 0
+              ? ((total - data.totals[`amt_${prevYear}`]) / data.totals[`amt_${prevYear}`]) * 100
+              : undefined;
+
+            return (
+              <div key={year}>
+                <p className="text-muted-foreground mb-1">Total {year}</p>
+                <p className="text-lg font-semibold">
+                  {formatCurrency(total, companyId)}
+                </p>
+                {percent !== undefined && isLastYear && (
+                  <p className={`text-xs mt-1 ${percent >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {percent >= 0 ? '+' : ''}{percent.toFixed(1)}% vs {prevYear}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </ChartCard>
