@@ -8319,16 +8319,19 @@ export function registerRoutes(app: express.Application) {
         `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
       }
 
-      // Log para debugging
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[GET /api/sales-yearly-comparison] Query ejecutada para años: ${yearsToCompare.join(', ')}`);
-        console.log(`[GET /api/sales-yearly-comparison] Registros retornados: ${monthlyData.length}`);
-        if (monthlyData.length > 0) {
-          console.log(`[GET /api/sales-yearly-comparison] Primeros 5 registros:`, monthlyData.slice(0, 5).map((r: any) => ({
-            sale_year: r.sale_year,
-            sale_month: r.sale_month,
-            total_amount: r.total_amount,
-            total_quantity: r.total_quantity
+      // Log para debugging (siempre, no solo en desarrollo)
+      console.log(`[GET /api/sales-yearly-comparison] companyId: ${resolvedCompanyId}, Años solicitados: year1=${compareYear1}, year2=${compareYear2}`);
+      console.log(`[GET /api/sales-yearly-comparison] Años a comparar: ${yearsToCompare.join(', ')}`);
+      console.log(`[GET /api/sales-yearly-comparison] Registros retornados: ${monthlyData.length}`);
+      if (monthlyData.length > 0) {
+        const data2024 = monthlyData.filter((r: any) => Number(r.sale_year) === 2024);
+        const data2025 = monthlyData.filter((r: any) => Number(r.sale_year) === 2025);
+        console.log(`[GET /api/sales-yearly-comparison] Registros 2024: ${data2024.length}, Registros 2025: ${data2025.length}`);
+        if (data2024.length > 0) {
+          console.log(`[GET /api/sales-yearly-comparison] Datos 2024 encontrados:`, data2024.map((r: any) => ({
+            month: Number(r.sale_month),
+            amount: Number(r.total_amount),
+            quantity: Number(r.total_quantity)
           })));
         }
       }
