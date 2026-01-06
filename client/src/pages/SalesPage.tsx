@@ -85,24 +85,69 @@ export default function SalesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode());
   const [selectedCompany, setSelectedCompany] = useState<number>(getInitialCompany());
 
-  // Sincronizar selectedCompany con la URL cuando cambie
+  // Sincronizar selectedCompany y viewMode con la URL cuando cambie
   useEffect(() => {
+    // Actualizar companyId basado en la ruta
     if (location === "/sales/dura") {
       setSelectedCompany(1);
     } else if (location === "/sales/orsega") {
       setSelectedCompany(2);
     }
     
-    // Leer viewMode desde query params
+    // Leer viewMode desde query params (siempre leer de window.location.search para obtener query params actuales)
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
+    console.log('[SalesPage] useEffect - location:', location, 'view param:', view, 'current viewMode:', viewMode);
+    
     if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
-      setViewMode(view as ViewMode);
+      if (viewMode !== view) {
+        console.log('[SalesPage] Cambiando viewMode de', viewMode, 'a', view);
+        setViewMode(view as ViewMode);
+      }
     } else if (!view && location.includes('/sales')) {
       // Si no hay view param pero estamos en /sales, usar dashboard
-      setViewMode("dashboard");
+      if (viewMode !== "dashboard") {
+        console.log('[SalesPage] Cambiando viewMode a dashboard (no hay view param)');
+        setViewMode("dashboard");
+      }
     }
-  }, [location]);
+  }, [location]); // Solo location como dependencia
+
+  // Escuchar cambios en los query params usando popstate
+  useEffect(() => {
+    const checkQueryParams = () => {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      console.log('[SalesPage] checkQueryParams - view:', view, 'current viewMode:', viewMode);
+      
+      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+        if (viewMode !== view) {
+          console.log('[SalesPage] Query params cambiaron - actualizando viewMode a', view);
+          setViewMode(view as ViewMode);
+        }
+      } else if (!view && viewMode !== "dashboard") {
+        console.log('[SalesPage] Query params cambiaron - actualizando viewMode a dashboard');
+        setViewMode("dashboard");
+      }
+    };
+
+    // Verificar inmediatamente al montar
+    checkQueryParams();
+
+    // Escuchar eventos de navegación (back/forward)
+    window.addEventListener('popstate', checkQueryParams);
+    
+    // También escuchar cambios de hash (wouter puede usar hash routing)
+    const handleHashChange = () => {
+      setTimeout(checkQueryParams, 0);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('popstate', checkQueryParams);
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []); // Solo ejecutar una vez al montar
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
