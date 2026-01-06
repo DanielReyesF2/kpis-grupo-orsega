@@ -8346,26 +8346,35 @@ export function registerRoutes(app: express.Application) {
 
         // Agregar datos de todos los años a comparar
         yearsToCompare.forEach((year) => {
-          // Buscar datos del año y mes, asegurando que la comparación funcione con strings o números
+          // Buscar datos del año y mes - usar comparación estricta
           const yearData = monthlyData.find((r: any) => {
-            // Normalizar sale_month y sale_year a números
-            const rMonth = typeof r.sale_month === 'string' ? parseInt(r.sale_month) : Number(r.sale_month);
-            const rYear = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : Number(r.sale_year);
-            const match = rMonth === monthNum && rYear === year;
-            
-            // Log para debugging del primer mes
-            if (process.env.NODE_ENV !== 'production' && index === 0 && match) {
-              console.log(`[GET /api/sales-yearly-comparison] Match encontrado: año=${rYear}, mes=${rMonth}, total_amount=${r.total_amount}`);
-            }
-            
-            return match;
+            // Convertir a números de forma explícita
+            const rMonth = Number(r.sale_month);
+            const rYear = Number(r.sale_year);
+            return rMonth === monthNum && rYear === year;
           });
           
-          const qty = yearData ? parseFloat(yearData.total_quantity || '0') : 0;
-          const amt = yearData ? parseFloat(yearData.total_amount || '0') : 0;
+          if (yearData) {
+            dataPoint[`qty_${year}`] = Number(yearData.total_quantity) || 0;
+            dataPoint[`amt_${year}`] = Number(yearData.total_amount) || 0;
+          } else {
+            dataPoint[`qty_${year}`] = 0;
+            dataPoint[`amt_${year}`] = 0;
+          }
           
-          dataPoint[`qty_${year}`] = qty;
-          dataPoint[`amt_${year}`] = amt;
+          // Log detallado para el primer mes y año 2024
+          if (process.env.NODE_ENV !== 'production' && index === 0 && year === 2024) {
+            console.log(`[GET /api/sales-yearly-comparison] Mes ${monthNum} (${mes}), Año 2024:`, {
+              found: !!yearData,
+              total_amount: yearData ? Number(yearData.total_amount) : 0,
+              total_quantity: yearData ? Number(yearData.total_quantity) : 0,
+              allMonthlyDataFor2024: monthlyData.filter((r: any) => Number(r.sale_year) === 2024).map((r: any) => ({
+                month: Number(r.sale_month),
+                year: Number(r.sale_year),
+                amount: Number(r.total_amount)
+              }))
+            });
+          }
         });
 
         // Calcular diferencias y porcentajes (solo entre los dos primeros años para compatibilidad)
