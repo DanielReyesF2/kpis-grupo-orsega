@@ -8297,11 +8297,12 @@ export function registerRoutes(app: express.Application) {
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = $1
-            AND sale_year IN ($2, $3, $4)
+            AND sale_year = ANY(ARRAY[$2, $3, $4]::integer[])
           GROUP BY sale_year, sale_month
           ORDER BY sale_year, sale_month
         `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
       } else {
+        // Query simplificada - igual que annual-summary que SÍ funciona
         monthlyData = await sql(`
           SELECT
             sale_month,
@@ -8312,7 +8313,7 @@ export function registerRoutes(app: express.Application) {
             MAX(unit) as unit
           FROM sales_data
           WHERE company_id = $1
-            AND sale_year IN ($2, $3)
+            AND sale_year = ANY(ARRAY[$2, $3]::integer[])
           GROUP BY sale_year, sale_month
           ORDER BY sale_year, sale_month
         `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
