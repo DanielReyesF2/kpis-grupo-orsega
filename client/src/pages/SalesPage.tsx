@@ -1532,7 +1532,10 @@ export default function SalesPage() {
 
         {/* Vista Analista de Ventas */}
         {viewMode === "analyst" && (
-          <SalesAnalyst companyId={selectedCompany} />
+          <>
+            {console.log('[SalesPage] Renderizando SalesAnalyst con viewMode:', viewMode, 'companyId:', selectedCompany)}
+            <SalesAnalyst companyId={selectedCompany} />
+          </>
         )}
       </div>
     </AppLayout>

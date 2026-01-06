@@ -25,6 +25,8 @@ interface SalesAnalystProps {
 export function SalesAnalyst({ companyId }: SalesAnalystProps) {
   const queryClient = useQueryClient();
   
+  console.log('[SalesAnalyst] Componente renderizado con companyId:', companyId);
+  
   // Filters
   const { filters, updateFilters } = useFilters({
     companyId,
@@ -38,6 +40,8 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   // Data fetching
   const { data: insights, isLoading, error, refetch } = useSalesAnalyst(companyId);
+  
+  console.log('[SalesAnalyst] Estado del query:', { isLoading, hasError: !!error, hasData: !!insights });
 
   // Filter options
   const quickFilters = [
