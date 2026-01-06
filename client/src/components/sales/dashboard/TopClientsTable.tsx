@@ -19,7 +19,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { formatNumber, formatCurrency } from "./SalesKPICard";
+import { formatNumber, formatCurrency } from "@/lib/sales-utils";
 
 interface TopClientsTableProps {
   companyId: number;

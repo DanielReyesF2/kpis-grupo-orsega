@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { formatCurrency, formatNumber } from "@/lib/sales-utils";
 
 interface SalesKPICardProps {
   title: string;
@@ -18,20 +19,6 @@ interface SalesKPICardProps {
   };
   variant?: "default" | "success" | "warning" | "danger";
   className?: string;
-}
-
-function formatCurrency(value: number, companyId: number): string {
-  const currency = companyId === 1 ? 'USD' : 'MXN';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('es-MX').format(value);
 }
 
 export function SalesKPICard({
@@ -97,6 +84,6 @@ export function SalesKPICard({
   );
 }
 
-// Helper functions for formatting
-export { formatCurrency, formatNumber };
+// Re-export for backward compatibility
+export { formatCurrency, formatNumber } from "@/lib/sales-utils";
 

@@ -21,20 +21,11 @@ import {
   ComposedChart,
   Bar,
 } from "recharts";
+import { formatCurrency } from "@/lib/sales-utils";
 
 interface MonthlyTrendsChartProps {
   companyId: number;
   year?: number;
-}
-
-function formatCurrency(value: number, companyId: number): string {
-  const currency = companyId === 1 ? 'USD' : 'MXN';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export function MonthlyTrendsChart({ companyId, year }: MonthlyTrendsChartProps) {

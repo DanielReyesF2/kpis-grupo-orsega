@@ -3,7 +3,6 @@
  * Container que orquesta todas las secciones de análisis
  */
 
-import { useMemo } from "react";
 import { Brain, Download, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
@@ -41,7 +40,7 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
   const { data: insights, isLoading, error, refetch } = useSalesAnalyst(companyId);
 
   // Filter options
-  const quickFilters = useMemo(() => [
+  const quickFilters = [
     {
       key: 'period',
       label: 'Período',
@@ -64,7 +63,7 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
         { value: 'low', label: 'Baja' },
       ],
     },
-  ], []);
+  ];
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/sales-analyst/insights', companyId] });
@@ -73,7 +72,8 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   const handleExport = () => {
     // TODO: Implementar exportación a PDF/Excel
-    console.log('Exportar reporte', insights);
+    // Por ahora, solo muestra un mensaje al usuario
+    alert('Funcionalidad de exportación próximamente disponible');
   };
 
   // Header component reutilizable - Diseño completamente distintivo

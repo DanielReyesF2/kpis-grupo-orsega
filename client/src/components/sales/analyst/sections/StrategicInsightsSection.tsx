@@ -8,21 +8,12 @@ import { Lightbulb, Target, TrendingUp, AlertTriangle, Users, Package } from "lu
 import { ChartCard } from "@/components/salesforce/layout/ChartCard";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/sales-utils";
 import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 
 interface StrategicInsightsSectionProps {
   insights: SalesAnalystInsights;
   companyId: number;
-}
-
-function formatCurrency(value: number, companyId: number): string {
-  const currency = companyId === 1 ? 'USD' : 'MXN';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export function StrategicInsightsSection({ insights, companyId }: StrategicInsightsSectionProps) {

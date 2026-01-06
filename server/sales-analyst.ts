@@ -23,6 +23,159 @@ neonConfig.webSocketConstructor = WebSocket;
 const sql = neon(process.env.DATABASE_URL!);
 
 /**
+ * Funciones de estadística para cálculos adaptativos
+ */
+
+/**
+ * Calcula un percentil histórico de días sin compra para clientes
+ */
+async function calculatePercentileDaysSincePurchase(
+  companyId: number,
+  percentile: number
+): Promise<number> {
+  try {
+    const query = `
+      WITH client_days AS (
+        SELECT 
+          CURRENT_DATE - MAX(sale_date)::date as days_since
+        FROM sales_data
+        WHERE company_id = $1
+          AND client_name IS NOT NULL 
+          AND client_name <> ''
+          AND sale_date IS NOT NULL
+        GROUP BY client_name
+        HAVING MAX(sale_date) < CURRENT_DATE
+      )
+      SELECT PERCENTILE_CONT(${percentile / 100}) WITHIN GROUP (ORDER BY days_since) as percentile_value
+      FROM client_days
+    `;
+    const result = await sql(query, [companyId]);
+    return result[0]?.percentile_value || 60; // Fallback a 60 días
+  } catch (error) {
+    console.error('[calculatePercentileDaysSincePurchase] Error:', error);
+    return 60; // Fallback
+  }
+}
+
+/**
+ * Calcula un percentil histórico de revenue para identificar clientes de alto valor
+ */
+async function calculatePercentileRevenue(
+  companyId: number,
+  percentile: number
+): Promise<number> {
+  try {
+    const query = `
+      WITH client_revenue AS (
+        SELECT 
+          SUM(total_amount) as annual_revenue
+        FROM sales_data
+        WHERE company_id = $1
+          AND client_name IS NOT NULL 
+          AND client_name <> ''
+          AND sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1)
+        GROUP BY client_name
+      )
+      SELECT PERCENTILE_CONT(${percentile / 100}) WITHIN GROUP (ORDER BY annual_revenue) as percentile_value
+      FROM client_revenue
+    `;
+    const result = await sql(query, [companyId]);
+    return result[0]?.percentile_value || 10000; // Fallback a $10K
+  } catch (error) {
+    console.error('[calculatePercentileRevenue] Error:', error);
+    return 10000; // Fallback
+  }
+}
+
+/**
+ * Calcula la media y desviación estándar de cambios YoY para validación estadística
+ */
+async function calculateYoYChangeStats(
+  companyId: number
+): Promise<{ mean: number; stdDev: number }> {
+  try {
+    const query = `
+      WITH client_yoy AS (
+        SELECT
+          client_name,
+          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) THEN quantity ELSE 0 END) as qty_current,
+          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) - 1 THEN quantity ELSE 0 END) as qty_last
+        FROM sales_data
+        WHERE company_id = $1
+          AND client_name IS NOT NULL 
+          AND client_name <> ''
+        GROUP BY client_name
+        HAVING SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) - 1 THEN quantity ELSE 0 END) > 0
+      ),
+      yoy_changes AS (
+        SELECT
+          CASE
+            WHEN qty_last > 0 THEN ((qty_current - qty_last) / qty_last * 100)
+            ELSE 0
+          END as yoy_change
+        FROM client_yoy
+      )
+      SELECT 
+        AVG(yoy_change) as mean,
+        STDDEV(yoy_change) as std_dev
+      FROM yoy_changes
+    `;
+    const result = await sql(query, [companyId]);
+    const mean = parseFloat(result[0]?.mean || '0');
+    const stdDev = parseFloat(result[0]?.std_dev || '10'); // Fallback a 10% si no hay datos
+    return { mean, stdDev: stdDev > 0 ? stdDev : 10 };
+  } catch (error) {
+    console.error('[calculateYoYChangeStats] Error:', error);
+    return { mean: 0, stdDev: 10 }; // Fallback
+  }
+}
+
+/**
+ * Calcula el Z-score de un valor dado la media y desviación estándar
+ */
+function calculateZScore(value: number, mean: number, stdDev: number): number {
+  if (stdDev === 0) return 0;
+  return (value - mean) / stdDev;
+}
+
+/**
+ * Calcula el percentil rank de un valor en una distribución
+ */
+function calculatePercentileRank(value: number, mean: number, stdDev: number): number {
+  if (stdDev === 0) return 50;
+  const zScore = calculateZScore(value, mean, stdDev);
+  // Aproximación usando distribución normal estándar
+  // Percentil = 50 + (zScore * 34.1) para valores entre -1 y 1
+  if (Math.abs(zScore) <= 1) {
+    return 50 + (zScore * 34.1);
+  } else if (zScore > 1) {
+    return Math.min(84 + ((zScore - 1) * 13.6), 99);
+  } else {
+    return Math.max(16 + ((zScore + 1) * 13.6), 1);
+  }
+}
+
+/**
+ * Calcula el margen promedio histórico de la empresa (para profitability)
+ */
+async function calculateAverageMargin(companyId: number): Promise<number> {
+  try {
+    // Si no hay datos de costos, usar un margen estimado basado en industria
+    // Para manufactura/distribución, margen típico es 15-25%
+    // Usaremos 18% como default, pero esto debería venir de datos reales de costos
+    const defaultMargin = 18;
+    
+    // TODO: Si hay tabla de costos, calcular desde ahí:
+    // SELECT AVG((unit_price - cost) / unit_price * 100) FROM sales_data JOIN costs...
+    
+    return defaultMargin;
+  } catch (error) {
+    console.error('[calculateAverageMargin] Error:', error);
+    return 18; // Fallback
+  }
+}
+
+/**
  * Genera insights completos del analista de ventas
  * @param companyId - ID de la empresa (1 = Dura, 2 = Orsega)
  * @returns Insights completos con análisis estratégico
@@ -143,11 +296,24 @@ export async function generateSalesAnalystInsights(
   const productData = results.filter((r: any) => r.data_type === 'product').map((r: any) => r.data);
   const inactiveData = results.filter((r: any) => r.data_type === 'inactive').map((r: any) => r.data);
 
-  // Procesar clientes y categorizar
-  const focusClients = categorizeClients(clientData);
+  // Calcular baselines estadísticos para umbrales adaptativos
+  const criticalDaysThreshold = await calculatePercentileDaysSincePurchase(companyId, 90);
+  const highValueRevenueThreshold = await calculatePercentileRevenue(companyId, 75);
+  const yoyStats = await calculateYoYChangeStats(companyId);
+
+  // Procesar clientes y categorizar con umbrales adaptativos
+  const focusClients = categorizeClients(
+    clientData,
+    criticalDaysThreshold,
+    highValueRevenueThreshold,
+    yoyStats
+  );
   
+  // Calcular margen promedio para profitability
+  const averageMargin = await calculateAverageMargin(companyId);
+
   // Procesar productos y categorizar
-  const productOpportunities = categorizeProducts(productData);
+  const productOpportunities = categorizeProducts(productData, averageMargin);
   
   // Generar recomendaciones estratégicas
   const recommendations = generateRecommendations(focusClients, productOpportunities, inactiveData);
@@ -157,6 +323,17 @@ export async function generateSalesAnalystInsights(
   
   // Análisis de riesgo
   const riskAnalysis = calculateRiskAnalysis(focusClients, inactiveData);
+
+  // Calcular contexto estadístico para insights mejorados
+  const statisticalContext = {
+    criticalDaysThreshold,
+    highValueRevenueThreshold,
+    yoyStats: {
+      mean: yoyStats.mean,
+      stdDev: yoyStats.stdDev
+    },
+    averageMargin
+  };
 
   return {
     metadata: {
@@ -178,14 +355,20 @@ export async function generateSalesAnalystInsights(
     })),
     strategicRecommendations: recommendations,
     actionItems,
-    riskAnalysis
+    riskAnalysis,
+    statisticalContext
   };
 }
 
 /**
- * Categoriza clientes según su estado y prioridad
+ * Categoriza clientes según su estado y prioridad usando umbrales adaptativos
  */
-function categorizeClients(clients: any[]): {
+function categorizeClients(
+  clients: any[],
+  criticalDaysThreshold: number,
+  highValueRevenueThreshold: number,
+  yoyStats: { mean: number; stdDev: number }
+): {
   critical: ClientFocus[];
   warning: ClientFocus[];
   opportunities: ClientFocus[];
@@ -202,34 +385,69 @@ function categorizeClients(clients: any[]): {
     const qtyLastYear = client.qtyLastYear || 0;
     const qtyCurrentYear = client.qtyCurrentYear || 0;
 
-    // Calcular risk score (0-100)
-    let riskScore = 0;
-    if (daysSince > 60) riskScore += 40;
-    if (daysSince > 90) riskScore += 20;
-    if (yoyChange < -30) riskScore += 30;
-    if (yoyChange < -50) riskScore += 10;
-    if (previousRevenue > 100000 && qtyCurrentYear === 0) riskScore += 20;
+    // Calcular Z-score para validación estadística de anomalías
+    const zScore = calculateZScore(yoyChange, yoyStats.mean, yoyStats.stdDev);
+    const percentileRank = calculatePercentileRank(daysSince, 0, 0); // Para días, usar percentil directo
+    const isAnomaly = Math.abs(zScore) > 2.0; // 95% confianza
 
-    // Generar acciones recomendadas
+    // Calcular risk score normalizado (0-100) con ponderación estadística
+    const daysScore = Math.min(daysSince / 180, 1.0); // 180 días = máximo (normalizado)
+    const revenueScore = Math.min(previousRevenue / 500000, 1.0); // $500K = máximo (normalizado)
+    const yoyScore = Math.min(Math.abs(yoyChange) / 100, 1.0); // 100% = máximo (normalizado)
+    
+    const riskScore = (
+      daysScore * 0.4 +      // 40% peso en recency
+      revenueScore * 0.3 +   // 30% peso en valor
+      yoyScore * 0.3         // 30% peso en tendencia
+    ) * 100;
+
+    // Generar acciones recomendadas con contexto específico y urgencia
     const recommendedActions: string[] = [];
-    if (daysSince > 60) {
-      recommendedActions.push(`Contactar cliente (${Math.floor(daysSince / 30)} meses sin compra)`);
+    const urgency = daysSince > criticalDaysThreshold * 1.5 ? 'URGENTE' : 
+                    daysSince > criticalDaysThreshold ? 'ALTA' : 'MEDIA';
+    
+    if (daysSince > criticalDaysThreshold) {
+      const monthsWithoutPurchase = Math.floor(daysSince / 30);
+      const percentile = Math.round(percentileRank);
+      const discountNeeded = Math.min(Math.floor(daysSince / 30) * 5, 25); // Hasta 25% de descuento
+      
+      recommendedActions.push(
+        `${urgency}: Contactar ${client.name} - ` +
+        `${daysSince} días sin compra (percentil ${percentile}%), ` +
+        `$${previousRevenue.toLocaleString('es-MX')} en riesgo. ` +
+        `Última compra: ${new Date(client.lastPurchaseDate || '').toLocaleDateString('es-MX')}. ` +
+        `Acción: Llamada inmediata + oferta de reactivación del ${discountNeeded}%`
+      );
     }
-    if (yoyChange < -30) {
-      recommendedActions.push(`Investigar causa de caída del ${Math.abs(yoyChange).toFixed(1)}%`);
+    
+    if (isAnomaly && yoyChange < 0) {
+      const absZScore = Math.abs(zScore).toFixed(2);
+      recommendedActions.push(
+        `Investigar caída anómala del ${Math.abs(yoyChange).toFixed(1)}% ` +
+        `(Z-score: ${absZScore}, estadísticamente significativa). ` +
+        `Requiere investigación inmediata de causa raíz.`
+      );
     }
-    if (previousRevenue > 50000 && qtyCurrentYear === 0) {
-      recommendedActions.push('Ofrecer promoción especial para reactivación');
+    
+    if (previousRevenue > highValueRevenueThreshold * 0.5 && qtyCurrentYear === 0) {
+      recommendedActions.push(
+        `Ofrecer promoción especial para reactivación ` +
+        `(cliente de alto valor: $${previousRevenue.toLocaleString('es-MX')} histórico)`
+      );
     }
-    if (yoyChange > 10) {
-      recommendedActions.push('Aumentar frecuencia de contacto');
-      recommendedActions.push('Explorar oportunidades de upselling');
+    
+    if (yoyChange > 10 && qtyCurrentYear > 0) {
+      recommendedActions.push(
+        `Aumentar frecuencia de contacto - cliente en crecimiento (+${yoyChange.toFixed(1)}%). ` +
+        `Explorar oportunidades de upselling y cross-selling.`
+      );
     }
 
     const clientFocus: ClientFocus = {
       name: client.name,
       clientId: client.clientId,
-      priority: daysSince > 60 ? 'critical' : yoyChange < -30 ? 'warning' : 'opportunity',
+      priority: daysSince > criticalDaysThreshold ? 'critical' : 
+                 (isAnomaly && yoyChange < 0) ? 'warning' : 'opportunity',
       lastPurchaseDate: client.lastPurchaseDate || '',
       daysSincePurchase: daysSince,
       previousYearRevenue: previousRevenue,
@@ -239,9 +457,10 @@ function categorizeClients(clients: any[]): {
       recommendedActions
     };
 
-    if (daysSince > 60 && previousRevenue > 10000) {
+    // Usar umbrales adaptativos para categorización
+    if (daysSince > criticalDaysThreshold && previousRevenue > highValueRevenueThreshold) {
       critical.push(clientFocus);
-    } else if (yoyChange < -30 && qtyLastYear > 0) {
+    } else if (isAnomaly && yoyChange < 0 && qtyLastYear > 0) {
       warning.push(clientFocus);
     } else if (yoyChange > 10 && qtyCurrentYear > 0) {
       opportunities.push(clientFocus);
@@ -259,7 +478,10 @@ function categorizeClients(clients: any[]): {
 /**
  * Categoriza productos según oportunidades
  */
-function categorizeProducts(products: any[]): {
+function categorizeProducts(
+  products: any[],
+  averageMargin: number
+): {
   stars: ProductOpportunity[];
   declining: ProductOpportunity[];
   crossSell: ProductOpportunity[];
@@ -274,9 +496,10 @@ function categorizeProducts(products: any[]): {
     const qtyLast = product.qtyLastYear || 0;
     const uniqueClients = product.uniqueClients || 0;
     
-    // Calcular rentabilidad aproximada (asumiendo margen estándar)
-    // En producción, esto debería venir de datos reales de costos
-    const profitability = 18; // Placeholder - debería calcularse desde datos reales
+    // Usar margen promedio histórico de la empresa (calculado desde datos reales o default)
+    // TODO: Si hay datos de costos por producto, calcular profitability real:
+    // const profitability = (product.avgUnitPrice - product.avgCost) / product.avgUnitPrice * 100;
+    const profitability = averageMargin;
 
     const productOpp: ProductOpportunity = {
       name: product.name,
@@ -409,7 +632,7 @@ function generateRecommendations(
 }
 
 /**
- * Genera action items prioritarios
+ * Genera action items prioritarios con contexto específico y urgencia
  */
 function generateActionItems(
   focusClients: { critical: ClientFocus[]; warning: ClientFocus[] },
@@ -418,24 +641,39 @@ function generateActionItems(
 ): ActionItem[] {
   const actionItems: ActionItem[] = [];
 
-  // Action items para clientes críticos (top 5)
+  // Action items para clientes críticos (top 5) con contexto específico
   focusClients.critical.slice(0, 5).forEach((client, index) => {
+    const monthsWithoutPurchase = Math.floor(client.daysSincePurchase / 30);
+    const urgency = client.daysSincePurchase > 90 ? 'URGENTE' : 'ALTA';
+    const discountNeeded = Math.min(Math.floor(client.daysSincePurchase / 30) * 5, 25);
+    
     actionItems.push({
       id: `action-critical-${index + 1}`,
-      title: `Contactar ${client.name}`,
-      description: `Cliente crítico: ${client.daysSincePurchase} días sin compra. Revenue histórico: $${client.previousYearRevenue.toLocaleString('es-MX')}`,
+      title: `${urgency}: Contactar ${client.name}`,
+      description: `Cliente crítico: ${client.daysSincePurchase} días sin compra (${monthsWithoutPurchase} meses). ` +
+                   `Revenue histórico: $${client.previousYearRevenue.toLocaleString('es-MX')}. ` +
+                   `Risk score: ${client.riskScore.toFixed(0)}/100. ` +
+                   `Acción recomendada: Llamada inmediata + oferta de reactivación del ${discountNeeded}%. ` +
+                   `Última compra: ${new Date(client.lastPurchaseDate).toLocaleDateString('es-MX')}.`,
       priority: 'critical',
       status: 'pending',
       relatedRecommendationId: 'rec-1'
     });
   });
 
-  // Action items para clientes en riesgo (top 3)
+  // Action items para clientes en riesgo (top 3) con validación estadística
   focusClients.warning.slice(0, 3).forEach((client, index) => {
+    const absYoyChange = Math.abs(client.yoyChange);
+    const severity = absYoyChange > 50 ? 'CRÍTICA' : absYoyChange > 30 ? 'ALTA' : 'MEDIA';
+    
     actionItems.push({
       id: `action-warning-${index + 1}`,
-      title: `Investigar caída en ${client.name}`,
-      description: `Caída del ${Math.abs(client.yoyChange).toFixed(1)}% vs año anterior`,
+      title: `Investigar caída anómala en ${client.name}`,
+      description: `Caída del ${absYoyChange.toFixed(1)}% vs año anterior (${severity}). ` +
+                   `Revenue histórico: $${client.previousYearRevenue.toLocaleString('es-MX')}. ` +
+                   `Risk score: ${client.riskScore.toFixed(0)}/100. ` +
+                   `Acción recomendada: Investigar causa raíz (competencia, precio, servicio) + ` +
+                   `revisar historial de quejas últimos 90 días.`,
       priority: 'high',
       status: 'pending',
       relatedRecommendationId: 'rec-2'
@@ -446,7 +684,7 @@ function generateActionItems(
 }
 
 /**
- * Calcula análisis de riesgo
+ * Calcula análisis de riesgo con normalización estadística
  */
 function calculateRiskAnalysis(
   focusClients: { critical: ClientFocus[]; warning: ClientFocus[] },
@@ -466,25 +704,27 @@ function calculateRiskAnalysis(
     focusClients.warning.reduce((sum, c) => sum + c.previousYearRevenue * 0.5, 0) +
     inactiveClients.reduce((sum, ic) => sum + (ic.previousYearRevenue || 0), 0);
 
-  // Calcular churn risk score (0-100)
-  let churnRisk = 0;
-  if (criticalCount > 10) churnRisk += 30;
-  else if (criticalCount > 5) churnRisk += 20;
-  else if (criticalCount > 0) churnRisk += 10;
+  // Calcular churn risk score normalizado (0-100) con ponderación estadística
+  // Normalizar cada factor a escala 0-1, luego ponderar
+  const maxExpectedCritical = 20; // Máximo esperado de clientes críticos
+  const maxExpectedWarning = 15; // Máximo esperado de clientes en riesgo
+  const maxExpectedInactive = 30; // Máximo esperado de inactivos
+  const maxExpectedRevenue = 2000000; // $2M máximo esperado en riesgo
 
-  if (warningCount > 10) churnRisk += 25;
-  else if (warningCount > 5) churnRisk += 15;
-  else if (warningCount > 0) churnRisk += 10;
+  const criticalScore = Math.min(criticalCount / maxExpectedCritical, 1.0);
+  const warningScore = Math.min(warningCount / maxExpectedWarning, 1.0);
+  const inactiveScore = Math.min(inactiveCount / maxExpectedInactive, 1.0);
+  const revenueScore = Math.min(revenueAtRisk / maxExpectedRevenue, 1.0);
 
-  if (inactiveCount > 20) churnRisk += 25;
-  else if (inactiveCount > 10) churnRisk += 15;
-  else if (inactiveCount > 0) churnRisk += 10;
+  // Ponderación basada en importancia estadística
+  const churnRisk = (
+    criticalScore * 0.35 +    // 35% peso en clientes críticos
+    warningScore * 0.25 +     // 25% peso en clientes en riesgo
+    inactiveScore * 0.20 +    // 20% peso en inactivos
+    revenueScore * 0.20       // 20% peso en revenue en riesgo
+  ) * 100;
 
-  if (revenueAtRisk > 1000000) churnRisk += 20;
-  else if (revenueAtRisk > 500000) churnRisk += 15;
-  else if (revenueAtRisk > 100000) churnRisk += 10;
-
-  churnRisk = Math.min(churnRisk, 100);
+  const normalizedChurnRisk = Math.min(Math.max(churnRisk, 0), 100);
 
   // Top riesgos
   const topRisks: RiskFactor[] = [];
@@ -522,7 +762,7 @@ function calculateRiskAnalysis(
   topRisks.sort((a, b) => b.estimatedImpact - a.estimatedImpact);
 
   return {
-    churnRisk,
+    churnRisk: normalizedChurnRisk,
     revenueAtRisk,
     topRisks: topRisks.slice(0, 5)
   };

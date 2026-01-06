@@ -95,5 +95,14 @@ export interface SalesAnalystInsights {
     revenueAtRisk: number;        // Revenue en riesgo
     topRisks: RiskFactor[];
   };
+  statisticalContext?: {
+    criticalDaysThreshold: number;      // Umbral adaptativo para días sin compra
+    highValueRevenueThreshold: number; // Umbral adaptativo para revenue alto valor
+    yoyStats: {
+      mean: number;                     // Media de cambios YoY
+      stdDev: number;                   // Desviación estándar de cambios YoY
+    };
+    averageMargin: number;              // Margen promedio histórico
+  };
 }
 

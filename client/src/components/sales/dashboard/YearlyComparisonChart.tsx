@@ -19,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { formatCurrency } from "./SalesKPICard";
+import { formatCurrency } from "@/lib/sales-utils";
 
 interface YearlyComparisonChartProps {
   companyId: number;

@@ -4,24 +4,16 @@
  */
 
 import { useMemo } from "react";
-import { AlertTriangle, TrendingUp, DollarSign, Users } from "lucide-react";
+import { AlertTriangle, TrendingUp, DollarSign, Users, Info } from "lucide-react";
 import { ChartCard } from "@/components/salesforce/layout/ChartCard";
+import { formatCurrency } from "@/lib/sales-utils";
 import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ExecutiveSummaryProps {
   insights: SalesAnalystInsights;
   companyId: number;
-}
-
-function formatCurrency(value: number, companyId: number): string {
-  const currency = companyId === 1 ? 'USD' : 'MXN';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps) {
@@ -38,23 +30,53 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
     return { label: 'Bajo', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20' };
   }, [churnRisk]);
 
+  const statisticalContext = insights.statisticalContext;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Clientes Críticos */}
-      <ChartCard
-        title="Clientes Críticos"
-        subtitle={`${criticalCount} requieren atención inmediata`}
-      >
-        <div className="space-y-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-red-600">{criticalCount}</span>
-            <span className="text-sm text-muted-foreground">clientes</span>
+    <TooltipProvider>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Clientes Críticos */}
+        <ChartCard
+          title="Clientes Críticos"
+          subtitle={`${criticalCount} requieren atención inmediata`}
+        >
+          <div className="space-y-2">
+            <div className="flex items-baseline gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-help">
+                    <span className="text-3xl font-bold text-red-600">{criticalCount}</span>
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Umbral adaptativo:</p>
+                    <p className="text-sm">
+                      {statisticalContext?.criticalDaysThreshold 
+                        ? `${Math.round(statisticalContext.criticalDaysThreshold)} días (percentil 90 histórico)`
+                        : '60 días (default)'}
+                    </p>
+                    <p className="font-semibold mt-2">Criterio:</p>
+                    <p className="text-sm">
+                      Clientes con {statisticalContext?.criticalDaysThreshold 
+                        ? `más de ${Math.round(statisticalContext.criticalDaysThreshold)} días`
+                        : 'más de 60 días'} sin compra y revenue histórico superior a {statisticalContext?.highValueRevenueThreshold 
+                        ? formatCurrency(statisticalContext.highValueRevenueThreshold, companyId)
+                        : formatCurrency(10000, companyId)}
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              <span className="text-sm text-muted-foreground">clientes</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {statisticalContext?.criticalDaysThreshold 
+                ? `${Math.round(statisticalContext.criticalDaysThreshold)}+ días sin compra`
+                : '60+ días sin compra'}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            60+ días sin compra
-          </p>
-        </div>
-      </ChartCard>
+        </ChartCard>
 
       {/* Clientes en Riesgo */}
       <ChartCard
@@ -63,11 +85,37 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
       >
         <div className="space-y-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-amber-600">{warningCount}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <span className="text-3xl font-bold text-amber-600">{warningCount}</span>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-semibold">Validación estadística:</p>
+                  <p className="text-sm">
+                    Clientes con caída anómala detectada usando Z-score (Z {'>'} 2.0 = 95% confianza)
+                  </p>
+                  {statisticalContext?.yoyStats && (
+                    <>
+                      <p className="font-semibold mt-2">Baseline histórico:</p>
+                      <p className="text-sm">
+                        Media: {statisticalContext.yoyStats.mean.toFixed(1)}%
+                      </p>
+                      <p className="text-sm">
+                        Desv. Est.: {statisticalContext.yoyStats.stdDev.toFixed(1)}%
+                      </p>
+                    </>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <span className="text-sm text-muted-foreground">clientes</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Caída {'>'}30% vs año anterior
+            Caída anómala detectada (Z-score {'>'} 2.0)
           </p>
         </div>
       </ChartCard>
@@ -96,9 +144,30 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
       >
         <div className="space-y-3">
           <div className="flex items-baseline gap-2">
-            <span className={cn("text-3xl font-bold", riskLevel.color)}>
-              {churnRisk}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <span className={cn("text-3xl font-bold", riskLevel.color)}>
+                    {Math.round(churnRisk)}
+                  </span>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-semibold">Cálculo normalizado:</p>
+                  <p className="text-sm">
+                    Score calculado con ponderación estadística:
+                  </p>
+                  <ul className="text-sm list-disc list-inside space-y-0.5 ml-2">
+                    <li>35% clientes críticos</li>
+                    <li>25% clientes en riesgo</li>
+                    <li>20% clientes inactivos</li>
+                    <li>20% revenue en riesgo</li>
+                  </ul>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <span className="text-sm text-muted-foreground">/100</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2">
@@ -110,6 +179,7 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
         </div>
       </ChartCard>
     </div>
+    </TooltipProvider>
   );
 }
 

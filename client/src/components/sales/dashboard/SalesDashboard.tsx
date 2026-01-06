@@ -4,7 +4,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, DollarSign, Users, Package, Target } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // Salesforce components
@@ -19,7 +19,8 @@ import { useFilters } from "@/hooks/useFilters";
 import { useSavedViews } from "@/hooks/useSavedViews";
 
 // New components
-import { SalesKPICard, formatCurrency, formatNumber } from "./SalesKPICard";
+import { SalesKPICard } from "./SalesKPICard";
+import { formatCurrency, formatNumber } from "@/lib/sales-utils";
 import { MonthlyTrendsChart } from "./MonthlyTrendsChart";
 import { TopClientsTable } from "./TopClientsTable";
 import { TopProductsTable } from "./TopProductsTable";

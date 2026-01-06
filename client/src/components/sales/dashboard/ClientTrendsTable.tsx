@@ -9,7 +9,7 @@ import { LoadingState } from "@/components/salesforce/feedback/LoadingState";
 import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
 import { EmptyState } from "@/components/salesforce/feedback/EmptyState";
 import { TrendingUp, TrendingDown, Users } from "lucide-react";
-import { formatCurrency, formatNumber } from "./SalesKPICard";
+import { formatCurrency, formatNumber } from "@/lib/sales-utils";
 import { cn } from "@/lib/utils";
 
 interface ClientTrendsTableProps {

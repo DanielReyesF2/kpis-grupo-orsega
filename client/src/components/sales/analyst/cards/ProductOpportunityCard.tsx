@@ -7,14 +7,11 @@ import { TrendingUp, TrendingDown, Users, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/sales-utils";
 import type { ProductOpportunity } from "@shared/sales-analyst-types";
 
 interface ProductOpportunityCardProps {
   product: ProductOpportunity;
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('es-MX').format(value);
 }
 
 export function ProductOpportunityCard({ product }: ProductOpportunityCardProps) {

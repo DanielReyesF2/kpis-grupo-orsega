@@ -7,21 +7,12 @@ import { Calendar, TrendingDown, TrendingUp, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/sales-utils";
 import type { ClientFocus } from "@shared/sales-analyst-types";
 
 interface ClientFocusCardProps {
   client: ClientFocus;
   companyId: number;
-}
-
-function formatCurrency(value: number, companyId: number): string {
-  const currency = companyId === 1 ? 'USD' : 'MXN';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
@@ -123,15 +114,39 @@ export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
 
         {client.recommendedActions.length > 0 && (
           <div className="mt-3 pt-3 border-t border-border/50">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Acciones recomendadas:</p>
-            <ul className="text-xs text-muted-foreground space-y-0.5">
-              {client.recommendedActions.slice(0, 2).map((action, idx) => (
-                <li key={idx} className="flex items-start gap-1">
-                  <span className="text-primary">•</span>
-                  <span>{action}</span>
-                </li>
-              ))}
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Acciones recomendadas:</p>
+            <ul className="text-xs space-y-1.5">
+              {client.recommendedActions.slice(0, 2).map((action, idx) => {
+                const isUrgent = action.includes('URGENTE') || action.includes('URGENT');
+                const isHigh = action.includes('ALTA') || action.includes('HIGH');
+                return (
+                  <li key={idx} className={cn(
+                    "flex items-start gap-2 p-1.5 rounded",
+                    isUrgent ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800" :
+                    isHigh ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800" :
+                    "bg-muted/50"
+                  )}>
+                    <span className={cn(
+                      "font-semibold mt-0.5 flex-shrink-0",
+                      isUrgent ? "text-red-600 dark:text-red-400" :
+                      isHigh ? "text-amber-600 dark:text-amber-400" :
+                      "text-primary"
+                    )}>•</span>
+                    <span className={cn(
+                      "flex-1",
+                      isUrgent ? "text-red-900 dark:text-red-100" :
+                      isHigh ? "text-amber-900 dark:text-amber-100" :
+                      "text-foreground"
+                    )}>{action}</span>
+                  </li>
+                );
+              })}
             </ul>
+            {client.recommendedActions.length > 2 && (
+              <p className="text-xs text-muted-foreground mt-1.5 italic">
+                +{client.recommendedActions.length - 2} acción(es) adicional(es)
+              </p>
+            )}
           </div>
         )}
       </CardContent>
