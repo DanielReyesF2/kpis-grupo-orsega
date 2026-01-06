@@ -239,21 +239,21 @@ export default function TreasuryPage() {
         {/* Resumen Semanal con lista de pagos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Semana Actual */}
-          <Card>
+          <Card className="bg-white border border-slate-200">
             <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3 pb-3 border-b">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-blue-600" />
+              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-slate-500">
                     Semana Actual ({format(weekStart, "dd MMM", { locale: es })} - {format(weekEnd, "dd MMM", { locale: es })})
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <p className="text-xl font-bold text-foreground">
+                    <p className="text-xl font-bold text-slate-900">
                       {paymentsThisWeek.length} pagos
                     </p>
-                    <p className="text-sm font-medium text-blue-600">
+                    <p className="text-sm font-medium text-emerald-600">
                       ${totalThisWeek.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
@@ -263,46 +263,46 @@ export default function TreasuryPage() {
               {paymentsThisWeek.length > 0 ? (
                 <div className="space-y-2">
                   {paymentsThisWeek.slice(0, 5).map((payment: any) => (
-                    <div key={payment.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{payment.supplierName}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="font-semibold text-slate-900 truncate">{payment.supplierName}</p>
+                        <p className="text-xs text-slate-500">
                           {format(new Date(payment.paymentDate || payment.dueDate), "dd MMM", { locale: es })}
                         </p>
                       </div>
-                      <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      <p className="font-bold text-slate-800">
                         ${(payment.amount || 0).toLocaleString()}
                       </p>
                     </div>
                   ))}
                   {paymentsThisWeek.length > 5 && (
-                    <Button variant="ghost" size="sm" className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                    <Button variant="outline" size="sm" className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50">
                       Ver {paymentsThisWeek.length - 5} más →
                     </Button>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-3">No hay pagos esta semana</p>
+                <p className="text-sm text-slate-400 text-center py-4">No hay pagos esta semana</p>
               )}
             </CardContent>
           </Card>
 
           {/* Siguiente Semana */}
-          <Card>
+          <Card className="bg-white border border-slate-200">
             <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3 pb-3 border-b">
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <FileText className="h-5 w-5 text-green-600" />
+              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FileText className="h-5 w-5 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-slate-500">
                     Siguiente Semana ({format(nextWeekStart, "dd MMM", { locale: es })} - {format(nextWeekEnd, "dd MMM", { locale: es })})
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <p className="text-xl font-bold text-foreground">
+                    <p className="text-xl font-bold text-slate-900">
                       {paymentsNextWeek.length} pagos
                     </p>
-                    <p className="text-sm font-medium text-green-600">
+                    <p className="text-sm font-medium text-blue-600">
                       ${totalNextWeek.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
@@ -312,26 +312,26 @@ export default function TreasuryPage() {
               {paymentsNextWeek.length > 0 ? (
                 <div className="space-y-2">
                   {paymentsNextWeek.slice(0, 5).map((payment: any) => (
-                    <div key={payment.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                    <div key={payment.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{payment.supplierName}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="font-semibold text-slate-900 truncate">{payment.supplierName}</p>
+                        <p className="text-xs text-slate-500">
                           {format(new Date(payment.paymentDate || payment.dueDate), "dd MMM", { locale: es })}
                         </p>
                       </div>
-                      <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      <p className="font-bold text-slate-800">
                         ${(payment.amount || 0).toLocaleString()}
                       </p>
                     </div>
                   ))}
                   {paymentsNextWeek.length > 5 && (
-                    <Button variant="ghost" size="sm" className="w-full text-green-600 hover:text-green-700 hover:bg-green-50">
+                    <Button variant="outline" size="sm" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
                       Ver {paymentsNextWeek.length - 5} más →
                     </Button>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-3">No hay pagos la próxima semana</p>
+                <p className="text-sm text-slate-400 text-center py-4">No hay pagos la próxima semana</p>
               )}
             </CardContent>
           </Card>

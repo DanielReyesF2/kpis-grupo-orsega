@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,6 @@ export const VoucherCard = memo(function VoucherCard({
   onPay,
   isDragging = false,
 }: VoucherCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const { openDocument } = useDocumentViewer();
 
   const handlePreview = (e: React.MouseEvent) => {
@@ -108,15 +107,12 @@ export const VoucherCard = memo(function VoucherCard({
       animate={{ opacity: isDragging ? 0.5 : 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <Card
         className={`
-          cursor-pointer transition-all duration-200
-          hover:shadow-lg hover:border-primary/50
-          border-l-4 border-l-transparent
-          ${isHovered ? "border-l-primary/50 shadow-md" : ""}
+          cursor-pointer transition-all duration-200 bg-white
+          hover:shadow-lg hover:border-emerald-400
+          border border-slate-200
           ${isDragging ? "opacity-50" : ""}
         `}
         onClick={onClick}
@@ -125,69 +121,62 @@ export const VoucherCard = memo(function VoucherCard({
           {/* Header con cliente y acciones */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-base text-slate-900 dark:text-slate-50 truncate">
+              <h4 className="font-bold text-base text-slate-900 truncate">
                 {voucher.clientName}
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">
+              <p className="text-xs text-slate-500 truncate mt-0.5">
                 {voucher.voucherFileName}
               </p>
             </div>
+            {/* Botones siempre visibles */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              {isHovered && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-1"
-                >
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 w-7 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
+                onClick={handlePreview}
+              >
+                <Eye className="h-3.5 w-3.5 text-slate-600" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0"
-                    onClick={handlePreview}
+                    variant="outline"
+                    className="h-7 w-7 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Eye className="h-3.5 w-3.5" />
+                    <MoreVertical className="h-3.5 w-3.5 text-slate-600" />
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                      {onEdit && (
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={handleDownload}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Descargar
-                      </DropdownMenuItem>
-                      {onResend && (
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onResend(); }}>
-                          <Send className="h-4 w-4 mr-2" />
-                          Reenviar
-                        </DropdownMenuItem>
-                      )}
-                      {onDelete && (
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </motion.div>
-              )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border shadow-lg" onClick={(e) => e.stopPropagation()}>
+                  {onEdit && (
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }} className="cursor-pointer">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Editar
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleDownload} className="cursor-pointer">
+                    <Download className="h-4 w-4 mr-2" />
+                    Descargar
+                  </DropdownMenuItem>
+                  {onResend && (
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onResend(); }} className="cursor-pointer">
+                      <Send className="h-4 w-4 mr-2" />
+                      Reenviar
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                      className="text-red-600 cursor-pointer hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Eliminar
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
