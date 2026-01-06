@@ -48,6 +48,7 @@ import { handleSalesUpload } from "./sales-upload-handler-NEW";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
 import { getAnnualSummary, getAvailableYears } from "./annual-summary";
+import { generateSalesAnalystInsights } from "./sales-analyst";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -8752,6 +8753,40 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('[GET /api/sales-top-products] Error:', error);
       res.status(500).json({ error: 'Failed to fetch top products' });
+    }
+  });
+
+  // GET /api/sales-analyst/insights - Análisis estratégico consolidado del analista de ventas
+  app.get("/api/sales-analyst/insights", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      console.log(`[GET /api/sales-analyst/insights] Generando insights para companyId: ${resolvedCompanyId}`);
+      
+      const insights = await generateSalesAnalystInsights(resolvedCompanyId);
+      
+      console.log(`[GET /api/sales-analyst/insights] Insights generados exitosamente`);
+      
+      res.json(insights);
+    } catch (error) {
+      console.error('[GET /api/sales-analyst/insights] Error:', error);
+      if (error instanceof Error) {
+        console.error('[GET /api/sales-analyst/insights] Error stack:', error.stack);
+      }
+      res.status(500).json({ 
+        error: 'Failed to generate sales analyst insights',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

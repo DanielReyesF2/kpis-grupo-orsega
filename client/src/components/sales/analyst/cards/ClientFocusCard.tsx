@@ -1,0 +1,139 @@
+/**
+ * Card reutilizable para mostrar información de un cliente a enfocar
+ */
+
+import { useMemo } from "react";
+import { Calendar, TrendingDown, TrendingUp, AlertCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import type { ClientFocus } from "@shared/sales-analyst-types";
+
+interface ClientFocusCardProps {
+  client: ClientFocus;
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function ClientFocusCard({ client }: ClientFocusCardProps) {
+  const priorityConfig = useMemo(() => {
+    switch (client.priority) {
+      case 'critical':
+        return {
+          border: 'border-red-200 dark:border-red-800',
+          bg: 'bg-red-50/50 dark:bg-red-950/10',
+          badge: 'destructive',
+          icon: AlertCircle,
+          iconColor: 'text-red-600 dark:text-red-400'
+        };
+      case 'warning':
+        return {
+          border: 'border-amber-200 dark:border-amber-800',
+          bg: 'bg-amber-50/50 dark:bg-amber-950/10',
+          badge: 'secondary',
+          icon: AlertCircle,
+          iconColor: 'text-amber-600 dark:text-amber-400'
+        };
+      case 'opportunity':
+        return {
+          border: 'border-emerald-200 dark:border-emerald-800',
+          bg: 'bg-emerald-50/50 dark:bg-emerald-950/10',
+          badge: 'default',
+          icon: TrendingUp,
+          iconColor: 'text-emerald-600 dark:text-emerald-400'
+        };
+    }
+  }, [client.priority]);
+
+  const Icon = priorityConfig.icon;
+  const isPositive = client.yoyChange > 0;
+
+  return (
+    <Card className={cn("border-2 transition-all hover:shadow-md", priorityConfig.border, priorityConfig.bg)}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className={cn("h-4 w-4 flex-shrink-0", priorityConfig.iconColor)} />
+              <h4 className="font-semibold text-sm truncate">{client.name}</h4>
+              <Badge variant={priorityConfig.badge as any} className="text-xs">
+                {client.priority === 'critical' ? 'Crítico' : client.priority === 'warning' ? 'Riesgo' : 'Oportunidad'}
+              </Badge>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span>
+                  {client.daysSincePurchase > 0 
+                    ? `${client.daysSincePurchase} días sin compra`
+                    : 'Compra reciente'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isPositive ? (
+                  <TrendingUp className="h-3 w-3 text-emerald-600" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 text-red-600" />
+                )}
+                <span className={cn(
+                  "font-medium",
+                  isPositive ? "text-emerald-600" : "text-red-600"
+                )}>
+                  {isPositive ? '+' : ''}{client.yoyChange.toFixed(1)}% vs año anterior
+                </span>
+              </div>
+
+              <div className="pt-1 border-t border-border/50">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Revenue histórico:</span>
+                  <span className="font-medium">{formatCurrency(client.previousYearRevenue)}</span>
+                </div>
+                {client.currentYearRevenue > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Revenue actual:</span>
+                    <span className="font-medium">{formatCurrency(client.currentYearRevenue)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0">
+            <div className={cn(
+              "w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-white",
+              client.priority === 'critical' ? "bg-red-500" :
+              client.priority === 'warning' ? "bg-amber-500" :
+              "bg-emerald-500"
+            )}>
+              {client.name.charAt(0).toUpperCase()}
+            </div>
+          </div>
+        </div>
+
+        {client.recommendedActions.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Acciones recomendadas:</p>
+            <ul className="text-xs text-muted-foreground space-y-0.5">
+              {client.recommendedActions.slice(0, 2).map((action, idx) => (
+                <li key={idx} className="flex items-start gap-1">
+                  <span className="text-primary">•</span>
+                  <span>{action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+

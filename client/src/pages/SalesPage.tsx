@@ -53,8 +53,9 @@ import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
 import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
+import { SalesAnalyst } from "@/components/sales/analyst/SalesAnalyst";
 
-type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics";
+type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics" | "analyst";
 
 export default function SalesPage() {
   const { user } = useAuth();
@@ -664,6 +665,26 @@ export default function SalesPage() {
 
             {/* Sección de acciones rápidas - Minimalista */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
+                onClick={() => setViewMode("analyst")}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Analista de Ventas</p>
+                      <p className="text-xs text-muted-foreground">Análisis estratégico y recomendaciones</p>
+                    </div>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <Sparkles className={`w-10 h-10 ${companyColors.iconColor}`} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Clientes a enfocar, productos a vender y estrategias
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card
                 className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("analytics")}
@@ -1513,6 +1534,11 @@ export default function SalesPage() {
             {/* Comparativo Anual Detallado */}
             <SalesYearlyComparisonTable companyId={selectedCompany} />
           </div>
+        )}
+
+        {/* Vista Analista de Ventas */}
+        {viewMode === "analyst" && (
+          <SalesAnalyst companyId={selectedCompany} />
         )}
       </div>
     </AppLayout>
