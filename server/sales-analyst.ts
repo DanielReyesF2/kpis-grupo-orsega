@@ -189,8 +189,11 @@ export async function generateSalesAnalystInsights(
   const periodStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
   const periodEnd = now.toISOString().split('T')[0];
 
-  // Query consolidada usando CTEs para optimizar performance
-  const consolidatedQuery = `
+  console.log(`[generateSalesAnalystInsights] Iniciando para companyId: ${companyId}, años: ${currentYear} vs ${lastYear}`);
+
+  try {
+    // Query consolidada usando CTEs para optimizar performance
+    const consolidatedQuery = `
     WITH 
     -- Estadísticas de clientes por año
     client_stats AS (
@@ -289,17 +292,23 @@ export async function generateSalesAnalystInsights(
     FROM inactive_clients ic
   `;
 
-  const results = await sql(consolidatedQuery, [companyId, currentYear, lastYear]);
+    console.log(`[generateSalesAnalystInsights] Ejecutando query consolidada...`);
+    const results = await sql(consolidatedQuery, [companyId, currentYear, lastYear]);
+    console.log(`[generateSalesAnalystInsights] Query ejecutada exitosamente, ${results.length} registros obtenidos`);
 
-  // Separar resultados por tipo
-  const clientData = results.filter((r: any) => r.data_type === 'client').map((r: any) => r.data);
-  const productData = results.filter((r: any) => r.data_type === 'product').map((r: any) => r.data);
-  const inactiveData = results.filter((r: any) => r.data_type === 'inactive').map((r: any) => r.data);
+    // Separar resultados por tipo
+    const clientData = results.filter((r: any) => r.data_type === 'client').map((r: any) => r.data);
+    const productData = results.filter((r: any) => r.data_type === 'product').map((r: any) => r.data);
+    const inactiveData = results.filter((r: any) => r.data_type === 'inactive').map((r: any) => r.data);
+    
+    console.log(`[generateSalesAnalystInsights] Datos separados: ${clientData.length} clientes, ${productData.length} productos, ${inactiveData.length} inactivos`);
 
-  // Calcular baselines estadísticos para umbrales adaptativos
-  const criticalDaysThreshold = await calculatePercentileDaysSincePurchase(companyId, 90);
-  const highValueRevenueThreshold = await calculatePercentileRevenue(companyId, 75);
-  const yoyStats = await calculateYoYChangeStats(companyId);
+    // Calcular baselines estadísticos para umbrales adaptativos
+    console.log(`[generateSalesAnalystInsights] Calculando umbrales estadísticos...`);
+    const criticalDaysThreshold = await calculatePercentileDaysSincePurchase(companyId, 90);
+    const highValueRevenueThreshold = await calculatePercentileRevenue(companyId, 75);
+    const yoyStats = await calculateYoYChangeStats(companyId);
+    console.log(`[generateSalesAnalystInsights] Umbrales calculados: criticalDays=${criticalDaysThreshold}, highValueRevenue=${highValueRevenueThreshold}`);
 
   // Procesar clientes y categorizar con umbrales adaptativos
   const focusClients = categorizeClients(
@@ -335,10 +344,11 @@ export async function generateSalesAnalystInsights(
     averageMargin
   };
 
-  return {
-    metadata: {
-      companyId,
-      generatedAt: now.toISOString(),
+    console.log(`[generateSalesAnalystInsights] Generando insights finales...`);
+    const insights = {
+      metadata: {
+        companyId,
+        generatedAt: now.toISOString(),
       period: {
         start: periodStart,
         end: periodEnd
@@ -358,6 +368,17 @@ export async function generateSalesAnalystInsights(
     riskAnalysis,
     statisticalContext
   };
+    
+    console.log(`[generateSalesAnalystInsights] Insights generados exitosamente`);
+    return insights;
+  } catch (error) {
+    console.error('[generateSalesAnalystInsights] Error crítico:', error);
+    if (error instanceof Error) {
+      console.error('[generateSalesAnalystInsights] Error message:', error.message);
+      console.error('[generateSalesAnalystInsights] Error stack:', error.stack);
+    }
+    throw error; // Re-lanzar para que el endpoint maneje el error
+  }
 }
 
 /**
