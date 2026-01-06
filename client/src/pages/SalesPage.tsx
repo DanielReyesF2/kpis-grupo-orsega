@@ -52,7 +52,6 @@ import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
 import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
-import { SalesAnalyst } from "@/components/sales/analyst/SalesAnalyst";
 
 type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics" | "analyst";
 
@@ -378,13 +377,7 @@ export default function SalesPage() {
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         {/* Vista según modo seleccionado */}
         {viewMode === "dashboard" && (
-          <SalesDashboard 
-            companyId={selectedCompany} 
-            onViewChange={(view) => {
-              console.log('[SalesPage] onViewChange called with:', view);
-              setViewMode(view as ViewMode);
-            }}
-          />
+          <SalesDashboard companyId={selectedCompany} />
         )}
         {viewMode === "overview" && (
           <div className="space-y-8">
@@ -1581,13 +1574,6 @@ export default function SalesPage() {
           </div>
         )}
 
-        {/* Vista Analista de Ventas */}
-        {viewMode === "analyst" && (
-          <>
-            {console.log('[SalesPage] Renderizando SalesAnalyst con viewMode:', viewMode, 'companyId:', selectedCompany)}
-            <SalesAnalyst companyId={selectedCompany} />
-          </>
-        )}
       </div>
     </AppLayout>
   );

@@ -20,9 +20,10 @@ import { ActionItemsSection } from "./sections/ActionItemsSection";
 
 interface SalesAnalystProps {
   companyId: number;
+  embedded?: boolean; // Si es true, no muestra el header grande (para uso en modal)
 }
 
-export function SalesAnalyst({ companyId }: SalesAnalystProps) {
+export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps) {
   const queryClient = useQueryClient();
   
   console.log('[SalesAnalyst] Componente renderizado con companyId:', companyId);
@@ -141,11 +142,20 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
     </div>
   );
 
+  // Modo embedded (para modal) - sin header ni fondo grande
+  const wrapperClass = embedded 
+    ? "space-y-6" 
+    : "min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20";
+  
+  const containerClass = embedded
+    ? "space-y-6"
+    : "container mx-auto px-4 py-6 space-y-6";
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
-        <div className="container mx-auto px-4 py-6 space-y-6">
-          <AnalystHeader />
+      <div className={wrapperClass}>
+        <div className={containerClass}>
+          {!embedded && <AnalystHeader />}
           <LoadingState variant="page" />
         </div>
       </div>
@@ -154,9 +164,9 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
-        <div className="container mx-auto px-4 py-6 space-y-6">
-          <AnalystHeader />
+      <div className={wrapperClass}>
+        <div className={containerClass}>
+          {!embedded && <AnalystHeader />}
           <ErrorState
             variant="page"
             message={error instanceof Error ? error.message : 'Error al cargar datos del analista'}
@@ -169,9 +179,9 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
 
   if (!insights) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
-        <div className="container mx-auto px-4 py-6 space-y-6">
-          <AnalystHeader />
+      <div className={wrapperClass}>
+        <div className={containerClass}>
+          {!embedded && <AnalystHeader />}
           <ErrorState
             variant="page"
             message="No se encontraron datos para el análisis"
@@ -182,11 +192,11 @@ export function SalesAnalyst({ companyId }: SalesAnalystProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50/30 to-blue-50 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-blue-950/20">
+    <div className={wrapperClass}>
       {/* Wrapper con padding y fondo distintivo */}
-      <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Page Header - Diseño distintivo para Analista */}
-        <AnalystHeader />
+      <div className={containerClass}>
+        {/* Page Header - Diseño distintivo para Analista (solo si no está embedded) */}
+        {!embedded && <AnalystHeader />}
 
         {/* Filtros simplificados - No usar FilterBar de Salesforce */}
         <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg border border-purple-200/50 dark:border-purple-800/30 p-4 shadow-sm">

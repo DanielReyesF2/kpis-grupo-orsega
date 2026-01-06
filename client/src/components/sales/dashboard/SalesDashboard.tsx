@@ -2,9 +2,10 @@
  * Dashboard de Ventas - Rediseñado completamente con datos reales
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { TrendingUp, DollarSign, Users, Target } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 
@@ -22,14 +23,19 @@ import { TopProductsTable } from "./TopProductsTable";
 import { YearlyComparisonChart } from "./YearlyComparisonChart";
 import { ClientTrendsTable } from "./ClientTrendsTable";
 
+// KPIS Modal
+import { SalesAnalyst } from "../analyst/SalesAnalyst";
+
 interface SalesDashboardProps {
   companyId?: number;
-  onViewChange?: (view: string) => void;
 }
 
-export function SalesDashboard({ companyId, onViewChange }: SalesDashboardProps) {
+export function SalesDashboard({ companyId }: SalesDashboardProps) {
   // Usar directamente companyId del prop (viene del contexto/URL)
   const resolvedCompanyId = companyId || 1;
+  
+  // Estado para el modal de KPIS
+  const [showKPIsModal, setShowKPIsModal] = useState(false);
 
   // Fetch sales stats for KPIs
   const { data: salesStats, isLoading: isLoadingStats, error: statsError } = useQuery({
@@ -79,10 +85,7 @@ export function SalesDashboard({ companyId, onViewChange }: SalesDashboardProps)
           {
             label: "KPIS",
             onClick: () => {
-              // Usar callback para cambiar el viewMode sin navegar
-              if (onViewChange) {
-                onViewChange('analyst');
-              }
+              setShowKPIsModal(true);
             },
             variant: "default" as const,
             icon: Target,
@@ -151,6 +154,46 @@ export function SalesDashboard({ companyId, onViewChange }: SalesDashboardProps)
 
       {/* Tendencias de Clientes */}
       <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
+
+      {/* Modal de KPIS */}
+      {showKPIsModal && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Overlay */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowKPIsModal(false)}
+          />
+          
+          {/* Panel lateral */}
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-background shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
+            {/* Header del modal */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Target className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Panel de KPIs</h2>
+                  <p className="text-sm text-white/80">Análisis estratégico y recomendaciones</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowKPIsModal(false)}
+                className="text-white hover:bg-white/20"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            {/* Contenido del modal */}
+            <div className="p-6">
+              <SalesAnalyst companyId={resolvedCompanyId} embedded={true} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
