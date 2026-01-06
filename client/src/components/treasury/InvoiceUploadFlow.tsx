@@ -49,6 +49,27 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [analysisStep, setAnalysisStep] = useState<string>("");
+  const [foundData, setFoundData] = useState<{ field: string; value: string }[]>([]);
+
+  // Pasos de análisis simulados para mejor UX
+  const analysisSteps = [
+    { message: "Analizando documento...", progress: 10, duration: 800 },
+    { message: "Buscando RFC...", progress: 25, duration: 1000 },
+    { message: "Extrayendo monto...", progress: 40, duration: 900 },
+    { message: "Detectando fecha de vencimiento...", progress: 55, duration: 800 },
+    { message: "Identificando proveedor...", progress: 70, duration: 700 },
+    { message: "Verificando datos...", progress: 85, duration: 600 },
+  ];
+
+  const runAnalysisAnimation = async () => {
+    setFoundData([]);
+    for (const step of analysisSteps) {
+      setAnalysisStep(step.message);
+      setUploadProgress(step.progress);
+      await new Promise(resolve => setTimeout(resolve, step.duration));
+    }
+  };
 
   // Fetch suppliers
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery<Supplier[]>({
@@ -79,8 +100,8 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("No se encontró token de autenticación");
 
-      // Simular progreso
-      setUploadProgress(30);
+      // Iniciar animación de análisis en paralelo con el upload
+      const animationPromise = runAnalysisAnimation();
       
       const response = await fetch("/api/payment-vouchers/upload", {
         method: "POST",
@@ -88,16 +109,40 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
         body: formData,
       });
 
-      setUploadProgress(70);
-
       const text = await response.text();
       const data = text ? JSON.parse(text) : {};
 
+      // Esperar a que termine la animación si el upload fue más rápido
+      await animationPromise;
+
+      // Mostrar datos encontrados
+      if (data.analysis) {
+        const found: { field: string; value: string }[] = [];
+        if (data.analysis.extractedTaxId) {
+          found.push({ field: "RFC", value: data.analysis.extractedTaxId });
+        }
+        if (data.analysis.extractedAmount) {
+          found.push({ field: "Monto", value: `$${Number(data.analysis.extractedAmount).toLocaleString()}` });
+        }
+        if (data.analysis.extractedSupplierName) {
+          found.push({ field: "Proveedor", value: data.analysis.extractedSupplierName.substring(0, 25) });
+        }
+        if (data.analysis.extractedDueDate) {
+          const date = new Date(data.analysis.extractedDueDate);
+          found.push({ field: "Vencimiento", value: date.toLocaleDateString('es-MX') });
+        }
+        setFoundData(found);
+        setAnalysisStep(found.length > 0 ? "✓ Datos extraídos" : "Análisis completado");
+      }
+      
       setUploadProgress(100);
 
       if (!response.ok) {
         throw new Error(data.error || data.message || `Error ${response.status}`);
       }
+
+      // Pequeña pausa para mostrar los datos encontrados
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       return data;
     },
@@ -118,6 +163,8 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
     },
     onError: (error: any) => {
       setUploadProgress(0);
+      setAnalysisStep("");
+      setFoundData([]);
       toast({
         title: "Error al procesar factura",
         description: error.message || "Ocurrió un error inesperado",
@@ -132,6 +179,8 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
     setFiles([]);
     setSearchTerm("");
     setUploadProgress(0);
+    setAnalysisStep("");
+    setFoundData([]);
   };
 
   const handleCompanySelect = (companyId: number) => {
@@ -452,6 +501,58 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
                   )}
                 </div>
 
+                {/* Panel de análisis en progreso */}
+                {uploadMutation.isPending && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3"
+                  >
+                    {/* Paso actual */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-primary">{analysisStep}</p>
+                        <div className="w-full h-1.5 bg-primary/20 rounded-full mt-1.5 overflow-hidden">
+                          <motion.div
+                            className="h-full bg-primary rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${uploadProgress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Datos encontrados */}
+                    {foundData.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-1.5 pt-2 border-t border-primary/20"
+                      >
+                        {foundData.map((item, index) => (
+                          <motion.div
+                            key={item.field}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.15 }}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-muted-foreground">{item.field}:</span>
+                            <span className="font-medium text-foreground">{item.value}</span>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+
                 {/* Botón de subida */}
                 <Button
                   onClick={handleUpload}
@@ -462,7 +563,7 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
                   {uploadMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Procesando...
+                      Analizando...
                     </>
                   ) : (
                     <>
