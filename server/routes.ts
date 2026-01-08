@@ -6060,6 +6060,11 @@ export function registerRoutes(app: express.Application) {
           const buyRateNum = parseFloat(buyRate);
           const sellRateNum = parseFloat(sellRate);
 
+          // Convertir a zona horaria de CDMX
+          const cdmxOptions: Intl.DateTimeFormatOptions = { timeZone: 'America/Mexico_City' };
+          const fechaCDMX = exchangeDate.toLocaleDateString('sv-SE', cdmxOptions); // formato YYYY-MM-DD
+          const horaCDMX = exchangeDate.toLocaleTimeString('es-MX', { ...cdmxOptions, hour12: false });
+
           const webhookPayload = {
             event: 'exchange_rate_updated',
             // Datos crudos
@@ -6074,8 +6079,8 @@ export function registerRoutes(app: express.Application) {
             // Datos pre-formateados para el email (evita errores de JS en N8N)
             formatted: {
               asunto: `💱 Tipo de Cambio Actualizado - ${(source || 'MANUAL').toUpperCase()} - $${buyRateNum.toFixed(4)}`,
-              fecha: exchangeDate.toISOString().split('T')[0],
-              hora: exchangeDate.toTimeString().split(' ')[0],
+              fecha: fechaCDMX,
+              hora: horaCDMX,
               compra: buyRateNum.toFixed(4),
               venta: sellRateNum.toFixed(4),
               fuente: (source || 'manual').toUpperCase(),
