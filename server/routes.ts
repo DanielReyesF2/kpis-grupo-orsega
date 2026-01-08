@@ -6051,6 +6051,37 @@ export function registerRoutes(app: express.Application) {
         timestamp: new Date().toISOString()
       });
 
+      // Trigger webhook a N8N para notificación de tipo de cambio
+      const n8nWebhookUrl = process.env.N8N_EXCHANGE_RATE_WEBHOOK_URL;
+      if (n8nWebhookUrl) {
+        try {
+          const webhookPayload = {
+            event: 'exchange_rate_updated',
+            data: {
+              id: inserted.id,
+              buyRate: parseFloat(buyRate),
+              sellRate: parseFloat(sellRate),
+              source: source || 'manual',
+              date: formattedResult.date,
+              createdBy: user.name || user.email,
+            },
+            timestamp: new Date().toISOString()
+          };
+
+          fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+          }).then(response => {
+            console.log(`[N8N Webhook] Tipo de cambio enviado a N8N: ${response.status}`);
+          }).catch(err => {
+            console.error(`[N8N Webhook] Error enviando a N8N:`, err.message);
+          });
+        } catch (webhookError) {
+          console.error(`[N8N Webhook] Error:`, webhookError);
+        }
+      }
+
       res.status(201).json(formattedResult);
     } catch (error) {
       console.error('Error creating exchange rate:', error);
