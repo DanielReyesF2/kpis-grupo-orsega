@@ -549,10 +549,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest(`/api/scheduled-payments/${id}/status`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
-      });
+      return await apiRequest("PUT", `/api/scheduled-payments/${id}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });

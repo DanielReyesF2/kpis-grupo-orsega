@@ -63,14 +63,23 @@ export function EnhancedDonutChart({
     return total.toLocaleString();
   }, [centerValue, total]);
 
-  const handleSegmentClick = (data: any, index: number) => {
+  const handleSegmentClick = (_data: unknown, index: number) => {
     setActiveIndex(index);
     if (onSegmentClick && processedData[index]) {
       onSegmentClick(processedData[index]);
     }
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      name: string;
+      value: number;
+      color: string;
+    }>;
+  }
+
+  const CustomTooltip = ({ active, payload }: TooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
@@ -88,7 +97,7 @@ export function EnhancedDonutChart({
     return null;
   };
 
-  const renderLabel = (entry: any) => {
+  const renderLabel = (entry: { value: number }) => {
     const percentage = ((entry.value / total) * 100).toFixed(1);
     return `${percentage}%`;
   };
@@ -141,11 +150,7 @@ export function EnhancedDonutChart({
               fill="#8884d8"
               dataKey="value"
               onClick={handleSegmentClick}
-              activeIndex={activeIndex}
-              activeShape={{
-                outerRadius: outerRadius + 5,
-                innerRadius: innerRadius - 5
-              }}
+              activeIndex={activeIndex !== null ? activeIndex : undefined}
             >
               {processedData.map((entry, index) => (
                 <Cell

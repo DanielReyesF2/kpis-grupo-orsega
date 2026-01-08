@@ -11,8 +11,6 @@ import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
 import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
 import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
-import { ProfitabilityByProductsCard } from '@/components/dashboard/ProfitabilityByProductsCard';
-import { ProfitabilityMetrics } from '@/components/dashboard/ProfitabilityMetrics';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -67,22 +65,11 @@ export default function Dashboard() {
             <OrderStatsCard companyId={selectedCompany} />
           </div>
 
-          {/* Resumen Anual Ejecutivo */}
+          {/* Resumen Anual Ejecutivo - Hasta Tendencias Mensuales */}
           <div className="col-span-12">
             <AnnualSummary companyId={selectedCompany} />
           </div>
         </div>
-
-        {/* SECCIÓN SECUNDARIA - Análisis detallado */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12">
-            <ProfitabilityByProductsCard companyId={selectedCompany} />
-          </div>
-        </div>
-
-        <section>
-          <ProfitabilityMetrics companyId={selectedCompany} />
-        </section>
 
         {/* KPI Details Dialog */}
         <KpiDetailDialog

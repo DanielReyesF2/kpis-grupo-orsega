@@ -31,7 +31,7 @@ export function useCollaboratorPerformance(
     staleTime = 2 * 60 * 1000, // 2 minutes default
   } = options;
 
-  return useQuery<CollaboratorPerformanceResponse>({
+  return useQuery<CollaboratorPerformanceResponse, Error>({
     queryKey: ['/api/collaborators-performance', { companyId }],
     staleTime,
     refetchInterval,

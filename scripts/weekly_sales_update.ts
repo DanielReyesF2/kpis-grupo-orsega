@@ -32,9 +32,13 @@ export async function getLastWeeklyUpdate(companyId: number): Promise<any | null
     if (!volumeKpi) return null;
     
     const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? companyId);
-    const weeklyValues = kpiValues.filter(value => 
-      value.period.includes("Semana")
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const weeklyValues = kpiValues.filter(value =>
+      value.period?.includes("Semana")
+    ).sort((a, b) => {
+      const dateA = new Date(a.date as string | number | Date);
+      const dateB = new Date(b.date as string | number | Date);
+      return dateB.getTime() - dateA.getTime();
+    });
     
     return weeklyValues[0] || null;
   } catch (error) {
@@ -139,7 +143,7 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     console.log(`[UpdateWeeklySales] ${isUpdate ? 'Actualizando' : 'Creando'} registro para: ${currentPeriod.period}`);
     
     // 4. Calcular objetivos automáticamente
-    const annualTarget = parseFloat(volumeKpi.target.replace(/[^0-9.,]/g, '').replace(',', ''));
+    const annualTarget = parseFloat((volumeKpi.target ?? '0').replace(/[^0-9.,]/g, '').replace(',', ''));
     const monthlyTarget = Math.round(annualTarget / 12);
     const weeklyTarget = Math.round(monthlyTarget / 4);
     
@@ -176,10 +180,10 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     // 7. Calcular total mensual actualizado
     // Recalcular total mensual con todos los registros semanales
     const updatedKpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? selectedCompanyId);
-    const currentMonthWeeklySales = updatedKpiValues.filter(value => 
-      value.period.includes(currentPeriod.month) && 
-      value.period.includes(currentPeriod.year.toString()) &&
-      value.period.includes("Semana")
+    const currentMonthWeeklySales = updatedKpiValues.filter(value =>
+      value.period?.includes(currentPeriod.month) &&
+      value.period?.includes(currentPeriod.year.toString()) &&
+      value.period?.includes("Semana")
     );
     
     let monthlyTotal = 0;
@@ -257,10 +261,10 @@ export async function autoCloseMonth(companyId: number, month?: string, year?: n
     
     // Obtener todas las ventas semanales del mes
     const kpiValues = await storage.getKpiValuesByKpi(volumeKpi.id, volumeKpi.companyId ?? companyId);
-    const weeklyRecords = kpiValues.filter(value => 
-      value.period.includes(targetMonth) && 
-      value.period.includes(targetYear.toString()) &&
-      value.period.includes("Semana")
+    const weeklyRecords = kpiValues.filter(value =>
+      value.period?.includes(targetMonth) &&
+      value.period?.includes(targetYear.toString()) &&
+      value.period?.includes("Semana")
     );
     
     if (weeklyRecords.length === 0) {
@@ -277,7 +281,7 @@ export async function autoCloseMonth(companyId: number, month?: string, year?: n
       }
     });
     
-    const annualTarget = parseFloat(volumeKpi.target.replace(/[^0-9.,]+/g, '').replace(',', ''));
+    const annualTarget = parseFloat((volumeKpi.target ?? '0').replace(/[^0-9.,]+/g, '').replace(',', ''));
     const monthlyTarget = Math.round(annualTarget / 12);
     const compliancePercentage = (monthlyTotal / monthlyTarget) * 100;
     const status = compliancePercentage >= 95 ? "complies" : 
@@ -287,9 +291,10 @@ export async function autoCloseMonth(companyId: number, month?: string, year?: n
     const formattedTotal = new Intl.NumberFormat('es-MX').format(monthlyTotal);
     
     // Crear registro mensual oficial
+    const lastRecord = weeklyRecords[weeklyRecords.length - 1];
     const monthlyRecord = {
       kpiId: volumeKpi.id,
-      userId: weeklyRecords[weeklyRecords.length - 1]?.userId || 1,
+      userId: (lastRecord && 'userId' in lastRecord ? lastRecord.userId : null) || 1,
       value: `${formattedTotal} ${valueUnit}`,
       period: `${targetMonth} ${targetYear}`,
       compliancePercentage: `${compliancePercentage.toFixed(1)}%`,

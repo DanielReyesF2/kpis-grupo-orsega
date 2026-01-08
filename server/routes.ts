@@ -17,9 +17,9 @@ interface AuthRequest extends Request {
 }
 import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
-import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi } from "@shared/schema";
+import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi, paymentVouchers, deletedPaymentVouchers } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql as drizzleSql } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
 import { emailService } from "./email-service";
 import { logger } from "./logger";
@@ -45,10 +45,13 @@ import multer from "multer";
 import NodeCache from "node-cache";
 import { getSalesMetrics } from "./sales-metrics";
 import { handleSalesUpload } from "./sales-upload-handler-NEW";
+import { handleIDRALLUpload, detectExcelFormat } from "./sales-idrall-handler";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
 import { getAnnualSummary, getAvailableYears } from "./annual-summary";
 import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR2, getFile } from "./storage/file-storage";
+import * as fileStorage from "./file-storage";
+import { generateSalesAnalystInsights } from "./sales-analyst";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -180,12 +183,12 @@ async function updateLogisticsKPIs(companyId: number) {
     console.log(`[KPI Logística] Actualizando KPIs para company ${companyId}, período: ${firstDayOfMonth.toISOString()} - ${lastDayOfMonth.toISOString()}`);
 
     // 1. Obtener todos los envíos entregados del mes actual para esta empresa
-    const monthlyShipments = await sql<Shipment[]>`
+    const monthlyShipments = await sql`
       SELECT * FROM shipments
       WHERE company_id = ${companyId}
       AND status = 'delivered'
-      AND delivered_at >= ${firstDayOfMonth}
-      AND delivered_at <= ${lastDayOfMonth}
+      AND delivered_at >= ${firstDayOfMonth.toISOString()}
+      AND delivered_at <= ${lastDayOfMonth.toISOString()}
     `;
 
     console.log(`[KPI Logística] Envíos entregados este mes: ${monthlyShipments.length}`);
@@ -1163,16 +1166,18 @@ export function registerRoutes(app: express.Application) {
   });
 
   app.put("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
+    // Parse ID outside try block to make it available in catch block
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "ID de KPI inválido" });
+    }
+
     try {
       const authReq = req as AuthRequest;
+
       // 🔒 SEGURO: Solo administradores y gerentes pueden actualizar KPIs
       if (authReq.user?.role !== 'admin' && authReq.user?.role !== 'manager') {
         return res.status(403).json({ message: "No tienes permisos para actualizar KPIs" });
-      }
-      
-      const id = parseInt(req.params.id, 10);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "ID de KPI inválido" });
       }
 
       // Intentar obtener companyId del body, query, o buscarlo automáticamente
@@ -1466,7 +1471,7 @@ export function registerRoutes(app: express.Application) {
         }
 
         // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
-        const kpiName = kpi.name || kpi.kpiName || '';
+        const kpiName = kpi.name || '';
         if (storage.isSalesKpi(kpiName)) {
           console.log(`[GET /api/kpi-values] KPI de ventas detectado: ${kpiName}, calculando desde sales_data`);
           
@@ -1564,7 +1569,7 @@ export function registerRoutes(app: express.Application) {
       
       // Filtrar KPIs de ventas y calcular sus valores en tiempo real
       const salesKpis = allKpis.filter(kpi => {
-        const kpiName = kpi.name || kpi.kpiName || '';
+        const kpiName = kpi.name || '';
         return storage.isSalesKpi(kpiName);
       });
       
@@ -1573,7 +1578,7 @@ export function registerRoutes(app: express.Application) {
         allValues.map(async (value) => {
           const kpi = salesKpis.find(k => k.id === value.kpiId);
           if (kpi) {
-            const kpiName = kpi.name || kpi.kpiName || '';
+            const kpiName = kpi.name || '';
             const calculatedValue = await calculateSalesKpiValue(
               kpiName,
               value.companyId,
@@ -2892,10 +2897,10 @@ export function registerRoutes(app: express.Application) {
         value.period === targetPeriod && !value.period.includes('Semana')
       );
       
-      const weeklyRecords = kpiValues.filter(value => 
-        value.period.includes(month as string) && 
-        value.period.includes(year as string) &&
-        value.period.includes("Semana")
+      const weeklyRecords = kpiValues.filter(value =>
+        value.period?.includes(month as string) &&
+        value.period?.includes(year as string) &&
+        value.period?.includes("Semana")
       );
       
       res.status(200).json({
@@ -3877,7 +3882,7 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ message: "KPI not found" });
       }
 
-      const kpiName = kpi.name || kpi.kpiName || '';
+      const kpiName = kpi.name || '';
 
       // Si es un KPI de ventas, calcular historial desde sales_data
       if (storage.isSalesKpi(kpiName)) {
@@ -4241,7 +4246,7 @@ export function registerRoutes(app: express.Application) {
   });
 
   // POST /api/clients - Crear un nuevo cliente
-  app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId'), async (req, res) => {
+  app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId') as any, async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       
@@ -4786,8 +4791,36 @@ export function registerRoutes(app: express.Application) {
         companyId: updatedPayment.companyId,
       });
 
+      // ✅ NUEVO: Crear paymentVoucher con status pago_programado para el Kanban
+      const voucherData = {
+        companyId: validatedData.payerCompanyId,
+        payerCompanyId: validatedData.payerCompanyId,
+        clientId: validatedData.supplierId || 0, // Usar supplierId si existe
+        clientName: validatedData.supplierName,
+        scheduledPaymentId: createdScheduledPayment.id,
+        status: 'pago_programado' as const, // ✅ Nuevo status para Kanban
+        voucherFileUrl: `/uploads/facturas/${year}/${month}/${invoiceFileName}`,
+        voucherFileName: validatedData.invoiceFileName,
+        voucherFileType: validatedData.invoiceFileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        extractedAmount: validatedData.amount,
+        extractedDate: dueDate,
+        extractedBank: null,
+        extractedReference: validatedData.reference || validatedData.extractedInvoiceNumber || null,
+        extractedCurrency: validatedData.currency || 'MXN',
+        extractedOriginAccount: null,
+        extractedDestinationAccount: null,
+        extractedTrackingKey: null,
+        extractedBeneficiaryName: null,
+        ocrConfidence: 0.9, // Alta confianza porque ya fue verificado
+        uploadedBy: user.id,
+      };
+
+      const createdVoucher = await storage.createPaymentVoucher(voucherData);
+      console.log(`✅ [Confirm Invoice] PaymentVoucher creado para Kanban: ID ${createdVoucher.id}, status: pago_programado`);
+
       res.status(201).json({
         scheduledPayment: updatedPayment,
+        paymentVoucher: createdVoucher,
         message: 'Cuenta por pagar creada exitosamente con fecha de pago'
       });
     } catch (error) {
@@ -5077,10 +5110,11 @@ export function registerRoutes(app: express.Application) {
           const fileType = file.mimetype || path.extname(file.originalname).toLowerCase();
           
           const analysisResult = await analyzePaymentDocument(fileBuffer, fileType);
-          
+          const analysisResultAny = analysisResult as any;
+
           // Si es CxP y tiene registros, agregarlos
-          if (analysisResult.documentType === "cxp" && analysisResult.cxpRecords) {
-            for (const record of analysisResult.cxpRecords) {
+          if (analysisResultAny.documentType === "cxp" && analysisResultAny.cxpRecords) {
+            for (const record of analysisResultAny.cxpRecords) {
               allRecords.push({
                 ...record,
                 _sourceFileIndex: i // Guardar índice del archivo origen
@@ -5089,7 +5123,7 @@ export function registerRoutes(app: express.Application) {
             }
             processedFiles++;
             fileProcessed = true;
-          } else if (analysisResult.documentType === "cxp") {
+          } else if (analysisResultAny.documentType === "cxp") {
             // Si es CxP pero no tiene registros individuales, crear uno del resultado agregado
             if (analysisResult.extractedSupplierName && analysisResult.extractedAmount) {
               const recordIndex = allRecords.length;
@@ -5100,7 +5134,7 @@ export function registerRoutes(app: express.Application) {
                 dueDate: analysisResult.extractedDueDate || analysisResult.extractedDate || new Date(),
                 reference: analysisResult.extractedReference,
                 status: null,
-                notes: analysisResult.notes,
+                notes: analysisResultAny.notes,
                 _sourceFileIndex: i
               });
               fileRecordsMap.set(recordIndex, file);
@@ -5267,12 +5301,13 @@ export function registerRoutes(app: express.Application) {
       const { limit = 100 } = req.query;
       
       const result = await sql(`
-        SELECT 
+        SELECT
           er.id,
           er.buy_rate,
           er.sell_rate,
           er.source,
-          er.date::text as date,
+          -- Interpretar fecha como CDMX y convertir a UTC para enviar al frontend
+          (er.date AT TIME ZONE 'America/Mexico_City')::text as date,
           er.notes,
           u.name as created_by_name,
           u.email as created_by_email
@@ -5282,10 +5317,10 @@ export function registerRoutes(app: express.Application) {
         LIMIT $1
       `, [parseInt(limit as string)]);
 
-      // Convertir todas las fechas a ISO string para formato consistente
+      // Las fechas ya vienen con timezone correcto desde PostgreSQL
       const formattedResult = result.map((row: any) => ({
         ...row,
-        date: new Date(row.date).toISOString()
+        date: row.date.endsWith('Z') ? row.date : row.date + 'Z'
       }));
 
       res.json(formattedResult);
@@ -5512,15 +5547,15 @@ export function registerRoutes(app: express.Application) {
         const dayData = dayMap.get(day)!;
         if (source === 'santander') {
           if (!dayData.santander) dayData.santander = { sum: 0, count: 0 };
-          dayData.santander.sum += parseFloat(rateValue);
+          dayData.santander.sum += rateValue;
           dayData.santander.count += 1;
         } else if (source === 'monex') {
           if (!dayData.monex) dayData.monex = { sum: 0, count: 0 };
-          dayData.monex.sum += parseFloat(rateValue);
+          dayData.monex.sum += rateValue;
           dayData.monex.count += 1;
         } else if (source === 'dof') {
           if (!dayData.dof) dayData.dof = { sum: 0, count: 0 };
-          dayData.dof.sum += parseFloat(rateValue);
+          dayData.dof.sum += rateValue;
           dayData.dof.count += 1;
         }
       });
@@ -6028,6 +6063,61 @@ export function registerRoutes(app: express.Application) {
         isoDate: formattedResult.date,
         timestamp: new Date().toISOString()
       });
+
+      // Trigger webhook a N8N para notificación de tipo de cambio
+      const n8nWebhookUrl = process.env.N8N_EXCHANGE_RATE_WEBHOOK_URL;
+      if (n8nWebhookUrl) {
+        try {
+          // Pre-formatear datos para que N8N no tenga que procesarlos
+          const buyRateNum = parseFloat(buyRate);
+          const sellRateNum = parseFloat(sellRate);
+
+          // Usar hora actual para el email (el webhook se envía inmediatamente)
+          // Esto evita problemas de timezone con la fecha de DB
+          const now = new Date();
+          const cdmxOptions: Intl.DateTimeFormatOptions = { timeZone: 'America/Mexico_City' };
+          const fechaCDMX = now.toLocaleDateString('sv-SE', cdmxOptions); // formato YYYY-MM-DD
+          const horaCDMX = now.toLocaleTimeString('es-MX', { ...cdmxOptions, hour12: false });
+
+          const webhookPayload = {
+            event: 'exchange_rate_updated',
+            // Datos crudos
+            data: {
+              id: inserted.id,
+              buyRate: buyRateNum,
+              sellRate: sellRateNum,
+              source: source || 'manual',
+              date: formattedResult.date,
+              createdBy: user.name || user.email,
+            },
+            // Datos pre-formateados para el email (evita errores de JS en N8N)
+            formatted: {
+              asunto: `💱 Tipo de Cambio Actualizado - ${(source || 'MANUAL').toUpperCase()} - $${buyRateNum.toFixed(4)}`,
+              fecha: fechaCDMX,
+              hora: horaCDMX,
+              compra: buyRateNum.toFixed(4),
+              venta: sellRateNum.toFixed(4),
+              fuente: (source || 'manual').toUpperCase(),
+              usuario: user.name || user.email || 'Sistema',
+            },
+            timestamp: new Date().toISOString()
+          };
+
+          console.log(`[N8N Webhook] Enviando payload:`, JSON.stringify(webhookPayload, null, 2));
+
+          fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+          }).then(response => {
+            console.log(`[N8N Webhook] Tipo de cambio enviado a N8N: ${response.status}`);
+          }).catch(err => {
+            console.error(`[N8N Webhook] Error enviando a N8N:`, err.message);
+          });
+        } catch (webhookError) {
+          console.error(`[N8N Webhook] Error:`, webhookError);
+        }
+      }
 
       res.status(201).json(formattedResult);
     } catch (error) {
@@ -6822,7 +6912,7 @@ export function registerRoutes(app: express.Application) {
       // ✅ NUEVA LÓGICA: Priorizar intención del usuario
       let shouldCreateInvoice: boolean;
       let decisionReason: string;
-      
+
       // PRIORIDAD 1: Si hay scheduledPaymentId → es comprobante para tarjeta existente (intención clara)
       if (validatedData.scheduledPaymentId) {
         shouldCreateInvoice = false;
@@ -6835,7 +6925,7 @@ export function registerRoutes(app: express.Application) {
       }
       // PRIORIDAD 3: Fallback a detección de OpenAI solo si no hay intención clara del usuario
       else {
-        const detectedAsInvoice = (
+        const detectedAsInvoice: boolean = Boolean(
           analysis.documentType === 'invoice' ||
           (analysis.documentType === 'unknown' && hasInvoiceCharacteristics)
         );
@@ -7037,7 +7127,7 @@ export function registerRoutes(app: express.Application) {
             // ESTRATEGIA 3: Fuzzy matching (70-80% confianza)
             if (extractedName) {
               const allClients = await storage.getClientsByCompany(payerCompanyId);
-              const fuzzyMatches: Array<{ supplier: any; confidence: number; source: 'client' }> = [];
+              const fuzzyMatches: Array<{ supplier: any; confidence: number; source: 'client' | 'supplier' }> = [];
               
               allClients.forEach((client: any) => {
                 const normalizedClientName = normalizeName(client.name);
@@ -7636,6 +7726,7 @@ export function registerRoutes(app: express.Application) {
       // Validar request body - solo valores válidos del enum en la base de datos
       const statusSchema = z.object({
         status: z.enum([
+          'pago_programado', // ✅ Nuevo status
           'factura_pagada',
           'pendiente_complemento',
           'complemento_recibido',
@@ -7659,6 +7750,150 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'Validación fallida', details: error.errors });
       }
       res.status(500).json({ error: 'Failed to update payment voucher status' });
+    }
+  });
+
+  // POST /api/payment-vouchers/:id/pay - Subir comprobante de pago para un voucher (factura)
+  // Este endpoint recibe el comprobante de pago y actualiza el status según si requiere REP
+  console.log('✅ [Routes] Registrando endpoint POST /api/payment-vouchers/:id/pay');
+  app.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next) => {
+    voucherUpload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('❌ [Pay] Error de Multer:', err);
+        return res.status(400).json({ error: 'Error al procesar archivo', details: err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const voucherId = parseInt(req.params.id);
+      const user = getAuthUser(req as AuthRequest);
+      const file = req.file;
+
+      console.log(`💳 [Pay] Procesando pago para voucher ID: ${voucherId}`);
+
+      if (!file) {
+        return res.status(400).json({ error: 'No se subió ningún archivo de comprobante' });
+      }
+
+      // Obtener el voucher actual
+      const existingVoucher = await storage.getPaymentVoucher(voucherId);
+      if (!existingVoucher) {
+        return res.status(404).json({ error: 'Voucher no encontrado' });
+      }
+
+      // Verificar que esté en estado pago_programado o factura_pagada
+      if (!['pago_programado', 'factura_pagada'].includes(existingVoucher.status)) {
+        return res.status(400).json({ 
+          error: 'El voucher no está en estado de pago programado',
+          currentStatus: existingVoucher.status
+        });
+      }
+
+      // Analizar el comprobante con OpenAI
+      const fs = await import('fs');
+      const path = await import('path');
+      const { analyzePaymentDocument } = await import("./document-analyzer");
+      const fileBuffer = fs.readFileSync(file.path);
+      const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
+
+      console.log(`💳 [Pay] Análisis del comprobante:`, {
+        amount: analysis?.extractedAmount,
+        date: analysis?.extractedDate,
+        reference: analysis?.extractedReference
+      });
+
+      // Guardar el comprobante en la ubicación final
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const voucherDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
+      
+      if (!fs.existsSync(voucherDir)) {
+        fs.mkdirSync(voucherDir, { recursive: true });
+      }
+
+      const voucherFileName = `${Date.now()}-pago-${file.originalname}`;
+      const finalPath = path.join(voucherDir, voucherFileName);
+      fs.renameSync(file.path, finalPath);
+
+      // Verificar si el proveedor requiere REP
+      // Buscar el supplier/client para verificar requiresPaymentComplement
+      const { db } = await import('./db');
+      const { suppliers } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      let requiresREP = false;
+      
+      // Buscar el proveedor asociado usando scheduledPaymentId o supplierId
+      const { scheduledPayments } = await import('../shared/schema');
+      
+      // Primero intentar obtener el supplierId desde el scheduled payment
+      let supplierId = null;
+      if (existingVoucher.scheduledPaymentId) {
+        const [scheduledPayment] = await db.select()
+          .from(scheduledPayments)
+          .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
+        supplierId = scheduledPayment?.supplierId;
+      }
+      
+      if (supplierId) {
+        const [supplier] = await db.select()
+          .from(suppliers)
+          .where(eq(suppliers.id, supplierId));
+        
+        requiresREP = supplier?.requiresRep === true;
+        console.log(`💳 [Pay] Supplier ${supplier?.name} requiresREP: ${requiresREP}`);
+      }
+
+      // Determinar nuevo status basado en REP
+      // Si requiere REP → pendiente_complemento
+      // Si NO requiere REP → cierre_contable
+      const newStatus = requiresREP ? 'pendiente_complemento' : 'cierre_contable';
+      console.log(`💳 [Pay] Nuevo status: ${newStatus} (requiresREP: ${requiresREP})`);
+
+      // Actualizar el voucher con los datos del comprobante de pago
+      const updatedVoucher = await storage.updatePaymentVoucher(voucherId, {
+        status: newStatus as any,
+        // Guardar datos del comprobante en campos adicionales si los hay
+        extractedAmount: analysis?.extractedAmount || existingVoucher.extractedAmount,
+        extractedDate: analysis?.extractedDate || existingVoucher.extractedDate,
+        extractedBank: analysis?.extractedBank || existingVoucher.extractedBank,
+        extractedReference: analysis?.extractedReference || existingVoucher.extractedReference,
+        extractedTrackingKey: analysis?.extractedTrackingKey || existingVoucher.extractedTrackingKey,
+        ocrConfidence: analysis?.ocrConfidence || existingVoucher.ocrConfidence,
+        notes: `${existingVoucher.notes || ''}\nComprobante de pago subido: ${file.originalname}`.trim(),
+      });
+
+      // También actualizar el scheduled payment vinculado si existe
+      if (existingVoucher.scheduledPaymentId) {
+        const { scheduledPayments } = await import('../shared/schema');
+        await db.update(scheduledPayments)
+          .set({
+            status: requiresREP ? 'voucher_uploaded' : 'payment_completed',
+            paidAt: new Date(),
+            paidBy: user.id,
+          })
+          .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
+        console.log(`💳 [Pay] Scheduled payment ${existingVoucher.scheduledPaymentId} actualizado a ${requiresREP ? 'voucher_uploaded' : 'payment_completed'}`);
+      }
+
+      console.log(`✅ [Pay] Pago registrado exitosamente. Voucher ${voucherId} actualizado a ${newStatus}`);
+
+      res.json({
+        voucher: updatedVoucher,
+        requiresREP,
+        newStatus,
+        message: requiresREP 
+          ? 'Pago registrado. El proveedor requiere REP, pendiente complemento.'
+          : 'Pago completado y cerrado contablemente.'
+      });
+    } catch (error) {
+      console.error('❌ [Pay] Error:', error);
+      res.status(500).json({ 
+        error: 'Error al procesar pago',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      });
     }
   });
 
@@ -7699,6 +7934,72 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'Validación fallida', details: error.errors });
       }
       res.status(500).json({ error: 'Failed to update payment voucher' });
+    }
+  });
+
+  // DELETE /api/payment-vouchers/:id - Eliminar comprobante con razón (soft delete - se archiva)
+  app.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req, res) => {
+    const authReq = req as AuthRequest;
+    try {
+      const voucherId = parseInt(authReq.params.id);
+      const userId = authReq.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Validar razón de eliminación
+      const deleteSchema = z.object({
+        reason: z.string().min(3, 'La razón debe tener al menos 3 caracteres').max(500, 'La razón no puede exceder 500 caracteres'),
+      });
+
+      const { reason } = deleteSchema.parse(req.body);
+
+      // Obtener el voucher original antes de eliminar
+      const originalVoucher = await db.query.paymentVouchers.findFirst({
+        where: eq(paymentVouchers.id, voucherId),
+      });
+
+      if (!originalVoucher) {
+        return res.status(404).json({ error: 'Comprobante no encontrado' });
+      }
+
+      // Guardar en la tabla de eliminados (soft delete)
+      await db.insert(deletedPaymentVouchers).values({
+        originalVoucherId: originalVoucher.id,
+        companyId: originalVoucher.companyId,
+        payerCompanyId: originalVoucher.payerCompanyId,
+        clientId: originalVoucher.clientId,
+        clientName: originalVoucher.clientName,
+        status: originalVoucher.status,
+        voucherFileUrl: originalVoucher.voucherFileUrl,
+        voucherFileName: originalVoucher.voucherFileName,
+        extractedAmount: originalVoucher.extractedAmount,
+        extractedCurrency: originalVoucher.extractedCurrency,
+        extractedReference: originalVoucher.extractedReference,
+        extractedBank: originalVoucher.extractedBank,
+        originalCreatedAt: originalVoucher.createdAt,
+        deletionReason: reason,
+        deletedBy: userId,
+        originalData: JSON.stringify(originalVoucher), // Backup completo
+      });
+
+      // Eliminar el voucher original
+      await db.delete(paymentVouchers).where(eq(paymentVouchers.id, voucherId));
+
+      console.log(`🗑️ [Delete Voucher] Voucher ${voucherId} eliminado por usuario ${userId}. Razón: ${reason}`);
+
+      res.json({ 
+        success: true, 
+        message: 'Comprobante eliminado y archivado correctamente',
+        voucherId 
+      });
+    } catch (error) {
+      console.error('Error deleting payment voucher:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validación fallida', details: error.errors });
+      }
+      res.status(500).json({ error: 'Error al eliminar el comprobante' });
     }
   });
 
@@ -8200,26 +8501,104 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      // Años a comparar (por defecto: año actual vs año anterior)
-      const currentYear = new Date().getFullYear();
-      const compareYear1 = year1 ? parseInt(year1 as string) : currentYear - 1;
-      const compareYear2 = year2 ? parseInt(year2 as string) : currentYear;
+      // Años a comparar (por defecto: 2024 vs 2025)
+      // Cuando haya datos de 2026, automáticamente se incluirán los 3 años
+      // Forzar 2024 y 2025 por defecto, independientemente del año actual
+      const compareYear1 = year1 ? parseInt(year1 as string) : 2024; // Siempre 2024 por defecto
+      const compareYear2 = year2 ? parseInt(year2 as string) : 2025; // Siempre 2025 por defecto
 
-      // Obtener datos mensuales para ambos años
-      const monthlyData = await sql(`
-        SELECT
-          sale_month,
-          sale_year,
-          COALESCE(SUM(quantity), 0) as total_quantity,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) as unique_clients,
-          MAX(unit) as unit
+      // Verificar qué años realmente existen en la base de datos
+      const availableYearsCheck = await sql(`
+        SELECT DISTINCT sale_year, COUNT(*) as count
         FROM sales_data
         WHERE company_id = $1
-          AND sale_year IN ($2, $3)
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_month
-      `, [resolvedCompanyId, compareYear1, compareYear2]);
+        GROUP BY sale_year
+        ORDER BY sale_year DESC
+      `, [resolvedCompanyId]);
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Años disponibles en BD para companyId ${resolvedCompanyId}:`, 
+          availableYearsCheck.map((r: any) => ({ year: r.sale_year, count: r.count })));
+      }
+      
+      // Verificar si hay datos de 2026 para incluir automáticamente
+      const year2026Check = await sql(`
+        SELECT COUNT(*) as count
+        FROM sales_data
+        WHERE company_id = $1 AND sale_year = 2026
+      `, [resolvedCompanyId]);
+      
+      const has2026Data = parseInt(year2026Check[0]?.count || '0') > 0;
+      const yearsToCompare = has2026Data ? [compareYear1, compareYear2, 2026] : [compareYear1, compareYear2];
+      
+      // Verificar que los años que queremos comparar realmente existan
+      const existingYears = availableYearsCheck.map((r: any) => {
+        const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : Number(r.sale_year);
+        return year;
+      });
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Años a comparar: ${yearsToCompare.join(', ')}`);
+        console.log(`[GET /api/sales-yearly-comparison] Años existentes en BD: ${existingYears.join(', ')}`);
+        yearsToCompare.forEach(year => {
+          if (!existingYears.includes(year)) {
+            console.warn(`[GET /api/sales-yearly-comparison] ⚠️ Año ${year} no encontrado en BD para companyId ${resolvedCompanyId}`);
+          }
+        });
+      }
+
+      // Obtener datos mensuales para los años a comparar (2 o 3 años)
+      // Usar parámetros dinámicos según la cantidad de años
+      let monthlyData;
+      if (yearsToCompare.length === 3) {
+        monthlyData = await sql(`
+          SELECT
+            sale_month,
+            sale_year,
+            COALESCE(SUM(quantity), 0) as total_quantity,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) as unique_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_year = ANY(ARRAY[$2, $3, $4]::integer[])
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_year, sale_month
+        `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
+      } else {
+        // Query simplificada - igual que annual-summary que SÍ funciona
+        monthlyData = await sql(`
+          SELECT
+            sale_month,
+            sale_year,
+            COALESCE(SUM(quantity), 0) as total_quantity,
+            COALESCE(SUM(total_amount), 0) as total_amount,
+            COUNT(DISTINCT client_name) as unique_clients,
+            MAX(unit) as unit
+          FROM sales_data
+          WHERE company_id = $1
+            AND sale_year = ANY(ARRAY[$2, $3]::integer[])
+          GROUP BY sale_year, sale_month
+          ORDER BY sale_year, sale_month
+        `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
+      }
+
+      // Log para debugging (siempre, no solo en desarrollo)
+      console.log(`[GET /api/sales-yearly-comparison] companyId: ${resolvedCompanyId}, Años solicitados: year1=${compareYear1}, year2=${compareYear2}`);
+      console.log(`[GET /api/sales-yearly-comparison] Años a comparar: ${yearsToCompare.join(', ')}`);
+      console.log(`[GET /api/sales-yearly-comparison] Registros retornados: ${monthlyData.length}`);
+      if (monthlyData.length > 0) {
+        const data2024 = monthlyData.filter((r: any) => Number(r.sale_year) === 2024);
+        const data2025 = monthlyData.filter((r: any) => Number(r.sale_year) === 2025);
+        console.log(`[GET /api/sales-yearly-comparison] Registros 2024: ${data2024.length}, Registros 2025: ${data2025.length}`);
+        if (data2024.length > 0) {
+          console.log(`[GET /api/sales-yearly-comparison] Datos 2024 encontrados:`, data2024.map((r: any) => ({
+            month: Number(r.sale_month),
+            amount: Number(r.total_amount),
+            quantity: Number(r.total_quantity)
+          })));
+        }
+      }
 
       // Organizar datos por mes
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -8227,37 +8606,75 @@ export function registerRoutes(app: express.Application) {
 
       const comparisonData = monthNames.map((mes, index) => {
         const monthNum = index + 1;
-        // Convertir a números para comparación correcta (PostgreSQL puede retornar strings)
-        const year1Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear1);
-        const year2Data = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === compareYear2);
-
-        const qty1 = parseFloat(year1Data?.total_quantity || '0');
-        const qty2 = parseFloat(year2Data?.total_quantity || '0');
-        const amt1 = parseFloat(year1Data?.total_amount || '0');
-        const amt2 = parseFloat(year2Data?.total_amount || '0');
-
-        return {
+        const dataPoint: any = {
           mes,
           monthNum,
-          [`qty_${compareYear1}`]: qty1,
-          [`qty_${compareYear2}`]: qty2,
-          [`amt_${compareYear1}`]: amt1,
-          [`amt_${compareYear2}`]: amt2,
-          qty_diff: qty2 - qty1,
-          qty_percent: qty1 > 0 ? ((qty2 - qty1) / qty1) * 100 : (qty2 > 0 ? 100 : 0),
-          amt_diff: amt2 - amt1,
-          amt_percent: amt1 > 0 ? ((amt2 - amt1) / amt1) * 100 : (amt2 > 0 ? 100 : 0),
-          unit: year2Data?.unit || year1Data?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades')
         };
+
+        // Agregar datos de todos los años a comparar
+        yearsToCompare.forEach((year) => {
+          // Buscar datos del año y mes - usar comparación estricta
+          const yearData = monthlyData.find((r: any) => {
+            // Convertir a números de forma explícita
+            const rMonth = Number(r.sale_month);
+            const rYear = Number(r.sale_year);
+            return rMonth === monthNum && rYear === year;
+          });
+          
+          if (yearData) {
+            dataPoint[`qty_${year}`] = Number(yearData.total_quantity) || 0;
+            dataPoint[`amt_${year}`] = Number(yearData.total_amount) || 0;
+          } else {
+            dataPoint[`qty_${year}`] = 0;
+            dataPoint[`amt_${year}`] = 0;
+          }
+          
+          // Log detallado para el primer mes y año 2024
+          if (process.env.NODE_ENV !== 'production' && index === 0 && year === 2024) {
+            console.log(`[GET /api/sales-yearly-comparison] Mes ${monthNum} (${mes}), Año 2024:`, {
+              found: !!yearData,
+              total_amount: yearData ? Number(yearData.total_amount) : 0,
+              total_quantity: yearData ? Number(yearData.total_quantity) : 0,
+              allMonthlyDataFor2024: monthlyData.filter((r: any) => Number(r.sale_year) === 2024).map((r: any) => ({
+                month: Number(r.sale_month),
+                year: Number(r.sale_year),
+                amount: Number(r.total_amount)
+              }))
+            });
+          }
+        });
+
+        // Calcular diferencias y porcentajes (solo entre los dos primeros años para compatibilidad)
+        const qty1 = dataPoint[`qty_${compareYear1}`] || 0;
+        const qty2 = dataPoint[`qty_${compareYear2}`] || 0;
+        const amt1 = dataPoint[`amt_${compareYear1}`] || 0;
+        const amt2 = dataPoint[`amt_${compareYear2}`] || 0;
+
+        dataPoint.qty_diff = qty2 - qty1;
+        dataPoint.qty_percent = qty1 > 0 ? ((qty2 - qty1) / qty1) * 100 : (qty2 > 0 ? 100 : 0);
+        dataPoint.amt_diff = amt2 - amt1;
+        dataPoint.amt_percent = amt1 > 0 ? ((amt2 - amt1) / amt1) * 100 : (amt2 > 0 ? 100 : 0);
+        
+        // Determinar unidad
+        const firstYearData = monthlyData.find((r: any) => parseInt(r.sale_month) === monthNum && parseInt(r.sale_year) === yearsToCompare[0]);
+        dataPoint.unit = firstYearData?.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades');
+
+        return dataPoint;
       });
 
-      // Calcular totales
-      const totals = comparisonData.reduce((acc, row) => ({
-        [`qty_${compareYear1}`]: acc[`qty_${compareYear1}`] + row[`qty_${compareYear1}`],
-        [`qty_${compareYear2}`]: acc[`qty_${compareYear2}`] + row[`qty_${compareYear2}`],
-        [`amt_${compareYear1}`]: acc[`amt_${compareYear1}`] + row[`amt_${compareYear1}`],
-        [`amt_${compareYear2}`]: acc[`amt_${compareYear2}`] + row[`amt_${compareYear2}`],
-      }), { [`qty_${compareYear1}`]: 0, [`qty_${compareYear2}`]: 0, [`amt_${compareYear1}`]: 0, [`amt_${compareYear2}`]: 0 });
+      // Calcular totales para todos los años
+      const totals = comparisonData.reduce((acc, row) => {
+        const totalsObj: any = { ...acc };
+        yearsToCompare.forEach((year) => {
+          totalsObj[`qty_${year}`] = (totalsObj[`qty_${year}`] || 0) + (row[`qty_${year}`] || 0);
+          totalsObj[`amt_${year}`] = (totalsObj[`amt_${year}`] || 0) + (row[`amt_${year}`] || 0);
+        });
+        return totalsObj;
+      }, yearsToCompare.reduce((acc: any, year) => {
+        acc[`qty_${year}`] = 0;
+        acc[`amt_${year}`] = 0;
+        return acc;
+      }, {}));
 
       // Obtener años disponibles para selector
       const availableYears = await sql(`
@@ -8266,6 +8683,17 @@ export function registerRoutes(app: express.Application) {
         WHERE company_id = $1
         ORDER BY sale_year DESC
       `, [resolvedCompanyId]);
+
+      // Log para debugging (solo en desarrollo)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[GET /api/sales-yearly-comparison] Comparando años: ${yearsToCompare.join(', ')}`);
+        console.log(`[GET /api/sales-yearly-comparison] Total registros encontrados: ${monthlyData.length}`);
+        console.log(`[GET /api/sales-yearly-comparison] Totales calculados:`, totals);
+        console.log(`[GET /api/sales-yearly-comparison] Años disponibles:`, availableYears.map((r: any) => {
+          const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
+          return year;
+        }));
+      }
 
       res.json({
         companyId: resolvedCompanyId,
@@ -8283,7 +8711,10 @@ export function registerRoutes(app: express.Application) {
             ? ((totals[`amt_${compareYear2}`] - totals[`amt_${compareYear1}`]) / totals[`amt_${compareYear1}`]) * 100
             : 0,
         },
-        availableYears: availableYears.map((r: any) => parseInt(r.sale_year)),
+        availableYears: availableYears.map((r: any) => {
+          const year = typeof r.sale_year === 'string' ? parseInt(r.sale_year) : r.sale_year;
+          return year;
+        }),
         unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
       });
     } catch (error) {
@@ -8508,8 +8939,9 @@ export function registerRoutes(app: express.Application) {
         return res.status(403).json({ error: 'No company access' });
       }
 
-      const currentYear = new Date().getFullYear();
-      const lastYear = currentYear - 1;
+      // Usar 2024 vs 2025 (igual que el comparativo anual)
+      const currentYear = 2025;
+      const lastYear = 2024;
 
       const clientTrends = await sql(`
         SELECT
@@ -8563,7 +8995,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5, period = '3months' } = req.query;
+      const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8600,6 +9032,7 @@ export function registerRoutes(app: express.Application) {
         SELECT
           client_name,
           COALESCE(SUM(quantity), 0) as total_volume,
+          COALESCE(SUM(total_amount), 0) as total_revenue,
           COUNT(*) as transactions,
           MAX(unit) as unit
         FROM sales_data
@@ -8607,7 +9040,7 @@ export function registerRoutes(app: express.Application) {
           ${dateFilter}
           AND client_name IS NOT NULL AND client_name <> ''
         GROUP BY client_name
-        ORDER BY total_volume DESC
+        ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $${params.length}
       `, params);
 
@@ -8617,6 +9050,7 @@ export function registerRoutes(app: express.Application) {
           SELECT
             client_name,
             COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
             COUNT(*) as transactions,
             MAX(unit) as unit
           FROM sales_data
@@ -8625,17 +9059,25 @@ export function registerRoutes(app: express.Application) {
             AND sale_date <= CURRENT_DATE
             AND client_name IS NOT NULL AND client_name <> ''
           GROUP BY client_name
-          ORDER BY total_volume DESC
+          ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
       }
 
-      const formatted = (topClients || []).map((row: any) => ({
-        name: row.client_name,
-        volume: parseFloat(row.total_volume || '0'),
-        transactions: parseInt(row.transactions || '0'),
-        unit: row.unit
-      }));
+      const formatted = (topClients || []).map((row: any) => {
+        const volume = parseFloat(row.total_volume || '0');
+        const revenue = parseFloat(row.total_revenue || '0');
+        const profitability = volume > 0 ? revenue / volume : 0; // Revenue por unidad de volumen
+        
+        return {
+          name: row.client_name,
+          volume: volume,
+          revenue: revenue,
+          profitability: profitability,
+          transactions: parseInt(row.transactions || '0'),
+          unit: row.unit
+        };
+      });
 
       res.json(formatted);
     } catch (error) {
@@ -8649,7 +9091,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, limit = 5, period = '3months' } = req.query;
+      const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8686,6 +9128,7 @@ export function registerRoutes(app: express.Application) {
         SELECT
           product_name,
           COALESCE(SUM(quantity), 0) as total_volume,
+          COALESCE(SUM(total_amount), 0) as total_revenue,
           COUNT(DISTINCT client_name) as unique_clients,
           COUNT(*) as transactions,
           MAX(unit) as unit
@@ -8694,7 +9137,7 @@ export function registerRoutes(app: express.Application) {
           ${dateFilter}
           AND product_name IS NOT NULL AND product_name <> ''
         GROUP BY product_name
-        ORDER BY total_volume DESC
+        ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $${params.length}
       `, params);
 
@@ -8704,6 +9147,7 @@ export function registerRoutes(app: express.Application) {
           SELECT
             product_name,
             COALESCE(SUM(quantity), 0) as total_volume,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
             COUNT(DISTINCT client_name) as unique_clients,
             COUNT(*) as transactions,
             MAX(unit) as unit
@@ -8713,23 +9157,65 @@ export function registerRoutes(app: express.Application) {
             AND sale_date <= CURRENT_DATE
             AND product_name IS NOT NULL AND product_name <> ''
           GROUP BY product_name
-          ORDER BY total_volume DESC
+          ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
           LIMIT $2
         `, [resolvedCompanyId, parseInt(limit as string) || 5]);
       }
 
-      const formatted = (topProducts || []).map((row: any) => ({
-        name: row.product_name || 'Sin nombre',
-        volume: parseFloat(row.total_volume) || 0,
-        uniqueClients: parseInt(row.unique_clients) || 0,
-        transactions: parseInt(row.transactions) || 0,
-        unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
-      }));
+      const formatted = (topProducts || []).map((row: any) => {
+        const volume = parseFloat(row.total_volume) || 0;
+        const revenue = parseFloat(row.total_revenue) || 0;
+        const profitability = volume > 0 ? revenue / volume : 0; // Revenue por unidad de volumen
+        
+        return {
+          name: row.product_name || 'Sin nombre',
+          volume: volume,
+          revenue: revenue,
+          profitability: profitability,
+          uniqueClients: parseInt(row.unique_clients) || 0,
+          transactions: parseInt(row.transactions) || 0,
+          unit: row.unit || (resolvedCompanyId === 2 ? 'unidades' : 'KG')
+        };
+      });
 
       res.json(formatted);
     } catch (error) {
       console.error('[GET /api/sales-top-products] Error:', error);
       res.status(500).json({ error: 'Failed to fetch top products' });
+    }
+  });
+
+  // GET /api/sales-analyst/insights - Análisis estratégico consolidado del analista de ventas
+  app.get("/api/sales-analyst/insights", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const user = authReq.user;
+      const { companyId } = req.query;
+
+      const resolvedCompanyId = user?.role === 'admin' && companyId
+        ? parseInt(companyId as string)
+        : user?.companyId;
+
+      if (!resolvedCompanyId) {
+        return res.status(403).json({ error: 'No company access' });
+      }
+
+      console.log(`[GET /api/sales-analyst/insights] Generando insights para companyId: ${resolvedCompanyId}`);
+      
+      const insights = await generateSalesAnalystInsights(resolvedCompanyId);
+      
+      console.log(`[GET /api/sales-analyst/insights] Insights generados exitosamente`);
+      
+      res.json(insights);
+    } catch (error) {
+      console.error('[GET /api/sales-analyst/insights] Error:', error);
+      if (error instanceof Error) {
+        console.error('[GET /api/sales-analyst/insights] Error stack:', error.stack);
+      }
+      res.status(500).json({ 
+        error: 'Failed to generate sales analyst insights',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -8838,7 +9324,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const authReq = req as AuthRequest;
       const user = authReq.user;
-      const { companyId, clientId, year, month, limit = '100' } = req.query;
+      const { companyId, clientId, productId, year, month, startDate, endDate, limit = '1000' } = req.query;
 
       const resolvedCompanyId = user?.role === 'admin' && companyId
         ? parseInt(companyId as string)
@@ -8850,8 +9336,9 @@ export function registerRoutes(app: express.Application) {
 
       let query = `
         SELECT
-          id, client_id, client_name, product_name, quantity, unit,
-          sale_date, sale_month, sale_year, invoice_number, notes
+          id, company_id, client_id, product_id, client_name, product_name, 
+          quantity, unit, unit_price, total_amount,
+          sale_date, sale_month, sale_year, invoice_number, folio, notes
         FROM sales_data
         WHERE company_id = $1
       `;
@@ -8865,6 +9352,12 @@ export function registerRoutes(app: express.Application) {
         paramIndex++;
       }
 
+      if (productId) {
+        query += ` AND product_id = $${paramIndex}`;
+        params.push(parseInt(productId as string));
+        paramIndex++;
+      }
+
       if (year) {
         query += ` AND sale_year = $${paramIndex}`;
         params.push(parseInt(year as string));
@@ -8874,6 +9367,18 @@ export function registerRoutes(app: express.Application) {
       if (month) {
         query += ` AND sale_month = $${paramIndex}`;
         params.push(parseInt(month as string));
+        paramIndex++;
+      }
+
+      if (startDate) {
+        query += ` AND sale_date >= $${paramIndex}`;
+        params.push(startDate as string);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND sale_date <= $${paramIndex}`;
+        params.push(endDate as string);
         paramIndex++;
       }
 
@@ -8940,9 +9445,43 @@ export function registerRoutes(app: express.Application) {
       next();
     });
   }, async (req, res) => {
-    // NUEVO: Usar el handler mejorado que procesa las 4 hojas
+    // Detectar formato del archivo y usar el handler apropiado
     const ExcelJS = await import('exceljs');
-    await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+    const file = (req as any).file;
+
+    if (!file) {
+      return res.status(400).json({
+        error: 'No se subió ningún archivo',
+        details: 'Asegúrate de seleccionar un archivo Excel antes de subirlo'
+      });
+    }
+
+    try {
+      // Leer archivo para detectar formato
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(file.path);
+
+      const format = await detectExcelFormat(workbook);
+      console.log(`📋 [Sales Upload] Formato detectado: ${format}`);
+
+      if (format === 'IDRALL') {
+        // Usar handler de IDRALL para formato nuevo
+        console.log('🔄 [Sales Upload] Usando handler IDRALL...');
+        await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+      } else if (format === 'LEGACY') {
+        // Usar handler legacy para formato antiguo de 4 hojas
+        console.log('🔄 [Sales Upload] Usando handler LEGACY...');
+        await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+      } else {
+        // Intentar con IDRALL por default (formato más común ahora)
+        console.log('🔄 [Sales Upload] Formato desconocido, intentando con IDRALL...');
+        await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+      }
+    } catch (error: any) {
+      console.error('❌ [Sales Upload] Error detectando formato:', error.message);
+      // Fallback: intentar con IDRALL
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    }
   });
 
   // ============================================================================
@@ -9542,9 +10081,9 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Obtener contexto general del sistema
-      const duraStats = await storage.salesData.getSummaryByCompany(1);
-      const orsegaStats = await storage.salesData.getSummaryByCompany(2);
-      const exchangeRates = await storage.exchangeRates.getAll();
+      const duraStats = await getSalesMetrics(1);
+      const orsegaStats = await getSalesMetrics(2);
+      const exchangeRates = await sql`SELECT * FROM exchange_rates ORDER BY date DESC LIMIT 100`;
 
       res.json({
         timestamp: new Date().toISOString(),
@@ -9595,7 +10134,7 @@ export function registerRoutes(app: express.Application) {
       }
 
       console.log(`[N8N Query] Ejecutando: ${query}`);
-      const result = await db.execute(sql.raw(query));
+      const result = await db.execute(drizzleSql.raw(query));
 
       res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -9644,6 +10183,117 @@ export function registerRoutes(app: express.Application) {
       }
     });
   }
+
+  // ============================================
+  // CLOUDFLARE R2 FILE STORAGE ENDPOINTS
+  // ============================================
+
+  // GET /api/files/info - Obtener información del almacenamiento
+  app.get('/api/files/info', jwtAuthMiddleware, (req, res) => {
+    res.json(fileStorage.getStorageInfo());
+  });
+
+  // GET /api/files/url/:key(*) - Obtener URL firmada para ver/descargar archivo
+  // El (*) permite que el key contenga "/"
+  app.get('/api/files/url/*', jwtAuthMiddleware, async (req, res) => {
+    try {
+      const key = req.params[0]; // Captura todo después de /api/files/url/
+      
+      if (!key) {
+        return res.status(400).json({ error: 'File key is required' });
+      }
+
+      // Si R2 está configurado, obtener URL firmada
+      if (fileStorage.isR2Configured()) {
+        const expiresIn = parseInt(req.query.expiresIn as string) || 3600; // Default 1 hora
+        const inline = req.query.inline === 'true';
+        
+        const url = inline 
+          ? await fileStorage.getViewUrl(key, expiresIn)
+          : await fileStorage.getDownloadUrl(key, expiresIn);
+        
+        res.json({ url, provider: 'r2', key, expiresIn });
+      } else {
+        // Fallback: devolver URL local
+        const localUrl = key.startsWith('/') ? key : `/${key}`;
+        res.json({ url: localUrl, provider: 'local', key });
+      }
+    } catch (error) {
+      console.error('[Files] Error getting URL:', error);
+      res.status(500).json({ 
+        error: 'Error getting file URL',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // POST /api/files/upload - Subir archivo a R2 (con fallback a local)
+  const fileUploadMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB max
+  });
+
+  app.post('/api/files/upload', jwtAuthMiddleware, fileUploadMiddleware.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+      }
+
+      const category = (req.body.category || 'temp') as fileStorage.FileCategory;
+      const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : undefined;
+
+      const result = await fileStorage.uploadFileWithFallback(
+        req.file.buffer,
+        req.file.originalname,
+        category
+      );
+
+      res.json({
+        success: true,
+        ...result,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+    } catch (error) {
+      console.error('[Files] Error uploading:', error);
+      res.status(500).json({ 
+        error: 'Error uploading file',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // DELETE /api/files/:key(*) - Eliminar archivo de R2
+  app.delete('/api/files/*', jwtAuthMiddleware, async (req, res) => {
+    try {
+      const key = req.params[0];
+      
+      if (!key) {
+        return res.status(400).json({ error: 'File key is required' });
+      }
+
+      if (fileStorage.isR2Configured()) {
+        const success = await fileStorage.deleteFile(key);
+        res.json({ success, key });
+      } else {
+        // Para archivos locales, eliminar del disco
+        const localPath = path.join(process.cwd(), key.startsWith('/') ? key.slice(1) : key);
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+          res.json({ success: true, key });
+        } else {
+          res.status(404).json({ error: 'File not found', key });
+        }
+      }
+    } catch (error) {
+      console.error('[Files] Error deleting:', error);
+      res.status(500).json({ 
+        error: 'Error deleting file',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
   
   return app;
 }

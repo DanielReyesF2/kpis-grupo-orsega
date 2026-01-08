@@ -1,7 +1,7 @@
 // Script para verificar la conexión a la base de datos y ver qué datos existen
 import 'dotenv/config';
 import { db } from "./db";
-import { users, companies, kpis, kpiValues } from "../shared/schema";
+import { users, companies, kpisDura, kpiValuesDura } from "../shared/schema";
 import { sql } from "drizzle-orm";
 
 async function testConnection() {
@@ -59,12 +59,12 @@ async function testConnection() {
     // Test 4: Contar KPIs
     console.log("\n📊 Test 4: Contando KPIs...");
     try {
-      const kpisList = await db.select().from(kpis);
+      const kpisList = await db.select().from(kpisDura);
       console.log(`✅ KPIs encontrados: ${kpisList.length}`);
       if (kpisList.length > 0) {
         console.log(`   Primeros 5 KPIs:`);
         kpisList.slice(0, 5).forEach(k => {
-          console.log(`   - ${k.name} (ID: ${k.id}, Company: ${k.companyId})`);
+          console.log(`   - ${k.kpiName} (ID: ${k.id}, Area: ${k.area})`);
         });
       }
     } catch (error: any) {
@@ -74,12 +74,12 @@ async function testConnection() {
     // Test 5: Contar valores de KPI
     console.log("\n📊 Test 5: Contando valores de KPI...");
     try {
-      const kpiValuesList = await db.select().from(kpiValues);
+      const kpiValuesList = await db.select().from(kpiValuesDura);
       console.log(`✅ Valores de KPI encontrados: ${kpiValuesList.length}`);
       if (kpiValuesList.length > 0) {
         console.log(`   Últimos 5 valores:`);
         kpiValuesList.slice(-5).forEach(kv => {
-          console.log(`   - KPI ${kv.kpiId}: ${kv.value} (Periodo: ${kv.period})`);
+          console.log(`   - KPI ${kv.kpi_id}: ${kv.value} (Periodo: ${kv.month}/${kv.year})`);
         });
       }
     } catch (error: any) {
@@ -98,15 +98,15 @@ async function testConnection() {
         WHERE table_name = 'kpis_orsega'
       `);
       
-      console.log(`✅ Tabla kpis_dura existe: ${duraKpis[0]?.count > 0}`);
-      console.log(`✅ Tabla kpis_orsega existe: ${orsegaKpis[0]?.count > 0}`);
+      console.log(`✅ Tabla kpis_dura existe: ${(duraKpis as any)[0]?.count > 0}`);
+      console.log(`✅ Tabla kpis_orsega existe: ${(orsegaKpis as any)[0]?.count > 0}`);
       
       // Intentar contar registros si las tablas existen
       try {
         const duraCount = await db.execute(sql`SELECT COUNT(*) as count FROM kpis_dura`);
         const orsegaCount = await db.execute(sql`SELECT COUNT(*) as count FROM kpis_orsega`);
-        console.log(`   KPIs en kpis_dura: ${duraCount[0]?.count || 0}`);
-        console.log(`   KPIs en kpis_orsega: ${orsegaCount[0]?.count || 0}`);
+        console.log(`   KPIs en kpis_dura: ${(duraCount as any)[0]?.count || 0}`);
+        console.log(`   KPIs en kpis_orsega: ${(orsegaCount as any)[0]?.count || 0}`);
       } catch (e) {
         // Tablas pueden no existir
       }

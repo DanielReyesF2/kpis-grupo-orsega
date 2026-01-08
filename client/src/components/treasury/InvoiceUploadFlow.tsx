@@ -1,15 +1,12 @@
 /**
- * InvoiceUploadFlow - Flujo horizontal de 3 pasos para subir facturas
- *
- * Los 3 pasos son visibles simultáneamente de izquierda a derecha:
- * 1. Seleccionar empresa
- * 2. Seleccionar proveedor
- * 3. Subir documento
+ * InvoiceUploadFlow - Flujo moderno y minimalista para subir facturas
+ * 
+ * Diseño: Card compacto con pasos claros y zona de drop prominente
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,9 +20,12 @@ import {
   Loader2,
   X,
   Package,
-  ChevronRight,
+  ArrowRight,
+  FileUp,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Supplier {
   id: number;
@@ -42,11 +42,37 @@ interface InvoiceUploadFlowProps {
 
 export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [analysisStep, setAnalysisStep] = useState<string>("");
+  const [foundData, setFoundData] = useState<{ field: string; value: string }[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [processedFiles, setProcessedFiles] = useState<{ name: string; success: boolean; error?: string }[]>([]);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+
+  // Pasos de análisis simulados para mejor UX
+  const analysisSteps = [
+    { message: "Analizando documento...", progress: 10, duration: 600 },
+    { message: "Buscando RFC...", progress: 25, duration: 700 },
+    { message: "Extrayendo monto...", progress: 40, duration: 600 },
+    { message: "Detectando fecha de vencimiento...", progress: 55, duration: 500 },
+    { message: "Identificando proveedor...", progress: 70, duration: 500 },
+    { message: "Verificando datos...", progress: 85, duration: 400 },
+  ];
+
+  const runAnalysisAnimation = async () => {
+    setFoundData([]);
+    for (const step of analysisSteps) {
+      setAnalysisStep(step.message);
+      setUploadProgress(step.progress);
+      await new Promise(resolve => setTimeout(resolve, step.duration));
+    }
+  };
 
   // Fetch suppliers
   const { data: suppliers = [], isLoading: isLoadingSuppliers } = useQuery<Supplier[]>({
@@ -77,6 +103,9 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("No se encontró token de autenticación");
 
+      // Iniciar animación de análisis en paralelo con el upload
+      const animationPromise = runAnalysisAnimation();
+      
       const response = await fetch("/api/payment-vouchers/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -86,36 +115,59 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
       const text = await response.text();
       const data = text ? JSON.parse(text) : {};
 
+      // Esperar a que termine la animación si el upload fue más rápido
+      await animationPromise;
+
+      // Mostrar datos encontrados
+      if (data.analysis) {
+        const found: { field: string; value: string }[] = [];
+        if (data.analysis.extractedTaxId) {
+          found.push({ field: "RFC", value: data.analysis.extractedTaxId });
+        }
+        if (data.analysis.extractedAmount) {
+          found.push({ field: "Monto", value: `$${Number(data.analysis.extractedAmount).toLocaleString()}` });
+        }
+        if (data.analysis.extractedSupplierName) {
+          found.push({ field: "Proveedor", value: data.analysis.extractedSupplierName.substring(0, 25) });
+        }
+        if (data.analysis.extractedDueDate) {
+          const date = new Date(data.analysis.extractedDueDate);
+          found.push({ field: "Vencimiento", value: date.toLocaleDateString('es-MX') });
+        }
+        setFoundData(found);
+        setAnalysisStep(found.length > 0 ? "✓ Datos extraídos" : "Análisis completado");
+      }
+      
+      setUploadProgress(100);
+
       if (!response.ok) {
         throw new Error(data.error || data.message || `Error ${response.status}`);
       }
 
+      // Pequeña pausa para mostrar los datos encontrados
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       return data;
     },
     onSuccess: (data) => {
-      // ✅ FIX: Solo mostrar toast de éxito si NO requiere verificación
       if (data?.requiresVerification) {
-        // Factura requiere verificación - el modal se encargará
-        console.log('📋 [InvoiceUploadFlow] Factura requiere verificación, abriendo modal...');
-        // NO resetear form aún - esperar a que el modal complete
+        console.log('📋 [InvoiceUploadFlow] Factura requiere verificación');
         onUploadComplete?.(data);
       } else {
-        // Procesado completamente (comprobante o factura auto-aprobada)
         queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
         queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
         toast({
           title: "✅ Documento procesado",
-          description: `Documento de ${selectedSupplier?.name} procesado exitosamente`,
+          description: `Factura de ${selectedSupplier?.name} procesada exitosamente`,
         });
-        // Reset form solo cuando está completamente procesado
-        setSelectedCompanyId(null);
-        setSelectedSupplier(null);
-        setFiles([]);
-        setSearchTerm("");
+        resetForm();
         onUploadComplete?.(data);
       }
     },
     onError: (error: any) => {
+      setUploadProgress(0);
+      setAnalysisStep("");
+      setFoundData([]);
       toast({
         title: "Error al procesar factura",
         description: error.message || "Ocurrió un error inesperado",
@@ -123,6 +175,16 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
       });
     },
   });
+
+  const resetForm = () => {
+    setSelectedCompanyId(null);
+    setSelectedSupplier(null);
+    setFiles([]);
+    setSearchTerm("");
+    setUploadProgress(0);
+    setAnalysisStep("");
+    setFoundData([]);
+  };
 
   const handleCompanySelect = (companyId: number) => {
     setSelectedCompanyId(companyId);
@@ -159,246 +221,457 @@ export function InvoiceUploadFlow({ onUploadComplete }: InvoiceUploadFlowProps) 
   const handleUpload = async () => {
     if (!selectedCompanyId || !selectedSupplier || files.length === 0) return;
 
-    for (const file of files) {
-      await uploadMutation.mutateAsync({
-        file,
-        payerCompanyId: selectedCompanyId,
-        supplierId: selectedSupplier.id,
+    setIsProcessingBatch(true);
+    setProcessedFiles([]);
+    setCurrentFileIndex(0);
+
+    const results: { name: string; success: boolean; error?: string }[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentFileIndex(i);
+      setAnalysisStep(`Procesando ${i + 1} de ${files.length}...`);
+      
+      try {
+        await uploadMutation.mutateAsync({
+          file,
+          payerCompanyId: selectedCompanyId,
+          supplierId: selectedSupplier.id,
+        });
+        results.push({ name: file.name, success: true });
+      } catch (error: any) {
+        results.push({ name: file.name, success: false, error: error.message });
+      }
+      
+      setProcessedFiles([...results]);
+    }
+
+    setIsProcessingBatch(false);
+    
+    // Mostrar resumen si fueron múltiples archivos
+    if (files.length > 1) {
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      toast({
+        title: `✅ ${successful} de ${files.length} facturas procesadas`,
+        description: failed > 0 ? `${failed} facturas tuvieron errores` : "Todas las facturas fueron procesadas exitosamente",
+        variant: failed > 0 ? "default" : "default",
       });
+      
+      resetForm();
     }
   };
 
-  const canProceed = selectedCompanyId && selectedSupplier && files.length > 0;
+  const currentStep = !selectedCompanyId ? 1 : !selectedSupplier ? 2 : 3;
+  const canUpload = selectedCompanyId && selectedSupplier && files.length > 0;
+
+  const companies = [
+    { id: 1, name: "DURA", fullName: "DURA International", color: "blue", icon: Building2 },
+    { id: 2, name: "ORSEGA", fullName: "Grupo ORSEGA", color: "emerald", icon: Package },
+  ];
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Upload className="h-5 w-5 text-primary" />
-          Subir Factura
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Paso 1: Empresa */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                selectedCompanyId ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
-              )}>
-                {selectedCompanyId ? <Check className="h-3 w-3" /> : "1"}
+    <Card className="overflow-hidden border-2 border-dashed border-slate-200 hover:border-primary/50 transition-colors">
+      <CardContent className="p-0">
+        {/* Header con progreso */}
+        <div className="bg-gradient-to-r from-slate-50 to-white px-5 py-4 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <FileUp className="h-5 w-5 text-primary" />
               </div>
-              <span className="font-medium text-sm">Empresa</span>
+              <div>
+                <h3 className="font-semibold text-foreground">Subir Factura</h3>
+                <p className="text-xs text-muted-foreground">PDF, XML o imagen</p>
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <div
-                className={cn(
-                  "p-3 rounded-lg border-2 cursor-pointer transition-all",
-                  selectedCompanyId === 1
-                    ? "border-primary bg-primary/10"
-                    : "border-muted hover:border-primary/50"
-                )}
-                onClick={() => handleCompanySelect(1)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">DURA International</p>
-                    <p className="text-xs text-muted-foreground">Químicos</p>
-                  </div>
-                  {selectedCompanyId === 1 && <Check className="h-4 w-4 text-primary ml-auto" />}
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  "p-3 rounded-lg border-2 cursor-pointer transition-all",
-                  selectedCompanyId === 2
-                    ? "border-primary bg-primary/10"
-                    : "border-muted hover:border-primary/50"
-                )}
-                onClick={() => handleCompanySelect(2)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">Grupo ORSEGA</p>
-                    <p className="text-xs text-muted-foreground">Logística</p>
-                  </div>
-                  {selectedCompanyId === 2 && <Check className="h-4 w-4 text-primary ml-auto" />}
-                </div>
-              </div>
+            
+            {/* Indicador de pasos minimalista */}
+            <div className="flex items-center gap-1">
+              {[1, 2, 3].map((step) => (
+                <div
+                  key={step}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    step === currentStep ? "w-6 bg-primary" :
+                    step < currentStep ? "w-3 bg-primary/60" : "w-3 bg-slate-200"
+                  )}
+                />
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Flecha separadora (solo desktop) */}
-          <div className="hidden lg:flex items-center justify-center -mx-4">
-            <ChevronRight className="h-6 w-6 text-muted-foreground" />
-          </div>
-
-          {/* Paso 2: Proveedor */}
-          <div className={cn("space-y-3", !selectedCompanyId && "opacity-50 pointer-events-none")}>
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                selectedSupplier ? "bg-green-500 text-white" :
-                selectedCompanyId ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              )}>
-                {selectedSupplier ? <Check className="h-3 w-3" /> : "2"}
-              </div>
-              <span className="font-medium text-sm">Proveedor</span>
-              {selectedSupplier && (
-                <Badge variant="secondary" className="ml-auto text-xs">
-                  {selectedSupplier.short_name || selectedSupplier.name.substring(0, 15)}
-                </Badge>
-              )}
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Buscar proveedor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 h-9 text-sm"
-                disabled={!selectedCompanyId}
-              />
-            </div>
-
-            <div className="max-h-[140px] overflow-y-auto space-y-1">
-              {isLoadingSuppliers ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredSuppliers.length === 0 ? (
-                <p className="text-xs text-center text-muted-foreground py-4">
-                  {selectedCompanyId ? "Sin proveedores" : "Selecciona empresa"}
-                </p>
-              ) : (
-                filteredSuppliers.slice(0, 5).map((supplier) => (
-                  <div
-                    key={supplier.id}
-                    className={cn(
-                      "p-2 rounded cursor-pointer transition-all text-sm",
-                      selectedSupplier?.id === supplier.id
-                        ? "bg-primary/10 border border-primary"
-                        : "hover:bg-muted border border-transparent"
-                    )}
-                    onClick={() => handleSupplierSelect(supplier)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="truncate">{supplier.name}</span>
-                      {selectedSupplier?.id === supplier.id && (
-                        <Check className="h-3 w-3 text-primary flex-shrink-0" />
+        <div className="p-5">
+          {/* Selección rápida - Siempre visible cuando no hay empresa */}
+          <AnimatePresence mode="wait">
+            {!selectedCompanyId && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-3"
+              >
+                <p className="text-sm text-muted-foreground text-center">¿A qué empresa corresponde?</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {companies.map((company) => (
+                    <button
+                      key={company.id}
+                      onClick={() => handleCompanySelect(company.id)}
+                      className={cn(
+                        "relative p-4 rounded-xl border-2 transition-all duration-200",
+                        "hover:border-primary hover:bg-primary/5 hover:shadow-md",
+                        "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                        company.color === "blue" 
+                          ? "border-blue-200 bg-blue-50/50" 
+                          : "border-emerald-200 bg-emerald-50/50"
                       )}
-                    </div>
-                  </div>
-                ))
-              )}
-              {filteredSuppliers.length > 5 && (
-                <p className="text-xs text-center text-muted-foreground py-1">
-                  +{filteredSuppliers.length - 5} más...
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Flecha separadora (solo desktop) */}
-          <div className="hidden lg:flex items-center justify-center -mx-4">
-            <ChevronRight className="h-6 w-6 text-muted-foreground" />
-          </div>
-
-          {/* Paso 3: Subir documento */}
-          <div className={cn("space-y-3", !selectedSupplier && "opacity-50 pointer-events-none")}>
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                files.length > 0 ? "bg-green-500 text-white" :
-                selectedSupplier ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              )}>
-                {files.length > 0 ? <Check className="h-3 w-3" /> : "3"}
-              </div>
-              <span className="font-medium text-sm">Documento</span>
-            </div>
-
-            <div
-              className={cn(
-                "border-2 border-dashed rounded-lg p-4 text-center transition-colors min-h-[120px] flex flex-col items-center justify-center",
-                isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25",
-                selectedSupplier && "hover:border-primary hover:bg-primary/5 cursor-pointer"
-              )}
-              onDragOver={(e) => { e.preventDefault(); if (selectedSupplier) setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={selectedSupplier ? handleDrop : undefined}
-            >
-              {files.length === 0 ? (
-                <>
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Arrastra aquí o
-                  </p>
-                  <label>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.xml,image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      disabled={!selectedSupplier}
-                    />
-                    <Button variant="outline" size="sm" asChild disabled={!selectedSupplier}>
-                      <span className="text-xs">Seleccionar</span>
-                    </Button>
-                  </label>
-                </>
-              ) : (
-                <div className="w-full space-y-1">
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        <span className="truncate">{file.name}</span>
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center",
+                          company.color === "blue" ? "bg-blue-100" : "bg-emerald-100"
+                        )}>
+                          <company.icon className={cn(
+                            "h-6 w-6",
+                            company.color === "blue" ? "text-blue-600" : "text-emerald-600"
+                          )} />
+                        </div>
+                        <span className="font-semibold text-sm">{company.name}</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0"
-                        onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </motion.div>
+            )}
 
-            <Button
-              onClick={handleUpload}
-              disabled={!canProceed || uploadMutation.isPending}
-              className="w-full"
-              size="sm"
-            >
-              {uploadMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Procesando...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Procesar Factura
-                </>
-              )}
-            </Button>
-          </div>
+            {/* Selección de proveedor */}
+            {selectedCompanyId && !selectedSupplier && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      {companies.find(c => c.id === selectedCompanyId)?.name}
+                      <button 
+                        onClick={() => setSelectedCompanyId(null)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Proveedor</span>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar proveedor..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="max-h-[180px] overflow-y-auto space-y-1 pr-1">
+                  {isLoadingSuppliers ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredSuppliers.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-muted-foreground">
+                      No se encontraron proveedores
+                    </div>
+                  ) : (
+                    filteredSuppliers.slice(0, 8).map((supplier) => (
+                      <button
+                        key={supplier.id}
+                        className={cn(
+                          "w-full p-3 rounded-lg text-left transition-all duration-150",
+                          "hover:bg-primary/10 hover:text-primary",
+                          "focus:outline-none focus:bg-primary/10"
+                        )}
+                        onClick={() => handleSupplierSelect(supplier)}
+                      >
+                        <span className="text-sm font-medium truncate block">{supplier.name}</span>
+                        {supplier.short_name && (
+                          <span className="text-xs text-muted-foreground">{supplier.short_name}</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                  {filteredSuppliers.length > 8 && (
+                    <p className="text-xs text-center text-muted-foreground py-2">
+                      +{filteredSuppliers.length - 8} proveedores más
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Zona de subida de archivo */}
+            {selectedCompanyId && selectedSupplier && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                {/* Breadcrumb de selección */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="gap-1">
+                    {companies.find(c => c.id === selectedCompanyId)?.name}
+                    <button 
+                      onClick={() => { setSelectedCompanyId(null); setSelectedSupplier(null); setFiles([]); }}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                  <Badge variant="outline" className="gap-1 bg-white">
+                    {selectedSupplier.short_name || selectedSupplier.name.substring(0, 20)}
+                    <button 
+                      onClick={() => { setSelectedSupplier(null); setFiles([]); }}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  className={cn(
+                    "relative rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer",
+                    "min-h-[140px] flex flex-col items-center justify-center",
+                    isDragging 
+                      ? "border-primary bg-primary/5 scale-[1.02]" 
+                      : files.length > 0 
+                        ? "border-emerald-300 bg-emerald-50/50"
+                        : "border-slate-200 hover:border-primary/50 hover:bg-slate-50"
+                  )}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => files.length === 0 && fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.xml,image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                  />
+
+                  {files.length === 0 ? (
+                    <div className="text-center p-4">
+                      <div className={cn(
+                        "w-14 h-14 mx-auto rounded-xl flex items-center justify-center mb-3 transition-colors",
+                        isDragging ? "bg-primary/20" : "bg-slate-100"
+                      )}>
+                        <Upload className={cn(
+                          "h-7 w-7 transition-colors",
+                          isDragging ? "text-primary" : "text-slate-400"
+                        )} />
+                      </div>
+                      <p className="text-sm font-medium text-foreground mb-1">
+                        {isDragging ? "Suelta los archivos aquí" : "Arrastra tus facturas"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        o <span className="text-primary font-medium">selecciona archivos</span>
+                      </p>
+                      <Badge variant="secondary" className="text-xs">
+                        💡 Puedes subir varias facturas a la vez
+                      </Badge>
+                    </div>
+                  ) : (
+                    <div className="w-full p-3 space-y-2">
+                      {/* Header con contador */}
+                      <div className="flex items-center justify-between pb-2 border-b">
+                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                          {files.length} {files.length === 1 ? 'factura' : 'facturas'} seleccionadas
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          <Upload className="h-3 w-3" />
+                          Agregar más
+                        </Button>
+                      </div>
+                      
+                      {/* Lista de archivos */}
+                      <div className="max-h-[160px] overflow-y-auto space-y-1.5">
+                        {files.map((file, index) => {
+                          const processed = processedFiles.find(p => p.name === file.name);
+                          const isCurrentlyProcessing = isProcessingBatch && currentFileIndex === index;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className={cn(
+                                "flex items-center gap-2 p-2 rounded-lg border transition-all",
+                                processed?.success ? "bg-emerald-50 border-emerald-200" :
+                                processed && !processed.success ? "bg-red-50 border-red-200" :
+                                isCurrentlyProcessing ? "bg-primary/5 border-primary/30 animate-pulse" :
+                                "bg-white border-slate-200"
+                              )}
+                            >
+                              <div className={cn(
+                                "p-1.5 rounded-lg",
+                                processed?.success ? "bg-emerald-100" :
+                                processed && !processed.success ? "bg-red-100" :
+                                isCurrentlyProcessing ? "bg-primary/20" :
+                                "bg-slate-100"
+                              )}>
+                                {processed?.success ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                ) : processed && !processed.success ? (
+                                  <X className="h-3.5 w-3.5 text-red-600" />
+                                ) : isCurrentlyProcessing ? (
+                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                                ) : (
+                                  <FileText className="h-3.5 w-3.5 text-slate-500" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{file.name}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {(file.size / 1024).toFixed(0)} KB
+                                  {processed?.error && (
+                                    <span className="text-red-500 ml-2">{processed.error}</span>
+                                  )}
+                                </p>
+                              </div>
+                              {!isProcessingBatch && !processed && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFiles(files.filter((_, i) => i !== index));
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Barra de progreso */}
+                  {uploadMutation.isPending && uploadProgress > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 rounded-b-xl overflow-hidden">
+                      <motion.div
+                        className="h-full bg-primary"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Panel de análisis en progreso */}
+                {uploadMutation.isPending && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3"
+                  >
+                    {/* Paso actual */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-primary">{analysisStep}</p>
+                        <div className="w-full h-1.5 bg-primary/20 rounded-full mt-1.5 overflow-hidden">
+                          <motion.div
+                            className="h-full bg-primary rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${uploadProgress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Datos encontrados */}
+                    {foundData.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-1.5 pt-2 border-t border-primary/20"
+                      >
+                        {foundData.map((item, index) => (
+                          <motion.div
+                            key={item.field}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.15 }}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-muted-foreground">{item.field}:</span>
+                            <span className="font-medium text-foreground">{item.value}</span>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Botón de subida */}
+                <Button
+                  onClick={handleUpload}
+                  disabled={!canUpload || uploadMutation.isPending || isProcessingBatch}
+                  className="w-full h-11 text-sm font-medium gap-2"
+                  size="lg"
+                >
+                  {uploadMutation.isPending || isProcessingBatch ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {files.length > 1 
+                        ? `Procesando ${currentFileIndex + 1} de ${files.length}...`
+                        : "Analizando..."
+                      }
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      {files.length > 1 
+                        ? `Procesar ${files.length} Facturas`
+                        : "Procesar Factura"
+                      }
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </CardContent>
     </Card>

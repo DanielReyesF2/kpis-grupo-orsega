@@ -860,8 +860,9 @@ export default function NewShipmentPage() {
                             ) : (
                               <div className="space-y-2">
                                 <FormControl>
-                                  <Input 
-                                    {...field} 
+                                  <Input
+                                    {...field}
+                                    value={field.value || ""}
                                     placeholder="Escriba el nombre del transportista (no hay proveedores registrados)"
                                   />
                                 </FormControl>

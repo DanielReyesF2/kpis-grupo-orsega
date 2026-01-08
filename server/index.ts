@@ -25,29 +25,25 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
-    
+
     // Performance Monitoring
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
-    
-    // Session Replay (optional, only in production)
-    replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0.0,
-    replaysOnErrorSampleRate: 1.0,
-    
+
     // Filter errors
     beforeSend(event, hint) {
       // Don't send errors from healthcheck endpoints
-      if (hint.request?.url?.includes('/health')) {
+      if (event.request?.url?.includes('/health')) {
         return null;
       }
       return event;
     },
-    
+
     // Configure release
     release: process.env.RAILWAY_GIT_COMMIT_SHA || "local",
-    
-    // Configure integrations
+
+    // Express integration for request/tracing
     integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
+      Sentry.expressIntegration(),
     ],
   });
   
@@ -263,18 +259,18 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:", "blob:"], // Permitir blob URLs para previews de imágenes
       connectSrc: ["'self'", "https://api.cloud.copilotkit.ai"], // Permitir CopilotKit API
       fontSrc: ["'self'", "data:"], // Permitir fuentes embebidas (data URIs)
-      objectSrc: ["'none'"],
+      objectSrc: ["'self'", "blob:"], // ✅ Permitir PDFs embebidos
       mediaSrc: ["'self'", "blob:"], // Permitir blob URLs para videos/audio
-      frameSrc: ["'self'", "blob:"], // Permitir blob URLs para iframes de PDFs
+      frameSrc: ["'self'", "blob:", "data:"], // ✅ Permitir iframes para PDFs
       baseUri: ["'self'"],
       formAction: ["'self'"],
-      frameAncestors: ["'none'"], // Prevenir clickjacking
+      frameAncestors: ["'self'"], // ✅ Permitir iframes dentro de la misma app
       upgradeInsecureRequests: [], // Forzar HTTPS
     },
   },
   crossOriginEmbedderPolicy: false, // Compatible con Vite
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // ✅ Permitir recursos cross-origin para PDFs
   hsts: {
     maxAge: 31536000, // 1 año (requerido para preload)
     includeSubDomains: true,
@@ -327,11 +323,47 @@ app.use('/api/login', loginMonitorMiddleware);
 app.use('/api/upload', uploadMonitorMiddleware);
 app.use('/api', apiAccessMonitorMiddleware);
 
-// ❌ ELIMINADO: Configuración duplicada de archivos estáticos
-// Esta línea buscaba en process.cwd()/public que no existe después del build
-// Los archivos estáticos se sirven correctamente en server/vite.ts mediante serveStatic()
-// que busca en dist/public o server/public (rutas correctas del build)
-// app.use(express.static(path.join(process.cwd(), 'public')));
+// ❌ ELIMINADO: Configuración duplicada de archivos estáticos de public/
+// Los archivos estáticos de la app se sirven correctamente en server/vite.ts
+
+// ✅ IMPORTANTE: Servir archivos subidos (facturas, comprobantes, etc.)
+// Estos archivos son generados por la app y deben ser accesibles
+const uploadsPath = path.join(process.cwd(), 'uploads');
+console.log(`📂 Configurando servicio de archivos subidos desde: ${uploadsPath}`);
+
+// Crear directorio de uploads si no existe
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log(`📂 Directorio uploads creado: ${uploadsPath}`);
+}
+
+// Servir archivos de /uploads sin autenticación (los URLs son privados y únicos)
+// NOTA: En producción, considerar agregar tokens de acceso temporales
+app.use('/uploads', express.static(uploadsPath, {
+  maxAge: '1d', // Cache de 1 día
+  etag: true,
+  lastModified: true,
+  // Permitir que el navegador maneje PDFs e imágenes
+  setHeaders: (res, filePath) => {
+    // Permitir que los PDFs se muestren en iframe
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    
+    // Determinar Content-Type basado en extensión
+    if (filePath.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+    } else if (filePath.match(/\.(jpg|jpeg)$/i)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filePath.endsWith('.gif')) {
+      res.setHeader('Content-Type', 'image/gif');
+    } else if (filePath.endsWith('.webp')) {
+      res.setHeader('Content-Type', 'image/webp');
+    }
+  }
+}));
+console.log(`✅ Archivos de /uploads disponibles públicamente`);
 
 // ✅ Servir archivos subidos (facturas, comprobantes, etc.)
 // Esta ruta permite acceder a /uploads/facturas/... y /uploads/comprobantes/...
@@ -402,11 +434,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add Sentry request handler - must be before all routes
-if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.requestHandler());
-  app.use(Sentry.Handlers.tracingHandler());
-}
+// Sentry request/tracing is handled automatically via expressIntegration in init()
 
 // Create HTTP server EARLY for healthchecks
 const server = createServer(app);
@@ -454,7 +482,7 @@ try {
 
 // Add Sentry error handler - must be before other error handlers
 if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+  app.use(Sentry.expressErrorHandler());
 }
 
 // CRITICAL: Add error handler BEFORE async operations to catch any errors

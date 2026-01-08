@@ -640,8 +640,9 @@ export type Product = typeof products.$inferSelect;
 // IMPORTANTE: Estos valores deben coincidir exactamente con el enum en la base de datos
 // Ver migraciones/0000_quick_gateway.sql línea 2
 export const voucherStatusEnum = pgEnum('voucher_status', [
-  'factura_pagada',          // Factura pagada (estado inicial después del upload)
-  'pendiente_complemento',   // Esperando complemento del proveedor
+  'pago_programado',         // Pago programado (factura subida, pendiente comprobante)
+  'factura_pagada',          // Factura pagada (estado después de subir comprobante)
+  'pendiente_complemento',   // Esperando complemento del proveedor (requiere REP)
   'complemento_recibido',    // Complemento ya subido
   'cierre_contable'          // Finalizado contablemente
 ]);
@@ -796,6 +797,38 @@ export const paymentVouchers = pgTable("payment_vouchers", {
 export const insertPaymentVoucherSchema = createInsertSchema(paymentVouchers).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPaymentVoucher = z.infer<typeof insertPaymentVoucherSchema>;
 export type PaymentVoucher = typeof paymentVouchers.$inferSelect;
+
+// Historial de Vouchers Eliminados
+export const deletedPaymentVouchers = pgTable("deleted_payment_vouchers", {
+  id: serial("id").primaryKey(),
+  originalVoucherId: integer("original_voucher_id").notNull(), // ID original del voucher
+  
+  // Datos del voucher original (copiados para histórico)
+  companyId: integer("company_id").notNull(),
+  payerCompanyId: integer("payer_company_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  clientName: text("client_name").notNull(),
+  status: text("status").notNull(), // Estado en que estaba al momento de eliminar
+  voucherFileUrl: text("voucher_file_url").notNull(),
+  voucherFileName: text("voucher_file_name").notNull(),
+  extractedAmount: real("extracted_amount"),
+  extractedCurrency: text("extracted_currency"),
+  extractedReference: text("extracted_reference"),
+  extractedBank: text("extracted_bank"),
+  originalCreatedAt: timestamp("original_created_at").notNull(),
+  
+  // Información de eliminación
+  deletionReason: text("deletion_reason").notNull(), // Razón de la eliminación
+  deletedBy: integer("deleted_by").notNull(), // Usuario que eliminó
+  deletedAt: timestamp("deleted_at").notNull().defaultNow(), // Fecha de eliminación
+  
+  // Datos adicionales en JSON para guardar todo el registro original
+  originalData: json("original_data"), // Backup completo del registro original
+});
+
+export const insertDeletedPaymentVoucherSchema = createInsertSchema(deletedPaymentVouchers).omit({ id: true, deletedAt: true });
+export type InsertDeletedPaymentVoucher = z.infer<typeof insertDeletedPaymentVoucherSchema>;
+export type DeletedPaymentVoucher = typeof deletedPaymentVouchers.$inferSelect;
 
 // Email Outbox - Tracking de envíos de correo
 export const emailOutbox = pgTable("email_outbox", {

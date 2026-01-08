@@ -6,13 +6,24 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AuthRequest } from './index';
 import { parseExcelVentas, type SalesTransaction, type SalesResumen } from './sales-excel-parser';
 import { neon } from '@neondatabase/serverless';
 import path from 'path';
 
 // Crear cliente SQL para queries directos
 const sql = neon(process.env.DATABASE_URL!);
+
+// Re-export AuthRequest type from routes to avoid conflicts
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+    areaId?: number | null;
+    companyId?: number | null;
+  };
+}
 
 interface UploadHandlerDependencies {
   getAuthUser: (req: AuthRequest) => any;
@@ -79,7 +90,7 @@ export async function handleSalesUpload(
     }
 
     console.log(`📋 [Sales Upload] Hojas encontradas: ${workbook.worksheets.length}`);
-    workbook.worksheets.forEach((ws, idx) => {
+    workbook.worksheets.forEach((ws: any, idx: number) => {
       console.log(`   - Hoja ${idx + 1}: "${ws.name}"`);
     });
 

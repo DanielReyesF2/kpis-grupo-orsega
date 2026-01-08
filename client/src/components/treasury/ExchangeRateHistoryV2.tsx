@@ -27,9 +27,11 @@ interface RateHistoryEntry {
   };
 }
 
+type SourceKey = 'santander' | 'monex' | 'dof';
+
 export function ExchangeRateHistoryV2() {
   // Configuración simplificada: último mes, todas las fuentes
-  const selectedSources = ['monex', 'santander', 'dof'];
+  const selectedSources: SourceKey[] = ['monex', 'santander', 'dof'];
   
   // Calcular fechas: último mes
   const { startDate, endDate } = useMemo(() => {
@@ -87,13 +89,13 @@ export function ExchangeRateHistoryV2() {
       }
       const entry = entryMap.get(key)!;
       if (point.santander !== undefined) {
-        entry.sources.santander = { ...entry.sources.santander, buy: point.santander };
+        entry.sources.santander = { buy: point.santander, sell: entry.sources.santander?.sell ?? 0 };
       }
       if (point.monex !== undefined) {
-        entry.sources.monex = { ...entry.sources.monex, buy: point.monex };
+        entry.sources.monex = { buy: point.monex, sell: entry.sources.monex?.sell ?? 0 };
       }
       if (point.dof !== undefined) {
-        entry.sources.dof = { ...entry.sources.dof, buy: point.dof };
+        entry.sources.dof = { buy: point.dof, sell: entry.sources.dof?.sell ?? 0 };
       }
     });
 
@@ -110,13 +112,13 @@ export function ExchangeRateHistoryV2() {
       }
       const entry = entryMap.get(key)!;
       if (point.santander !== undefined) {
-        entry.sources.santander = { ...entry.sources.santander, sell: point.santander };
+        entry.sources.santander = { buy: entry.sources.santander?.buy ?? 0, sell: point.santander };
       }
       if (point.monex !== undefined) {
-        entry.sources.monex = { ...entry.sources.monex, sell: point.monex };
+        entry.sources.monex = { buy: entry.sources.monex?.buy ?? 0, sell: point.monex };
       }
       if (point.dof !== undefined) {
-        entry.sources.dof = { ...entry.sources.dof, sell: point.dof };
+        entry.sources.dof = { buy: entry.sources.dof?.buy ?? 0, sell: point.dof };
       }
     });
 
@@ -131,7 +133,7 @@ export function ExchangeRateHistoryV2() {
   }, [buyData, sellData]);
 
   // Colores y nombres de fuentes
-  const sourceConfig = {
+  const sourceConfig: Record<SourceKey, { label: string; color: string; bgColor: string }> = {
     santander: { label: 'Santander', color: '#16a34a', bgColor: 'bg-green-50 dark:bg-green-800/5' },
     monex: { label: 'MONEX', color: '#2563eb', bgColor: 'bg-blue-50 dark:bg-blue-800/5' },
     dof: { label: 'DOF', color: '#ea580c', bgColor: 'bg-orange-50 dark:bg-orange-800/5' },

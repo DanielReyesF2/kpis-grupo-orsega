@@ -14,7 +14,7 @@ export function TimelineBadge({ date, status, amount, currency = "MXN" }: Timeli
   const daysDiff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   const getConfig = () => {
-    if (status === "overdue" || (isPast && status !== "completed")) {
+    if (status === "overdue" || isPast) {
       return {
         variant: "destructive" as const,
         icon: AlertCircle,

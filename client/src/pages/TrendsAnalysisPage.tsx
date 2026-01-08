@@ -322,7 +322,7 @@ export default function TrendsAnalysisPage() {
                   </DialogHeader>
                   <div className="mt-4">
                     <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
+                      <thead className="bg-slate-700 text-white">
                         <tr>
                           <th className="text-left p-3 font-semibold">Período</th>
                           <th className="text-right p-3 font-semibold">Volumen</th>

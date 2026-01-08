@@ -1,8 +1,9 @@
 import { users, companies, areas, actionPlans, shipments, shipmentItems, shipmentUpdates, notifications, shipmentNotifications, jobProfiles, shipmentCycleTimes, clients, paymentVouchers } from "@shared/schema";
-import type { 
-  User, InsertUser, 
-  Company, InsertCompany, 
-  Area, InsertArea, 
+import type {
+  User, InsertUser,
+  Company, InsertCompany,
+  CompanyId,
+  Area, InsertArea,
   Kpi, InsertKpi,
   KpiValue, InsertKpiValue,
   ActionPlan, InsertActionPlan,
@@ -369,11 +370,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Contabilidad y Finanzas")!.id,
-          companyId: duraCompany.id,
+          area: duraAreaMap.get("Contabilidad y Finanzas")!.name,
+          companyId: duraCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -414,8 +421,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: duraCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -429,11 +438,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Contabilidad y Finanzas")!.id,
-          companyId: orsegaCompany.id,
+          area: orsegaAreaMap.get("Contabilidad y Finanzas")!.name,
+          companyId: orsegaCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
@@ -470,8 +485,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: orsegaCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -534,11 +551,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Compras")!.id,
-          companyId: duraCompany.id,
+          area: duraAreaMap.get("Compras")!.name,
+          companyId: duraCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -563,8 +586,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: duraCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -578,11 +603,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Compras")!.id,
-          companyId: orsegaCompany.id,
+          area: orsegaAreaMap.get("Compras")!.name,
+          companyId: orsegaCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
@@ -605,8 +636,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: orsegaCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -679,11 +712,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Ventas")!.id,
-          companyId: duraCompany.id,
+          area: duraAreaMap.get("Ventas")!.name,
+          companyId: duraCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -751,8 +790,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: duraCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -766,11 +807,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Ventas")!.id,
-          companyId: orsegaCompany.id,
+          area: orsegaAreaMap.get("Ventas")!.name,
+          companyId: orsegaCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
@@ -843,8 +890,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: orsegaCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -937,11 +986,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Soporte de Ventas")!.id,
-          companyId: duraCompany.id,
+          area: duraAreaMap.get("Soporte de Ventas")!.name,
+          companyId: duraCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -975,8 +1030,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: duraCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -990,11 +1047,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Soporte de Ventas")!.id,
-          companyId: orsegaCompany.id,
+          area: orsegaAreaMap.get("Soporte de Ventas")!.name,
+          companyId: orsegaCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
@@ -1020,8 +1083,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: orsegaCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -1094,11 +1159,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.duraTarget,
+          goal: kpiData.duraTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: duraAreaMap.get("Logística")!.id,
-          companyId: duraCompany.id,
+          area: duraAreaMap.get("Logística")!.name,
+          companyId: duraCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(duraKpi.id, duraKpi);
@@ -1130,8 +1201,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: duraKpi.id,
-            userId: 1, // Admin user
+            companyId: duraCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -1145,11 +1218,17 @@ export class MemStorage {
           description: kpiData.description,
           unit: kpiData.unit,
           target: kpiData.orsegaTarget,
+          goal: kpiData.orsegaTarget,
+          annualGoal: null,
           frequency: kpiData.frequency,
           calculationMethod: kpiData.calculationMethod,
           responsible: kpiData.responsible,
           areaId: orsegaAreaMap.get("Logística")!.id,
-          companyId: orsegaCompany.id,
+          area: orsegaAreaMap.get("Logística")!.name,
+          companyId: orsegaCompany.id as CompanyId,
+          source: null,
+          period: null,
+          createdAt: new Date(),
           invertedMetric: false
         };
         this.kpis.set(orsegaKpi.id, orsegaKpi);
@@ -1177,8 +1256,10 @@ export class MemStorage {
           const kpiValue: KpiValue = {
             id: this.kpiValueId++,
             kpiId: orsegaKpi.id,
-            userId: 1, // Admin user
+            companyId: orsegaCompany.id as CompanyId,
             updatedBy: null,
+            month: null,
+            year: null,
             ...valueData,
             date: new Date()
           };
@@ -1359,13 +1440,14 @@ export class MemStorage {
 
     const kpi: Kpi = {
       id,
-      companyId: insertKpi.companyId,
+      companyId: insertKpi.companyId!,
       areaId: insertKpi.areaId ?? null,
       area: area?.name ?? insertKpi.area ?? null,
       name: insertKpi.name,
       description: insertKpi.description ?? null,
       goal,
       target: goal,
+      annualGoal: null,
       unit: insertKpi.unit ?? null,
       frequency: insertKpi.frequency ?? null,
       calculationMethod: insertKpi.calculationMethod ?? null,
@@ -1393,7 +1475,7 @@ export class MemStorage {
     }
 
     if (kpiData.areaId !== undefined) {
-      const area = this.areas.get(kpiData.areaId);
+      const area = kpiData.areaId ? this.areas.get(kpiData.areaId) : undefined;
       updatedKpi.areaId = kpiData.areaId;
       if (area) {
         updatedKpi.area = area.name;
@@ -1442,7 +1524,7 @@ export class MemStorage {
   }
 
   async getKpiValuesByKpi(kpiId: number, companyId: number): Promise<KpiValue[]> {
-    return this.getKpiValues(companyId)
+    return (await this.getKpiValues(companyId))
       .filter((value) => value.kpiId === kpiId)
       .sort((a, b) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;
@@ -1452,7 +1534,7 @@ export class MemStorage {
   }
 
   async getLatestKpiValues(kpiId: number, limit: number, companyId: number): Promise<KpiValue[]> {
-    return this.getKpiValues(companyId)
+    return (await this.getKpiValues(companyId))
       .filter((value) => value.kpiId === kpiId)
       .sort((a, b) => {
         const aTime = a.date ? new Date(a.date).getTime() : 0;
@@ -1467,7 +1549,7 @@ export class MemStorage {
     // Actualizamos para manejar períodos más amigables para gráficos (Enero 2025, Febrero 2025, etc.)
     // Si el período está en un formato diferente, lo extraemos de la fecha actual
     let period = insertKpiValue.period;
-    
+
     if (!period || period === 'monthly') {
       const date = new Date();
       const months = [
@@ -1476,18 +1558,25 @@ export class MemStorage {
       ];
       period = `${months[date.getMonth()]} ${date.getFullYear()}`;
     }
-    
-    const kpiValue: KpiValue = { 
-      ...insertKpiValue, 
-      id, 
+
+    // Get the KPI to determine the companyId
+    const kpi = this.kpis.get(insertKpiValue.kpiId);
+    const companyId = insertKpiValue.companyId || kpi?.companyId || (1 as CompanyId);
+
+    const kpiValue: KpiValue = {
+      ...insertKpiValue,
+      id,
+      companyId,
       date: new Date(),
       period,
+      month: insertKpiValue.month || null,
+      year: insertKpiValue.year || null,
       status: insertKpiValue.status || null,
       compliancePercentage: insertKpiValue.compliancePercentage || null,
       comments: insertKpiValue.comments || null,
       updatedBy: insertKpiValue.updatedBy || null
     };
-    
+
     this.kpiValues.set(id, kpiValue);
     return kpiValue;
   }
@@ -1600,8 +1689,8 @@ export class MemStorage {
     const updatedAt = new Date();
     
     const shipment: Shipment = {
-      id,
       ...shipmentData,
+      id,
       trackingCode,
       status: shipmentData.status || 'pending',
       createdAt,
@@ -1619,8 +1708,19 @@ export class MemStorage {
       distance: shipmentData.distance || null,
       carbonFootprint: shipmentData.carbonFootprint || null,
       driverName: shipmentData.driverName || null,
-      driverPhone: shipmentData.driverPhone || null
-    };
+      driverPhone: shipmentData.driverPhone || null,
+      customerId: shipmentData.customerId || null,
+      invoiceNumber: shipmentData.invoiceNumber || null,
+      transportCost: shipmentData.transportCost || null,
+      inRouteAt: shipmentData.inRouteAt || null,
+      deliveredAt: shipmentData.deliveredAt || null,
+      destinationLat: shipmentData.destinationLat || null,
+      destinationLng: shipmentData.destinationLng || null,
+      originLat: shipmentData.originLat || null,
+      originLng: shipmentData.originLng || null,
+      purchaseOrderNumber: shipmentData.purchaseOrderNumber || null,
+      notificationEmails: shipmentData.notificationEmails || null
+    } as Shipment;
     
     this.shipments.set(id, shipment);
     return shipment;
@@ -1847,14 +1947,25 @@ export class MemStorage {
     // Registrar envíos de Dura
     duraShipments.forEach(shipmentData => {
       const shipment: Shipment = {
-        id: this.shipmentId++,
         ...shipmentData,
+        id: this.shipmentId++,
         actualDeliveryDate: shipmentData.actualDeliveryDate || null,
         createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000), // Fecha aleatoria en los últimos 10 días
-        updatedAt: new Date()
-      };
+        updatedAt: new Date(),
+        customerId: null,
+        invoiceNumber: null,
+        transportCost: null,
+        inRouteAt: null,
+        deliveredAt: null,
+        destinationLat: null,
+        destinationLng: null,
+        originLat: null,
+        originLng: null,
+        purchaseOrderNumber: null,
+        notificationEmails: null
+      } as Shipment;
       this.shipments.set(shipment.id, shipment);
-      
+
       // Crear actualizaciones para este envío
       this.createInitialShipmentUpdates(shipment);
     });
@@ -1862,14 +1973,25 @@ export class MemStorage {
     // Registrar envíos de Orsega
     orsegaShipments.forEach(shipmentData => {
       const shipment: Shipment = {
-        id: this.shipmentId++,
         ...shipmentData,
+        id: this.shipmentId++,
         actualDeliveryDate: shipmentData.actualDeliveryDate || null,
         createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000), // Fecha aleatoria en los últimos 10 días
-        updatedAt: new Date()
-      };
+        updatedAt: new Date(),
+        customerId: null,
+        invoiceNumber: null,
+        transportCost: null,
+        inRouteAt: null,
+        deliveredAt: null,
+        destinationLat: null,
+        destinationLng: null,
+        originLat: null,
+        originLng: null,
+        purchaseOrderNumber: null,
+        notificationEmails: null
+      } as Shipment;
       this.shipments.set(shipment.id, shipment);
-      
+
       // Crear actualizaciones para este envío
       this.createInitialShipmentUpdates(shipment);
     });
@@ -2099,10 +2221,8 @@ export class MemStorage {
       userKpis: kpis.map(kpi => ({
         id: kpi.id,
         name: kpi.name,
-        description: kpi.description || '',
-        target: kpi.target,
-        frequency: kpi.frequency,
-        unit: kpi.unit
+        target: kpi.target || '',
+        frequency: kpi.frequency || ''
       }))
     };
   }

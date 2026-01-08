@@ -13,22 +13,23 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDate } from '@/lib/utils/dates';
 import { getStatusText } from '@/lib/utils/kpi-status';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  XCircle, 
-  Loader2, 
-  CalendarDays, 
-  CalendarClock, 
-  User, 
-  FileText, 
-  ListTodo, 
+import {
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Loader2,
+  CalendarDays,
+  CalendarClock,
+  User,
+  FileText,
+  ListTodo,
   Plus,
   Target,
   Clock,
   TrendingUp
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { Kpi, KpiValue, Company, Area, ActionPlan } from '@shared/schema';
 
 interface KpiDetailsModalProps {
   kpiId: number | null;
@@ -48,47 +49,56 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
   }, [isOpen]);
 
   // Fetch KPI details
-  const { data: kpi, isLoading: isLoadingKpi } = useQuery({
+  const { data: kpi, isLoading: isLoadingKpi } = useQuery<Kpi>({
     queryKey: [`/api/kpis/${kpiId}`],
     enabled: !!kpiId && isOpen,
   });
 
   // Fetch KPI values
-  const { data: kpiValues, isLoading: isLoadingValues } = useQuery({
+  const { data: kpiValues, isLoading: isLoadingValues } = useQuery<KpiValue[]>({
     queryKey: [`/api/kpi-values`, { kpiId }],
     enabled: !!kpiId && isOpen,
   });
 
   // Fetch company and area details
-  const { data: company } = useQuery({
+  const { data: company } = useQuery<Company>({
     queryKey: [`/api/companies/${kpi?.companyId}`],
     enabled: !!kpi && isOpen,
   });
 
-  const { data: area } = useQuery({
+  const { data: area } = useQuery<Area>({
     queryKey: [`/api/areas/${kpi?.areaId}`],
     enabled: !!kpi && isOpen,
   });
 
   // Fetch action plans
-  const { data: actionPlans, isLoading: isLoadingActionPlans } = useQuery({
+  const { data: actionPlans, isLoading: isLoadingActionPlans } = useQuery<ActionPlan[]>({
     queryKey: [`/api/action-plans`, { kpiId }],
     enabled: !!kpiId && isOpen,
   });
 
   // Get latest value
-  const latestValue = kpiValues?.length > 0
-    ? [...kpiValues].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+  const latestValue = kpiValues && kpiValues.length > 0
+    ? [...kpiValues].sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+      })[0]
     : null;
 
   // Format data for chart
   const chartData = kpiValues
     ? [...kpiValues]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .filter(value => value.date !== null)
+        .sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateA - dateB;
+        })
         .map(value => ({
-          date: formatDate(value.date),
+          date: value.date ? formatDate(value.date) : '',
           value: parseFloat(value.value.replace('%', '')),
-          period: value.period
+          period: value.period || ''
         }))
     : [];
 
@@ -288,7 +298,7 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                         <div className="border-b border-secondary-200 pb-3">
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-medium">{kpi?.responsible || 'Sistema'}</span>
-                            <span className="text-xs text-secondary-500">{formatDate(latestValue?.date)}</span>
+                            <span className="text-xs text-secondary-500">{latestValue?.date ? formatDate(latestValue.date) : 'N/A'}</span>
                           </div>
                           <p className="text-sm text-secondary-700">{latestValue.comments}</p>
                         </div>
@@ -330,28 +340,32 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                   ) : kpiValues && kpiValues.length > 0 ? (
                     <div className="bg-white border border-secondary-200 rounded-lg overflow-hidden">
                       <table className="min-w-full divide-y divide-secondary-200">
-                        <thead>
+                        <thead className="bg-slate-700">
                           <tr>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Periodo</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Valor</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Estado</th>
-                            <th className="px-6 py-3 bg-secondary-50 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Fecha</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Periodo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Valor</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Estado</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Fecha</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-secondary-200">
                           {[...kpiValues]
-                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            .sort((a, b) => {
+                              const dateA = a.date ? new Date(a.date).getTime() : 0;
+                              const dateB = b.date ? new Date(b.date).getTime() : 0;
+                              return dateB - dateA;
+                            })
                             .map((value) => (
                             <tr key={value.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{value.period}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{value.period || 'N/A'}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{value.value}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value.status)}`}>
-                                  {getStatusIcon(value.status)}
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value.status || '')}`}>
+                                  {getStatusIcon(value.status || '')}
                                   {getStatusText(value.status as any)}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{formatDate(value.date)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{value.date ? formatDate(value.date) : 'N/A'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -381,21 +395,21 @@ export function KpiDetailsModal({ kpiId, isOpen, onClose }: KpiDetailsModalProps
                     </div>
                   ) : actionPlans && actionPlans.length > 0 ? (
                     <div className="space-y-4">
-                      {actionPlans.map((plan: any) => (
+                      {actionPlans.map((plan) => (
                         <div key={plan.id} className="bg-white border border-secondary-200 rounded-lg p-4">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-medium text-secondary-900">{plan.problemDescription}</h4>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                              ${plan.status === 'completed' 
-                                ? 'bg-green-100 text-green-800' 
-                                : plan.status === 'in_progress' 
-                                ? 'bg-blue-100 text-blue-800' 
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                              ${plan.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : plan.status === 'in_progress'
+                                ? 'bg-blue-100 text-blue-800'
                                 : 'bg-yellow-100 text-yellow-800'}`}
                             >
-                              {plan.status === 'completed' 
-                                ? <><CheckCircle className="h-3 w-3 mr-1" /> Completado</> 
-                                : plan.status === 'in_progress' 
-                                ? <><Clock className="h-3 w-3 mr-1" /> En proceso</> 
+                              {plan.status === 'completed'
+                                ? <><CheckCircle className="h-3 w-3 mr-1" /> Completado</>
+                                : plan.status === 'in_progress'
+                                ? <><Clock className="h-3 w-3 mr-1" /> En proceso</>
                                 : <><AlertTriangle className="h-3 w-3 mr-1" /> Pendiente</>}
                             </span>
                           </div>

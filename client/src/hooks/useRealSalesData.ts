@@ -1,17 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 export interface SalesData {
   id: number;
   companyId: number;
   clientId?: number;
   productId?: number;
+  clientName?: string;
+  productName?: string;
   quantity: number;
   amount: number;
+  unitPrice?: number;
   date: string;
   month?: number;
   year?: number;
   currency?: string;
+  unit?: string;
+  invoiceNumber?: string;
 }
 
 export interface Client {
@@ -35,23 +41,78 @@ export function useRealSalesData(companyId?: number, filters?: {
   clientId?: number;
   productId?: number;
 }) {
+  // Build query params for sales data
+  const salesParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (companyId) params.companyId = String(companyId);
+    if (filters?.clientId) params.clientId = String(filters.clientId);
+    if (filters?.productId) params.productId = String(filters.productId);
+    if (filters?.startDate) params.startDate = filters.startDate;
+    if (filters?.endDate) params.endDate = filters.endDate;
+    return params;
+  }, [companyId, filters]);
+
   // Fetch sales data
   const { data: salesData, isLoading: isLoadingSales, error: salesError } = useQuery<SalesData[]>({
-    queryKey: ['/api/sales-data', { companyId, ...filters }],
+    queryKey: ['/api/sales-data', salesParams],
+    queryFn: async () => {
+      const queryString = new URLSearchParams(salesParams).toString();
+      const res = await apiRequest('GET', `/api/sales-data?${queryString}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch sales data: ${res.statusText}`);
+      }
+      const data = await res.json();
+      // Map backend fields to frontend interface
+      return data.map((item: any) => ({
+        id: item.id,
+        companyId: item.company_id || companyId || 0,
+        clientId: item.client_id || undefined,
+        productId: item.product_id || undefined,
+        clientName: item.client_name,
+        productName: item.product_name,
+        quantity: parseFloat(item.quantity || 0),
+        amount: parseFloat(item.total_amount || item.amount || 0),
+        unitPrice: item.unit_price ? parseFloat(item.unit_price) : undefined,
+        date: item.sale_date || item.date,
+        month: item.sale_month || item.month,
+        year: item.sale_year || item.year,
+        unit: item.unit,
+        invoiceNumber: item.invoice_number,
+      }));
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
+    enabled: !!companyId,
   });
 
   // Fetch clients
   const { data: clients, isLoading: isLoadingClients, error: clientsError } = useQuery<Client[]>({
     queryKey: ['/api/clients', { companyId }],
+    queryFn: async () => {
+      const queryString = companyId ? `?companyId=${companyId}` : '';
+      const res = await apiRequest('GET', `/api/clients${queryString}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch clients: ${res.statusText}`);
+      }
+      return await res.json();
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!companyId,
   });
 
   // Fetch products
   const { data: products, isLoading: isLoadingProducts, error: productsError } = useQuery<Product[]>({
     queryKey: ['/api/products', { companyId }],
+    queryFn: async () => {
+      const queryString = companyId ? `?companyId=${companyId}` : '';
+      const res = await apiRequest('GET', `/api/products${queryString}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch products: ${res.statusText}`);
+      }
+      return await res.json();
+    },
     staleTime: 10 * 60 * 1000,
+    enabled: !!companyId,
   });
 
   // Calculate statistics

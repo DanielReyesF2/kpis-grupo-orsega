@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
-import { motion } from "framer-motion";
 import {
   DollarSign,
   TrendingUp,
@@ -19,9 +18,6 @@ import {
   Percent,
   Calendar,
   BarChart3,
-  Users,
-  UserPlus,
-  UserMinus,
 } from "lucide-react";
 import type { AnnualSummary } from "@shared/sales-types";
 import { cn } from "@/lib/utils";
@@ -166,7 +162,7 @@ export function AnnualSummary({ companyId }: AnnualSummaryProps) {
 
 function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Métricas principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
@@ -198,7 +194,7 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
         />
       </div>
 
-      {/* Gráfico mensual */}
+      {/* Gráfico mensual - Final del Dashboard */}
       <Card>
         <CardHeader>
           <CardTitle>Tendencias Mensuales</CardTitle>
@@ -250,245 +246,6 @@ function AnnualSummaryContent({ summary }: { summary: AnnualSummary }) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Métricas de Clientes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Clientes"
-          value={formatNumber(summary.totalClients)}
-          icon={Users}
-        />
-        <MetricCard
-          title="Nuevos Clientes"
-          value={formatNumber(summary.newClients)}
-          icon={UserPlus}
-          variant="success"
-        />
-        <MetricCard
-          title="Clientes Perdidos"
-          value={formatNumber(summary.lostClients)}
-          icon={UserMinus}
-          variant="danger"
-        />
-        <MetricCard
-          title="Tasa Retención"
-          value={`${summary.retentionRate.toFixed(1)}%`}
-          icon={TrendingUp}
-        />
-      </div>
-
-      {/* Clientes Inactivos - Visualización Mejorada */}
-      <Card className="border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-amber-500/20">
-                <UserMinus className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              Clientes Inactivos
-              <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800">
-                {summary.inactiveClients} clientes
-              </Badge>
-            </CardTitle>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Revenue Perdido</p>
-              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                {formatCurrency(
-                  summary.inactiveClientsList.reduce((sum, c) => sum + (c.previousYearRevenue || 0), 0)
-                )}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {summary.inactiveClientsList.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <p className="text-sm font-medium text-muted-foreground">¡Excelente!</p>
-              <p className="text-xs text-muted-foreground mt-1">No hay clientes inactivos</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {summary.inactiveClientsList.slice(0, 12).map((client, index) => {
-                const revenue = client.previousYearRevenue || 0;
-                const isHighValue = revenue > 100000;
-                const isMediumValue = revenue > 50000;
-                
-                // Calcular días desde última compra
-                const lastPurchase = client.lastPurchaseDate 
-                  ? new Date(client.lastPurchaseDate) 
-                  : null;
-                const daysSince = lastPurchase 
-                  ? Math.floor((new Date().getTime() - lastPurchase.getTime()) / (1000 * 60 * 60 * 24))
-                  : null;
-                
-                return (
-                  <motion.div
-                    key={client.name}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={cn(
-                      "relative p-4 rounded-xl border-2 transition-all hover:shadow-lg hover:scale-[1.02]",
-                      isHighValue
-                        ? "border-red-300 dark:border-red-800 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/20"
-                        : isMediumValue
-                        ? "border-amber-300 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20"
-                        : "border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50/50 to-amber-50/30 dark:from-orange-950/20 dark:to-amber-950/10"
-                    )}
-                  >
-                    {/* Badge de prioridad */}
-                    {isHighValue && (
-                      <div className="absolute top-2 right-2">
-                        <Badge className="bg-red-500 text-white text-[10px] px-2 py-0.5">
-                          ALTA PRIORIDAD
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    {/* Avatar/Iniciales */}
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0",
-                        isHighValue
-                          ? "bg-gradient-to-br from-red-500 to-red-600"
-                          : isMediumValue
-                          ? "bg-gradient-to-br from-amber-500 to-orange-500"
-                          : "bg-gradient-to-br from-orange-400 to-amber-400"
-                      )}>
-                        {client.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{client.name}</p>
-                        {daysSince !== null && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {daysSince > 365 
-                              ? `${Math.floor(daysSince / 365)} año${Math.floor(daysSince / 365) > 1 ? 's' : ''} sin comprar`
-                              : daysSince > 30
-                              ? `${Math.floor(daysSince / 30)} mes${Math.floor(daysSince / 30) > 1 ? 'es' : ''} sin comprar`
-                              : `${daysSince} día${daysSince > 1 ? 's' : ''} sin comprar`
-                            }
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Revenue perdido destacado */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-background/60 dark:bg-background/40">
-                        <span className="text-xs font-medium text-muted-foreground">Revenue Perdido</span>
-                        <span className={cn(
-                          "text-base font-bold",
-                          isHighValue ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-                        )}>
-                          {formatCurrency(revenue)}
-                        </span>
-                      </div>
-                      
-                      {/* Barra de progreso visual */}
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min((revenue / 500000) * 100, 100)}%` }}
-                          transition={{ delay: index * 0.05 + 0.2, duration: 0.5 }}
-                          className={cn(
-                            "h-full rounded-full",
-                            isHighValue
-                              ? "bg-gradient-to-r from-red-500 to-red-600"
-                              : isMediumValue
-                              ? "bg-gradient-to-r from-amber-500 to-orange-500"
-                              : "bg-gradient-to-r from-orange-400 to-amber-400"
-                          )}
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Fecha última compra */}
-                    {lastPurchase && (
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          <span>
-                            Última compra: {lastPurchase.toLocaleDateString('es-MX', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Métricas adicionales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Meses Bajo Promedio</p>
-                <p className="text-3xl font-bold">{summary.monthsBelowAverage}</p>
-                <p className="text-xs text-muted-foreground mt-1">de {summary.monthlySales.length} meses</p>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Crecimiento Anual</p>
-                <p className={cn(
-                  "text-3xl font-bold",
-                  summary.growthVsPreviousYear >= 0 ? "text-emerald-600" : "text-red-600"
-                )}>
-                  {summary.growthVsPreviousYear >= 0 ? '+' : ''}{summary.growthVsPreviousYear.toFixed(1)}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">vs año anterior</p>
-              </div>
-              <div className={cn(
-                "w-12 h-12 rounded-lg flex items-center justify-center",
-                summary.growthVsPreviousYear >= 0 ? "bg-emerald-500/20" : "bg-red-500/20"
-              )}>
-                {summary.growthVsPreviousYear >= 0 ? (
-                  <TrendingUp className="w-6 h-6 text-emerald-600" />
-                ) : (
-                  <TrendingDown className="w-6 h-6 text-red-600" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Utilidad Total</p>
-                <p className="text-3xl font-bold">{formatCurrency(summary.totalProfit)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {summary.profitability.toFixed(1)}% de {formatCurrency(summary.totalRevenue)}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

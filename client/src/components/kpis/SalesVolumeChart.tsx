@@ -112,7 +112,7 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
     const volumeValue = volumeEntry?.value || dataPoint?.value || 0;
     const targetValue = targetEntry?.value || dataPoint?.target || 0;
     const diferencia = volumeValue - targetValue;
-    const cumplimiento = targetValue > 0 ? ((volumeValue / targetValue) * 100).toFixed(1) : 0;
+    const cumplimiento = targetValue > 0 ? ((volumeValue / targetValue) * 100).toFixed(1) : '0';
     
     const unit = volumeEntry?.payload?.unit || 'KG';
     const formatNumber = (num: number) => new Intl.NumberFormat('es-MX').format(num);
@@ -537,24 +537,24 @@ export function SalesVolumeChart({
                     dataKey="value"
                     stroke="#195891"
                     strokeWidth={0.5}
-                    dot={(props: any) => {
+                    dot={(props: any): React.ReactElement<SVGElement> => {
                       const { cx, cy, payload, index } = props;
-                      if (!cx || !cy) return null;
-                      
+                      if (!cx || !cy) return <></>;
+
                       // Calcular tamaño del punto basado en el volumen de ventas
-                      const normalizedValue = valueRange.range > 0 
-                        ? (payload.value - valueRange.minValue) / valueRange.range 
+                      const normalizedValue = valueRange.range > 0
+                        ? (payload.value - valueRange.minValue) / valueRange.range
                         : 0.5;
-                      
+
                       // Tamaño base pequeño, más grande para valores altos
                       const baseSize = 3;
                       const maxSize = 8;
                       const pointSize = baseSize + (normalizedValue * (maxSize - baseSize));
-                      
+
                       // Primer punto gris, el resto azul celeste
                       const isFirstPoint = index === 0;
                       const fillColor = isFirstPoint ? "#9ca3af" : "#195891";
-                      
+
                       return (
                         <circle
                           cx={cx}
@@ -648,30 +648,30 @@ export function SalesVolumeChart({
                     dataKey="value"
                     stroke="#195891"
                     strokeWidth={0.5}
-                    dot={(props: any) => {
+                    dot={(props: any): React.ReactElement<SVGElement> => {
                       const { cx, cy, payload, index } = props;
-                      if (!cx || !cy) return null;
-                      
+                      if (!cx || !cy) return <></>;
+
                       const weeklyData = generateWeeklyData();
                       const values = weeklyData.map((d: any) => d.valor);
                       const minValue = Math.min(...values);
                       const maxValue = Math.max(...values);
                       const range = maxValue - minValue;
-                      
+
                       // Calcular tamaño del punto basado en el volumen de ventas
-                      const normalizedValue = range > 0 
-                        ? (payload.value - minValue) / range 
+                      const normalizedValue = range > 0
+                        ? (payload.value - minValue) / range
                         : 0.5;
-                      
+
                       // Tamaño base pequeño, más grande para valores altos
                       const baseSize = 3;
                       const maxSize = 8;
                       const pointSize = baseSize + (normalizedValue * (maxSize - baseSize));
-                      
+
                       // Primer punto gris, el resto azul celeste
                       const isFirstPoint = index === 0;
                       const fillColor = isFirstPoint ? "#9ca3af" : "#195891";
-                      
+
                       return (
                         <circle
                           cx={cx}
@@ -709,10 +709,12 @@ export function SalesVolumeChart({
         ) : (
           <div className="flex flex-col justify-center items-center h-[250px] sm:h-[300px] text-secondary-500 gap-2">
             <p className="text-sm font-medium">No hay datos suficientes para mostrar la tendencia de volumen de ventas</p>
-            {kpiHistoryError && (
-              <p className="text-xs text-red-500">Error: {kpiHistoryError instanceof Error ? kpiHistoryError.message : 'Error desconocido'}</p>
+            {!!kpiHistoryError && (
+              <p className="text-xs text-red-500">
+                Error: {kpiHistoryError instanceof Error ? kpiHistoryError.message : String(kpiHistoryError)}
+              </p>
             )}
-            {!kpiHistoryError && !isLoadingHistory && (!kpiHistoryData || kpiHistoryData.length === 0) && (
+            {!kpiHistoryError && !isLoadingHistory && (!salesTrendsData || salesTrendsData.length === 0) && (
               <div className="text-center space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">
                   No hay datos históricos de ventas disponibles

@@ -25,8 +25,7 @@ import {
   UserMinus,
   DollarSign,
   RefreshCw,
-  TableIcon,
-  Calendar
+  TableIcon
 } from "lucide-react";
 import type { SalesMetrics } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +53,7 @@ import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
 
-type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics";
+type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics" | "analyst";
 
 export default function SalesPage() {
   const { user } = useAuth();
@@ -70,25 +69,87 @@ export default function SalesPage() {
     return user?.companyId || 1;
   };
 
-  const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
+  // Leer viewMode desde query params si existe
+  const getInitialViewMode = (): ViewMode => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+        return view as ViewMode;
+      }
+    }
+    return "dashboard";
+  };
+
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode());
   const [selectedCompany, setSelectedCompany] = useState<number>(getInitialCompany());
 
-  // Sincronizar selectedCompany con la URL cuando cambie
+  // Sincronizar selectedCompany y viewMode con la URL cuando cambie
   useEffect(() => {
+    // Actualizar companyId basado en la ruta
     if (location === "/sales/dura") {
       setSelectedCompany(1);
     } else if (location === "/sales/orsega") {
       setSelectedCompany(2);
     }
-  }, [location]);
+    
+    // Leer viewMode desde query params (siempre leer de window.location.search para obtener query params actuales)
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    console.log('[SalesPage] useEffect - location:', location, 'view param:', view, 'current viewMode:', viewMode);
+    
+    if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+      if (viewMode !== view) {
+        console.log('[SalesPage] Cambiando viewMode de', viewMode, 'a', view);
+        setViewMode(view as ViewMode);
+      }
+    } else if (!view && location.includes('/sales')) {
+      // Si no hay view param pero estamos en /sales, usar dashboard
+      if (viewMode !== "dashboard") {
+        console.log('[SalesPage] Cambiando viewMode a dashboard (no hay view param)');
+        setViewMode("dashboard");
+      }
+    }
+  }, [location]); // Solo location como dependencia
+
+  // Escuchar cambios en los query params usando popstate
+  useEffect(() => {
+    const checkQueryParams = () => {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      console.log('[SalesPage] checkQueryParams - view:', view, 'current viewMode:', viewMode);
+      
+      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+        if (viewMode !== view) {
+          console.log('[SalesPage] Query params cambiaron - actualizando viewMode a', view);
+          setViewMode(view as ViewMode);
+        }
+      } else if (!view && viewMode !== "dashboard") {
+        console.log('[SalesPage] Query params cambiaron - actualizando viewMode a dashboard');
+        setViewMode("dashboard");
+      }
+    };
+
+    // Verificar inmediatamente al montar
+    checkQueryParams();
+
+    // Escuchar eventos de navegación (back/forward)
+    window.addEventListener('popstate', checkQueryParams);
+    
+    // También escuchar cambios de hash (wouter puede usar hash routing)
+    const handleHashChange = () => {
+      setTimeout(checkQueryParams, 0);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('popstate', checkQueryParams);
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []); // Solo ejecutar una vez al montar
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
-
-  // Año seleccionado para vista - por default año actual
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const availableYears = [2025, 2024, 2023, 2022]; // Años disponibles
 
   // Determinar qué empresas puede ver el usuario
   const canViewDura = user?.role === 'admin' || user?.companyId === 1;
@@ -127,11 +188,12 @@ export default function SalesPage() {
     refetchInterval: 60000
   });
 
-  // Query para tendencias mensuales del año seleccionado
+  // Query para tendencias mensuales del año actual
+  const currentYear = new Date().getFullYear();
   const { data: monthlyTrends, isLoading: isLoadingTrends } = useQuery({
-    queryKey: ['/api/sales-monthly-trends', selectedCompany, selectedYear],
+    queryKey: ['/api/sales-monthly-trends', selectedCompany, currentYear],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&year=${selectedYear}`);
+      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${selectedCompany}&year=${currentYear}`);
       return await res.json();
     },
     enabled: !!user && viewMode === 'overview',
@@ -313,67 +375,44 @@ export default function SalesPage() {
   return (
     <AppLayout title={`Módulo de Ventas - ${companyColors.name}`}>
       <div className="container mx-auto py-8 px-4 max-w-7xl">
-        {/* Header - Minimalista */}
-        <div className={`mb-8 ${companyColors.bg} rounded-lg p-6 border-l-4 ${companyColors.border}`}>
-          <div className="flex items-start justify-between mb-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-sales-h1-dark">
-                  Módulo de Ventas
-                </h1>
-                <Badge 
-                  variant="outline" 
-                  className={`${companyColors.border} ${companyColors.text} font-semibold`}
-                >
-                  {companyColors.name}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Análisis comparativo y seguimiento de clientes
-              </p>
-
-              {/* Selector de Año */}
-              <div className="flex items-center gap-2 mt-3">
-                <Calendar className={`h-4 w-4 ${companyColors.iconColor}`} />
-                <span className="text-sm text-muted-foreground">Año:</span>
-                <div className="flex gap-1">
-                  {availableYears.map((year) => (
-                    <Button
-                      key={year}
-                      variant={selectedYear === year ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedYear(year)}
-                      className={`h-7 px-3 text-xs ${
-                        selectedYear === year
-                          ? companyColors.button
-                          : `hover:${companyColors.bg}`
-                      }`}
-                    >
-                      {year}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => setViewMode("upload")}
-              variant="default"
-              size="sm"
-              className={`shrink-0 ${companyColors.button}`}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Subir Excel
-            </Button>
-          </div>
-        </div>
-
         {/* Vista según modo seleccionado */}
         {viewMode === "dashboard" && (
           <SalesDashboard companyId={selectedCompany} />
         )}
         {viewMode === "overview" && (
           <div className="space-y-8">
+            {/* Header - Minimalista */}
+            <div className={`mb-8 ${companyColors.bg} rounded-lg p-6 border-l-4 ${companyColors.border}`}>
+              <div className="flex items-start justify-between mb-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-sales-h1-dark">
+                      Módulo de Ventas
+                    </h1>
+                    <Badge 
+                      variant="outline" 
+                      className={`${companyColors.border} ${companyColors.text} font-semibold`}
+                    >
+                      {companyColors.name}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Análisis comparativo y seguimiento de clientes
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => setViewMode("upload")}
+                  variant="default"
+                  size="sm"
+                  className={`shrink-0 ${companyColors.button}`}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Subir Excel
+                </Button>
+              </div>
+            </div>
+
             {/* KPIs Overview - Diseño Minimalista */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className={`${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}>
@@ -456,31 +495,31 @@ export default function SalesPage() {
               </Card>
 
               <Card className={`${
-                stats?.growth >= 0 
-                  ? `${companyColors.cardBg} ${companyColors.cardBorder}` 
+                (stats?.growth ?? 0) >= 0
+                  ? `${companyColors.cardBg} ${companyColors.cardBorder}`
                   : 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/10 dark:to-red-900/5 border-red-200/50 dark:border-red-800/30'
               } border-2 shadow-sm hover:shadow-md transition-all`}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-sm font-medium ${
-                        stats?.growth >= 0 ? companyColors.titleColor : 'text-red-600 dark:text-red-400'
+                        (stats?.growth ?? 0) >= 0 ? companyColors.titleColor : 'text-red-600 dark:text-red-400'
                       } mb-1`}>Crecimiento</p>
                       <p className={`text-4xl font-bold ${
-                        stats?.growth >= 0 ? companyColors.valueColor : 'text-red-700 dark:text-red-300'
+                        (stats?.growth ?? 0) >= 0 ? companyColors.valueColor : 'text-red-700 dark:text-red-300'
                       }`}>
                       {isLoadingStats ? (
                         <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
                       ) : (
-                        `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`
+                        `${(stats?.growth ?? 0) >= 0 ? '+' : ''}${stats?.growth ?? 0}%`
                       )}
                     </p>
                     </div>
                     <div className={`${
-                      stats?.growth >= 0 ? companyColors.iconBg : 'bg-red-500/15 dark:bg-red-500/20'
+                      (stats?.growth ?? 0) >= 0 ? companyColors.iconBg : 'bg-red-500/15 dark:bg-red-500/20'
                     } p-3 rounded-full`}>
                       {!isLoadingStats && (
-                        stats?.growth >= 0 ? (
+                        (stats?.growth ?? 0) >= 0 ? (
                           <TrendingUp className={`w-10 h-10 ${companyColors.iconColor}`} />
                         ) : (
                           <TrendingDown className="w-10 h-10 text-red-600 dark:text-red-400" />
@@ -666,6 +705,26 @@ export default function SalesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card
                 className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
+                onClick={() => setViewMode("analyst")}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Analista de Ventas</p>
+                      <p className="text-xs text-muted-foreground">Análisis estratégico y recomendaciones</p>
+                    </div>
+                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
+                      <Sparkles className={`w-10 h-10 ${companyColors.iconColor}`} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Clientes a enfocar, productos a vender y estrategias
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
                 onClick={() => setViewMode("analytics")}
               >
                 <CardContent className="p-6">
@@ -762,7 +821,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    Tendencias Mensuales {selectedYear}
+                    Tendencias Mensuales {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Evolución del volumen de ventas por mes
@@ -838,7 +897,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    Volumen Mensual {selectedYear}
+                    Volumen Mensual {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Comparación de volumen por mes del año seleccionado
@@ -964,7 +1023,7 @@ export default function SalesPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
-                    Resumen {selectedYear}
+                    Resumen {currentYear}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Métricas clave del año seleccionado
@@ -1002,7 +1061,7 @@ export default function SalesPage() {
                         <p className="text-2xl font-semibold text-foreground tabular-nums">
                           {monthlyTrends?.length || 0}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">Año {selectedYear}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Año {currentYear}</p>
                       </div>
                       <Button
                         onClick={() => setViewMode("upload")}
@@ -1514,6 +1573,7 @@ export default function SalesPage() {
             <SalesYearlyComparisonTable companyId={selectedCompany} />
           </div>
         )}
+
       </div>
     </AppLayout>
   );

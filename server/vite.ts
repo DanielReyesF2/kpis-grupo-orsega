@@ -62,7 +62,7 @@ export async function setupVite(app: Express, server: Server) {
     configFile: false,
     customLogger: {
       ...viteLogger,
-      error: (msg, options) => {
+      error: (msg: string, options?: any) => {
         // Log errors but don't kill the server - let Vite handle retries
         viteLogger.error(msg, options);
         // Only exit on critical errors, not on transform errors
@@ -150,25 +150,64 @@ export function serveStatic(app: Express) {
   }));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (req, res, next) => {
+  // This MUST be registered AFTER all API routes
+  // Use a more explicit catch-all pattern that works in Express
+  app.get('*', (req, res, next) => {
     // Skip API routes - they should be handled by Express routes
     if (req.path.startsWith("/api/")) {
       return next();
     }
     
+    // Skip healthcheck endpoints
+    if (req.path === '/health' || req.path === '/healthz') {
+      return next();
+    }
+    
     const indexPath = path.resolve(finalDistPath, "index.html");
     if (fs.existsSync(indexPath)) {
+      console.log(`[serveStatic] Serving index.html for route: ${req.path}`);
       // Ensure index.html is never cached
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.sendFile(indexPath);
     } else {
+      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
       // If index.html doesn't exist, at least return 200 for healthcheck
       res.status(200).json({ 
         message: "Server running but frontend not found",
-        healthcheck: "Use /health endpoint" 
+        healthcheck: "Use /health endpoint",
+        indexPath: indexPath
       });
+    }
+  });
+  
+  // Also handle other HTTP methods (POST, PUT, etc.) for SPA routing
+  app.use('*', (req, res, next) => {
+    // Skip API routes - they should be handled by Express routes
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+    
+    // Skip healthcheck endpoints
+    if (req.path === '/health' || req.path === '/healthz') {
+      return next();
+    }
+    
+    // Only handle GET requests with app.get above, let other methods pass through
+    if (req.method !== 'GET') {
+      return next();
+    }
+    
+    const indexPath = path.resolve(finalDistPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      console.log(`[serveStatic] Serving index.html for ${req.method} ${req.path}`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.sendFile(indexPath);
+    } else {
+      next();
     }
   });
 }

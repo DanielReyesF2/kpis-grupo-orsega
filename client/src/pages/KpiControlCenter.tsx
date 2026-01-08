@@ -397,7 +397,7 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
                     <div className="border-t bg-gray-50 dark:bg-gray-900">
                       <div className="overflow-x-auto">
                         <table className="w-full">
-                          <thead className="bg-gray-100 dark:bg-gray-800">
+                          <thead className="bg-slate-700 text-white">
                             <tr className="text-xs">
                               <th className="text-left p-2">Período</th>
                               <th className="text-right p-2">Valor</th>
