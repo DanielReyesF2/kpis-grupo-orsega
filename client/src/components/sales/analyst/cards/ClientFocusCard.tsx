@@ -20,27 +20,27 @@ export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
     switch (client.priority) {
       case 'critical':
         return {
-          border: 'border-red-200 dark:border-red-800',
-          bg: 'bg-red-50/50 dark:bg-red-950/10',
+          border: 'border-red-200',
+          bg: 'bg-red-50/50',
           badge: 'destructive',
           icon: AlertCircle,
-          iconColor: 'text-red-600 dark:text-red-400'
+          iconColor: 'text-red-600'
         };
       case 'warning':
         return {
-          border: 'border-amber-200 dark:border-amber-800',
-          bg: 'bg-amber-50/50 dark:bg-amber-950/10',
+          border: 'border-amber-200',
+          bg: 'bg-amber-50/50',
           badge: 'secondary',
           icon: AlertCircle,
-          iconColor: 'text-amber-600 dark:text-amber-400'
+          iconColor: 'text-amber-600'
         };
       case 'opportunity':
         return {
-          border: 'border-emerald-200 dark:border-emerald-800',
-          bg: 'bg-emerald-50/50 dark:bg-emerald-950/10',
+          border: 'border-emerald-200',
+          bg: 'bg-emerald-50/50',
           badge: 'default',
           icon: TrendingUp,
-          iconColor: 'text-emerald-600 dark:text-emerald-400'
+          iconColor: 'text-emerald-600'
         };
     }
   }, [client.priority]);
@@ -122,21 +122,21 @@ export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
                 return (
                   <li key={idx} className={cn(
                     "flex items-start gap-2 p-1.5 rounded",
-                    isUrgent ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800" :
-                    isHigh ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800" :
-                    "bg-muted/50"
+                    isUrgent ? "bg-red-50 border border-red-200" :
+                    isHigh ? "bg-amber-50 border border-amber-200" :
+                    "bg-slate-50"
                   )}>
                     <span className={cn(
                       "font-semibold mt-0.5 flex-shrink-0",
-                      isUrgent ? "text-red-600 dark:text-red-400" :
-                      isHigh ? "text-amber-600 dark:text-amber-400" :
+                      isUrgent ? "text-red-600" :
+                      isHigh ? "text-amber-600" :
                       "text-primary"
                     )}>•</span>
                     <span className={cn(
                       "flex-1",
-                      isUrgent ? "text-red-900 dark:text-red-100" :
-                      isHigh ? "text-amber-900 dark:text-amber-100" :
-                      "text-foreground"
+                      isUrgent ? "text-red-900" :
+                      isHigh ? "text-amber-900" :
+                      "text-slate-700"
                     )}>{action}</span>
                   </li>
                 );

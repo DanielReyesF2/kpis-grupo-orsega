@@ -25,9 +25,9 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
   const churnRisk = insights.riskAnalysis.churnRisk;
 
   const riskLevel = useMemo(() => {
-    if (churnRisk >= 70) return { label: 'Alto', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/20' };
-    if (churnRisk >= 40) return { label: 'Medio', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20' };
-    return { label: 'Bajo', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20' };
+    if (churnRisk >= 70) return { label: 'Alto', color: 'text-red-600', bg: 'bg-red-50' };
+    if (churnRisk >= 40) return { label: 'Medio', color: 'text-amber-600', bg: 'bg-amber-50' };
+    return { label: 'Bajo', color: 'text-emerald-600', bg: 'bg-emerald-50' };
   }, [churnRisk]);
 
   const statisticalContext = insights.statisticalContext;
