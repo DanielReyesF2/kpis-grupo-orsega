@@ -6055,18 +6055,36 @@ export function registerRoutes(app: express.Application) {
       const n8nWebhookUrl = process.env.N8N_EXCHANGE_RATE_WEBHOOK_URL;
       if (n8nWebhookUrl) {
         try {
+          // Pre-formatear datos para que N8N no tenga que procesarlos
+          const exchangeDate = new Date(formattedResult.date);
+          const buyRateNum = parseFloat(buyRate);
+          const sellRateNum = parseFloat(sellRate);
+
           const webhookPayload = {
             event: 'exchange_rate_updated',
+            // Datos crudos
             data: {
               id: inserted.id,
-              buyRate: parseFloat(buyRate),
-              sellRate: parseFloat(sellRate),
+              buyRate: buyRateNum,
+              sellRate: sellRateNum,
               source: source || 'manual',
               date: formattedResult.date,
               createdBy: user.name || user.email,
             },
+            // Datos pre-formateados para el email (evita errores de JS en N8N)
+            formatted: {
+              asunto: `💱 Tipo de Cambio Actualizado - ${(source || 'MANUAL').toUpperCase()} - $${buyRateNum.toFixed(4)}`,
+              fecha: exchangeDate.toISOString().split('T')[0],
+              hora: exchangeDate.toTimeString().split(' ')[0],
+              compra: buyRateNum.toFixed(4),
+              venta: sellRateNum.toFixed(4),
+              fuente: (source || 'manual').toUpperCase(),
+              usuario: user.name || user.email || 'Sistema',
+            },
             timestamp: new Date().toISOString()
           };
+
+          console.log(`[N8N Webhook] Enviando payload:`, JSON.stringify(webhookPayload, null, 2));
 
           fetch(n8nWebhookUrl, {
             method: 'POST',

@@ -21,43 +21,43 @@
             {
               "id": "asunto",
               "name": "asunto",
-              "value": "=💱 Tipo de Cambio Actualizado - {{ $json.data.source.toUpperCase() }} - ${{ $json.data.buyRate.toFixed(4) }}",
+              "value": "={{ $json.formatted.asunto }}",
               "type": "string"
             },
             {
               "id": "fecha",
               "name": "fecha",
-              "value": "={{ $json.data.date.split('T')[0] }}",
+              "value": "={{ $json.formatted.fecha }}",
               "type": "string"
             },
             {
               "id": "hora",
               "name": "hora",
-              "value": "={{ $json.data.date.split('T')[1].split('.')[0] }}",
+              "value": "={{ $json.formatted.hora }}",
               "type": "string"
             },
             {
               "id": "compra",
               "name": "compra",
-              "value": "={{ $json.data.buyRate.toFixed(4) }}",
+              "value": "={{ $json.formatted.compra }}",
               "type": "string"
             },
             {
               "id": "venta",
               "name": "venta",
-              "value": "={{ $json.data.sellRate.toFixed(4) }}",
+              "value": "={{ $json.formatted.venta }}",
               "type": "string"
             },
             {
               "id": "fuente",
               "name": "fuente",
-              "value": "={{ $json.data.source.toUpperCase() }}",
+              "value": "={{ $json.formatted.fuente }}",
               "type": "string"
             },
             {
               "id": "usuario",
               "name": "usuario",
-              "value": "={{ $json.data.createdBy }}",
+              "value": "={{ $json.formatted.usuario }}",
               "type": "string"
             }
           ]
@@ -140,7 +140,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "2",
+  "versionId": "3",
   "meta": {
     "instanceId": "econova-kpi-dashboard"
   },
