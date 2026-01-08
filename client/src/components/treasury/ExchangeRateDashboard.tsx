@@ -249,25 +249,24 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
               return (
                 <Card key={rate.id} className={`${colors.bg} ${colors.border}`}>
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge className={colors.text} variant="outline">
-                          {rate.source}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(rate.date), "HH:mm:ss", { locale: es })}
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <Badge className={`${colors.text} min-w-[80px] justify-center`} variant="outline">
+                        {rate.source}
+                      </Badge>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
+                        <Clock className="h-3.5 w-3.5" />
+                        {format(new Date(rate.date), "HH:mm:ss", { locale: es })}
                       </div>
-                      <div className="flex gap-4 text-sm">
-                        <span>
-                          <span className="text-muted-foreground">Compra:</span>{" "}
-                          <span className="font-bold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
-                        </span>
-                        <span>
-                          <span className="text-muted-foreground">Venta:</span>{" "}
-                          <span className="font-bold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
-                        </span>
+                      <div className="flex-1" />
+                      <div className="flex gap-6 text-sm">
+                        <div className="text-center">
+                          <span className="text-xs text-muted-foreground block">Compra</span>
+                          <span className="font-bold text-base">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs text-muted-foreground block">Venta</span>
+                          <span className="font-bold text-base">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -309,20 +308,23 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
               const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
               return (
                 <Card key={rate.id} className={`${colors.bg} ${colors.border} ${isToday ? "ring-2 ring-primary/20" : ""}`}>
-                  <CardContent className="p-2 px-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge className={colors.text} variant="outline" style={{ fontSize: "10px", padding: "2px 6px" }}>
-                          {rate.source}
-                        </Badge>
-                        <span className="text-muted-foreground text-xs">
-                          {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
-                        </span>
-                      </div>
-                      <div className="flex gap-3">
-                        <span className="font-mono">${(rate.buy_rate ?? 0).toFixed(4)}</span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="font-mono">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                  <CardContent className="p-2.5 px-3">
+                    <div className="flex items-center gap-3">
+                      <Badge className={`${colors.text} min-w-[70px] justify-center text-xs`} variant="outline">
+                        {rate.source}
+                      </Badge>
+                      <span className="text-foreground/70 text-sm font-medium min-w-[100px]">
+                        {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
+                      </span>
+                      <div className="flex-1" />
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <span className="font-mono font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        </div>
+                        <span className="text-muted-foreground/50">/</span>
+                        <div className="text-right">
+                          <span className="font-mono font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
