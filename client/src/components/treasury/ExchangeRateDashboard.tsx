@@ -230,11 +230,59 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
         </CardContent>
       </Card>
 
+      {/* Última Actualización - Destacada */}
+      {todayRates.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Última Actualización</h2>
+          </div>
+          <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="p-4">
+              {(() => {
+                const latestRate = todayRates[0];
+                const colors = sourceColors[latestRate.source] || sourceColors.DOF;
+                return (
+                  <div className="flex items-center gap-4">
+                    <Badge
+                      className={`${colors.bg} ${colors.text} border-2 ${colors.border} px-3 py-1 text-sm font-bold`}
+                    >
+                      {latestRate.source}
+                    </Badge>
+                    <div className="flex items-center gap-2 text-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span className="font-medium">
+                        {format(new Date(latestRate.date), "HH:mm:ss", { locale: es })}
+                      </span>
+                    </div>
+                    <div className="flex-1" />
+                    <div className="flex gap-8">
+                      <div className="text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Compra</span>
+                        <span className="font-bold text-xl text-green-600 dark:text-green-400">
+                          ${(latestRate.buy_rate ?? 0).toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Venta</span>
+                        <span className="font-bold text-xl text-red-600 dark:text-red-400">
+                          ${(latestRate.sell_rate ?? 0).toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Historial del Día */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Actualizaciones de Hoy</h2>
-          <Badge variant="secondary">{todayRates.length} actualizaciones</Badge>
+          <h2 className="text-lg font-semibold">Historial de Hoy</h2>
+          <Badge variant="secondary">{todayRates.length} registros</Badge>
         </div>
         {todayRates.length === 0 ? (
           <Card>
@@ -243,29 +291,33 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2">
-            {todayRates.map((rate) => {
+          <div className="space-y-1.5">
+            {todayRates.slice(1).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
               return (
-                <Card key={rate.id} className={`${colors.bg} ${colors.border}`}>
-                  <CardContent className="p-3">
+                <Card key={rate.id} className={`${colors.bg} border ${colors.border}`}>
+                  <CardContent className="p-2.5 px-4">
                     <div className="flex items-center gap-4">
-                      <Badge className={`${colors.text} min-w-[80px] justify-center`} variant="outline">
+                      <Badge
+                        className={`${colors.bg} ${colors.text} border ${colors.border} min-w-[85px] justify-center font-semibold`}
+                      >
                         {rate.source}
                       </Badge>
-                      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground/70">
+                      <div className="flex items-center gap-1.5 text-foreground/80">
                         <Clock className="h-3.5 w-3.5" />
-                        {format(new Date(rate.date), "HH:mm:ss", { locale: es })}
+                        <span className="font-medium text-sm">
+                          {format(new Date(rate.date), "HH:mm:ss", { locale: es })}
+                        </span>
                       </div>
                       <div className="flex-1" />
-                      <div className="flex gap-6 text-sm">
-                        <div className="text-center">
-                          <span className="text-xs text-muted-foreground block">Compra</span>
-                          <span className="font-bold text-base">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                      <div className="flex gap-6">
+                        <div className="text-center min-w-[90px]">
+                          <span className="text-[10px] text-muted-foreground block">Compra</span>
+                          <span className="font-bold text-sm">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                         </div>
-                        <div className="text-center">
-                          <span className="text-xs text-muted-foreground block">Venta</span>
-                          <span className="font-bold text-base">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        <div className="text-center min-w-[90px]">
+                          <span className="text-[10px] text-muted-foreground block">Venta</span>
+                          <span className="font-bold text-sm">${(rate.sell_rate ?? 0).toFixed(4)}</span>
                         </div>
                       </div>
                     </div>
@@ -277,11 +329,11 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
         )}
       </div>
 
-      {/* Historial Reciente */}
+      {/* Historial Completo */}
       {allRates.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Historial</h2>
+            <h2 className="text-lg font-semibold">Historial Completo</h2>
             {allRates.length > 10 && (
               <Button
                 variant="ghost"
@@ -302,29 +354,27 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
               </Button>
             )}
           </div>
-          <div className={`space-y-2 ${showFullHistory ? "max-h-[500px] overflow-y-auto" : ""}`}>
+          <div className={`space-y-1.5 ${showFullHistory ? "max-h-[400px] overflow-y-auto pr-2" : ""}`}>
             {allRates.slice(0, showFullHistory ? 50 : 10).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
               const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
               return (
-                <Card key={rate.id} className={`${colors.bg} ${colors.border} ${isToday ? "ring-2 ring-primary/20" : ""}`}>
-                  <CardContent className="p-2.5 px-3">
+                <Card key={rate.id} className={`border ${colors.border} ${isToday ? `${colors.bg}` : "bg-muted/30"}`}>
+                  <CardContent className="p-2 px-4">
                     <div className="flex items-center gap-3">
-                      <Badge className={`${colors.text} min-w-[70px] justify-center text-xs`} variant="outline">
+                      <Badge
+                        className={`${colors.bg} ${colors.text} border ${colors.border} min-w-[75px] justify-center text-xs font-semibold`}
+                      >
                         {rate.source}
                       </Badge>
-                      <span className="text-foreground/70 text-sm font-medium min-w-[100px]">
+                      <span className="text-foreground/80 text-sm font-medium min-w-[110px]">
                         {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
                       </span>
                       <div className="flex-1" />
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <span className="font-mono font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
-                        </div>
-                        <span className="text-muted-foreground/50">/</span>
-                        <div className="text-right">
-                          <span className="font-mono font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
-                        </div>
+                      <div className="flex items-center gap-3 font-mono text-sm">
+                        <span className="font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        <span className="text-muted-foreground/40">/</span>
+                        <span className="font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
                       </div>
                     </div>
                   </CardContent>
