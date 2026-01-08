@@ -45,6 +45,7 @@ import multer from "multer";
 import NodeCache from "node-cache";
 import { getSalesMetrics } from "./sales-metrics";
 import { handleSalesUpload } from "./sales-upload-handler-NEW";
+import { handleIDRALLUpload, detectExcelFormat } from "./sales-idrall-handler";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
 import { getAnnualSummary, getAvailableYears } from "./annual-summary";
@@ -9476,9 +9477,43 @@ export function registerRoutes(app: express.Application) {
       next();
     });
   }, async (req, res) => {
-    // NUEVO: Usar el handler mejorado que procesa las 4 hojas
+    // Detectar formato del archivo y usar el handler apropiado
     const ExcelJS = await import('exceljs');
-    await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+    const file = (req as any).file;
+
+    if (!file) {
+      return res.status(400).json({
+        error: 'No se subió ningún archivo',
+        details: 'Asegúrate de seleccionar un archivo Excel antes de subirlo'
+      });
+    }
+
+    try {
+      // Leer archivo para detectar formato
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(file.path);
+
+      const format = await detectExcelFormat(workbook);
+      console.log(`📋 [Sales Upload] Formato detectado: ${format}`);
+
+      if (format === 'IDRALL') {
+        // Usar handler de IDRALL para formato nuevo
+        console.log('🔄 [Sales Upload] Usando handler IDRALL...');
+        await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+      } else if (format === 'LEGACY') {
+        // Usar handler legacy para formato antiguo de 4 hojas
+        console.log('🔄 [Sales Upload] Usando handler LEGACY...');
+        await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+      } else {
+        // Intentar con IDRALL por default (formato más común ahora)
+        console.log('🔄 [Sales Upload] Formato desconocido, intentando con IDRALL...');
+        await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+      }
+    } catch (error: any) {
+      console.error('❌ [Sales Upload] Error detectando formato:', error.message);
+      // Fallback: intentar con IDRALL
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    }
   });
 
   // ============================================================================
