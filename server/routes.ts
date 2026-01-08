@@ -6056,14 +6056,15 @@ export function registerRoutes(app: express.Application) {
       if (n8nWebhookUrl) {
         try {
           // Pre-formatear datos para que N8N no tenga que procesarlos
-          const exchangeDate = new Date(formattedResult.date);
           const buyRateNum = parseFloat(buyRate);
           const sellRateNum = parseFloat(sellRate);
 
-          // Convertir a zona horaria de CDMX
+          // Usar hora actual para el email (el webhook se envía inmediatamente)
+          // Esto evita problemas de timezone con la fecha de DB
+          const now = new Date();
           const cdmxOptions: Intl.DateTimeFormatOptions = { timeZone: 'America/Mexico_City' };
-          const fechaCDMX = exchangeDate.toLocaleDateString('sv-SE', cdmxOptions); // formato YYYY-MM-DD
-          const horaCDMX = exchangeDate.toLocaleTimeString('es-MX', { ...cdmxOptions, hour12: false });
+          const fechaCDMX = now.toLocaleDateString('sv-SE', cdmxOptions); // formato YYYY-MM-DD
+          const horaCDMX = now.toLocaleTimeString('es-MX', { ...cdmxOptions, hour12: false });
 
           const webhookPayload = {
             event: 'exchange_rate_updated',
