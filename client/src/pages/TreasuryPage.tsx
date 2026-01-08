@@ -121,11 +121,14 @@ export default function TreasuryPage() {
   const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
   const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
 
-  // Estados que indican que el pago está cerrado/completado
-  const CLOSED_STATUSES = ['paid', 'cancelled', 'payment_completed', 'closed', 'cierre_contable', 'complemento_recibido'];
+  // Estados sincronizados con ScheduledPaymentsKanban
+  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+  // Los pagos con voucher ya subido no deben mostrarse en las tarjetas de semana
+  // porque ya aparecen en el Kanban en "Pendiente REP" o "Cierre Contable"
 
   const paymentsThisWeek = payments.filter((p) => {
-    if (CLOSED_STATUSES.includes(p.status)) return false;
+    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
+    if (!PENDING_STATUSES.includes(p.status)) return false;
     const dateStr = p.paymentDate || p.dueDate;
     if (!dateStr) return false;
     const date = new Date(dateStr);
@@ -134,7 +137,8 @@ export default function TreasuryPage() {
   });
 
   const paymentsNextWeek = payments.filter((p) => {
-    if (CLOSED_STATUSES.includes(p.status)) return false;
+    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
+    if (!PENDING_STATUSES.includes(p.status)) return false;
     const dateStr = p.paymentDate || p.dueDate;
     if (!dateStr) return false;
     const date = new Date(dateStr);
