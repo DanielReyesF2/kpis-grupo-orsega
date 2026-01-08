@@ -1,0 +1,155 @@
+{
+  "name": "Tipo de Cambio → Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "exchange-rate",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Tipo de Cambio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "exchange-rate-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asunto",
+              "name": "asunto",
+              "value": "=💱 Tipo de Cambio Actualizado - {{ $json.data.source.toUpperCase() }} - ${{ $json.data.buyRate.toFixed(4) }}",
+              "type": "string"
+            },
+            {
+              "id": "fecha",
+              "name": "fecha",
+              "value": "={{ $json.data.date.split('T')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "hora",
+              "name": "hora",
+              "value": "={{ $json.data.date.split('T')[1].split('.')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "compra",
+              "name": "compra",
+              "value": "={{ $json.data.buyRate.toFixed(4) }}",
+              "type": "string"
+            },
+            {
+              "id": "venta",
+              "name": "venta",
+              "value": "={{ $json.data.sellRate.toFixed(4) }}",
+              "type": "string"
+            },
+            {
+              "id": "fuente",
+              "name": "fuente",
+              "value": "={{ $json.data.source.toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "usuario",
+              "name": "usuario",
+              "value": "={{ $json.data.createdBy }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-data",
+      "name": "Formatear Datos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $env.NOTIFICATION_EMAIL }}",
+        "subject": "={{ $json.asunto }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #22c55e, #16a34a); padding: 20px; border-radius: 10px 10px 0 0;\">\n    <h1 style=\"color: white; margin: 0; font-size: 24px;\">💱 Tipo de Cambio</h1>\n    <p style=\"color: rgba(255,255,255,0.9); margin: 5px 0 0 0;\">Actualización automática</p>\n  </div>\n  \n  <div style=\"background: #f8fafc; padding: 25px; border: 1px solid #e2e8f0;\">\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0;\">\n          <strong>📅 Fecha:</strong>\n        </td>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right;\">\n          {{ $json.fecha }}\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0;\">\n          <strong>⏰ Hora:</strong>\n        </td>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right;\">\n          {{ $json.hora }}\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 15px 0; border-bottom: 1px solid #e2e8f0;\">\n          <strong style=\"color: #22c55e; font-size: 18px;\">💵 Compra:</strong>\n        </td>\n        <td style=\"padding: 15px 0; border-bottom: 1px solid #e2e8f0; text-align: right;\">\n          <span style=\"font-size: 22px; font-weight: bold; color: #22c55e;\">${{ $json.compra }} MXN</span>\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 15px 0; border-bottom: 1px solid #e2e8f0;\">\n          <strong style=\"color: #ef4444; font-size: 18px;\">💵 Venta:</strong>\n        </td>\n        <td style=\"padding: 15px 0; border-bottom: 1px solid #e2e8f0; text-align: right;\">\n          <span style=\"font-size: 22px; font-weight: bold; color: #ef4444;\">${{ $json.venta }} MXN</span>\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0;\">\n          <strong>📊 Fuente:</strong>\n        </td>\n        <td style=\"padding: 10px 0; border-bottom: 1px solid #e2e8f0; text-align: right;\">\n          <span style=\"background: #3b82f6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;\">{{ $json.fuente }}</span>\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px 0;\">\n          <strong>👤 Registrado por:</strong>\n        </td>\n        <td style=\"padding: 10px 0; text-align: right;\">\n          {{ $json.usuario }}\n        </td>\n      </tr>\n    </table>\n  </div>\n  \n  <div style=\"background: #1e293b; padding: 15px; border-radius: 0 0 10px 10px; text-align: center;\">\n    <p style=\"color: #94a3b8; margin: 0; font-size: 12px;\">Econova KPI Dashboard • Grupo Orsega</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "gmail-send",
+      "name": "Enviar Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [690, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Email enviado' }) }}"
+      },
+      "id": "success-response",
+      "name": "Respuesta OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Tipo de Cambio": {
+      "main": [
+        [
+          {
+            "node": "Formatear Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Datos": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email": {
+      "main": [
+        [
+          {
+            "node": "Respuesta OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2",
+  "meta": {
+    "instanceId": "econova-kpi-dashboard"
+  },
+  "tags": [
+    {
+      "name": "tesoreria"
+    },
+    {
+      "name": "tipos-de-cambio"
+    }
+  ]
+}
