@@ -315,28 +315,28 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
           onClick={() => setShowKPIsModal(false)}
         />
         
-        {/* Panel lateral - Minimalista */}
-        <div 
-          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-slate-50 dark:bg-slate-900 shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
+        {/* Panel lateral - Tema claro consistente */}
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-slate-50 shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
             showKPIsModal ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          {/* Header minimalista */}
-          <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between">
+          {/* Header - Tema claro */}
+          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">
-                <Target className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Target className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">KPIs de Ventas</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Análisis 2024-2025</p>
+                <h2 className="text-lg font-semibold text-slate-900">KPIs de Ventas</h2>
+                <p className="text-sm text-slate-500">Análisis 2024-2025</p>
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setShowKPIsModal(false)}
-              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
             >
               <X className="h-5 w-5" />
             </Button>

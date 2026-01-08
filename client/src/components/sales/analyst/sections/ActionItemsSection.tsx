@@ -20,37 +20,37 @@ export function ActionItemsSection({ insights }: ActionItemsSectionProps) {
     switch (priority) {
       case 'critical':
         return {
-          color: 'text-red-600 dark:text-red-400',
-          bg: 'bg-red-50 dark:bg-red-950/20',
-          border: 'border-red-200 dark:border-red-800',
+          color: 'text-red-600',
+          bg: 'bg-red-50',
+          border: 'border-red-200',
           label: 'Crítica'
         };
       case 'high':
         return {
-          color: 'text-amber-600 dark:text-amber-400',
-          bg: 'bg-amber-50 dark:bg-amber-950/20',
-          border: 'border-amber-200 dark:border-amber-800',
+          color: 'text-amber-600',
+          bg: 'bg-amber-50',
+          border: 'border-amber-200',
           label: 'Alta'
         };
       case 'medium':
         return {
-          color: 'text-blue-600 dark:text-blue-400',
-          bg: 'bg-blue-50 dark:bg-blue-950/20',
-          border: 'border-blue-200 dark:border-blue-800',
+          color: 'text-blue-600',
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
           label: 'Media'
         };
       case 'low':
         return {
-          color: 'text-gray-600 dark:text-gray-400',
-          bg: 'bg-gray-50 dark:bg-gray-950/20',
-          border: 'border-gray-200 dark:border-gray-800',
+          color: 'text-gray-600',
+          bg: 'bg-gray-50',
+          border: 'border-gray-200',
           label: 'Baja'
         };
       default:
         return {
-          color: 'text-muted-foreground',
-          bg: 'bg-muted',
-          border: 'border-border',
+          color: 'text-slate-500',
+          bg: 'bg-slate-50',
+          border: 'border-slate-200',
           label: priority
         };
     }
@@ -70,11 +70,11 @@ export function ActionItemsSection({ insights }: ActionItemsSectionProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'text-emerald-600 dark:text-emerald-400';
+        return 'text-emerald-600';
       case 'in-progress':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-blue-600';
       default:
-        return 'text-muted-foreground';
+        return 'text-slate-400';
     }
   };
 

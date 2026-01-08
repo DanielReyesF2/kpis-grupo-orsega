@@ -31,19 +31,19 @@ export function StrategicInsightsSection({ insights, companyId }: StrategicInsig
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800';
-      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800';
-      case 'low': return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800';
+      case 'high': return 'bg-red-100 text-red-700 border-red-300';
+      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-300';
+      case 'low': return 'bg-blue-100 text-blue-700 border-blue-300';
       default: return 'bg-gray-100 text-gray-700 border-gray-300';
     }
   };
 
   const getImpactEffortColor = (value: string) => {
     switch (value) {
-      case 'high': return 'text-red-600 dark:text-red-400';
-      case 'medium': return 'text-amber-600 dark:text-amber-400';
-      case 'low': return 'text-emerald-600 dark:text-emerald-400';
-      default: return 'text-muted-foreground';
+      case 'high': return 'text-red-600';
+      case 'medium': return 'text-amber-600';
+      case 'low': return 'text-emerald-600';
+      default: return 'text-slate-500';
     }
   };
 

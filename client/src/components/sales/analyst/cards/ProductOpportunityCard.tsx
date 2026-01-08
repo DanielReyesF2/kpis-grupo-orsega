@@ -19,27 +19,27 @@ export function ProductOpportunityCard({ product }: ProductOpportunityCardProps)
     switch (product.category) {
       case 'star':
         return {
-          border: 'border-emerald-200 dark:border-emerald-800',
-          bg: 'bg-emerald-50/50 dark:bg-emerald-950/10',
+          border: 'border-emerald-200',
+          bg: 'bg-emerald-50/50',
           badge: 'default',
           icon: Star,
-          iconColor: 'text-emerald-600 dark:text-emerald-400'
+          iconColor: 'text-emerald-600'
         };
       case 'declining':
         return {
-          border: 'border-red-200 dark:border-red-800',
-          bg: 'bg-red-50/50 dark:bg-red-950/10',
+          border: 'border-red-200',
+          bg: 'bg-red-50/50',
           badge: 'destructive',
           icon: TrendingDown,
-          iconColor: 'text-red-600 dark:text-red-400'
+          iconColor: 'text-red-600'
         };
       case 'crossSell':
         return {
-          border: 'border-blue-200 dark:border-blue-800',
-          bg: 'bg-blue-50/50 dark:bg-blue-950/10',
+          border: 'border-blue-200',
+          bg: 'bg-blue-50/50',
           badge: 'secondary',
           icon: TrendingUp,
-          iconColor: 'text-blue-600 dark:text-blue-400'
+          iconColor: 'text-blue-600'
         };
     }
   }, [product.category]);

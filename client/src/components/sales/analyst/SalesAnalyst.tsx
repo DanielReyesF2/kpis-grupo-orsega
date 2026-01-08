@@ -202,13 +202,13 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
         {/* Page Header - Diseño distintivo para Analista (solo si no está embedded) */}
         {!embedded && <AnalystHeader />}
 
-        {/* Filtros minimalistas */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+        {/* Filtros - Tema claro */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
           <div className="flex items-center gap-4">
             <select
               value={typeof filters.period === 'string' ? filters.period : 'year'}
               onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
-              className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
               <option value="year">2024-2025</option>
               <option value="quarter">Último trimestre</option>
@@ -217,7 +217,7 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
             <select
               value={typeof filters.priority === 'string' ? filters.priority : 'all'}
               onChange={(e) => updateFilters({ ...filters, priority: e.target.value === 'all' ? undefined : e.target.value as any })}
-              className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
               <option value="all">Todas las prioridades</option>
               <option value="critical">Crítica</option>
@@ -230,19 +230,19 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
           </span>
         </div>
 
-        {/* AI Insights Banner - Minimalista */}
+        {/* AI Insights Banner - Tema claro */}
         {typedInsights.statisticalContext?.aiInsights && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded">
-                <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-1.5 bg-emerald-100 rounded">
+                <Sparkles className="h-4 w-4 text-emerald-600" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Resumen Ejecutivo</h3>
-                  <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded">EconovaAI</span>
+                  <h3 className="text-sm font-medium text-slate-900">Resumen Ejecutivo</h3>
+                  <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">EconovaAI</span>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-sm text-slate-600 leading-relaxed">
                   {typedInsights.statisticalContext.aiInsights}
                 </p>
               </div>
