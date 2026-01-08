@@ -95,7 +95,7 @@ export function KpiUpdateModal({ kpiId, isOpen, onClose }: KpiUpdateModalProps) 
     staleTime: 0, // No cachear para ver datos actualizados
     refetchOnWindowFocus: true,
     refetchOnMount: true, // Refetch cuando el componente se monta
-    gcTime: 0, // No mantener en cache (anteriormente cacheTime)
+    cacheTime: 0, // No mantener en cache
   });
 
   // Obtener valores del KPI específico usando el parámetro correcto

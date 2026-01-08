@@ -35,7 +35,7 @@ console.log('📊 [Document Analyzer] Configuración:', JSON.stringify(CONFIG_ST
 
   // 1. Verificar pdf-parse
   try {
-    const pdfParse = await import('pdf-parse');
+    const pdfParse = await import('pdf-parse') as any;
     console.log('✅ [Dependency Check] pdf-parse: OK');
   } catch (e: any) {
     console.error('❌ [Dependency Check] pdf-parse: ERROR -', e.message);

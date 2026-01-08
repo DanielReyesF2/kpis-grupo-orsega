@@ -19,7 +19,7 @@ import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
 import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi, paymentVouchers, deletedPaymentVouchers } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql as drizzleSql } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
 import { emailService } from "./email-service";
 import { logger } from "./logger";
@@ -182,12 +182,12 @@ async function updateLogisticsKPIs(companyId: number) {
     console.log(`[KPI Logística] Actualizando KPIs para company ${companyId}, período: ${firstDayOfMonth.toISOString()} - ${lastDayOfMonth.toISOString()}`);
 
     // 1. Obtener todos los envíos entregados del mes actual para esta empresa
-    const monthlyShipments = await sql<Shipment[]>`
+    const monthlyShipments = await sql`
       SELECT * FROM shipments
       WHERE company_id = ${companyId}
       AND status = 'delivered'
-      AND delivered_at >= ${firstDayOfMonth}
-      AND delivered_at <= ${lastDayOfMonth}
+      AND delivered_at >= ${firstDayOfMonth.toISOString()}
+      AND delivered_at <= ${lastDayOfMonth.toISOString()}
     `;
 
     console.log(`[KPI Logística] Envíos entregados este mes: ${monthlyShipments.length}`);
@@ -1165,16 +1165,18 @@ export function registerRoutes(app: express.Application) {
   });
 
   app.put("/api/kpis/:id", jwtAuthMiddleware, async (req, res) => {
+    // Parse ID outside try block to make it available in catch block
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "ID de KPI inválido" });
+    }
+
     try {
       const authReq = req as AuthRequest;
+
       // 🔒 SEGURO: Solo administradores y gerentes pueden actualizar KPIs
       if (authReq.user?.role !== 'admin' && authReq.user?.role !== 'manager') {
         return res.status(403).json({ message: "No tienes permisos para actualizar KPIs" });
-      }
-      
-      const id = parseInt(req.params.id, 10);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "ID de KPI inválido" });
       }
 
       // Intentar obtener companyId del body, query, o buscarlo automáticamente
@@ -1468,7 +1470,7 @@ export function registerRoutes(app: express.Application) {
         }
 
         // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
-        const kpiName = kpi.name || kpi.kpiName || '';
+        const kpiName = kpi.name || '';
         if (storage.isSalesKpi(kpiName)) {
           console.log(`[GET /api/kpi-values] KPI de ventas detectado: ${kpiName}, calculando desde sales_data`);
           
@@ -1566,7 +1568,7 @@ export function registerRoutes(app: express.Application) {
       
       // Filtrar KPIs de ventas y calcular sus valores en tiempo real
       const salesKpis = allKpis.filter(kpi => {
-        const kpiName = kpi.name || kpi.kpiName || '';
+        const kpiName = kpi.name || '';
         return storage.isSalesKpi(kpiName);
       });
       
@@ -1575,7 +1577,7 @@ export function registerRoutes(app: express.Application) {
         allValues.map(async (value) => {
           const kpi = salesKpis.find(k => k.id === value.kpiId);
           if (kpi) {
-            const kpiName = kpi.name || kpi.kpiName || '';
+            const kpiName = kpi.name || '';
             const calculatedValue = await calculateSalesKpiValue(
               kpiName,
               value.companyId,
@@ -2894,10 +2896,10 @@ export function registerRoutes(app: express.Application) {
         value.period === targetPeriod && !value.period.includes('Semana')
       );
       
-      const weeklyRecords = kpiValues.filter(value => 
-        value.period.includes(month as string) && 
-        value.period.includes(year as string) &&
-        value.period.includes("Semana")
+      const weeklyRecords = kpiValues.filter(value =>
+        value.period?.includes(month as string) &&
+        value.period?.includes(year as string) &&
+        value.period?.includes("Semana")
       );
       
       res.status(200).json({
@@ -3879,7 +3881,7 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ message: "KPI not found" });
       }
 
-      const kpiName = kpi.name || kpi.kpiName || '';
+      const kpiName = kpi.name || '';
 
       // Si es un KPI de ventas, calcular historial desde sales_data
       if (storage.isSalesKpi(kpiName)) {
@@ -4243,7 +4245,7 @@ export function registerRoutes(app: express.Application) {
   });
 
   // POST /api/clients - Crear un nuevo cliente
-  app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId'), async (req, res) => {
+  app.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId') as any, async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
       
@@ -5100,10 +5102,11 @@ export function registerRoutes(app: express.Application) {
           const fileType = file.mimetype || path.extname(file.originalname).toLowerCase();
           
           const analysisResult = await analyzePaymentDocument(fileBuffer, fileType);
-          
+          const analysisResultAny = analysisResult as any;
+
           // Si es CxP y tiene registros, agregarlos
-          if (analysisResult.documentType === "cxp" && analysisResult.cxpRecords) {
-            for (const record of analysisResult.cxpRecords) {
+          if (analysisResultAny.documentType === "cxp" && analysisResultAny.cxpRecords) {
+            for (const record of analysisResultAny.cxpRecords) {
               allRecords.push({
                 ...record,
                 _sourceFileIndex: i // Guardar índice del archivo origen
@@ -5112,7 +5115,7 @@ export function registerRoutes(app: express.Application) {
             }
             processedFiles++;
             fileProcessed = true;
-          } else if (analysisResult.documentType === "cxp") {
+          } else if (analysisResultAny.documentType === "cxp") {
             // Si es CxP pero no tiene registros individuales, crear uno del resultado agregado
             if (analysisResult.extractedSupplierName && analysisResult.extractedAmount) {
               const recordIndex = allRecords.length;
@@ -5123,7 +5126,7 @@ export function registerRoutes(app: express.Application) {
                 dueDate: analysisResult.extractedDueDate || analysisResult.extractedDate || new Date(),
                 reference: analysisResult.extractedReference,
                 status: null,
-                notes: analysisResult.notes,
+                notes: analysisResultAny.notes,
                 _sourceFileIndex: i
               });
               fileRecordsMap.set(recordIndex, file);
@@ -5536,15 +5539,15 @@ export function registerRoutes(app: express.Application) {
         const dayData = dayMap.get(day)!;
         if (source === 'santander') {
           if (!dayData.santander) dayData.santander = { sum: 0, count: 0 };
-          dayData.santander.sum += parseFloat(rateValue);
+          dayData.santander.sum += rateValue;
           dayData.santander.count += 1;
         } else if (source === 'monex') {
           if (!dayData.monex) dayData.monex = { sum: 0, count: 0 };
-          dayData.monex.sum += parseFloat(rateValue);
+          dayData.monex.sum += rateValue;
           dayData.monex.count += 1;
         } else if (source === 'dof') {
           if (!dayData.dof) dayData.dof = { sum: 0, count: 0 };
-          dayData.dof.sum += parseFloat(rateValue);
+          dayData.dof.sum += rateValue;
           dayData.dof.count += 1;
         }
       });
@@ -6931,7 +6934,7 @@ export function registerRoutes(app: express.Application) {
       // ✅ NUEVA LÓGICA: Priorizar intención del usuario
       let shouldCreateInvoice: boolean;
       let decisionReason: string;
-      
+
       // PRIORIDAD 1: Si hay scheduledPaymentId → es comprobante para tarjeta existente (intención clara)
       if (validatedData.scheduledPaymentId) {
         shouldCreateInvoice = false;
@@ -6944,7 +6947,7 @@ export function registerRoutes(app: express.Application) {
       }
       // PRIORIDAD 3: Fallback a detección de OpenAI solo si no hay intención clara del usuario
       else {
-        const detectedAsInvoice = (
+        const detectedAsInvoice: boolean = Boolean(
           analysis.documentType === 'invoice' ||
           (analysis.documentType === 'unknown' && hasInvoiceCharacteristics)
         );
@@ -7146,7 +7149,7 @@ export function registerRoutes(app: express.Application) {
             // ESTRATEGIA 3: Fuzzy matching (70-80% confianza)
             if (extractedName) {
               const allClients = await storage.getClientsByCompany(payerCompanyId);
-              const fuzzyMatches: Array<{ supplier: any; confidence: number; source: 'client' }> = [];
+              const fuzzyMatches: Array<{ supplier: any; confidence: number; source: 'client' | 'supplier' }> = [];
               
               allClients.forEach((client: any) => {
                 const normalizedClientName = normalizeName(client.name);
@@ -7971,10 +7974,11 @@ export function registerRoutes(app: express.Application) {
   });
 
   // DELETE /api/payment-vouchers/:id - Eliminar comprobante con razón (soft delete - se archiva)
-  app.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req: AuthRequest, res) => {
+  app.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req, res) => {
+    const authReq = req as AuthRequest;
     try {
-      const voucherId = parseInt(req.params.id);
-      const userId = req.user?.id;
+      const voucherId = parseInt(authReq.params.id);
+      const userId = authReq.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Usuario no autenticado' });
@@ -10113,9 +10117,9 @@ export function registerRoutes(app: express.Application) {
       }
 
       // Obtener contexto general del sistema
-      const duraStats = await storage.salesData.getSummaryByCompany(1);
-      const orsegaStats = await storage.salesData.getSummaryByCompany(2);
-      const exchangeRates = await storage.exchangeRates.getAll();
+      const duraStats = await getSalesMetrics(1);
+      const orsegaStats = await getSalesMetrics(2);
+      const exchangeRates = await sql`SELECT * FROM exchange_rates ORDER BY date DESC LIMIT 100`;
 
       res.json({
         timestamp: new Date().toISOString(),
@@ -10166,7 +10170,7 @@ export function registerRoutes(app: express.Application) {
       }
 
       console.log(`[N8N Query] Ejecutando: ${query}`);
-      const result = await db.execute(sql.raw(query));
+      const result = await db.execute(drizzleSql.raw(query));
 
       res.json({ success: true, data: result.rows });
     } catch (error) {

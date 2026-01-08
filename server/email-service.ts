@@ -64,23 +64,23 @@ class EmailService {
     if (useTestEmail || emailData.from?.includes('resend.dev')) {
       // Usar email de prueba de Resend (no requiere verificación de dominio)
       fromEmail = emailData.from || 'onboarding@resend.dev';
-      logger.info('Usando email de prueba de Resend:', fromEmail);
+      logger.info('Usando email de prueba de Resend', { fromEmail });
     } else if (emailData.from) {
       // Si se especifica un from explícito, usarlo (útil para pruebas con dominio verificado)
       fromEmail = emailData.from;
-      logger.info('Usando remitente especificado:', fromEmail);
+      logger.info('Usando remitente especificado', { fromEmail });
     } else {
       // Intentar usar dominio del cliente (debe estar verificado en Resend)
       // Cuando el dominio esté verificado, cambiará automáticamente a este formato
-      fromEmail = department === 'treasury' 
+      fromEmail = department === 'treasury'
         ? `Lolita - Tesorería <dolores@${clientDomain}>`
         : `Thalia - Logística <thalia@${clientDomain}>`;
-      logger.info('Intentando usar dominio del cliente:', fromEmail);
+      logger.info('Intentando usar dominio del cliente', { fromEmail });
       logger.info('NOTA: Si el dominio no está verificado en Resend, el envío fallará. Usa USE_RESEND_TEST_EMAIL=true para pruebas.');
     }
 
     try {
-      logger.info('Enviando email desde:', fromEmail, 'a:', emailData.to);
+      logger.info('Enviando email', { from: fromEmail, to: emailData.to });
       
       const result = await this.resend.emails.send({
         from: fromEmail,

@@ -25,29 +25,25 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "development",
-    
+
     // Performance Monitoring
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
-    
-    // Session Replay (optional, only in production)
-    replaysSessionSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0.0,
-    replaysOnErrorSampleRate: 1.0,
-    
+
     // Filter errors
     beforeSend(event, hint) {
       // Don't send errors from healthcheck endpoints
-      if (hint.request?.url?.includes('/health')) {
+      if (event.request?.url?.includes('/health')) {
         return null;
       }
       return event;
     },
-    
+
     // Configure release
     release: process.env.RAILWAY_GIT_COMMIT_SHA || "local",
-    
-    // Configure integrations
+
+    // Express integration for request/tracing
     integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
+      Sentry.expressIntegration(),
     ],
   });
   
@@ -425,11 +421,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add Sentry request handler - must be before all routes
-if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.requestHandler());
-  app.use(Sentry.Handlers.tracingHandler());
-}
+// Sentry request/tracing is handled automatically via expressIntegration in init()
 
 // Create HTTP server EARLY for healthchecks
 const server = createServer(app);
@@ -477,7 +469,7 @@ try {
 
 // Add Sentry error handler - must be before other error handlers
 if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+  app.use(Sentry.expressErrorHandler());
 }
 
 // CRITICAL: Add error handler BEFORE async operations to catch any errors

@@ -13,10 +13,11 @@ import type {
   RetentionMetrics,
   NewClientsMetrics,
   ChurnMetrics,
-  Period,
   NewClient,
   ChurnedClient
 } from '@shared/sales-types';
+import type { Period } from '@shared/sales-types';
+export type { Period };
 
 // ========================================================================
 // IMPORTANTE: Configurar WebSocket para Neon en entornos Node.js/serverless
@@ -40,7 +41,9 @@ function calculatePeriodDates(period: Period): { start: Date; end: Date } {
     case 'month':
       if (period.year && period.month) {
         start.setFullYear(period.year, period.month - 1, 1);
-        end.setFullYear(period.year, period.month, 0, 23, 59, 59, 999);
+        start.setHours(0, 0, 0, 0);
+        end.setFullYear(period.year, period.month, 0);
+        end.setHours(23, 59, 59, 999);
       } else {
         // Mes actual
         start.setDate(1);
@@ -61,11 +64,15 @@ function calculatePeriodDates(period: Period): { start: Date; end: Date } {
     case 'year':
       if (period.year) {
         start.setFullYear(period.year, 0, 1);
-        end.setFullYear(period.year, 11, 31, 23, 59, 59, 999);
+        start.setHours(0, 0, 0, 0);
+        end.setFullYear(period.year, 11, 31);
+        end.setHours(23, 59, 59, 999);
       } else {
         // Año actual
         start.setFullYear(now.getFullYear(), 0, 1);
-        end.setFullYear(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        start.setHours(0, 0, 0, 0);
+        end.setFullYear(now.getFullYear(), 11, 31);
+        end.setHours(23, 59, 59, 999);
       }
       break;
 

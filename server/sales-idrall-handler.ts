@@ -4,12 +4,23 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AuthRequest } from './index';
 import { parseExcelIDRALL, type IDRALLTransaction } from './sales-idrall-parser';
 import { neon } from '@neondatabase/serverless';
 import path from 'path';
 
 const sql = neon(process.env.DATABASE_URL!);
+
+// Re-export AuthRequest type from routes to avoid conflicts
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+    areaId?: number | null;
+    companyId?: number | null;
+  };
+}
 
 interface UploadHandlerDependencies {
   getAuthUser: (req: AuthRequest) => any;

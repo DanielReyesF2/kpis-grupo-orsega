@@ -214,7 +214,7 @@ export function KpiDashboard({ companyId, areaId }: KpiDashboardProps) {
             <ErrorState
               variant="card"
               title="Error al cargar KPIs"
-              message={error.message || 'No se pudieron cargar los KPIs'}
+              message={(error as Error)?.message || 'No se pudieron cargar los KPIs'}
               onRetry={() => window.location.reload()}
             />
           </div>

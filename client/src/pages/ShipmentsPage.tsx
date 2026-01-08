@@ -20,43 +20,17 @@ import { useToast } from "@/hooks/use-toast";
 import { ShipmentCard } from "@/components/shipments/ShipmentCard";
 import { FormattedDate } from "@/components/ui/formatted-date";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
 import { AppLayout } from "@/components/layout/AppLayout";
-
-// Tipos para envíos
-interface Shipment {
-  id: number;
-  companyId: number;
-  trackingCode: string;
-  customerName: string;
-  destination: string;
-  origin: string;
-  product: string;
-  quantity: string;
-  unit: string;
-  departureDate: string | null;
-  estimatedDeliveryDate: string | null;
-  actualDeliveryDate: string | null;
-  deliveredAt?: string | null;
-  status: 'pending' | 'in_transit' | 'delayed' | 'delivered' | 'cancelled';
-  carrier: string;
-  vehicleInfo: string | null;
-  driverName: string | null;
-  driverPhone: string | null;
-  customerEmail: string | null;
-  customerPhone: string | null;
-  comments: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Shipment, Company } from "@shared/schema";
 
 const StatusBadge = ({ status }: { status: Shipment['status'] }) => {
   const statusMap = {
@@ -82,17 +56,17 @@ export default function ShipmentsPage() {
   const { toast } = useToast();
 
   // Consulta para obtener empresas
-  const { data: companies, isLoading: isLoadingCompanies } = useQuery({
+  const { data: companies, isLoading: isLoadingCompanies } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
   });
 
   // Consulta para obtener envíos
-  const { 
-    data: shipmentsResponse, 
+  const {
+    data: shipmentsResponse,
     isLoading: isLoadingShipments,
     error: shipmentsError,
     refetch: refetchShipments
-  } = useQuery({
+  } = useQuery<{ shipments: Shipment[] }>({
     queryKey: ["/api/shipments"],
   });
 
@@ -187,7 +161,7 @@ export default function ShipmentsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las empresas</SelectItem>
-              {companies?.map((company: any) => (
+              {companies?.map((company) => (
                 <SelectItem key={company.id} value={company.id.toString()}>
                   {company.name}
                 </SelectItem>

@@ -52,8 +52,13 @@ export function SalesBySourceCard({ companyId }: SalesBySourceCardProps) {
     );
   }
 
+  interface TopProduct {
+    name: string;
+    volume: number;
+  }
+
   // Simular datos de "fuentes" basado en top productos
-  const sources = (topProducts || []).slice(0, 5).map((product: any, index: number) => {
+  const sources = (topProducts as TopProduct[] || []).slice(0, 5).map((product: TopProduct, index: number) => {
     const revenue = product.volume * 10; // Estimado
     const change = [50, 45, -30, 35, 35][index] || 0;
     return {
@@ -77,7 +82,7 @@ export function SalesBySourceCard({ companyId }: SalesBySourceCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {sources.map((source, index) => {
+          {sources.map((source: typeof sources[number], index: number) => {
             const Icon = source.icon;
             return (
               <motion.div

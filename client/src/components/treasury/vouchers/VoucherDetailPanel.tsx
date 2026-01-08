@@ -37,6 +37,11 @@ interface VoucherDetailPanelProps {
 }
 
 const STATUS_CONFIG = {
+  pago_programado: {
+    label: "Pago Programado",
+    icon: Calendar,
+    color: "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300",
+  },
   factura_pagada: {
     label: "Factura Pagada",
     icon: ClipboardCheck,

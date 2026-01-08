@@ -10,7 +10,7 @@ import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 export function useSalesAnalyst(companyId: number) {
   console.log('[useSalesAnalyst] Hook llamado con companyId:', companyId);
   
-  return useQuery<SalesAnalystInsights>({
+  return useQuery<SalesAnalystInsights, Error>({
     queryKey: ['/api/sales-analyst/insights', companyId],
     queryFn: async () => {
       console.log('[useSalesAnalyst] Iniciando fetch para companyId:', companyId);
@@ -22,15 +22,15 @@ export function useSalesAnalyst(companyId: number) {
         throw new Error(`Failed to fetch sales analyst insights: ${res.statusText}`);
       }
       const data = await res.json();
-      console.log('[useSalesAnalyst] Datos recibidos:', { 
-        hasData: !!data, 
+      console.log('[useSalesAnalyst] Datos recibidos:', {
+        hasData: !!data,
         focusClients: data?.focusClients ? Object.keys(data.focusClients).length : 0,
         productOpportunities: data?.productOpportunities ? Object.keys(data.productOpportunities).length : 0
       });
       return data;
     },
     staleTime: 15 * 60 * 1000, // 15 min (datos periódicos)
-    gcTime: 30 * 60 * 1000,     // 30 min en cache
+    cacheTime: 30 * 60 * 1000,     // 30 min en cache
     refetchOnWindowFocus: true,
     refetchInterval: 30 * 60 * 1000, // 30 min auto-refresh
     retry: 2,
