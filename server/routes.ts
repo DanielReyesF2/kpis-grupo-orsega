@@ -5289,12 +5289,13 @@ export function registerRoutes(app: express.Application) {
       const { limit = 100 } = req.query;
       
       const result = await sql(`
-        SELECT 
+        SELECT
           er.id,
           er.buy_rate,
           er.sell_rate,
           er.source,
-          er.date::text as date,
+          -- Interpretar fecha como CDMX y convertir a UTC para enviar al frontend
+          (er.date AT TIME ZONE 'America/Mexico_City')::text as date,
           er.notes,
           u.name as created_by_name,
           u.email as created_by_email
@@ -5304,10 +5305,10 @@ export function registerRoutes(app: express.Application) {
         LIMIT $1
       `, [parseInt(limit as string)]);
 
-      // Convertir todas las fechas a ISO string para formato consistente
+      // Las fechas ya vienen con timezone correcto desde PostgreSQL
       const formattedResult = result.map((row: any) => ({
         ...row,
-        date: new Date(row.date).toISOString()
+        date: row.date.endsWith('Z') ? row.date : row.date + 'Z'
       }));
 
       res.json(formattedResult);
