@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/salesforce/feedback/ErrorState";
 import { useSalesAnalyst } from "@/hooks/useSalesAnalyst";
 import { useFilters } from "@/hooks/useFilters";
 import { useQueryClient } from "@tanstack/react-query";
+import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 
 // Sections
 import { ExecutiveSummary } from "./sections/ExecutiveSummary";
@@ -191,6 +192,9 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
     );
   }
 
+  // Type assertion to help TypeScript after null checks
+  const typedInsights = insights as unknown as SalesAnalystInsights;
+
   return (
     <div className={wrapperClass}>
       {/* Wrapper con padding y fondo distintivo */}
@@ -202,7 +206,7 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-4">
             <select
-              value={filters.period as string || 'year'}
+              value={typeof filters.period === 'string' ? filters.period : 'year'}
               onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
               className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             >
@@ -211,8 +215,8 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
               <option value="month">Último mes</option>
             </select>
             <select
-              value={filters.priority as string || 'all'}
-              onChange={(e) => updateFilters({ ...filters, priority: e.target.value })}
+              value={typeof filters.priority === 'string' ? filters.priority : 'all'}
+              onChange={(e) => updateFilters({ ...filters, priority: e.target.value === 'all' ? undefined : e.target.value as any })}
               className="px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             >
               <option value="all">Todas las prioridades</option>
@@ -222,12 +226,12 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
             </select>
           </div>
           <span className="text-sm text-slate-500">
-            {insights.focusClients.critical.length + insights.focusClients.warning.length + insights.focusClients.opportunities.length} clientes · {insights.inactiveClients.length} inactivos
+            {typedInsights.focusClients.critical.length + typedInsights.focusClients.warning.length + typedInsights.focusClients.opportunities.length} clientes · {typedInsights.inactiveClients.length} inactivos
           </span>
         </div>
 
         {/* AI Insights Banner - Minimalista */}
-        {insights.statisticalContext?.aiInsights && (
+        {typedInsights.statisticalContext?.aiInsights && (
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
             <div className="flex items-start gap-3">
               <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded">
@@ -239,7 +243,7 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
                   <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded">EconovaAI</span>
                 </div>
                 <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {insights.statisticalContext.aiInsights}
+                  {typedInsights.statisticalContext.aiInsights}
                 </p>
               </div>
             </div>
@@ -247,18 +251,18 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
         )}
 
         {/* Executive Summary */}
-        <ExecutiveSummary insights={insights} companyId={companyId} />
+        <ExecutiveSummary insights={typedInsights} companyId={companyId} />
 
         {/* Focus Areas - Grid de 2 columnas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ClientFocusSection insights={insights} companyId={companyId} />
-          <ProductOpportunitiesSection insights={insights} />
+          <ClientFocusSection insights={typedInsights} companyId={companyId} />
+          <ProductOpportunitiesSection insights={typedInsights} />
         </div>
 
         {/* Strategic Insights and Action Items */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StrategicInsightsSection insights={insights} companyId={companyId} />
-          <ActionItemsSection insights={insights} />
+          <StrategicInsightsSection insights={typedInsights} companyId={companyId} />
+          <ActionItemsSection insights={typedInsights} />
         </div>
       </div>
     </div>

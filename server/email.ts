@@ -28,13 +28,31 @@ interface EmailParams {
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
-    await sgMail.send({
+    // Ensure at least text or html is provided
+    if (!params.text && !params.html) {
+      console.error('[Email] Error: Email must have either text or html content');
+      return false;
+    }
+
+    // Build email data with proper typing
+    type EmailData = {
+      to: string;
+      from: string;
+      subject: string;
+      text?: string;
+      html?: string;
+    };
+
+    const emailData: EmailData = {
       to: params.to,
       from: params.from,
       subject: params.subject,
-      text: params.text,
-      html: params.html,
-    });
+      ...(params.text && { text: params.text }),
+      ...(params.html && { html: params.html }),
+    };
+
+    // Type assertion is safe here because we've checked that at least one of text or html exists
+    await sgMail.send(emailData as any);
     console.log(`[Email] Correo enviado exitosamente a ${params.to}`);
     return true;
   } catch (error) {

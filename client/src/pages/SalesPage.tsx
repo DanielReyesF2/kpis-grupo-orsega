@@ -495,31 +495,31 @@ export default function SalesPage() {
               </Card>
 
               <Card className={`${
-                stats?.growth >= 0 
-                  ? `${companyColors.cardBg} ${companyColors.cardBorder}` 
+                (stats?.growth ?? 0) >= 0
+                  ? `${companyColors.cardBg} ${companyColors.cardBorder}`
                   : 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/10 dark:to-red-900/5 border-red-200/50 dark:border-red-800/30'
               } border-2 shadow-sm hover:shadow-md transition-all`}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-sm font-medium ${
-                        stats?.growth >= 0 ? companyColors.titleColor : 'text-red-600 dark:text-red-400'
+                        (stats?.growth ?? 0) >= 0 ? companyColors.titleColor : 'text-red-600 dark:text-red-400'
                       } mb-1`}>Crecimiento</p>
                       <p className={`text-4xl font-bold ${
-                        stats?.growth >= 0 ? companyColors.valueColor : 'text-red-700 dark:text-red-300'
+                        (stats?.growth ?? 0) >= 0 ? companyColors.valueColor : 'text-red-700 dark:text-red-300'
                       }`}>
                       {isLoadingStats ? (
                         <div className="h-10 w-16 bg-muted rounded animate-pulse"></div>
                       ) : (
-                        `${stats?.growth >= 0 ? '+' : ''}${stats?.growth || 0}%`
+                        `${(stats?.growth ?? 0) >= 0 ? '+' : ''}${stats?.growth ?? 0}%`
                       )}
                     </p>
                     </div>
                     <div className={`${
-                      stats?.growth >= 0 ? companyColors.iconBg : 'bg-red-500/15 dark:bg-red-500/20'
+                      (stats?.growth ?? 0) >= 0 ? companyColors.iconBg : 'bg-red-500/15 dark:bg-red-500/20'
                     } p-3 rounded-full`}>
                       {!isLoadingStats && (
-                        stats?.growth >= 0 ? (
+                        (stats?.growth ?? 0) >= 0 ? (
                           <TrendingUp className={`w-10 h-10 ${companyColors.iconColor}`} />
                         ) : (
                           <TrendingDown className="w-10 h-10 text-red-600 dark:text-red-400" />

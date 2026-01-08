@@ -206,7 +206,7 @@ EJEMPLOS:
         }
       ],
       tools: [sqlGeneratorFunction],
-      tool_choice: { type: "function", name: "execute_sql_query" }
+      tool_choice: "required" as const
     });
 
     const message = response.choices[0].message;
@@ -221,7 +221,12 @@ EJEMPLOS:
 
     // Paso 2: Ejecutar el SQL generado
     const toolCall = message.tool_calls[0];
-    const args = JSON.parse(toolCall.function.arguments);
+    const functionArgs = (toolCall as any).function?.arguments;
+    if (!functionArgs) {
+      console.error("[Smart Search] No function arguments found in tool call");
+      return fallbackSearch(question);
+    }
+    const args = JSON.parse(functionArgs);
     const sqlQuery = args.query;
     const explanation = args.explanation;
 

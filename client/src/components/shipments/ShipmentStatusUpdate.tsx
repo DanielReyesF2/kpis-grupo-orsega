@@ -36,21 +36,19 @@ export function ShipmentStatusUpdate({ shipment, onUpdate }: ShipmentStatusUpdat
   const queryClient = useQueryClient();
   
   const updateStatusMutation = useMutation({
-    mutationFn: async (data: { 
-      status: string; 
-      location?: string; 
-      comments?: string; 
-      sendNotification: boolean; 
+    mutationFn: async (data: {
+      status: string;
+      location?: string;
+      comments?: string;
+      sendNotification: boolean;
     }) => {
-      return await apiRequest(`/api/shipments/${shipment.id}/status`, {
-        method: 'PATCH',
-        body: data
-      });
+      const res = await apiRequest('PATCH', `/api/shipments/${shipment.id}/status`, data);
+      return await res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { notificationSent?: boolean }) => {
       toast({
         title: "Estado actualizado",
-        description: data.notificationSent 
+        description: data.notificationSent
           ? "El estado del envío se actualizó y se envió una notificación al cliente"
           : "El estado del envío se actualizó correctamente",
       });
@@ -131,7 +129,7 @@ export function ShipmentStatusUpdate({ shipment, onUpdate }: ShipmentStatusUpdat
               {/* Selector de nuevo estado */}
               <div className="space-y-2">
                 <Label htmlFor="status">Nuevo Estado</Label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar estado" />
                   </SelectTrigger>

@@ -78,7 +78,7 @@ export function KpiHistoryBulkEditModal({
     staleTime: 60 * 1000, // ✅ Cachear 60 segundos - balance entre freshness y performance
     refetchOnWindowFocus: false, // ✅ No refetch al cambiar ventana
     refetchOnMount: false, // ✅ Usar cache si está disponible
-    gcTime: 5 * 60 * 1000, // ✅ Mantener en memoria 5 minutos
+    cacheTime: 5 * 60 * 1000, // ✅ Mantener en memoria 5 minutos
   });
 
   // Preparar datos del año seleccionado

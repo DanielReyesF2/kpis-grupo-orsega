@@ -56,6 +56,11 @@ interface Shipment {
   carbonFootprint: number;
   customerEmail?: string;
   items?: ShipmentItem[];
+  actualDeliveryDate?: string | null;
+  updatedAt?: string | null;
+  invoiceNumber?: string | null;
+  purchaseOrder?: string | null;
+  companyId?: number | null;
   // Include cycle times data to eliminate N+1 queries
   cycleTimes?: {
     hoursTotalCycle?: string | null;
@@ -1620,7 +1625,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
   });
 
   // Productos del envío
-  const { data: items = [], refetch: refetchItems, isLoading: itemsLoading } = useQuery({
+  const { data: items = [], refetch: refetchItems, isLoading: itemsLoading } = useQuery<ShipmentItem[]>({
     queryKey: [`/api/shipments/${shipment.id}/items`],
   });
 

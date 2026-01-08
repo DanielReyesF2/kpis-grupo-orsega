@@ -15,6 +15,40 @@ import { useToast } from '@/hooks/use-toast';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { apiRequest } from '@/lib/queryClient';
 
+// Type definitions
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  companyId: number | null;
+  areaId: number | null;
+}
+
+interface Company {
+  id: number;
+  name: string;
+}
+
+interface Area {
+  id: number;
+  name: string;
+  companyId: number;
+}
+
+interface KPI {
+  id: number;
+  name: string;
+  description: string;
+  unit: string;
+  companyId: number;
+  areaId: number;
+  goal: string;
+  objective?: string;
+  target?: string;
+  frequency: string;
+}
+
 export default function SystemAdminPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -30,23 +64,23 @@ export default function SystemAdminPage() {
 
 
   // Queries
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
   });
 
-  const { data: companies = [], isLoading: companiesLoading } = useQuery({
+  const { data: companies = [], isLoading: companiesLoading } = useQuery<Company[]>({
     queryKey: ['/api/companies'],
   });
 
-  const { data: areas = [], isLoading: areasLoading } = useQuery({
+  const { data: areas = [], isLoading: areasLoading } = useQuery<Area[]>({
     queryKey: ['/api/areas'],
   });
 
-  const { data: kpis = [], isLoading: kpisLoading } = useQuery({
+  const { data: kpis = [], isLoading: kpisLoading } = useQuery<KPI[]>({
     queryKey: ['/api/kpis'],
   });
 
-  const { data: kpiValues = [] } = useQuery({
+  const { data: kpiValues = [] } = useQuery<any[]>({
     queryKey: ['/api/kpi-values'],
   });
 
@@ -204,11 +238,11 @@ export default function SystemAdminPage() {
 
 
   // Filter functions
-  const filteredAreas = selectedCompany === 'all' 
-    ? areas 
-    : areas.filter(area => area.companyId === parseInt(selectedCompany));
+  const filteredAreas = selectedCompany === 'all'
+    ? areas
+    : areas.filter((area: Area) => area.companyId === parseInt(selectedCompany));
 
-  const filteredKpis = kpis.filter(kpi => {
+  const filteredKpis = kpis.filter((kpi: KPI) => {
     const companyMatch = selectedCompany === 'all' || kpi.companyId === parseInt(selectedCompany);
     const areaMatch = selectedArea === 'all' || kpi.areaId === parseInt(selectedArea);
     return companyMatch && areaMatch;
@@ -216,12 +250,12 @@ export default function SystemAdminPage() {
 
   // Helper functions
   const getCompanyName = (companyId: number) => {
-    const company = companies.find(c => c.id === companyId);
+    const company = companies.find((c: Company) => c.id === companyId);
     return company?.name || 'Sin empresa';
   };
 
   const getAreaName = (areaId: number) => {
-    const area = areas.find(a => a.id === areaId);
+    const area = areas.find((a: Area) => a.id === areaId);
     return area?.name || 'Sin área';
   };
 
@@ -235,10 +269,10 @@ export default function SystemAdminPage() {
     }
   };
 
-  const getUserKpis = (userId: number) => {
-    const user = users.find(u => u.id === userId);
+  const getUserKpis = (userId: number): KPI[] => {
+    const user = users.find((u: User) => u.id === userId);
     if (!user) return [];
-    
+
     // ✅ ACCESO UNIVERSAL DE LECTURA: Todos los usuarios ven todos los KPIs
     return kpis || [];
   };
@@ -410,7 +444,7 @@ export default function SystemAdminPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">Sin empresa</SelectItem>
-                                {companies.map(company => (
+                                {companies.map((company: Company) => (
                                   <SelectItem key={company.id} value={company.id.toString()}>
                                     {company.name}
                                   </SelectItem>
@@ -426,7 +460,7 @@ export default function SystemAdminPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">Sin área</SelectItem>
-                                {areas.map(area => (
+                                {areas.map((area: Area) => (
                                   <SelectItem key={area.id} value={area.id.toString()}>
                                     {area.name}
                                   </SelectItem>
@@ -453,14 +487,14 @@ export default function SystemAdminPage() {
             
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {users.map((user) => (
+                {users.map((user: User) => (
                   <Card key={user.id} className="group hover:shadow-lg transition-shadow duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-gray-50">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                              {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              {user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                             </div>
                             <div>
                               <h3 className="font-semibold text-lg text-gray-900">{user.name}</h3>
@@ -583,7 +617,7 @@ export default function SystemAdminPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas</SelectItem>
-                      {companies.map(company => (
+                      {companies.map((company: Company) => (
                         <SelectItem key={company.id} value={company.id.toString()}>
                           {company.name}
                         </SelectItem>
@@ -599,7 +633,7 @@ export default function SystemAdminPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas</SelectItem>
-                      {filteredAreas.map(area => (
+                      {filteredAreas.map((area: Area) => (
                         <SelectItem key={area.id} value={area.id.toString()}>
                           {area.name}
                         </SelectItem>
@@ -608,9 +642,9 @@ export default function SystemAdminPage() {
                   </Select>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {getUserKpis(selectedUser?.id).map((kpi) => (
+                {getUserKpis(selectedUser?.id).map((kpi: KPI) => (
                   <Card key={kpi.id} className="group">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
@@ -728,7 +762,7 @@ export default function SystemAdminPage() {
                       <SelectValue placeholder="Seleccionar empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      {companies.map(company => (
+                      {companies.map((company: Company) => (
                         <SelectItem key={company.id} value={company.id.toString()}>
                           {company.name}
                         </SelectItem>
@@ -743,7 +777,7 @@ export default function SystemAdminPage() {
                       <SelectValue placeholder="Seleccionar área" />
                     </SelectTrigger>
                     <SelectContent>
-                      {areas.map(area => (
+                      {areas.map((area: Area) => (
                         <SelectItem key={area.id} value={area.id.toString()}>
                           {area.name}
                         </SelectItem>

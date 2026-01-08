@@ -30,6 +30,11 @@ function formatCurrency(value: number): string {
 export function BestSellingProductsCard({ companyId }: BestSellingProductsCardProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   
+  interface TopProduct {
+    name: string;
+    volume: number;
+  }
+
   const { data: topProducts, isLoading } = useQuery({
     queryKey: ["/api/sales-top-products", companyId, "year"],
     queryFn: async () => {
@@ -52,7 +57,7 @@ export function BestSellingProductsCard({ companyId }: BestSellingProductsCardPr
     );
   }
 
-  const products = (topProducts || []).slice(0, 6).map((product: any, index: number) => ({
+  const products = (topProducts as TopProduct[] || []).slice(0, 6).map((product: TopProduct, index: number) => ({
     name: product.name,
     volume: product.volume,
     originalPrice: product.volume * 15,
@@ -146,7 +151,7 @@ export function BestSellingProductsCard({ companyId }: BestSellingProductsCardPr
 
         {/* Dots indicator */}
         <div className="flex items-center justify-center gap-1">
-          {products.map((_, index) => (
+          {products.map((_: typeof products[number], index: number) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}

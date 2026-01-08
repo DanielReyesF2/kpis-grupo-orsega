@@ -719,6 +719,9 @@ export class DatabaseStorage implements IStorage {
 
   async createKpi(kpi: InsertKpi): Promise<Kpi> {
     try {
+      if (!kpi.companyId) {
+        throw new Error('companyId is required');
+      }
       const resolved = this.resolveCompany(kpi.companyId);
       const table = this.getKpiTable(resolved);
 
@@ -1310,7 +1313,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getNotificationsForUser(userId: number): Promise<Notification[]> {
+  async getNotificationsForUser(userId: number): Promise<Array<Notification & { fromUserName: string | null; fromUserEmail: string | null }>> {
     try {
       return await db
         .select({
@@ -1324,6 +1327,8 @@ export class DatabaseStorage implements IStorage {
           readAt: notifications.readAt,
           fromUserId: notifications.fromUserId,
           toUserId: notifications.toUserId,
+          companyId: notifications.companyId,
+          areaId: notifications.areaId,
           fromUserName: users.name,
           fromUserEmail: users.email,
         })
@@ -1455,7 +1460,7 @@ export class DatabaseStorage implements IStorage {
       const company = await this.getCompany(user.companyId);
       const userKpis = await this.getUserKpis(userId);
 
-      const profileWithDetails = {
+      const profileWithDetails: JobProfileWithDetails = {
         id: profile.id,
         areaId: profile.areaId,
         companyId: profile.companyId,
@@ -1488,8 +1493,8 @@ export class DatabaseStorage implements IStorage {
         userKpis: userKpis.map(kpi => ({
           id: kpi.id,
           name: kpi.name,
-          target: kpi.target,
-          frequency: kpi.frequency,
+          target: kpi.target || '',
+          frequency: kpi.frequency || '',
         })),
       };
       
@@ -1584,7 +1589,7 @@ export class DatabaseStorage implements IStorage {
       for (const [companyId, kpis] of kpisByCompany.entries()) {
         for (const kpi of kpis) {
           const key = `${companyId}-${kpi.id}`;
-          const kpiName = kpi.name || kpi.kpiName || '';
+          const kpiName = kpi.name || '';
           
           // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
           if (this.isSalesKpi(kpiName)) {

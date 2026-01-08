@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,6 +13,19 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Calculator, Target } from "lucide-react";
+
+// Types
+interface Company {
+  id: number;
+  name: string;
+}
+
+interface KPI {
+  id: number;
+  companyId: number;
+  name: string;
+  target?: string;
+}
 
 // Componente para mostrar y editar objetivos de ventas mediante botones simples
 export default function SimpleTargetsButtons() {
@@ -26,11 +39,11 @@ export default function SimpleTargetsButtons() {
   const [calculatedWeekly, setCalculatedWeekly] = useState("");
 
   // Cargar las empresas y los KPIs
-  const { data: companies = [] } = useQuery({
+  const { data: companies = [] } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
   });
 
-  const { data: kpis = [] } = useQuery({
+  const { data: kpis = [] } = useQuery<KPI[]>({
     queryKey: ["/api/kpis"],
   });
 
@@ -43,7 +56,7 @@ export default function SimpleTargetsButtons() {
   }[]>([]);
 
   // Mapeo de companyId a valor de meta anual predeterminado
-  const defaultTargets = {
+  const defaultTargets: Record<number, number> = {
     1: 667449, // Dura International (KG)
     2: 10300476, // Grupo Orsega (unidades)
   };
@@ -64,10 +77,10 @@ export default function SimpleTargetsButtons() {
     }
 
     // Preparar los objetivos para cada compañía
-    const newTargets = companies.map((company: any) => {
+    const newTargets = companies.map((company) => {
       // Obtener el KPI de ventas para esta compañía
-      const salesKpi = kpis.find((kpi: any) => 
-        kpi.companyId === company.id && 
+      const salesKpi = kpis.find((kpi) =>
+        kpi.companyId === company.id &&
         kpi.name.toLowerCase().includes("volumen de ventas")
       );
 
@@ -141,11 +154,11 @@ export default function SimpleTargetsButtons() {
 
   // Mutación para actualizar un objetivo
   const updateTargetMutation = useMutation({
-    mutationFn: async ({ companyId, annualTarget }: { companyId: number, annualTarget: number }) => {
+    mutationFn: async ({ companyId, annualTarget }: { companyId: number, annualTarget: number | string }) => {
       try {
         // Parsear el valor para asegurar que es un número
-        const targetValue = typeof annualTarget === 'string' 
-          ? parseInt(annualTarget.replace(/[^\d]/g, '')) 
+        const targetValue = typeof annualTarget === 'string'
+          ? parseInt(annualTarget.replace(/[^\d]/g, ''))
           : annualTarget;
           
         if (isNaN(targetValue)) {

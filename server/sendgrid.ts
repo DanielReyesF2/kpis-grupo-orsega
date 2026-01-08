@@ -12,8 +12,9 @@
 
 import { MailService } from '@sendgrid/mail';
 
+const mailService = new MailService();
+
 if (process.env.SENDGRID_API_KEY) {
-  const mailService = new MailService();
   mailService.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
   console.log("⚠️ SENDGRID_API_KEY not set - SendGrid functionality disabled");

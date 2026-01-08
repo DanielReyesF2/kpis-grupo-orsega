@@ -5,13 +5,13 @@
 
 import { neon, neonConfig } from '@neondatabase/serverless';
 import WebSocket from 'ws';
+import type { Period } from '@shared/sales-types';
 import {
   getActiveClients,
   getRetentionRate,
   getNewClients,
   getClientChurn,
-  getSalesMetrics,
-  type Period
+  getSalesMetrics
 } from './sales-metrics';
 
 // ========================================================================

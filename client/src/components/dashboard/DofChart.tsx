@@ -16,6 +16,17 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ExchangeRateHistory } from '@/components/treasury/ExchangeRateHistory';
 
+// Type definitions for FX series data
+interface FxSeriesPoint {
+  date: string;
+  buy: number;
+  sell: number;
+}
+
+interface FxSeriesResponse {
+  series: FxSeriesPoint[];
+}
+
 export function DofChart() {
   console.log('[DofChart] �� COMPONENTE MONTADO - Iniciando DofChart');
   
@@ -42,31 +53,22 @@ export function DofChart() {
   const [additionalNotes, setAdditionalNotes] = useState('');
 
   // Obtener datos de las 3 fuentes - periodo fijo de 90 días
-  const { data: monexSeries, isLoading: monexLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=MONEX&days=90`],
-    staleTime: 0, // No cachear para obtener datos frescos
-    gcTime: 0, // No mantener en caché
+  const { data: monexSeries, isLoading: monexLoading } = useQuery<FxSeriesResponse>({
+    queryKey: ["/api/fx/source-series?source=MONEX&days=90"],
+    staleTime: 0,
     refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   });
 
-  const { data: santanderSeries, isLoading: santanderLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=Santander&days=90`],
-    staleTime: 0, // No cachear para obtener datos frescos
-    gcTime: 0, // No mantener en caché
+  const { data: santanderSeries, isLoading: santanderLoading } = useQuery<FxSeriesResponse>({
+    queryKey: ["/api/fx/source-series?source=Santander&days=90"],
+    staleTime: 0,
     refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   });
 
-  const { data: dofSeries, isLoading: dofLoading } = useQuery<any>({
-    queryKey: [`/api/fx/source-series?source=DOF&days=90`],
-    staleTime: 0, // No cachear para obtener datos frescos
-    gcTime: 0, // No mantener en caché
+  const { data: dofSeries, isLoading: dofLoading } = useQuery<FxSeriesResponse>({
+    queryKey: ["/api/fx/source-series?source=DOF&days=90"],
+    staleTime: 0,
     refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   });
 
   const isLoading = monexLoading || santanderLoading || dofLoading;
@@ -132,7 +134,7 @@ export function DofChart() {
   };
 
   // Obtener los últimos valores de cada fuente
-  const getLatestData = (series: any, sourceName: string) => {
+  const getLatestData = (series: FxSeriesResponse | undefined, sourceName: string) => {
     if (!series?.series || series.series.length === 0) return null;
     
     // El backend ya ordena por fecha descendente (más reciente primero)

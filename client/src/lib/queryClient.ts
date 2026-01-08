@@ -214,7 +214,7 @@ export const queryClient = new QueryClient({
         return failureCount < 1;
       },
       retryDelay: 1000, // 1 segundo fijo entre reintentos
-      gcTime: 30 * 60 * 1000, // 30 minutos para mantener datos en memoria (cacheTime)
+      cacheTime: 30 * 60 * 1000, // 30 minutos para mantener datos en memoria
     },
     mutations: {
       retry: 1,

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel, Lock } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ShipmentMap } from "./ShipmentMap";
@@ -15,6 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { FormattedDate } from "@/components/ui/formatted-date";
 import { ShipmentStatusUpdate } from "./ShipmentStatusUpdate";
 import type { Shipment } from "@shared/schema";
+import { updateShipmentStatusSchema } from "@shared/schema";
+import type { z } from "zod";
+
+type UpdateShipmentFormValues = z.infer<typeof updateShipmentStatusSchema>;
 
 interface ShipmentUpdate {
   id: number;
@@ -34,7 +40,8 @@ interface ShipmentCardProps {
 
 export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps) {
   const { toast } = useToast();
-  
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+
   // Consulta para obtener actualizaciones del envío
   const { data: updates = [], isLoading: isLoadingUpdates, refetch: refetchUpdates } = useQuery<ShipmentUpdate[]>({
     queryKey: [`/api/shipments/${shipment.id}/updates`],
@@ -53,7 +60,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
 
   // Formulario para agregar actualizaciones
   const form = useForm<UpdateShipmentFormValues>({
-    resolver: zodResolver(updateShipmentSchema),
+    resolver: zodResolver(updateShipmentStatusSchema),
     defaultValues: {
       status: shipment.status,
     },
@@ -140,8 +147,13 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
               Orden de Compra: {shipment.purchaseOrder}
             </CardTitle>
             <CardDescription>
-              {company?.name} • Código: {shipment.trackingCode} • Creado el{" "}
-              <FormattedDate date={new Date(shipment.createdAt)} />
+              {company?.name} • Código: {shipment.trackingCode}
+              {shipment.createdAt && (
+                <>
+                  {" • Creado el "}
+                  <FormattedDate date={new Date(shipment.createdAt)} />
+                </>
+              )}
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>

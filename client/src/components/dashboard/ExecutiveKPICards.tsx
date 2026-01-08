@@ -194,19 +194,19 @@ export function ExecutiveKPICards({ companyId }: ExecutiveKPICardsProps) {
     {
       id: 3,
       title: "Crecimiento YoY",
-      value: `${salesMetrics?.growth >= 0 ? "+" : ""}${salesMetrics?.growth?.toFixed(1) || 0}%`,
+      value: `${(salesMetrics?.growth ?? 0) >= 0 ? "+" : ""}${salesMetrics?.growth?.toFixed(1) || 0}%`,
       unit: "",
       subtitle: `Comparación año sobre año`,
       trend: salesMetrics?.growth || 0,
       badge: null,
-      icon: salesMetrics?.growth >= 0 ? TrendingUp : TrendingDown,
-      iconBg: salesMetrics?.growth >= 0
+      icon: (salesMetrics?.growth ?? 0) >= 0 ? TrendingUp : TrendingDown,
+      iconBg: (salesMetrics?.growth ?? 0) >= 0
         ? "bg-gradient-to-br from-emerald-500 to-green-600"
         : "bg-gradient-to-br from-red-500 to-rose-600",
-      cardBg: salesMetrics?.growth >= 0
+      cardBg: (salesMetrics?.growth ?? 0) >= 0
         ? "from-emerald-50/80 via-green-50/60 to-transparent dark:from-emerald-950/30 dark:via-green-950/20"
         : "from-red-50/80 via-rose-50/60 to-transparent dark:from-red-950/30 dark:via-rose-950/20",
-      borderAccent: salesMetrics?.growth >= 0 ? "border-l-emerald-500" : "border-l-red-500",
+      borderAccent: (salesMetrics?.growth ?? 0) >= 0 ? "border-l-emerald-500" : "border-l-red-500",
       tooltip: `Crecimiento porcentual comparado con el mismo período del año anterior`,
     },
     {

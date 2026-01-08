@@ -16,6 +16,9 @@ export type {
   SalesMetrics
 } from '@shared/sales-types';
 
+// Importar para uso interno en este archivo
+import type { SalesMetrics, Period } from '@shared/sales-types';
+
 /**
  * Props para componentes de métricas de ventas
  */
