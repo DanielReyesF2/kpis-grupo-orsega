@@ -1,0 +1,122 @@
+{
+  "name": "Tipo de Cambio → WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "exchange-rate",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Tipo de Cambio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "exchange-rate-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mensaje",
+              "name": "mensaje",
+              "value": "=💱 *Tipo de Cambio Actualizado*\n\n📅 Fecha: {{ $json.data.date.split('T')[0] }}\n⏰ Hora: {{ $json.data.date.split('T')[1].split('.')[0] }}\n\n💵 *Compra:* ${{ $json.data.buyRate.toFixed(4) }} MXN\n💵 *Venta:* ${{ $json.data.sellRate.toFixed(4) }} MXN\n\n📊 Fuente: {{ $json.data.source.toUpperCase() }}\n👤 Registrado por: {{ $json.data.createdBy }}",
+              "type": "string"
+            },
+            {
+              "id": "telefono",
+              "name": "telefono",
+              "value": "={{ $env.WHATSAPP_PHONE_NUMBER }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-message",
+      "name": "Formatear Mensaje",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.telefono }}",
+        "textBody": "={{ $json.mensaje }}"
+      },
+      "id": "whatsapp-send",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [690, 300],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp Business Account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "success-response",
+      "name": "Respuesta OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Tipo de Cambio": {
+      "main": [
+        [
+          {
+            "node": "Formatear Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Respuesta OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "instanceId": "econova-kpi-dashboard"
+  },
+  "tags": [
+    {
+      "name": "tesoreria"
+    },
+    {
+      "name": "tipos-de-cambio"
+    }
+  ]
+}
