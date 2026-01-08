@@ -8,16 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface Payment {
   id: number;
-  supplier_name?: string;
   supplierName?: string;
   amount: number;
   currency: string;
-  due_date?: string;
   dueDate?: string;
-  payment_date?: string; // ✅ Agregar paymentDate
-  paymentDate?: string; // ✅ Agregar paymentDate
+  paymentDate?: string;
   status: string;
-  company_id?: number;
   companyId?: number;
 }
 
@@ -67,17 +63,20 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(today.getDate() + 7);
 
+  // Estados sincronizados con ScheduledPaymentsKanban - solo pagos pendientes (sin voucher)
+  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+
   const paymentsDue = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") {
+    // Solo mostrar pagos pendientes de pagar (que no tienen voucher aún)
+    if (!PENDING_STATUSES.includes(p.status)) {
       console.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
       return false;
     }
     
-    // ✅ PRIORIDAD: Usar paymentDate si existe, sino usar dueDate
-    // Mostrar pagos que están programados para los próximos 7 días (por paymentDate)
-    // O pagos que están vencidos (por dueDate)
-    const paymentDateStr = p.paymentDate || p.payment_date;
-    const dueDateStr = p.dueDate || p.due_date;
+    // PRIORIDAD: Usar paymentDate si existe, sino usar dueDate
+    // Mostrar pagos que están programados para los próximos 7 días
+    const paymentDateStr = p.paymentDate;
+    const dueDateStr = p.dueDate;
     
     // Si tiene paymentDate, usar ese para mostrar pagos programados
     if (paymentDateStr) {
@@ -118,8 +117,8 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
     return isInRange;
   }).sort((a, b) => {
     // Ordenar por paymentDate si existe, sino por dueDate
-    const dateA = new Date((a.paymentDate || a.payment_date || a.dueDate || a.due_date || "")).getTime();
-    const dateB = new Date((b.paymentDate || b.payment_date || b.dueDate || b.due_date || "")).getTime();
+    const dateA = new Date(a.paymentDate || a.dueDate || "").getTime();
+    const dateB = new Date(b.paymentDate || b.dueDate || "").getTime();
     return dateA - dateB;
   });
 
@@ -164,7 +163,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
           <>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {paymentsDue.slice(0, 4).map((payment) => {
-                const overdue = isOverdue(payment.due_date || payment.dueDate);
+                const overdue = isOverdue(payment.dueDate);
                 return (
                   <div
                     key={payment.id}
@@ -182,7 +181,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
                             <Calendar className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                           )}
                           <p className="text-base font-bold text-slate-900 dark:text-slate-50 truncate">
-                            {payment.supplier_name || payment.supplierName || "Sin proveedor"}
+                            {payment.supplierName || "Sin proveedor"}
                           </p>
                         </div>
                         <p className="text-lg font-bold text-green-700 dark:text-green-400 mb-1">
@@ -191,9 +190,9 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
                             maximumFractionDigits: 2,
                           })}
                         </p>
-                        {(payment.due_date || payment.dueDate) && (
+                        {payment.dueDate && (
                           <p className={`text-sm font-medium mt-1 ${overdue ? "text-red-700 dark:text-red-300" : "text-slate-600 dark:text-slate-400"}`}>
-                            Vence: {format(new Date(payment.due_date || payment.dueDate || ""), "dd 'de' MMMM", { locale: es })}
+                            Vence: {format(new Date(payment.dueDate), "dd 'de' MMMM", { locale: es })}
                           </p>
                         )}
                       </div>

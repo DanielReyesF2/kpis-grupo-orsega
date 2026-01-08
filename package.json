@@ -16,8 +16,8 @@
     "audit": "tsx scripts/audit-project.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.962.0",
-    "@aws-sdk/s3-request-presigner": "^3.962.0",
+    "@aws-sdk/client-s3": "^3.965.0",
+    "@aws-sdk/s3-request-presigner": "^3.965.0",
     "@copilotkit/react-core": "^1.50.1",
     "@copilotkit/react-ui": "^1.50.1",
     "@copilotkit/runtime": "^1.50.1",

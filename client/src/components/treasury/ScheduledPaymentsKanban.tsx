@@ -502,9 +502,9 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
   const [uploadVoucherPayment, setUploadVoucherPayment] = useState<ScheduledPayment | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<ColumnId | null>(null);
 
-  // Obtener scheduled payments
+  // Obtener scheduled payments - queryKey sin companyId para invalidación consistente
   const { data: payments = [], isLoading } = useQuery<ScheduledPayment[]>({
-    queryKey: ["/api/treasury/payments", companyId],
+    queryKey: ["/api/treasury/payments"],
     queryFn: async () => {
       const params = companyId ? `?companyId=${companyId}` : '';
       const response = await fetch(`/api/treasury/payments${params}`, {

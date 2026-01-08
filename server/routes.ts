@@ -49,8 +49,9 @@ import { handleIDRALLUpload, detectExcelFormat } from "./sales-idrall-handler";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
 import { getAnnualSummary, getAvailableYears } from "./annual-summary";
-import { generateSalesAnalystInsights } from "./sales-analyst";
+import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR2, getFile } from "./storage/file-storage";
 import * as fileStorage from "./file-storage";
+import { generateSalesAnalystInsights } from "./sales-analyst";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -4734,35 +4735,42 @@ export function registerRoutes(app: express.Application) {
       const createdScheduledPayment = await storage.createScheduledPayment(scheduledPaymentData);
       console.log(`✅ [Confirm Invoice] Cuenta por pagar creada: ID ${createdScheduledPayment.id}`);
 
-      // Mover archivo de temp a la ubicación final
-      const fs = await import('fs');
-      const path = await import('path');
-      const year = new Date().getFullYear();
-      const month = String(new Date().getMonth() + 1).padStart(2, '0');
-      const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', String(year), month);
-      
-      if (!fs.existsSync(invoiceDir)) {
-        fs.mkdirSync(invoiceDir, { recursive: true });
-      }
-      
-      const invoiceFileName = `${Date.now()}-${validatedData.invoiceFileName}`;
-      const finalInvoicePath = path.join(invoiceDir, invoiceFileName);
-      
-      // Mover archivo de temp a final
-      if (fs.existsSync(validatedData.invoiceFilePath)) {
-        fs.renameSync(validatedData.invoiceFilePath, finalInvoicePath);
+      // Mover archivo de temp a storage permanente (R2 o local)
+      const fsModule = await import('fs');
+      let invoiceFileUrl = '';
+
+      if (fsModule.existsSync(validatedData.invoiceFilePath)) {
+        // Detectar MIME type basado en extensión
+        const ext = validatedData.invoiceFileName.toLowerCase().split('.').pop();
+        const mimeTypes: Record<string, string> = {
+          'pdf': 'application/pdf',
+          'png': 'image/png',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'xml': 'application/xml'
+        };
+        const mimeType = mimeTypes[ext || ''] || 'application/octet-stream';
+
+        const uploadResult = await moveTempToStorage(
+          validatedData.invoiceFilePath,
+          'facturas',
+          validatedData.invoiceFileName,
+          mimeType
+        );
+        invoiceFileUrl = uploadResult.url;
+        console.log(`✅ [Confirm Invoice] Archivo subido a ${uploadResult.storage}: ${invoiceFileUrl}`);
       } else {
         console.warn(`⚠️ [Confirm Invoice] Archivo temporal no encontrado: ${validatedData.invoiceFilePath}`);
       }
-      
+
       // Actualizar el scheduled payment con la URL del archivo
       const { db } = await import('./db');
       const { scheduledPayments } = await import('../shared/schema');
       const { eq } = await import('drizzle-orm');
-      
+
       await db.update(scheduledPayments)
         .set({
-          hydralFileUrl: finalInvoicePath,
+          hydralFileUrl: invoiceFileUrl,
           hydralFileName: validatedData.invoiceFileName,
         })
         .where(eq(scheduledPayments.id, createdScheduledPayment.id));
@@ -6188,21 +6196,9 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Configure multer for file uploads
+  // Configure multer for file uploads (memoryStorage for R2 support)
   const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        const uploadDir = path.join(process.cwd(), 'uploads', 'receipts');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
-      }
-    }),
+    storage: multer.memoryStorage(),
     fileFilter: (req, file, cb) => {
       const allowedTypes = ['application/pdf', 'application/xml', 'text/xml'];
       if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.xml')) {
@@ -6225,14 +6221,22 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const fileUrl = `/uploads/receipts/${file.filename}`;
+      // Upload to R2 or local storage
+      const uploadResult = await uploadFile(
+        file.buffer,
+        'receipts',
+        file.originalname,
+        file.mimetype
+      );
+      console.log(`📤 [Receipt Upload] Archivo subido a ${uploadResult.storage}: ${uploadResult.url}`);
+
       const fileType = file.mimetype.includes('pdf') ? 'pdf' : 'xml';
 
       const result = await sql(`
         INSERT INTO payment_receipts (payment_id, file_name, file_url, file_type, uploaded_by)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
-      `, [paymentId, file.originalname, fileUrl, fileType, user.id]);
+      `, [paymentId, file.originalname, uploadResult.url, fileType, user.id]);
 
       res.status(201).json(result[0]);
     } catch (error) {
@@ -6280,20 +6284,21 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ error: 'No receipts found' });
       }
 
-      // Preparar archivos adjuntos
+      // Preparar archivos adjuntos (soporta R2 y local)
       const attachments = [];
       for (const receipt of receipts) {
-        const filePath = path.join(process.cwd(), receipt.file_url);
-        if (fs.existsSync(filePath)) {
-          const fileContent = fs.readFileSync(filePath);
+        try {
+          const fileContent = await getFile(receipt.file_url);
           const base64Content = fileContent.toString('base64');
-          
+
           attachments.push({
             content: base64Content,
             filename: receipt.file_name,
             type: receipt.file_type === 'pdf' ? 'application/pdf' : 'application/xml',
             disposition: 'attachment'
           });
+        } catch (err) {
+          console.error(`⚠️ [Email] No se pudo obtener archivo: ${receipt.file_url}`, err);
         }
       }
 
@@ -6434,27 +6439,14 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Configurar multer para payment vouchers
+  // Configurar multer para payment vouchers (memoryStorage para R2 upload)
   const voucherUpload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        const uploadDir = path.join(process.cwd(), 'uploads', 'payment-vouchers');
-        // Crear directorio si no existe
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `voucher-${uniqueSuffix}-${file.originalname}`);
-      }
-    }),
+    storage: multer.memoryStorage(),
     fileFilter: (req, file, cb) => {
       const allowedTypes = [
-        'application/pdf', 
-        'image/png', 
-        'image/jpeg', 
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
         'image/jpg',
         'application/xml',
         'text/xml',
@@ -6462,7 +6454,7 @@ export function registerRoutes(app: express.Application) {
       ];
       const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.xml'];
       const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
-      
+
       if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
         cb(null, true);
       } else {
@@ -6531,10 +6523,9 @@ export function registerRoutes(app: express.Application) {
       try {
         console.log(`🤖 [Upload Voucher] Iniciando análisis con OpenAI...`);
         const { analyzePaymentDocument } = await import("./document-analyzer");
-        const fs = await import('fs');
-        const path = await import('path');
-        const fileBuffer = fs.readFileSync(file.path);
-        
+        // Usar buffer directamente (memoryStorage)
+        const fileBuffer = file.buffer;
+
         analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
         console.log(`✅ [Upload Voucher] Análisis completado:`, {
           documentType: analysis.documentType,
@@ -6584,27 +6575,16 @@ export function registerRoutes(app: express.Application) {
         } as any;
       }
 
-      // Guardar archivo en estructura organizada
-      const fsModule = await import('fs');
-      const pathModule = await import('path');
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const uploadDir = pathModule.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
-      
-      console.log(`📁 [Upload Voucher] Directorio de upload: ${uploadDir}`);
-      
-      if (!fsModule.existsSync(uploadDir)) {
-        fsModule.mkdirSync(uploadDir, { recursive: true });
-        console.log(`📁 [Upload Voucher] Directorio creado: ${uploadDir}`);
-      }
-      
-      const fileName = `${Date.now()}-${file.originalname}`;
-      const newFilePath = pathModule.join(uploadDir, fileName);
-      
-      console.log(`📁 [Upload Voucher] Moviendo archivo de ${file.path} a ${newFilePath}`);
-      fsModule.renameSync(file.path, newFilePath);
-      console.log(`✅ [Upload Voucher] Archivo movido exitosamente`);
+      // Subir archivo a storage (R2 o local)
+      console.log(`📤 [Upload Voucher] Subiendo archivo a storage...`);
+      const uploadResult = await uploadFile(
+        file.buffer,
+        'comprobantes',
+        file.originalname,
+        file.mimetype
+      );
+      const voucherUrl = uploadResult.url;
+      console.log(`✅ [Upload Voucher] Archivo subido a ${uploadResult.storage}: ${voucherUrl}`);
 
       // Determinar estado inicial
       const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
@@ -6642,7 +6622,7 @@ export function registerRoutes(app: express.Application) {
         clientName: client?.name || scheduledPayment.supplierName || 'Cliente',
         scheduledPaymentId: scheduledPaymentId,
         status: finalStatus as any,
-        voucherFileUrl: newFilePath,
+        voucherFileUrl: voucherUrl, // URL de R2 o local
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,
         extractedAmount: analysis.extractedAmount,
@@ -6808,13 +6788,10 @@ export function registerRoutes(app: express.Application) {
 
       // ✅ SIMPLIFIED SECURITY: Validación de archivo simplificada pero segura
       // Validamos la extensión (ya que multer validó el mimetype)
-      const fs = await import('fs');
-      const path = await import('path');
       const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
       const allowedExtensions = ['.pdf', '.xml', '.png', '.jpg', '.jpeg'];
 
       if (!allowedExtensions.includes(fileExtension)) {
-        fs.unlinkSync(file.path);
         console.error(`❌ [Upload] Extensión no permitida: ${fileExtension}`);
         return res.status(400).json({
           error: 'Tipo de archivo no permitido',
@@ -6827,9 +6804,10 @@ export function registerRoutes(app: express.Application) {
       // Analizar el documento primero para determinar el tipo
       console.log('🔍 [Upload] Iniciando análisis del documento...');
       const { analyzePaymentDocument } = await import("./document-analyzer");
-      const fileBuffer = fs.readFileSync(file.path);
-      
-      console.log('📄 [Upload] Buffer leído, tamaño:', fileBuffer.length, 'bytes');
+      // Usar buffer directamente (memoryStorage)
+      const fileBuffer = file.buffer;
+
+      console.log('📄 [Upload] Buffer disponible, tamaño:', fileBuffer.length, 'bytes');
       let analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
       console.log('✅ [Upload] Análisis completado - DATOS EXTRAÍDOS:', JSON.stringify({
         documentType: analysis?.documentType,
@@ -7263,17 +7241,8 @@ export function registerRoutes(app: express.Application) {
           }
 
           // Guardar el archivo de factura temporalmente para verificación
-          const year = new Date().getFullYear();
-          const month = String(new Date().getMonth() + 1).padStart(2, '0');
-          const invoiceDir = path.join(process.cwd(), 'uploads', 'facturas', 'temp', String(year), month);
-          
-          if (!fs.existsSync(invoiceDir)) {
-            fs.mkdirSync(invoiceDir, { recursive: true });
-          }
-          
-          const invoiceFileName = `${Date.now()}-${file.originalname}`;
-          const invoiceFilePath = path.join(invoiceDir, invoiceFileName);
-          fs.copyFileSync(file.path, invoiceFilePath);
+          // (siempre local porque es temporal - se moverá a R2 al confirmar)
+          const invoiceFilePath = saveTempFile(fileBuffer, 'facturas', file.originalname);
           
           // Log detallado de datos extraídos
           const hasSupplier = !!analysis.extractedSupplierName;
@@ -7442,21 +7411,16 @@ export function registerRoutes(app: express.Application) {
         initialStatus = 'pendiente_complemento';
       }
 
-      // Guardar archivo en estructura organizada: /uploads/comprobantes/{año}/{mes}/
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const uploadDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
-      
-      // Crear directorio si no existe
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      
-      // Mover archivo al directorio organizado
-      const fileName = `${Date.now()}-${file.originalname}`;
-      const newFilePath = path.join(uploadDir, fileName);
-      fs.renameSync(file.path, newFilePath);
+      // Subir archivo a storage (R2 o local)
+      console.log(`📤 [Upload] Subiendo comprobante a storage...`);
+      const voucherUploadResult = await uploadFile(
+        fileBuffer,
+        'comprobantes',
+        file.originalname,
+        file.mimetype
+      );
+      const voucherFileUrl = voucherUploadResult.url;
+      console.log(`✅ [Upload] Comprobante subido a ${voucherUploadResult.storage}: ${voucherFileUrl}`);
 
       // Usar companyId del cliente si no se especifica
       const voucherCompanyId = validatedData.companyId || client?.companyId || validatedData.payerCompanyId;
@@ -7481,7 +7445,7 @@ export function registerRoutes(app: express.Application) {
         clientName: client?.name || scheduledPaymentForClient?.supplierName || 'Cliente',
         scheduledPaymentId: validatedData.scheduledPaymentId || null,
         status: initialStatus as any,
-        voucherFileUrl: newFilePath,
+        voucherFileUrl: voucherFileUrl, // URL de R2 o local
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,
         extractedAmount: analysis.extractedAmount,

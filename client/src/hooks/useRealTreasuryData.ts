@@ -37,9 +37,9 @@ export interface Payment {
 }
 
 export function useRealTreasuryData(companyId?: number) {
-  // Fetch payment vouchers
+  // Fetch payment vouchers - usar misma queryKey que otros componentes
   const { data: vouchers, isLoading: isLoadingVouchers, error: vouchersError } = useQuery<PaymentVoucher[]>({
-    queryKey: ['/api/payment-vouchers', { companyId }],
+    queryKey: ['/api/payment-vouchers'],
     staleTime: 1 * 60 * 1000, // 1 minute
     refetchInterval: 30000, // Refetch every 30 seconds
     refetchOnWindowFocus: true,
@@ -47,15 +47,15 @@ export function useRealTreasuryData(companyId?: number) {
 
   // Fetch exchange rates
   const { data: exchangeRates, isLoading: isLoadingRates, error: ratesError } = useQuery<ExchangeRate[]>({
-    queryKey: ['/api/treasury/exchange-rates', { companyId }],
+    queryKey: ['/api/treasury/exchange-rates'],
     staleTime: 1 * 60 * 1000,
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
 
-  // Fetch payments
+  // Fetch payments - CORREGIDO: usar endpoint correcto /api/treasury/payments
   const { data: payments, isLoading: isLoadingPayments, error: paymentsError } = useQuery<Payment[]>({
-    queryKey: ['/api/payments', { companyId }],
+    queryKey: ['/api/treasury/payments'],
     staleTime: 1 * 60 * 1000,
     refetchInterval: 30000,
     refetchOnWindowFocus: true,

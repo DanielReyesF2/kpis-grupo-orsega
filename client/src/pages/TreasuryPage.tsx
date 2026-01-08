@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, History, FileText, DollarSign, TrendingUp } from "lucide-react";
+import { Users, History, FileText, DollarSign } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -121,8 +121,14 @@ export default function TreasuryPage() {
   const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
   const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
 
+  // Estados sincronizados con ScheduledPaymentsKanban
+  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+  // Los pagos con voucher ya subido no deben mostrarse en las tarjetas de semana
+  // porque ya aparecen en el Kanban en "Pendiente REP" o "Cierre Contable"
+
   const paymentsThisWeek = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled") return false;
+    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
+    if (!PENDING_STATUSES.includes(p.status)) return false;
     const dateStr = p.paymentDate || p.dueDate;
     if (!dateStr) return false;
     const date = new Date(dateStr);
@@ -131,7 +137,8 @@ export default function TreasuryPage() {
   });
 
   const paymentsNextWeek = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled") return false;
+    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
+    if (!PENDING_STATUSES.includes(p.status)) return false;
     const dateStr = p.paymentDate || p.dueDate;
     if (!dateStr) return false;
     const date = new Date(dateStr);
@@ -218,10 +225,6 @@ export default function TreasuryPage() {
             <Button variant="outline" size="sm" onClick={() => setViewMode("history")}>
               <History className="h-4 w-4 mr-2" />
               Historial
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { setViewMode("exchange-rates"); setLocation("/treasury/exchange-rates"); }}>
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Tipo de Cambio
             </Button>
           </div>
         </div>
