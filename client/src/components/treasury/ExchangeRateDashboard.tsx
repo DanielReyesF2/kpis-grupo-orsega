@@ -138,16 +138,25 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                     )}
                   </div>
                   {rate ? (
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Compra:</span>
-                        <span className="font-bold text-lg">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                    isSingleValueSource(source) ? (
+                      /* DOF - Solo muestra Tipo de Cambio */
+                      <div className="text-center py-2">
+                        <span className="text-sm text-muted-foreground block mb-1">Tipo de Cambio</span>
+                        <span className="font-bold text-2xl">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Venta:</span>
-                        <span className="font-bold text-lg">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                    ) : (
+                      /* Santander/MONEX - Compra y Venta */
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Compra:</span>
+                          <span className="font-bold text-lg">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Venta:</span>
+                          <span className="font-bold text-lg">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground">Sin datos</p>
                   )}
