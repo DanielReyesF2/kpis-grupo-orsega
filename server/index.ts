@@ -333,6 +333,19 @@ app.use('/api', apiAccessMonitorMiddleware);
 // que busca en dist/public o server/public (rutas correctas del build)
 // app.use(express.static(path.join(process.cwd(), 'public')));
 
+// ✅ Servir archivos subidos (facturas, comprobantes, etc.)
+// Esta ruta permite acceder a /uploads/facturas/... y /uploads/comprobantes/...
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '1d', // Cache por 1 día
+  etag: true,
+  lastModified: true,
+}));
+console.log(`📁 [Static] Sirviendo archivos de: ${uploadsDir} en /uploads`);
+
 // Security helper: Redact sensitive data from logs
 function redactSensitiveData(obj: any): any {
   if (!obj || typeof obj !== 'object') return obj;

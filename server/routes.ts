@@ -4755,9 +4755,12 @@ export function registerRoutes(app: express.Application) {
       const { scheduledPayments } = await import('../shared/schema');
       const { eq } = await import('drizzle-orm');
       
+      // Convertir ruta absoluta a URL relativa para el navegador
+      const relativeInvoiceUrl = `/uploads/facturas/${year}/${month}/${invoiceFileName}`;
+
       await db.update(scheduledPayments)
         .set({
-          hydralFileUrl: finalInvoicePath,
+          hydralFileUrl: relativeInvoiceUrl,
           hydralFileName: validatedData.invoiceFileName,
         })
         .where(eq(scheduledPayments.id, createdScheduledPayment.id));
@@ -6511,10 +6514,12 @@ export function registerRoutes(app: express.Application) {
       
       const fileName = `${Date.now()}-${file.originalname}`;
       const newFilePath = pathModule.join(uploadDir, fileName);
-      
+      // URL relativa para servir el archivo via navegador
+      const relativeFileUrl = `/uploads/comprobantes/${year}/${month}/${fileName}`;
+
       console.log(`📁 [Upload Voucher] Moviendo archivo de ${file.path} a ${newFilePath}`);
       fsModule.renameSync(file.path, newFilePath);
-      console.log(`✅ [Upload Voucher] Archivo movido exitosamente`);
+      console.log(`✅ [Upload Voucher] Archivo movido exitosamente (URL: ${relativeFileUrl})`);
 
       // Determinar estado inicial
       const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
@@ -6552,7 +6557,7 @@ export function registerRoutes(app: express.Application) {
         clientName: client?.name || scheduledPayment.supplierName || 'Cliente',
         scheduledPaymentId: scheduledPaymentId,
         status: finalStatus as any,
-        voucherFileUrl: newFilePath,
+        voucherFileUrl: relativeFileUrl, // URL relativa para el navegador
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,
         extractedAmount: analysis.extractedAmount,
@@ -7366,6 +7371,8 @@ export function registerRoutes(app: express.Application) {
       // Mover archivo al directorio organizado
       const fileName = `${Date.now()}-${file.originalname}`;
       const newFilePath = path.join(uploadDir, fileName);
+      // URL relativa para servir el archivo via navegador
+      const relativeFileUrl = `/uploads/comprobantes/${year}/${month}/${fileName}`;
       fs.renameSync(file.path, newFilePath);
 
       // Usar companyId del cliente si no se especifica
@@ -7391,7 +7398,7 @@ export function registerRoutes(app: express.Application) {
         clientName: client?.name || scheduledPaymentForClient?.supplierName || 'Cliente',
         scheduledPaymentId: validatedData.scheduledPaymentId || null,
         status: initialStatus as any,
-        voucherFileUrl: newFilePath,
+        voucherFileUrl: relativeFileUrl, // URL relativa para el navegador
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,
         extractedAmount: analysis.extractedAmount,
