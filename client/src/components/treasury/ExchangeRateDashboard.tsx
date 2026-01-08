@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isSingleValueSource } from "@/lib/utils/exchange-rates";
 
 interface ExchangeRate {
   id: number;
@@ -242,6 +243,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
               {(() => {
                 const latestRate = todayRates[0];
                 const colors = sourceColors[latestRate.source] || sourceColors.DOF;
+                const isSingle = isSingleValueSource(latestRate.source);
                 return (
                   <div className="flex items-center gap-4">
                     <Badge
@@ -256,20 +258,31 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                       </span>
                     </div>
                     <div className="flex-1" />
-                    <div className="flex gap-8">
+                    {isSingle ? (
+                      /* DOF - Solo un valor */
                       <div className="text-center">
-                        <span className="text-xs text-muted-foreground block mb-1">Compra</span>
-                        <span className="font-bold text-xl text-green-600 dark:text-green-400">
+                        <span className="text-xs text-muted-foreground block mb-1">Tipo de Cambio</span>
+                        <span className="font-bold text-2xl text-primary">
                           ${(latestRate.buy_rate ?? 0).toFixed(4)}
                         </span>
                       </div>
-                      <div className="text-center">
-                        <span className="text-xs text-muted-foreground block mb-1">Venta</span>
-                        <span className="font-bold text-xl text-red-600 dark:text-red-400">
-                          ${(latestRate.sell_rate ?? 0).toFixed(4)}
-                        </span>
+                    ) : (
+                      /* Santander/MONEX - Compra y Venta */
+                      <div className="flex gap-8">
+                        <div className="text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Compra</span>
+                          <span className="font-bold text-xl text-green-600 dark:text-green-400">
+                            ${(latestRate.buy_rate ?? 0).toFixed(4)}
+                          </span>
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Venta</span>
+                          <span className="font-bold text-xl text-red-600 dark:text-red-400">
+                            ${(latestRate.sell_rate ?? 0).toFixed(4)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })()}
@@ -294,6 +307,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
           <div className="space-y-1.5">
             {todayRates.slice(1).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
+              const isSingle = isSingleValueSource(rate.source);
               return (
                 <Card key={rate.id} className={`${colors.bg} border ${colors.border}`}>
                   <CardContent className="p-2.5 px-4">
@@ -310,16 +324,25 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                         </span>
                       </div>
                       <div className="flex-1" />
-                      <div className="flex gap-6">
+                      {isSingle ? (
+                        /* DOF - Solo un valor */
                         <div className="text-center min-w-[90px]">
-                          <span className="text-[10px] text-muted-foreground block">Compra</span>
+                          <span className="text-[10px] text-muted-foreground block">TC</span>
                           <span className="font-bold text-sm">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                         </div>
-                        <div className="text-center min-w-[90px]">
-                          <span className="text-[10px] text-muted-foreground block">Venta</span>
-                          <span className="font-bold text-sm">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                      ) : (
+                        /* Santander/MONEX - Compra y Venta */
+                        <div className="flex gap-6">
+                          <div className="text-center min-w-[90px]">
+                            <span className="text-[10px] text-muted-foreground block">Compra</span>
+                            <span className="font-bold text-sm">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                          </div>
+                          <div className="text-center min-w-[90px]">
+                            <span className="text-[10px] text-muted-foreground block">Venta</span>
+                            <span className="font-bold text-sm">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -358,6 +381,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
             {allRates.slice(0, showFullHistory ? 50 : 10).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
               const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
+              const isSingle = isSingleValueSource(rate.source);
               return (
                 <Card key={rate.id} className={`border ${colors.border} ${isToday ? `${colors.bg}` : "bg-muted/30"}`}>
                   <CardContent className="p-2 px-4">
@@ -371,11 +395,17 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                         {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
                       </span>
                       <div className="flex-1" />
-                      <div className="flex items-center gap-3 font-mono text-sm">
-                        <span className="font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
-                        <span className="text-muted-foreground/40">/</span>
-                        <span className="font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
-                      </div>
+                      {isSingle ? (
+                        /* DOF - Solo un valor */
+                        <span className="font-mono text-sm font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                      ) : (
+                        /* Santander/MONEX - Compra y Venta */
+                        <div className="flex items-center gap-3 font-mono text-sm">
+                          <span className="font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                          <span className="text-muted-foreground/40">/</span>
+                          <span className="font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
