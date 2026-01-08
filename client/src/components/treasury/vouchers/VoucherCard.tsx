@@ -22,7 +22,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useDocumentViewer } from "@/hooks/useDocumentViewer";
 
 export interface PaymentVoucher {
   id: number;
@@ -64,18 +63,17 @@ export const VoucherCard = memo(function VoucherCard({
   isDragging = false,
 }: VoucherCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const { openDocument } = useDocumentViewer();
 
   const handlePreview = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Abrir documento en nueva pestaña
     const fileUrl = voucher.voucherFileUrl.startsWith("http")
       ? voucher.voucherFileUrl
       : voucher.voucherFileUrl.startsWith("/uploads")
       ? voucher.voucherFileUrl
       : `/uploads/${voucher.voucherFileUrl}`;
-    
-    const isPDF = voucher.voucherFileName.toLowerCase().endsWith(".pdf");
-    openDocument(fileUrl, voucher.voucherFileName, isPDF ? "pdf" : "image");
+
+    window.open(fileUrl, "_blank");
   };
 
   const handleDownload = (e: React.MouseEvent) => {

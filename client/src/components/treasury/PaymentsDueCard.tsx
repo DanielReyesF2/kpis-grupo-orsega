@@ -67,8 +67,11 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   const sevenDaysFromNow = new Date(today);
   sevenDaysFromNow.setDate(today.getDate() + 7);
 
+  // Estados cerrados/completados - sincronizado con TreasuryPage
+  const CLOSED_STATUSES = ['paid', 'cancelled', 'payment_completed', 'closed', 'cierre_contable', 'complemento_recibido', 'voucher_uploaded', 'pendiente_complemento'];
+
   const paymentsDue = payments.filter((p) => {
-    if (p.status === "paid" || p.status === "cancelled" || p.status === "payment_completed" || p.status === "closed") {
+    if (CLOSED_STATUSES.includes(p.status)) {
       console.log('[PaymentsDueCard] Filtrado por status:', p.id, p.status);
       return false;
     }
