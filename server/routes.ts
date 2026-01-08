@@ -48,7 +48,7 @@ import { handleSalesUpload } from "./sales-upload-handler-NEW";
 import { calculateSalesKpiValue, calculateSalesKpiHistory } from "./sales-kpi-calculator";
 import { calculateRealProfitability } from "./profitability-metrics";
 import { getAnnualSummary, getAvailableYears } from "./annual-summary";
-import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR2 } from "./storage/file-storage";
+import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR2, getFile } from "./storage/file-storage";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -6106,21 +6106,9 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Configure multer for file uploads
+  // Configure multer for file uploads (memoryStorage for R2 support)
   const upload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        const uploadDir = path.join(process.cwd(), 'uploads', 'receipts');
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
-      }
-    }),
+    storage: multer.memoryStorage(),
     fileFilter: (req, file, cb) => {
       const allowedTypes = ['application/pdf', 'application/xml', 'text/xml'];
       if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.xml')) {
@@ -6143,14 +6131,22 @@ export function registerRoutes(app: express.Application) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const fileUrl = `/uploads/receipts/${file.filename}`;
+      // Upload to R2 or local storage
+      const uploadResult = await uploadFile(
+        file.buffer,
+        'receipts',
+        file.originalname,
+        file.mimetype
+      );
+      console.log(`📤 [Receipt Upload] Archivo subido a ${uploadResult.storage}: ${uploadResult.url}`);
+
       const fileType = file.mimetype.includes('pdf') ? 'pdf' : 'xml';
 
       const result = await sql(`
         INSERT INTO payment_receipts (payment_id, file_name, file_url, file_type, uploaded_by)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
-      `, [paymentId, file.originalname, fileUrl, fileType, user.id]);
+      `, [paymentId, file.originalname, uploadResult.url, fileType, user.id]);
 
       res.status(201).json(result[0]);
     } catch (error) {
@@ -6198,20 +6194,21 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ error: 'No receipts found' });
       }
 
-      // Preparar archivos adjuntos
+      // Preparar archivos adjuntos (soporta R2 y local)
       const attachments = [];
       for (const receipt of receipts) {
-        const filePath = path.join(process.cwd(), receipt.file_url);
-        if (fs.existsSync(filePath)) {
-          const fileContent = fs.readFileSync(filePath);
+        try {
+          const fileContent = await getFile(receipt.file_url);
           const base64Content = fileContent.toString('base64');
-          
+
           attachments.push({
             content: base64Content,
             filename: receipt.file_name,
             type: receipt.file_type === 'pdf' ? 'application/pdf' : 'application/xml',
             disposition: 'attachment'
           });
+        } catch (err) {
+          console.error(`⚠️ [Email] No se pudo obtener archivo: ${receipt.file_url}`, err);
         }
       }
 

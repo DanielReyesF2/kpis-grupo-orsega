@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { isR2Configured, uploadToR2 } from './r2';
+import { isR2Configured, uploadToR2, getFromR2, extractKeyFromR2Url } from './r2';
 
 export interface UploadResult {
   url: string;        // Public URL for the file
@@ -182,4 +182,42 @@ export async function moveTempToStorage(
  */
 export function isUsingR2(): boolean {
   return isR2Configured();
+}
+
+/**
+ * Get a file from storage (R2 or local)
+ * @param fileUrl - The file URL (R2 URL or local path)
+ * @returns The file content as a Buffer
+ */
+export async function getFile(fileUrl: string): Promise<Buffer> {
+  // Check if it's an R2 URL
+  if (fileUrl.startsWith('http')) {
+    // Extract key from R2 URL and fetch from R2
+    const key = extractKeyFromR2Url(fileUrl);
+    if (key && isR2Configured()) {
+      console.log(`📥 [Storage] Fetching from R2: ${key}`);
+      return await getFromR2(key);
+    }
+    // Fallback: fetch via HTTP for any external URL
+    console.log(`📥 [Storage] Fetching via HTTP: ${fileUrl}`);
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  // Local file path
+  const localPath = fileUrl.startsWith('/uploads')
+    ? path.join(process.cwd(), fileUrl)
+    : fileUrl;
+
+  console.log(`📥 [Storage] Reading local file: ${localPath}`);
+
+  if (!fs.existsSync(localPath)) {
+    throw new Error(`File not found: ${localPath}`);
+  }
+
+  return fs.readFileSync(localPath);
 }
