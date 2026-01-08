@@ -147,37 +147,18 @@ export function initializeDOFScheduler() {
     console.error('❌ [DOF Scheduler] Error en actualización inicial:', err);
   });
 
-  // Programar actualizaciones automáticas a las horas específicas: 9:00 AM, 12:00 PM y 5:00 PM
-  // Horario de México (America/Mexico_City)
-  
-  // 9:00 AM - Mañana
-  cron.schedule('0 9 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 9:00 AM (Hora de México)');
-    await fetchDOFExchangeRate();
-  }, {
-    timezone: 'America/Mexico_City'
-  });
-
-  // 12:00 PM - Mediodía
-  cron.schedule('0 12 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 12:00 PM (Hora de México)');
-    await fetchDOFExchangeRate();
-  }, {
-    timezone: 'America/Mexico_City'
-  });
-
-  // 5:00 PM - Tarde
-  cron.schedule('0 17 * * *', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización programada de 5:00 PM (Hora de México)');
+  // El DOF publica el tipo de cambio una sola vez al día
+  // Se ejecuta a las 9:00 AM hora de México (cuando ya está disponible el TC del día)
+  // Nota: El TC que se publica es el que aplica para ese día
+  cron.schedule('0 9 * * 1-5', async () => {
+    console.log('⏰ [DOF Scheduler] Ejecutando actualización diaria de 9:00 AM (Hora de México)');
     await fetchDOFExchangeRate();
   }, {
     timezone: 'America/Mexico_City'
   });
 
   console.log('📅 [DOF Scheduler] Programador de tipo de cambio DOF inicializado');
-  console.log('⏰ Actualizaciones automáticas programadas:');
-  console.log('   - 9:00 AM (Hora de México)');
-  console.log('   - 12:00 PM (Hora de México)');
-  console.log('   - 5:00 PM (Hora de México)');
-  console.log('✅ El scheduler está activo y funcionando. Las actualizaciones se ejecutarán automáticamente.');
+  console.log('⏰ Actualización automática programada:');
+  console.log('   - 9:00 AM (Hora de México) - Solo días hábiles (Lun-Vie)');
+  console.log('✅ El scheduler está activo. El DOF publica un solo TC por día.');
 }
