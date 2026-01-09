@@ -301,49 +301,41 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       {/* Tendencias de Clientes */}
       <ClientTrendsTable companyId={resolvedCompanyId} limit={10} />
 
-      {/* Modal de KPIS - Diseño minimalista */}
-      <div 
+      {/* Modal de KPIS - Pantalla completa */}
+      <div
         className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ease-out ${
           showKPIsModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Overlay */}
-        <div 
-          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
-            showKPIsModal ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={() => setShowKPIsModal(false)}
-        />
-        
-        {/* Panel lateral - Tema claro consistente */}
+        {/* Pantalla completa */}
         <div
-          className={`absolute right-0 top-0 bottom-0 w-full max-w-5xl bg-slate-50 shadow-2xl overflow-y-auto transition-transform duration-300 ease-out ${
-            showKPIsModal ? 'translate-x-0' : 'translate-x-full'
+          className={`absolute inset-0 bg-slate-50 overflow-y-auto transition-all duration-300 ease-out ${
+            showKPIsModal ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
-          {/* Header - Tema claro */}
-          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Target className="h-5 w-5 text-primary" />
+          {/* Header fijo */}
+          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-primary/10 rounded-xl">
+                <Target className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">KPIs de Ventas</h2>
-                <p className="text-sm text-slate-500">Análisis 2024-2025</p>
+                <h1 className="text-xl font-bold text-slate-900">KPIs de Ventas</h1>
+                <p className="text-sm text-slate-500">Análisis estratégico 2024-2025</p>
               </div>
             </div>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
               onClick={() => setShowKPIsModal(false)}
-              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              className="gap-2"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
+              Cerrar
             </Button>
           </div>
-          
+
           {/* Contenido del modal */}
-          <div className="p-6">
+          <div className="p-6 max-w-7xl mx-auto">
             {showKPIsModal && <SalesAnalyst companyId={resolvedCompanyId} embedded={true} />}
           </div>
         </div>
