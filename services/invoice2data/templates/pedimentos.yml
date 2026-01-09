@@ -1,0 +1,142 @@
+# =============================================================================
+# TEMPLATE PEDIMENTOS DE IMPORTACIÓN / EXPORTACIÓN
+# =============================================================================
+# Para pedimentos aduanales
+
+issuer: Pedimento Aduanal
+
+keywords:
+  # Identificadores
+  - pedimento
+  - pedimento de importación
+  - pedimento de exportacion
+  - número de pedimento
+  - clave de pedimento
+
+  # Datos aduanales
+  - aduana
+  - agente aduanal
+  - patente
+  - sección aduanera
+  - régimen aduanero
+  - clave de documento
+
+  # Mercancía
+  - fracción arancelaria
+  - descripción de mercancía
+  - país de origen
+  - país de destino
+  - valor comercial
+  - valor en aduana
+  - peso bruto
+  - peso neto
+  - cantidad
+  - unidad de medida
+
+  # Impuestos y contribuciones
+  - dta
+  - igi
+  - iva importación
+  - cuota compensatoria
+  - prevalidación
+  - honorarios aa
+
+  # Transporte
+  - guía aérea
+  - bill of lading
+  - conocimiento de embarque
+  - contenedor
+  - manifiesto
+
+exclude_keywords:
+  - cfe
+  - telmex
+  - nómina
+  - ticket
+  - estado de cuenta
+
+fields:
+  # Agente aduanal
+  issuer:
+    parser: regex
+    regex: (?:Agente\s*[Aa]duanal|AA|Patente)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,80})
+    group: 1
+
+  # RFC del agente
+  vat_number:
+    parser: regex
+    regex: (?:RFC|R\.F\.C\.)[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
+    group: 1
+
+  # Número de pedimento
+  invoice_number:
+    parser: regex
+    regex: (?:N[uú]mero\s*(?:de\s*)?[Pp]edimento|Pedimento|Clave)[\s:]+(\d{2}\s*\d{2}\s*\d{4}\s*\d{7})
+    group: 1
+
+  # Valor en aduana
+  amount:
+    parser: regex
+    regex: (?:Valor\s*(?:en\s*)?[Aa]duana|Valor\s*[Cc]omercial|Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # DTA
+  dta:
+    parser: regex
+    regex: (?:DTA|Derecho\s*(?:de\s*)?[Tt]r[aá]mite)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # IGI
+  igi:
+    parser: regex
+    regex: (?:IGI|Impuesto\s*[Gg]eneral\s*(?:de\s*)?[Ii]mportaci[oó]n)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # IVA de importación
+  vat:
+    parser: regex
+    regex: (?:IVA\s*(?:de\s*)?[Ii]mportaci[oó]n|IVA)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Fecha de entrada/pago
+  date:
+    parser: regex
+    regex: (?:Fecha\s*(?:de\s*)?[Ee]ntrada|Fecha\s*(?:de\s*)?[Pp]ago|Fecha)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
+    group: 1
+
+  # Aduana
+  customs_office:
+    parser: regex
+    regex: (?:Aduana|Secci[oó]n\s*[Aa]duanera)[\s:]+([A-Za-zÁÉÍÓÚÑáéíóúñ\s]{3,50})
+    group: 1
+
+  # Patente
+  patent:
+    parser: regex
+    regex: (?:Patente)[\s:]+(\d{4})
+    group: 1
+
+  # Fracción arancelaria
+  tariff_code:
+    parser: regex
+    regex: (?:Fracci[oó]n\s*[Aa]rancelaria|Fracci[oó]n)[\s:]+(\d{8,10})
+    group: 1
+
+  # País de origen
+  country_origin:
+    parser: regex
+    regex: (?:Pa[ií]s\s*(?:de\s*)?[Oo]rigen)[\s:]+([A-Za-zÁÉÍÓÚÑáéíóúñ\s]{2,30})
+    group: 1
+
+options:
+  currency: MXN
+  date_formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+    - "%Y-%m-%d"
+  decimal_separator: "."
+  remove_whitespace: true

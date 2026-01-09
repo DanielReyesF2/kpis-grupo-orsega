@@ -1,0 +1,104 @@
+# =============================================================================
+# TEMPLATE NOTA DE CRÉDITO
+# =============================================================================
+# Para CFDI de tipo Egreso (Notas de Crédito)
+
+issuer: Nota de Crédito
+
+keywords:
+  # Identificadores
+  - nota de crédito
+  - nota de credito
+  - cfdi de egreso
+  - egreso
+  - devolución
+  - devolucion
+  - descuento
+  - bonificación
+  - bonificacion
+
+  # Relación
+  - cfdi relacionado
+  - uuid relacionado
+  - tipo de relación
+  - tipo de relacion
+  - factura original
+  - documento original
+
+  # Motivos
+  - devolución de mercancía
+  - descuento sobre venta
+  - rebaja
+  - cancelación
+  - error en factura
+
+exclude_keywords:
+  - invoice
+  - cfe
+  - nómina
+  - complemento de pago
+
+fields:
+  # Emisor
+  issuer:
+    parser: regex
+    regex: (?:Emisor|Proveedor|Raz[oó]n\s*Social)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})
+    group: 1
+
+  # RFC
+  vat_number:
+    parser: regex
+    regex: (?:RFC|R\.F\.C\.)[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
+    group: 1
+
+  # Folio de la nota
+  invoice_number:
+    parser: regex
+    regex: (?:Folio|N[uú]mero|Serie\s*y?\s*Folio)[\s:#]*([A-Z0-9\-]{1,30})
+    group: 1
+
+  # Monto de la nota
+  amount:
+    parser: regex
+    regex: (?:Total|Monto|Importe)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Fecha de emisión
+  date:
+    parser: regex
+    regex: (?:Fecha\s*(?:de\s*)?[Ee]misi[oó]n|Fecha)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
+    group: 1
+
+  # UUID de la nota
+  uuid:
+    parser: regex
+    regex: (?:UUID|Folio\s*Fiscal)[\s:]+([A-Fa-f0-9\-]{36})
+    group: 1
+
+  # UUID relacionado (factura original)
+  related_uuid:
+    parser: regex
+    regex: (?:UUID\s*[Rr]elacionado|CFDI\s*[Rr]elacionado|Factura\s*[Oo]riginal)[\s:]+([A-Fa-f0-9\-]{36})
+    group: 1
+
+  # Tipo de relación
+  relation_type:
+    parser: regex
+    regex: (?:Tipo\s*(?:de\s*)?[Rr]elaci[oó]n)[\s:]+(\d{2})
+    group: 1
+
+  # Motivo
+  reason:
+    parser: regex
+    regex: (?:Motivo|Raz[oó]n|Concepto)[\s:]+([A-Za-zÁÉÍÓÚÑáéíóúñ\s]{5,100})
+    group: 1
+
+options:
+  currency: MXN
+  date_formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+    - "%Y-%m-%d"
+  decimal_separator: "."
+  remove_whitespace: true
