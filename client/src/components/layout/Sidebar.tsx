@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { SmartSearch } from "@/components/search/SmartSearch";
+import { AIAssistant } from "@/components/ai/AIAssistant";
 import {
   LayoutDashboard,
   Menu,
@@ -389,8 +389,8 @@ function Sidebar() {
         />
       )}
 
-      {/* Smart Search Modal */}
-      <SmartSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      {/* AI Assistant Modal */}
+      <AIAssistant isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
   );
 }
