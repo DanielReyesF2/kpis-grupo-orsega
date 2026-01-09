@@ -49,6 +49,7 @@ interface InvoiceVerificationModalProps {
     };
     payerCompanyId: number;
     matchConfidence?: number;
+    extractionConfidence?: number; // Confianza de extracción de datos del servidor
     supplierSuggestions?: Array<{
       id: number;
       name: string;
@@ -137,11 +138,20 @@ export function InvoiceVerificationModal({
     );
   }, [supplierName, amount, dueDate, paymentDate]);
   
-  // Calcular confianza general
+  // Calcular confianza general - usar del servidor si está disponible
   const overallConfidence = useMemo(() => {
+    // Si el servidor envió la confianza de extracción, usarla directamente
+    if (invoiceData.extractionConfidence !== undefined && invoiceData.extractionConfidence > 0) {
+      console.log(`📊 [Confidence] Usando confianza del servidor: ${(invoiceData.extractionConfidence * 100).toFixed(0)}%`);
+      return invoiceData.extractionConfidence;
+    }
+
+    // Fallback: calcular localmente
     const fields = ['supplierName', 'amount', 'dueDate', 'invoiceNumber', 'taxId'];
     const confidences = fields.map(f => getFieldConfidence(f));
-    return confidences.reduce((a, b) => a + b, 0) / fields.length;
+    const calculatedConfidence = confidences.reduce((a, b) => a + b, 0) / fields.length;
+    console.log(`📊 [Confidence] Calculada localmente: ${(calculatedConfidence * 100).toFixed(0)}%`);
+    return calculatedConfidence;
   }, [invoiceData]);
 
   // Sincronizar estados cuando cambien los datos
@@ -500,7 +510,7 @@ export function InvoiceVerificationModal({
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
-                    className="px-3 py-2 border rounded-md bg-background"
+                    className="px-3 py-2 border rounded-md bg-card text-foreground"
                   >
                     <option value="MXN">MXN</option>
                     <option value="USD">USD</option>
@@ -651,7 +661,7 @@ export function InvoiceVerificationModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Notas adicionales sobre esta cuenta por pagar"
-              className="w-full min-h-[80px] px-3 py-2 border rounded-md bg-background resize-none"
+              className="w-full min-h-[80px] px-3 py-2 border rounded-md bg-card text-foreground placeholder:text-muted-foreground resize-none"
             />
           </div>
 

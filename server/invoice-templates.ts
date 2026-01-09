@@ -40,39 +40,44 @@ export interface InvoiceTemplate {
 /**
  * Templates para proveedores conocidos
  * Agregar nuevos templates aquí para mejorar la extracción
+ * MEJORADO: Patrones más flexibles para mayor compatibilidad
  */
 export const invoiceTemplates: InvoiceTemplate[] = [
-  // Template genérico para CFDI/SAT
+  // Template genérico para CFDI/SAT - MEJORADO
   {
     name: 'CFDI Genérico',
-    keywords: ['cfdi', 'comprobante fiscal', 'sat', 'folio fiscal', 'uuid'],
+    keywords: ['cfdi', 'comprobante fiscal', 'sat', 'folio fiscal', 'uuid', 'factura', 'rfc', 'timbre', 'timbrado'],
     patterns: {
       supplierName: [
-        /(?:emisor|emitter|proveedor)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{5,80}(?:S\.?A\.?|S\.?A\.? de C\.?V\.?)?)/i,
-        /razón\s+social[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{5,80})/i,
+        /(?:emisor|emitter|proveedor|raz[oó]n\s*social|nombre\s*del?\s*emisor)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100}(?:S\.?A\.?|S\.?A\.? de C\.?V\.?)?)/i,
+        /rfc[\s:]+[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}[\s\n]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})/i,
       ],
       amount: [
-        /total[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
-        /importe\s+total[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
+        /(?:total|monto\s*total|importe\s*total)[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
+        /\$\s*([\d,]+\.?\d*)\s*(?:mxn|total)/i,
       ],
       invoiceNumber: [
-        /folio[\s:]+([A-Z0-9\-]{3,20})/i,
-        /número\s+de\s+factura[\s:]+([A-Z0-9\-]{3,20})/i,
-        /(?:FEA|FAC|INV)[:\s]*([0-9]{6,15})/i,
+        /folio[\s:]+([A-Z0-9\-]{1,30})/i,
+        /n[uú]mero\s*(?:de\s*)?factura[\s:]+([A-Z0-9\-]{1,30})/i,
+        /(?:FEA|FAC|INV|FACT)[:\s#]*([A-Z0-9\-]{3,20})/i,
+        /factura[\s:#]+([A-Z0-9\-]{3,20})/i,
       ],
       date: [
-        /fecha\s+de\s+emisión[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-        /fecha[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /fecha\s*(?:de\s*)?emisi[oó]n[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /fecha[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
       ],
       dueDate: [
-        /fecha\s+de\s+vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-        /vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-        /vence[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-        /fecha\s+límite[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-        /pagar\s+antes\s+(?:de|del)?[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /vence[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /fecha\s*l[ií]mite[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /pagar\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /(?:due\s+date|payment\s+due)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
       ],
       taxId: [
-        /rfc[\s:]+([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
+        /rfc[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
+        /r\.f\.c\.[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
       ],
     },
     staticValues: {
@@ -304,36 +309,50 @@ function parseTemplateDate(dateStr: string, format?: InvoiceTemplate['dateFormat
 
 /**
  * Template genérico de fallback para cuando no hay match
+ * MEJORADO: Patrones más amplios y flexibles
  */
 export const fallbackTemplate: InvoiceTemplate = {
   name: 'Fallback Genérico',
   keywords: [],
   patterns: {
     supplierName: [
-      /(?:proveedor|emisor|supplier|from|vendor)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{5,80})/i,
-      /razón\s+social[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{5,80})/i,
+      // Buscar emisor primero (más confiable para CFDI)
+      /(?:emisor|emitter|proveedor|raz[oó]n\s*social|nombre\s*del?\s*emisor)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})/i,
+      // Buscar después de RFC (común en facturas mexicanas)
+      /rfc[\s:]*[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}[\s\n]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})/i,
+      // Patrones más genéricos
+      /(?:supplier|from|vendor|company)[\s:]+([A-Za-z][A-Za-z0-9\s,\.&\-]{3,80})/i,
     ],
     amount: [
-      /(?:total|monto|amount|importe|suma)[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
-      /\$\s*([\d,]+\.?\d*)\s*(?:mxn|usd|pesos)?/i,
+      // Buscar total primero
+      /(?:total|monto\s*total|importe\s*total|grand\s*total)[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
+      // Buscar montos con símbolo de peso
+      /\$\s*([\d,]+\.?\d*)/,
+      // Buscar montos con MXN/USD
+      /([\d,]+\.?\d*)\s*(?:mxn|usd|pesos|dollars?)/i,
+      // Buscar el número más grande en el documento (probablemente el total)
+      /(?:amount|importe|suma|a\s*pagar)[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
     ],
     invoiceNumber: [
-      /(?:folio|número|number|no\.|#|factura|invoice)[\s:#]+([A-Z0-9\-]{3,20})/i,
+      /(?:folio|n[uú]mero|number|no\.|#|factura|invoice|fact)[\s:#]*([A-Z0-9\-]{1,30})/i,
+      /(?:FEA|FAC|INV|FACT)[:\s#]*([A-Z0-9\-]{3,20})/i,
     ],
     date: [
-      /(?:fecha|date)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /(?:fecha\s*(?:de\s*)?emisi[oó]n|fecha|date|emitida?)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
       /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
+      /(\d{4}[\/\-]\d{2}[\/\-]\d{2})/,
     ],
     dueDate: [
-      /fecha\s+de\s+vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /vence[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /fecha\s+límite[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /pagar\s+antes\s+(?:de|del)?[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /(?:due\s+date|payment\s+due)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /vence[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /fecha\s*l[ií]mite[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /pagar\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /(?:due\s*date|payment\s*due|pay\s*by)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
     ],
     taxId: [
-      /rfc[\s:]+([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
+      /rfc[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
+      /r\.f\.c\.[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
       /tax\s*id[\s:]+([A-Z0-9\-]{9,15})/i,
     ],
   },

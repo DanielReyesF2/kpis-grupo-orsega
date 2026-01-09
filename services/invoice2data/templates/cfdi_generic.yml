@@ -1,5 +1,6 @@
 # Template genérico para CFDI mexicanos
 # Funciona con la mayoría de facturas electrónicas mexicanas
+# MEJORADO: Patrones más flexibles para mayor compatibilidad
 
 issuer: CFDI Genérico
 keywords:
@@ -8,69 +9,73 @@ keywords:
   - folio fiscal
   - sat
   - timbrado
+  - factura
+  - rfc
+  - timbre
+  - comprobante
 
 fields:
-  # Proveedor/Emisor
+  # Proveedor/Emisor - Patrones más flexibles
   issuer:
     parser: regex
-    regex: (?:Emisor|Proveedor|Razón Social)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{5,80})
+    regex: (?:Emisor|Proveedor|Raz[oó]n\s*Social|Nombre\s*del?\s*emisor|Vendor|From|De)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})
     group: 1
 
-  # RFC del emisor
+  # RFC del emisor - Más flexible
   vat_number:
     parser: regex
-    regex: RFC[\s:]+([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
+    regex: (?:RFC|R\.F\.C\.)[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
     group: 1
 
-  # Número de factura (folio)
+  # Número de factura (folio) - Múltiples formatos
   invoice_number:
     parser: regex
-    regex: Folio[\s:]+([A-Z0-9\-]{1,20})
+    regex: (?:Folio|No\.|N[uú]mero|Factura|Invoice|#)[\s:#]*([A-Z0-9\-]{1,30})
     group: 1
 
-  # Monto total
+  # Monto total - Múltiples formatos
   amount:
     parser: regex
-    regex: Total[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:Total|Monto\s*Total|Importe\s*Total|Grand\s*Total|Amount)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
   # Subtotal
   amount_untaxed:
     parser: regex
-    regex: (?:Subtotal|Sub-Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:Subtotal|Sub[\s-]?Total|Importe)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
   # IVA
   vat:
     parser: regex
-    regex: (?:IVA|I\.V\.A\.)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:IVA|I\.V\.A\.|Impuesto|Tax)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
-  # Fecha de emisión
+  # Fecha de emisión - Múltiples formatos
   date:
     parser: regex
-    regex: (?:Fecha de Emisión|Fecha)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    regex: (?:Fecha\s*(?:de\s*)?[Ee]misi[oó]n|Fecha|Date|Emitida?\s*el?)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
     group: 1
 
-  # Fecha de vencimiento (OBLIGATORIO en CFDI según SAT)
+  # Fecha de vencimiento - Más patrones
   due_date:
     parser: regex
-    regex: (?:Fecha de Vencimiento|Vencimiento|Vence|Fecha Límite|Pagar antes)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    regex: (?:Fecha\s*(?:de\s*)?[Vv]encimiento|Vencimiento|Vence|Fecha\s*[Ll][ií]mite|Pagar\s*antes|Due\s*[Dd]ate|Payment\s*[Dd]ue)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
     group: 1
 
   # UUID del timbrado
   uuid:
     parser: regex
-    regex: (?:UUID|Folio Fiscal)[\s:]+([A-Fa-f0-9\-]{36})
+    regex: (?:UUID|Folio\s*Fiscal|Timbre)[\s:]+([A-Fa-f0-9\-]{36})
     group: 1
 
-  # Moneda
+  # Moneda - Más patrones
   currency:
     parser: regex
-    regex: Moneda[\s:]+([A-Z]{3})
+    regex: (?:Moneda|Currency|Divisa)[\s:]+([A-Z]{3})|([MU][XS][NDP])
     group: 1
 
 options:
@@ -79,5 +84,7 @@ options:
     - "%d/%m/%Y"
     - "%d-%m-%Y"
     - "%Y-%m-%d"
+    - "%d.%m.%Y"
+    - "%m/%d/%Y"
   decimal_separator: "."
   remove_whitespace: true
