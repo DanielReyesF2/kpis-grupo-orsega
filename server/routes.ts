@@ -7446,6 +7446,7 @@ export function registerRoutes(app: express.Application) {
             payerCompanyId: payerCompanyId,
             message: message,
             matchConfidence: matchConfidence,
+            extractionConfidence: analysis.ocrConfidence, // Confianza de extracción de datos
             supplierSuggestions: matchingSupplier ? [{
               id: matchingSupplier.id,
               name: matchingSupplier.name,

@@ -1,0 +1,120 @@
+# =============================================================================
+# TEMPLATE ESTADOS DE CUENTA BANCARIOS
+# =============================================================================
+# Para estados de cuenta de bancos mexicanos
+
+issuer: Estado de Cuenta Bancario
+
+keywords:
+  # Identificadores
+  - estado de cuenta
+  - cuenta de cheques
+  - cuenta de ahorro
+  - cuenta corriente
+  - extracto bancario
+  - resumen de cuenta
+
+  # Bancos mexicanos
+  - bbva
+  - bancomer
+  - banamex
+  - citibanamex
+  - santander
+  - hsbc
+  - scotiabank
+  - banorte
+  - inbursa
+  - banco azteca
+  - banregio
+  - afirme
+
+  # Datos de cuenta
+  - número de cuenta
+  - numero de cuenta
+  - clabe
+  - clabe interbancaria
+  - titular
+  - sucursal
+
+  # Movimientos
+  - depósito
+  - deposito
+  - retiro
+  - transferencia
+  - spei
+  - cargo
+  - abono
+  - comisión
+  - comision
+  - intereses
+  - saldo inicial
+  - saldo final
+  - saldo disponible
+  - movimientos del periodo
+
+  # Fechas
+  - periodo
+  - fecha de corte
+  - fecha de operación
+  - fecha valor
+
+exclude_keywords:
+  - cfdi
+  - factura
+  - timbrado
+  - cfe
+  - nómina
+
+fields:
+  # Banco
+  issuer:
+    parser: regex
+    regex: (BBVA|Bancomer|Banamex|Citibanamex|Santander|HSBC|Scotiabank|Banorte|Inbursa|Banco\s*Azteca|Banregio|Afirme)
+    group: 1
+
+  # Número de cuenta
+  invoice_number:
+    parser: regex
+    regex: (?:N[uú]mero\s*(?:de\s*)?[Cc]uenta|Cuenta|No\.?\s*[Cc]uenta)[\s:]+(\d{10,18})
+    group: 1
+
+  # CLABE
+  clabe:
+    parser: regex
+    regex: (?:CLABE|CLABE\s*[Ii]nterbancaria)[\s:]+(\d{18})
+    group: 1
+
+  # Saldo final
+  amount:
+    parser: regex
+    regex: (?:Saldo\s*[Ff]inal|Saldo\s*[Dd]isponible|Saldo\s*[Aa]ctual)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Saldo inicial
+  amount_untaxed:
+    parser: regex
+    regex: (?:Saldo\s*[Ii]nicial|Saldo\s*[Aa]nterior)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Fecha de corte
+  date:
+    parser: regex
+    regex: (?:Fecha\s*(?:de\s*)?[Cc]orte|Periodo|Al)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
+    group: 1
+
+  # Titular
+  account_holder:
+    parser: regex
+    regex: (?:Titular|Cliente|Nombre)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ\s]{5,80})
+    group: 1
+
+options:
+  currency: MXN
+  date_formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+    - "%d de %B de %Y"
+  decimal_separator: "."
+  remove_whitespace: true

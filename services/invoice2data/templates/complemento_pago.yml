@@ -1,0 +1,116 @@
+# =============================================================================
+# TEMPLATE COMPLEMENTO DE PAGO (REP)
+# =============================================================================
+# Para CFDI de Recepción de Pagos
+
+issuer: Complemento de Pago
+
+keywords:
+  # Identificadores
+  - complemento de pago
+  - recepción de pagos
+  - recepcion de pagos
+  - pago
+  - cfdi de pago
+  - rep
+
+  # Datos del pago
+  - fecha de pago
+  - monto del pago
+  - número de operación
+  - numero de operacion
+  - referencia
+  - banco
+  - cuenta ordenante
+  - cuenta beneficiaria
+  - rfc banco
+  - cadena de pago
+
+  # Documentos relacionados
+  - documento relacionado
+  - uuid relacionado
+  - folio fiscal relacionado
+  - parcialidad
+  - saldo anterior
+  - importe pagado
+  - saldo insoluto
+  - número de parcialidad
+
+  # Moneda
+  - moneda
+  - tipo de cambio
+  - equivalencia
+
+exclude_keywords:
+  - invoice
+  - due date
+  - cfe
+  - telmex
+  - nómina
+  - percepciones
+
+fields:
+  # Emisor del REP
+  issuer:
+    parser: regex
+    regex: (?:Emisor|Proveedor|Raz[oó]n\s*Social)[\s:]+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ0-9\s,\.&\-]{3,100})
+    group: 1
+
+  # RFC
+  vat_number:
+    parser: regex
+    regex: (?:RFC|R\.F\.C\.)[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
+    group: 1
+
+  # Número de operación / Referencia
+  invoice_number:
+    parser: regex
+    regex: (?:N[uú]mero\s*(?:de\s*)?[Oo]peraci[oó]n|Referencia|Folio)[\s:]+([A-Z0-9\-]{3,30})
+    group: 1
+
+  # Monto del pago
+  amount:
+    parser: regex
+    regex: (?:Monto\s*(?:del?\s*)?[Pp]ago|Importe\s*[Pp]agado|Total\s*[Pp]agado)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Fecha de pago
+  date:
+    parser: regex
+    regex: (?:Fecha\s*(?:de\s*)?[Pp]ago|Fecha\s*(?:de\s*)?[Oo]peraci[oó]n)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
+    group: 1
+
+  # UUID relacionado
+  related_uuid:
+    parser: regex
+    regex: (?:UUID\s*[Rr]elacionado|Documento\s*[Rr]elacionado|Folio\s*[Ff]iscal\s*[Rr]elacionado)[\s:]+([A-Fa-f0-9\-]{36})
+    group: 1
+
+  # Saldo insoluto
+  outstanding_balance:
+    parser: regex
+    regex: (?:Saldo\s*[Ii]nsoluto|Saldo\s*[Pp]endiente)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    group: 1
+    type: float
+
+  # Parcialidad
+  installment:
+    parser: regex
+    regex: (?:Parcialidad|N[uú]mero\s*(?:de\s*)?[Pp]arcialidad)[\s:]+(\d{1,3})
+    group: 1
+
+  # Banco
+  bank:
+    parser: regex
+    regex: (?:Banco|Instituci[oó]n\s*[Bb]ancaria)[\s:]+([A-Za-z\s]{3,50})
+    group: 1
+
+options:
+  currency: MXN
+  date_formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+    - "%Y-%m-%d"
+  decimal_separator: "."
+  remove_whitespace: true

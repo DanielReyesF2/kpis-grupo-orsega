@@ -1251,12 +1251,44 @@ function calculateInvoiceConfidence(data: any): number {
   const critical = ["supplierName", "amount"];
   const important = ["invoiceNumber", "taxId", "date"];
   const optional = ["currency", "dueDate"];
-  
-  const cScore = critical.filter(f => !!data[f]).length / critical.length;
-  const iScore = important.filter(f => !!data[f]).length / important.length;
-  const oScore = optional.filter(f => !!data[f]).length / optional.length;
-  
-  return +(0.6 * cScore + 0.3 * iScore + 0.1 * oScore).toFixed(2);
+
+  // Log detallado de campos encontrados
+  const foundCritical = critical.filter(f => !!data[f]);
+  const foundImportant = important.filter(f => !!data[f]);
+  const foundOptional = optional.filter(f => !!data[f]);
+
+  console.log(`📊 [Confidence] Campos críticos: ${foundCritical.join(', ') || 'ninguno'} (${foundCritical.length}/${critical.length})`);
+  console.log(`📊 [Confidence] Campos importantes: ${foundImportant.join(', ') || 'ninguno'} (${foundImportant.length}/${important.length})`);
+  console.log(`📊 [Confidence] Campos opcionales: ${foundOptional.join(', ') || 'ninguno'} (${foundOptional.length}/${optional.length})`);
+
+  const cScore = foundCritical.length / critical.length;
+  const iScore = foundImportant.length / important.length;
+  const oScore = foundOptional.length / optional.length;
+
+  // Ajustar pesos: si tenemos ambos campos críticos, la confianza base es 0.7
+  // Si solo falta uno, 0.45
+  // Si faltan todos los críticos pero hay datos importantes, mínimo 0.3
+  let confidence = 0.6 * cScore + 0.3 * iScore + 0.1 * oScore;
+
+  // Bonus: si tenemos todos los críticos, aumentar confianza
+  if (foundCritical.length === critical.length) {
+    confidence = Math.max(confidence, 0.7);
+  }
+
+  // Si tenemos monto Y proveedor, mínimo 70% aunque falten otros
+  if (data.supplierName && data.amount) {
+    confidence = Math.max(confidence, 0.7);
+  }
+
+  // Si solo tenemos monto, mínimo 50%
+  if (data.amount && !data.supplierName) {
+    confidence = Math.max(confidence, 0.5);
+  }
+
+  const finalConfidence = +confidence.toFixed(2);
+  console.log(`📊 [Confidence] Confianza calculada: ${(finalConfidence * 100).toFixed(0)}%`);
+
+  return finalConfidence;
 }
 
 function calculateConfidence(data: any): number {

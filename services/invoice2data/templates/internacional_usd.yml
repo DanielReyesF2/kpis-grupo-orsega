@@ -1,70 +1,165 @@
-# Template para facturas internacionales en USD
+# =============================================================================
+# TEMPLATE FACTURAS INTERNACIONALES (USD / EUR)
+# =============================================================================
+# Para facturas de proveedores internacionales
 
-issuer: International Invoice
+issuer: Factura Internacional
+
 keywords:
+  # Identificadores
   - invoice
+  - invoice number
+  - inv
+  - invoice no
+  - commercial invoice
+  - proforma invoice
+  - proforma
+  - purchase order
+  - po number
+  - p.o.
+  - quotation
+  - quote
+
+  # Direcciones
   - bill to
   - ship to
+  - sold to
+  - remit to
+  - billing address
+  - shipping address
+
+  # Monedas
   - usd
+  - dollar
+  - dollars
+  - eur
+  - euro
+  - euros
+  - gbp
   - united states
+
+  # Términos de pago
+  - payment terms
+  - terms
+  - net 15
+  - net 30
+  - net 60
+  - net 90
+  - due on receipt
+  - cod
+  - prepaid
+
+  # Montos
   - total due
   - amount due
+  - balance due
+  - subtotal
+  - tax
+  - total
+  - grand total
+  - unit price
+  - qty
+  - quantity
+  - discount
+  - shipping
+  - handling
+
+  # Información bancaria
+  - bank details
+  - wire transfer
+  - swift
+  - iban
+  - routing number
+  - account number
+  - ach
+
+  # Otros
+  - vendor
+  - supplier
+  - customer
+  - description
+  - item
+  - sku
+  - reference
+  - notes
+
 exclude_keywords:
   - cfdi
   - sat
   - mxn
   - pesos
+  - rfc
+  - timbrado
+  - folio fiscal
 
 fields:
-  # Vendor/Supplier name
+  # Proveedor/Vendor
   issuer:
     parser: regex
-    regex: (?:From|Vendor|Supplier|Company)[\s:]+([A-Za-z0-9\s,\.&\-]{5,80}(?:Inc\.?|LLC\.?|Corp\.?)?)
+    regex: (?:From|Vendor|Supplier|Company|Bill\s*From)[\s:]+([A-Za-z][A-Za-z0-9\s,\.&\-]{3,100})
     group: 1
 
-  # Invoice number
+  # Tax ID / EIN
+  vat_number:
+    parser: regex
+    regex: (?:Tax\s*ID|EIN|VAT|TIN)[\s:#]*([A-Z0-9\-]{8,20})
+    group: 1
+
+  # Invoice Number
   invoice_number:
     parser: regex
-    regex: (?:Invoice|Inv)[\s#:]+([A-Z0-9\-]{3,20})
+    regex: (?:Invoice\s*(?:No\.?|Number|#)|INV)[\s:#]*([A-Z0-9\-]{3,30})
     group: 1
 
-  # Total amount
+  # Total Amount
   amount:
     parser: regex
-    regex: (?:Total|Amount Due|Balance Due|Grand Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:Total\s*Due|Amount\s*Due|Balance\s*Due|Grand\s*Total|Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
   # Subtotal
   amount_untaxed:
     parser: regex
-    regex: (?:Subtotal|Sub-Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:Subtotal|Sub[\s-]?Total)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
   # Tax
   vat:
     parser: regex
-    regex: (?:Tax|Sales Tax|VAT)[\s:$]*\$?\s*([\d,]+\.?\d*)
+    regex: (?:Tax|Sales\s*Tax|VAT)[\s:$]*\$?\s*([\d,]+\.?\d*)
     group: 1
     type: float
 
-  # Invoice date
+  # Invoice Date
   date:
     parser: regex
-    regex: (?:Invoice Date|Date|Dated)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    regex: (?:Invoice\s*Date|Date\s*Issued?|Issue\s*Date|Date)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
     group: 1
 
-  # Due date (due_date para compatibilidad con TypeScript)
+  # Due Date
   due_date:
     parser: regex
-    regex: (?:Due Date|Payment Due|Pay By)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
+    regex: (?:Due\s*Date|Payment\s*Due|Pay\s*By|Due)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
     group: 1
 
-  # Tax ID / EIN
-  vat_number:
+  # Currency
+  currency:
     parser: regex
-    regex: (?:Tax ID|EIN|VAT)[\s:]+([A-Z0-9\-]{9,15})
+    regex: (?:Currency|Curr)[\s:]+([A-Z]{3})|(USD|EUR|GBP)
+    group: 1
+
+  # PO Number
+  po_number:
+    parser: regex
+    regex: (?:P\.?O\.?\s*(?:No\.?|Number|#)|Purchase\s*Order)[\s:#]*([A-Z0-9\-]{3,20})
+    group: 1
+
+  # Payment Terms
+  payment_terms:
+    parser: regex
+    regex: (?:Payment\s*Terms|Terms)[\s:]+([A-Za-z0-9\s]{3,30})
     group: 1
 
 options:
@@ -73,4 +168,7 @@ options:
     - "%m/%d/%Y"
     - "%m-%d-%Y"
     - "%Y-%m-%d"
+    - "%d/%m/%Y"
+    - "%B %d, %Y"
   decimal_separator: "."
+  remove_whitespace: true
