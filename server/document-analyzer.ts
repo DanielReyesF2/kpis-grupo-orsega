@@ -354,8 +354,10 @@ export async function analyzePaymentDocument(
           if (isNaN(invoiceDate.getTime())) invoiceDate = null;
         }
 
-        if (data.due_date) {
-          dueDate = new Date(data.due_date);
+        // Aceptar tanto due_date como date_due (diferentes convenciones de templates)
+        const dueDateValue = data.due_date || data.date_due;
+        if (dueDateValue) {
+          dueDate = new Date(dueDateValue);
           if (isNaN(dueDate.getTime())) dueDate = null;
         }
 
