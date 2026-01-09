@@ -5,77 +5,51 @@ import { exchangeRates } from '../shared/schema.js';
 const SYSTEM_USER_ID = 23;
 
 export async function fetchDOFExchangeRate() {
+  console.log('🔄 [DOF Scheduler] Obteniendo tipo de cambio del DOF...');
+
+  const banxicoToken = process.env.BANXICO_TOKEN;
+  if (!banxicoToken) {
+    console.error('❌ [DOF Scheduler] BANXICO_TOKEN no configurado en variables de entorno');
+    console.error('❌ [DOF Scheduler] No se puede obtener tipo de cambio sin token de Banxico');
+    return;
+  }
+
   try {
-    console.log('🔄 [DOF Scheduler] Obteniendo tipo de cambio del DOF...');
-    
-    const banxicoToken = process.env.BANXICO_TOKEN;
-    if (!banxicoToken) {
-      console.warn('⚠️  [DOF Scheduler] BANXICO_TOKEN no configurado en variables de entorno');
-    }
-    
     const response = await fetch('https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno', {
       headers: {
-        'Bmx-Token': banxicoToken || ''
+        'Bmx-Token': banxicoToken
       }
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn(`⚠️  [DOF Scheduler] Error HTTP ${response.status}: ${errorText}`);
-      console.warn('⚠️  [DOF Scheduler] No se pudo obtener el tipo de cambio oficial, usando valores estimados');
-      
-      // Verificar si ya hay un registro reciente (últimas 2 horas) para evitar duplicados
-      const twoHoursAgo = new Date();
-      twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-      
-      const recentRate = await db.query.exchangeRates.findFirst({
-        where: (rates, { and, eq, gte }) => and(
-          eq(rates.source, 'DOF'),
-          gte(rates.date, twoHoursAgo)
-        ),
-        orderBy: (rates, { desc }) => [desc(rates.date)]
-      });
-      
-      if (recentRate) {
-        console.log('ℹ️  [DOF Scheduler] Ya existe un registro reciente, no se insertará duplicado');
-        return;
-      }
-      
-      const currentRate = 18.35 + (Math.random() * 0.2 - 0.1);
-      const buyRate = Number(currentRate.toFixed(4));
-      const sellRate = Number(currentRate.toFixed(4)); // DOF solo tiene un valor único
-      
-      await db.insert(exchangeRates).values({
-        buyRate,
-        sellRate,
-        source: 'DOF',
-        notes: 'Actualización automática (estimado)',
-        date: new Date(),
-        createdBy: SYSTEM_USER_ID,
-      });
-
-      console.log(`✅ [DOF Scheduler] Tipo de cambio insertado: Compra ${buyRate}, Venta ${sellRate}`);
+      console.error(`❌ [DOF Scheduler] Error HTTP ${response.status}: ${errorText}`);
+      console.error('❌ [DOF Scheduler] No se pudo obtener el tipo de cambio oficial de Banxico');
+      console.error('❌ [DOF Scheduler] Verificar BANXICO_TOKEN y disponibilidad del API');
+      // NO insertar valores estimados - solo usar datos oficiales de Banxico
       return;
     }
 
     const data = await response.json();
-    
+
     if (!data?.bmx?.series?.[0]?.datos?.[0]?.dato) {
       console.error('❌ [DOF Scheduler] Estructura de respuesta de Banxico inesperada:', JSON.stringify(data));
-      throw new Error('Estructura de respuesta inválida');
+      // NO insertar valores estimados - solo usar datos oficiales de Banxico
+      return;
     }
-    
+
     const latestRate = parseFloat(data.bmx.series[0].datos[0].dato);
-    
+
     if (isNaN(latestRate)) {
       console.error('❌ [DOF Scheduler] Valor de tipo de cambio inválido:', data.bmx.series[0].datos[0].dato);
-      throw new Error('Valor de tipo de cambio inválido');
+      // NO insertar valores estimados - solo usar datos oficiales de Banxico
+      return;
     }
-    
+
     // Verificar si ya hay un registro reciente (últimas 2 horas) para evitar duplicados
     const twoHoursAgo = new Date();
     twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-    
+
     const recentRate = await db.query.exchangeRates.findFirst({
       where: (rates, { and, eq, gte }) => and(
         eq(rates.source, 'DOF'),
@@ -83,13 +57,13 @@ export async function fetchDOFExchangeRate() {
       ),
       orderBy: (rates, { desc }) => [desc(rates.date)]
     });
-    
+
     if (recentRate && Math.abs(recentRate.buyRate - latestRate) < 0.0001) {
       console.log('ℹ️  [DOF Scheduler] El tipo de cambio no ha cambiado, no se insertará duplicado');
       return;
     }
-    
-    // Usar el valor DOF oficial sin modificar
+
+    // Usar el valor DOF oficial EXACTO sin modificar - NO hay fallback ni varianza
     const buyRate = Number(latestRate.toFixed(4));
     const sellRate = Number(latestRate.toFixed(4));
 
@@ -97,46 +71,16 @@ export async function fetchDOFExchangeRate() {
       buyRate,
       sellRate,
       source: 'DOF',
-      notes: 'Actualización automática desde Banxico',
+      notes: 'Tipo de cambio oficial DOF desde Banxico (Serie SF43718)',
       date: new Date(),
       createdBy: SYSTEM_USER_ID,
     });
 
-    console.log(`✅ [DOF Scheduler] Tipo de cambio insertado desde Banxico: Compra ${buyRate}, Venta ${sellRate}`);
+    console.log(`✅ [DOF Scheduler] Tipo de cambio oficial insertado: $${buyRate} MXN/USD`);
   } catch (error) {
     console.error('❌ [DOF Scheduler] Error al obtener tipo de cambio:', error);
-    
-    // Verificar si ya hay un registro reciente (últimas 2 horas) para evitar duplicados
-    const twoHoursAgo = new Date();
-    twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-    
-    const recentRate = await db.query.exchangeRates.findFirst({
-      where: (rates, { and, eq, gte }) => and(
-        eq(rates.source, 'DOF'),
-        gte(rates.date, twoHoursAgo)
-      ),
-      orderBy: (rates, { desc }) => [desc(rates.date)]
-    });
-    
-    if (recentRate) {
-      console.log('ℹ️  [DOF Scheduler] Ya existe un registro reciente, no se insertará fallback');
-      return;
-    }
-    
-    const fallbackRate = 18.35 + (Math.random() * 0.2 - 0.1);
-    const buyRate = Number(fallbackRate.toFixed(4));
-    const sellRate = Number(fallbackRate.toFixed(4)); // DOF solo tiene un valor único
-    
-    await db.insert(exchangeRates).values({
-      buyRate,
-      sellRate,
-      source: 'DOF',
-      notes: 'Actualización automática (fallback)',
-      date: new Date(),
-      createdBy: SYSTEM_USER_ID,
-    });
-
-    console.log(`✅ [DOF Scheduler] Tipo de cambio insertado (fallback): Compra ${buyRate}, Venta ${sellRate}`);
+    console.error('❌ [DOF Scheduler] No se insertará ningún valor - solo datos oficiales de Banxico');
+    // NO insertar valores estimados/fallback - solo usar datos oficiales de Banxico
   }
 }
 

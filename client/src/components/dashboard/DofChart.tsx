@@ -13,8 +13,19 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { ExchangeRateHistory } from '@/components/treasury/ExchangeRateHistory';
+
+// Zona horaria de México (Ciudad de México)
+const MEXICO_TIMEZONE = "America/Mexico_City";
+
+// Función para formatear fecha en hora de México
+function formatMexicoTime(dateStr: string, formatStr: string): string {
+  const date = new Date(dateStr);
+  const mexicoDate = toZonedTime(date, MEXICO_TIMEZONE);
+  return format(mexicoDate, formatStr, { locale: es });
+}
 
 // Type definitions for FX series data
 interface FxSeriesPoint {
@@ -296,7 +307,7 @@ export function DofChart() {
                     <span className="font-bold">${selectedCard.buy.toFixed(4)} MXN</span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    Última actualización: {format(new Date(selectedCard.date), "dd/MM/yyyy HH:mm:ss", { locale: es })}
+                    Última actualización: {formatMexicoTime(selectedCard.date, "dd/MM/yyyy HH:mm:ss")}
                   </div>
                 </div>
               </div>
