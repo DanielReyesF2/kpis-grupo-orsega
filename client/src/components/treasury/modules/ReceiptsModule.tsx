@@ -360,7 +360,7 @@ export function ReceiptsModule({
       <Card className="border border-border/40 bg-surface/60 backdrop-blur-md shadow-[0_25px_60px_-35px_rgba(8,12,18,0.8)] h-full">
         <CardHeader className="flex md:flex-row flex-col md:items-center md:justify-between gap-4 border-b border-white/5">
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-300 dark:text-gray-400 font-medium">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">
               Flujo de comprobantes
             </p>
             <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
@@ -371,7 +371,7 @@ export function ReceiptsModule({
             <Button
               size="sm"
               variant="outline"
-              className="border-white/20 text-white hover:bg-white/10 transition-colors"
+              className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 navigate('/treasury?tab=receipts');

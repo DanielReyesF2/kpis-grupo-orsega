@@ -92,11 +92,11 @@ export function SuppliersModule({
   if (!suppliers.length) {
     return (
       <Card className="border border-border/40 bg-surface/60 backdrop-blur-md shadow-[0_26px_60px_-36px_rgba(0,0,0,0.75)] h-full">
-        <CardContent className="p-8 flex flex-col items-center justify-center space-y-4 text-center text-white">
+        <CardContent className="p-8 flex flex-col items-center justify-center space-y-4 text-center text-gray-900 dark:text-white">
           <div className="w-16 h-16 rounded-full bg-pastel-violet/20 flex items-center justify-center">
-            <Building2 className="h-7 w-7" />
+            <Building2 className="h-7 w-7 text-pastel-violet" />
           </div>
-          <h3 className="text-xl font-semibold">Sin proveedores registrados</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Sin proveedores registrados</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
             Registra tus proveedores para activar recordatorios REP y seguimiento automático.
           </p>
@@ -125,7 +125,7 @@ export function SuppliersModule({
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Red de proveedores
               </p>
-              <h3 className="text-2xl font-semibold text-white mt-1">Proveedores</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">Proveedores</h3>
             </div>
             <Button
               size="sm"
@@ -136,9 +136,9 @@ export function SuppliersModule({
               Nuevo proveedor
             </Button>
           </div>
-          <div className="rounded-xl border border-white/10 bg-gradient-to-br from-pastel-violet/15 via-transparent to-transparent p-4">
-            <p className="text-sm text-white/80">Total registrados</p>
-            <p className="text-4xl font-semibold text-white tracking-tight mt-2">
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gradient-to-br from-pastel-violet/15 via-transparent to-transparent p-4">
+            <p className="text-sm text-gray-600 dark:text-white/80">Total registrados</p>
+            <p className="text-4xl font-semibold text-gray-900 dark:text-white tracking-tight mt-2">
               {stats.total}
             </p>
           </div>
@@ -167,16 +167,16 @@ export function SuppliersModule({
               return (
                 <div
                   key={supplier.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-surface-muted/60 px-4 py-3 text-white"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-surface-muted/60 px-4 py-3 text-gray-900 dark:text-white"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <Avatar className="h-10 w-10 bg-pastel-violet/30 text-white">
-                      <AvatarFallback className="bg-pastel-violet/40 text-white">
+                    <Avatar className="h-10 w-10 bg-pastel-violet/30 text-gray-900 dark:text-white">
+                      <AvatarFallback className="bg-pastel-violet/40 text-gray-900 dark:text-white">
                         {initials || "PR"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{supplier.name}</p>
+                      <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">{supplier.name}</p>
                       {supplier.short_name && (
                         <p className="text-xs text-muted-foreground truncate mt-1">
                           {supplier.short_name}
