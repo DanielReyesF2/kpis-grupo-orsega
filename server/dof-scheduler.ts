@@ -23,11 +23,12 @@ export async function fetchDOFExchangeRate() {
       const errorText = await response.text();
       console.warn(`⚠️  [DOF Scheduler] Error HTTP ${response.status}: ${errorText}`);
       console.warn('⚠️  [DOF Scheduler] No se pudo obtener el tipo de cambio oficial, usando valores estimados');
-      
+      console.warn('⚠️  [DOF Scheduler] IMPORTANTE: Verificar BANXICO_TOKEN en variables de entorno');
+
       // Verificar si ya hay un registro reciente (últimas 2 horas) para evitar duplicados
       const twoHoursAgo = new Date();
       twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-      
+
       const recentRate = await db.query.exchangeRates.findFirst({
         where: (rates, { and, eq, gte }) => and(
           eq(rates.source, 'DOF'),
@@ -35,13 +36,14 @@ export async function fetchDOFExchangeRate() {
         ),
         orderBy: (rates, { desc }) => [desc(rates.date)]
       });
-      
+
       if (recentRate) {
         console.log('ℹ️  [DOF Scheduler] Ya existe un registro reciente, no se insertará duplicado');
         return;
       }
-      
-      const currentRate = 18.35 + (Math.random() * 0.2 - 0.1);
+
+      // Fallback actualizado a valor más cercano al real (enero 2026)
+      const currentRate = 17.98 + (Math.random() * 0.1 - 0.05);
       const buyRate = Number(currentRate.toFixed(4));
       const sellRate = Number(currentRate.toFixed(4)); // DOF solo tiene un valor único
       
@@ -122,8 +124,9 @@ export async function fetchDOFExchangeRate() {
       console.log('ℹ️  [DOF Scheduler] Ya existe un registro reciente, no se insertará fallback');
       return;
     }
-    
-    const fallbackRate = 18.35 + (Math.random() * 0.2 - 0.1);
+
+    // Fallback actualizado a valor más cercano al real (enero 2026)
+    const fallbackRate = 17.98 + (Math.random() * 0.1 - 0.05);
     const buyRate = Number(fallbackRate.toFixed(4));
     const sellRate = Number(fallbackRate.toFixed(4)); // DOF solo tiene un valor único
     
