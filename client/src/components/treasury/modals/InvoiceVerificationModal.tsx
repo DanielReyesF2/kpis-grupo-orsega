@@ -409,14 +409,14 @@ export function InvoiceVerificationModal({
           
           {/* Sección 1: Datos del Proveedor */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-900 border-b pb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
               Datos del Proveedor
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Proveedor */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="supplierName" className="text-gray-700 dark:text-gray-800 font-medium">
+                  <Label htmlFor="supplierName" className="text-gray-700 dark:text-gray-200 font-medium">
                     Proveedor <span className="text-red-500">*</span>
                   </Label>
                   {getFieldConfidence('supplierName') > 0.7 && (
@@ -446,7 +446,7 @@ export function InvoiceVerificationModal({
               {/* RFC / Tax ID */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="taxId" className="text-gray-700 dark:text-gray-800 font-medium">RFC / Tax ID</Label>
+                  <Label htmlFor="taxId" className="text-gray-700 dark:text-gray-200 font-medium">RFC / Tax ID</Label>
                   {getFieldConfidence('taxId') > 0.7 && (
                     <BadgeComponent variant="outline" className="text-xs">
                       {(getFieldConfidence('taxId') * 100).toFixed(0)}% confianza
@@ -466,7 +466,7 @@ export function InvoiceVerificationModal({
           
           {/* Sección 2: Datos Financieros */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-900 border-b pb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
               Datos Financieros
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -474,7 +474,7 @@ export function InvoiceVerificationModal({
               {/* Monto */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="amount" className="text-gray-700 dark:text-gray-800 font-medium">
+                  <Label htmlFor="amount" className="text-gray-700 dark:text-gray-200 font-medium">
                     Monto <span className="text-red-500">*</span>
                   </Label>
                   {getFieldConfidence('amount') > 0.7 && (
@@ -511,7 +511,7 @@ export function InvoiceVerificationModal({
               {/* Referencia / Número de factura */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="reference" className="text-gray-700 dark:text-gray-800 font-medium">Referencia / Número de Factura</Label>
+                  <Label htmlFor="reference" className="text-gray-700 dark:text-gray-200 font-medium">Referencia / Número de Factura</Label>
                   {getFieldConfidence('invoiceNumber') > 0.7 && (
                     <BadgeComponent variant="outline" className="text-xs">
                       {(getFieldConfidence('invoiceNumber') * 100).toFixed(0)}% confianza
@@ -531,7 +531,7 @@ export function InvoiceVerificationModal({
           
           {/* Sección 3: Fechas */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-900 border-b pb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
               Fechas Importantes
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -539,7 +539,7 @@ export function InvoiceVerificationModal({
               {/* Fecha de vencimiento */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-gray-700 dark:text-gray-800 font-medium">
+                  <Label className="text-gray-700 dark:text-gray-200 font-medium">
                     Fecha de Vencimiento <span className="text-red-500">*</span>
                   </Label>
                   {getFieldConfidence('dueDate') > 0.7 && (
@@ -579,7 +579,7 @@ export function InvoiceVerificationModal({
 
             {/* Fecha de pago - OBLIGATORIA */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-gray-700 dark:text-gray-800 font-medium">
+              <Label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium">
                 Fecha de Pago <span className="text-red-500">*</span>
                 <span className="text-xs text-gray-500 font-normal">
                   (Cuándo se va a pagar)
@@ -619,13 +619,13 @@ export function InvoiceVerificationModal({
           {/* Sección 4: Información Adicional (si está disponible) */}
           {(invoiceData.analysis.paymentTerms || invoiceData.analysis.paymentMethod) && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-900 border-b pb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Información Adicional Extraída
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {invoiceData.analysis.paymentTerms && (
                   <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-800 font-medium">Términos de Pago</Label>
+                    <Label className="text-gray-700 dark:text-gray-200 font-medium">Términos de Pago</Label>
                     <div className="p-3 bg-muted rounded-md text-sm">
                       {invoiceData.analysis.paymentTerms}
                     </div>
@@ -633,7 +633,7 @@ export function InvoiceVerificationModal({
                 )}
                 {invoiceData.analysis.paymentMethod && (
                   <div className="space-y-2">
-                    <Label className="text-gray-700 dark:text-gray-800 font-medium">Método de Pago</Label>
+                    <Label className="text-gray-700 dark:text-gray-200 font-medium">Método de Pago</Label>
                     <div className="p-3 bg-muted rounded-md text-sm">
                       {invoiceData.analysis.paymentMethod}
                     </div>
@@ -645,7 +645,7 @@ export function InvoiceVerificationModal({
 
           {/* Notas */}
           <div className="space-y-2">
-            <Label htmlFor="notes" className="text-gray-700 dark:text-gray-800 font-medium">Notas (opcional)</Label>
+            <Label htmlFor="notes" className="text-gray-700 dark:text-gray-200 font-medium">Notas (opcional)</Label>
             <textarea
               id="notes"
               value={notes}
