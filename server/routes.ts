@@ -4742,6 +4742,71 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // POST /api/treasury/payments/repair-voucher-links - Reparar vínculos entre vouchers y payments
+  app.post("/api/treasury/payments/repair-voucher-links", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      const { paymentVouchers, scheduledPayments } = await import('../shared/schema');
+      const { eq, isNotNull, isNull } = await import('drizzle-orm');
+
+      // 1. Encontrar todos los vouchers que tienen scheduledPaymentId
+      const vouchersWithPayments = await db.select()
+        .from(paymentVouchers)
+        .where(isNotNull(paymentVouchers.scheduledPaymentId));
+
+      console.log(`🔧 [Repair] Encontrados ${vouchersWithPayments.length} vouchers con scheduledPaymentId`);
+
+      let repaired = 0;
+      let alreadyLinked = 0;
+      const errors: string[] = [];
+
+      for (const voucher of vouchersWithPayments) {
+        if (!voucher.scheduledPaymentId) continue;
+
+        // Verificar si el scheduled_payment ya tiene voucherId
+        const [payment] = await db.select()
+          .from(scheduledPayments)
+          .where(eq(scheduledPayments.id, voucher.scheduledPaymentId));
+
+        if (!payment) {
+          errors.push(`Payment ${voucher.scheduledPaymentId} no encontrado para voucher ${voucher.id}`);
+          continue;
+        }
+
+        if (payment.voucherId === voucher.id) {
+          alreadyLinked++;
+          continue;
+        }
+
+        // Actualizar el scheduled_payment con el voucherId
+        await db.update(scheduledPayments)
+          .set({
+            voucherId: voucher.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(scheduledPayments.id, voucher.scheduledPaymentId));
+
+        console.log(`✅ [Repair] Vinculado voucher ${voucher.id} → payment ${voucher.scheduledPaymentId}`);
+        repaired++;
+      }
+
+      res.json({
+        success: true,
+        message: `Reparación completada`,
+        stats: {
+          totalVouchers: vouchersWithPayments.length,
+          repaired,
+          alreadyLinked,
+          errors: errors.length
+        },
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error('Error repairing voucher links:', error);
+      res.status(500).json({ error: 'Failed to repair voucher links' });
+    }
+  });
+
   // POST /api/scheduled-payments/confirm - Confirmar creación de cuenta por pagar con fecha de pago
   app.post("/api/scheduled-payments/confirm", jwtAuthMiddleware, async (req, res) => {
     try {
