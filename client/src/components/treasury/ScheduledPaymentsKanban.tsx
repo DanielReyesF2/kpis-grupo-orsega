@@ -110,7 +110,7 @@ const COLUMN_CONFIG: Record<ColumnId, {
 };
 
 // Estados que indican que el pago está pendiente (no pagado aún)
-const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending', 'pago_programado', 'pending'];
 // Estados que indican que se subió comprobante pero falta REP
 const PENDING_REP_STATUSES = ['voucher_uploaded', 'pendiente_complemento'];
 // Estados que indican cierre contable
