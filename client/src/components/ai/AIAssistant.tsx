@@ -1,13 +1,12 @@
 /**
- * AI Assistant - Interfaz moderna estilo ChatGPT/Claude
- * Diseño luminoso FORZADO (ignora tema oscuro del sistema)
+ * AI Assistant - Diseño estilo Notion AI
+ * Interfaz minimalista, elegante y refinada
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
 import { useMCPExecute, suggestedTools, toolCategories } from "@/hooks/useMCPTools";
 import {
   Sparkles,
@@ -19,19 +18,16 @@ import {
   Command,
   ArrowUp,
   Zap,
-  TrendingUp,
-  Users,
-  Package,
-  HelpCircle,
   MessageSquare,
-  Lightbulb,
-  BarChart3,
-  RefreshCw,
-  Wrench,
+  Wand2,
+  ChevronRight,
+  RotateCcw,
   FileText,
   DollarSign,
   Database,
-  Bell
+  BarChart3,
+  Bell,
+  Search
 } from "lucide-react";
 
 interface Message {
@@ -54,9 +50,9 @@ export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [showTools, setShowTools] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "tools">("chat");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // MCP Hook
   const mcpExecute = useMCPExecute();
@@ -66,7 +62,7 @@ export function AIAssistant() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: `🔧 Ejecutando: ${label || toolName}`,
+      content: `Ejecutar: ${label || toolName}`,
       timestamp: new Date()
     };
     setMessages(prev => [...prev, userMessage]);
@@ -79,7 +75,7 @@ export function AIAssistant() {
         role: "tool",
         content: result.success
           ? formatToolResult(toolName, result.data)
-          : `❌ Error: ${result.error}`,
+          : `Error: ${result.error}`,
         timestamp: new Date(),
         toolName,
         toolData: result.data,
@@ -90,7 +86,7 @@ export function AIAssistant() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "tool",
-        content: `❌ Error ejecutando herramienta: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        content: `Error: ${error instanceof Error ? error.message : 'Error desconocido'}`,
         timestamp: new Date(),
         toolName,
         toolSuccess: false
@@ -99,41 +95,30 @@ export function AIAssistant() {
     }
   }, [mcpExecute]);
 
-  // Formatear resultado de herramienta para mostrar
+  // Formatear resultado de herramienta
   function formatToolResult(toolName: string, data: any): string {
     if (!data) return "No se encontraron datos.";
 
-    // Tipo de cambio
     if (toolName === 'get_exchange_rate' && data.rate) {
-      return `💱 Tipo de cambio ${data.from}/${data.to}\n\n` +
-        `**Tasa:** $${data.rate.toFixed(4)}\n` +
-        `**Fecha:** ${data.date}\n` +
-        `**Fuente:** ${data.source || 'Banxico'}`;
+      return `Tipo de cambio ${data.from}/${data.to}: $${data.rate.toFixed(4)} (${data.source || 'Banxico'})`;
     }
 
-    // Conversión de moneda
     if (toolName === 'convert_currency' && data.converted_amount) {
-      return `💵 Conversión de moneda\n\n` +
-        `**Original:** $${data.original_amount.toLocaleString()} ${data.original_currency}\n` +
-        `**Convertido:** $${data.converted_amount.toLocaleString()} ${data.target_currency}\n` +
-        `**Tipo de cambio:** ${data.exchange_rate}`;
+      return `$${data.original_amount.toLocaleString()} ${data.original_currency} = $${data.converted_amount.toLocaleString()} ${data.target_currency}`;
     }
 
-    // KPIs
     if (toolName === 'get_kpis' && data.insights) {
-      return `📊 Análisis de KPIs\n\n${JSON.stringify(data.insights, null, 2).substring(0, 500)}...`;
+      return `Análisis de KPIs disponible`;
     }
 
-    // Si hay un mensaje
     if (data.message) {
       return data.message;
     }
 
-    // Default: mostrar JSON formateado
-    return `✅ Resultado:\n\n\`\`\`json\n${JSON.stringify(data, null, 2).substring(0, 800)}\n\`\`\``;
+    return JSON.stringify(data, null, 2).substring(0, 500);
   }
 
-  // Command+K hotkey
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -149,25 +134,19 @@ export function AIAssistant() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  // Auto-scroll and focus
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // Focus input
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
-
-  // Auto-resize textarea
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
-  };
 
   const askMutation = useMutation({
     mutationFn: async (question: string): Promise<AskResponse> => {
@@ -175,22 +154,20 @@ export function AIAssistant() {
       return await res.json();
     },
     onSuccess: (data: AskResponse) => {
-      const assistantMessage: Message = {
+      setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: "assistant",
         content: data.answer,
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+      }]);
     },
     onError: () => {
-      const errorMessage: Message = {
+      setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Lo siento, ocurrió un error. Por favor intenta de nuevo.",
+        content: "Lo siento, ocurrió un error. Intenta de nuevo.",
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
     }
   });
 
@@ -198,21 +175,14 @@ export function AIAssistant() {
     e?.preventDefault();
     if (!input.trim() || askMutation.isPending) return;
 
-    const userMessage: Message = {
+    setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "user",
       content: input.trim(),
       timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    }]);
     askMutation.mutate(input.trim());
     setInput("");
-
-    // Reset textarea height
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
   }, [input, askMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -222,14 +192,13 @@ export function AIAssistant() {
     }
   };
 
-  const suggestions = [
-    { icon: TrendingUp, text: "¿Cuál es el crecimiento de ventas?", gradient: "from-emerald-500 to-teal-500" },
-    { icon: Users, text: "¿Cuántos clientes activos hay?", gradient: "from-blue-500 to-cyan-500" },
-    { icon: Package, text: "¿Cuál es el volumen total?", gradient: "from-purple-500 to-pink-500" },
-    { icon: BarChart3, text: "¿Qué métricas puedo consultar?", gradient: "from-orange-500 to-amber-500" },
+  const quickActions = [
+    { label: "Ventas del mes", query: "¿Cuáles son las ventas de este mes?" },
+    { label: "Clientes activos", query: "¿Cuántos clientes activos hay?" },
+    { label: "Top productos", query: "¿Cuáles son los productos más vendidos?" },
+    { label: "KPIs actuales", query: "Muéstrame los KPIs actuales" },
   ];
 
-  // Mapeo de iconos de categoría
   const categoryIcons: Record<string, any> = {
     invoices: FileText,
     treasury: DollarSign,
@@ -238,44 +207,35 @@ export function AIAssistant() {
     notifications: Bell,
   };
 
-  const clearChat = () => {
-    setMessages([]);
-  };
-
   return (
     <>
-      {/* Floating Button - Moderno y brillante */}
+      {/* Trigger Button - Notion Style */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all group"
-            style={{ boxShadow: '0 10px 40px rgba(139, 92, 246, 0.3)' }}
+            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-medium transition-all"
+            style={{
+              backgroundColor: 'rgba(15, 15, 15, 0.95)',
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+            }}
           >
-            <div className="relative">
-              <Sparkles className="h-5 w-5" />
-              <motion.div
-                className="absolute inset-0"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-              >
-                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-300 rounded-full" />
-              </motion.div>
+            <Wand2 className="h-4 w-4" />
+            <span>Econova AI</span>
+            <div className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded bg-white/10 text-[10px]">
+              <Command className="h-2.5 w-2.5" />
+              <span>K</span>
             </div>
-            <span className="font-semibold text-sm hidden sm:inline">Econova</span>
-            <kbd className="hidden md:inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-mono bg-white/20 backdrop-blur-sm rounded-lg ml-1">
-              <Command className="h-2.5 w-2.5" />K
-            </kbd>
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Modal Overlay + Chat Window */}
+      {/* Modal */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -286,408 +246,276 @@ export function AIAssistant() {
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 z-50"
-              style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)' }}
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
             />
 
-            {/* Chat Modal - FORZAR TEMA CLARO */}
+            {/* Panel */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-[720px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[650px] sm:max-h-[85vh] overflow-hidden flex flex-col"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.15 }}
+              className="fixed z-50 left-1/2 top-[12%] -translate-x-1/2 w-[600px] max-w-[calc(100vw-32px)]"
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '24px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                border: '1px solid #e2e8f0'
+                borderRadius: '12px',
+                boxShadow: '0 16px 70px rgba(0, 0, 0, 0.2)',
+                maxHeight: 'calc(100vh - 120px)',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
-              {/* Header - Gradiente luminoso */}
-              <div
-                className="relative px-6 py-5 flex items-center justify-between"
-                style={{
-                  background: 'linear-gradient(to right, #f5f3ff, #ede9fe, #e0e7ff)',
-                  borderBottom: '1px solid #e2e8f0'
-                }}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div
-                      className="p-3 rounded-2xl"
-                      style={{
-                        background: 'linear-gradient(135deg, #7c3aed, #8b5cf6, #6366f1)',
-                        boxShadow: '0 10px 30px rgba(139, 92, 246, 0.4)'
-                      }}
-                    >
-                      <Sparkles className="h-6 w-6 text-white" />
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                      <Sparkles className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <div
-                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: '#10b981', border: '2px solid #ffffff' }}
-                    >
-                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                    </div>
+                    <span className="font-semibold text-gray-900 text-sm">Econova AI</span>
                   </div>
-                  <div>
-                    <h2 className="font-bold text-xl flex items-center gap-2" style={{ color: '#1e293b' }}>
-                      Econova
-                      <span
-                        className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase tracking-wide"
-                        style={{ background: 'linear-gradient(to right, #10b981, #34d399)', color: '#ffffff' }}
-                      >
-                        MCP
-                      </span>
-                    </h2>
-                    <p className="text-sm mt-0.5" style={{ color: '#64748b' }}>
-                      Tu asistente inteligente con 39 herramientas
-                    </p>
+
+                  {/* Tabs */}
+                  <div className="flex items-center gap-1 ml-4 p-0.5 bg-gray-100 rounded-lg">
+                    <button
+                      onClick={() => setActiveTab("chat")}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                        activeTab === "chat"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Chat
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("tools")}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                        activeTab === "tools"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Acciones
+                    </button>
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2">
                   {messages.length > 0 && (
                     <button
-                      onClick={clearChat}
-                      className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
-                      style={{ color: '#64748b', backgroundColor: 'transparent' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onClick={() => setMessages([])}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                     >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Nuevo chat
+                      <RotateCcw className="h-3.5 w-3.5" />
                     </button>
                   )}
                   <button
-                    className="h-9 w-9 rounded-xl flex items-center justify-center transition-colors"
-                    style={{ color: '#64748b' }}
                     onClick={() => setIsOpen(false)}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Messages Area */}
+              {/* Content */}
               <div
                 ref={scrollRef}
-                className="flex-1 p-6 overflow-y-auto"
-                style={{ backgroundColor: '#f8fafc' }}
+                className="flex-1 overflow-y-auto"
+                style={{ minHeight: '300px', maxHeight: '400px' }}
               >
                 {messages.length === 0 ? (
-                  /* Empty State */
-                  <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                    <div className="relative mb-8">
-                      <div
-                        className="absolute inset-0 rounded-full blur-2xl animate-pulse"
-                        style={{ background: 'linear-gradient(to right, #a78bfa, #8b5cf6, #6366f1)', opacity: 0.2 }}
-                      />
-                      <div
-                        className="relative p-6 rounded-3xl"
-                        style={{ background: 'linear-gradient(135deg, #ede9fe, #e0e7ff)' }}
-                      >
-                        <Lightbulb className="h-12 w-12" style={{ color: '#7c3aed' }} />
-                      </div>
-                    </div>
-
-                    <h3 className="text-2xl font-bold mb-3" style={{ color: '#1e293b' }}>
-                      ¿En qué puedo ayudarte?
-                    </h3>
-                    <p className="text-sm mb-6 max-w-md leading-relaxed" style={{ color: '#64748b' }}>
-                      Pregúntame sobre ventas, clientes, métricas de rendimiento,
-                      o usa las herramientas rápidas.
-                    </p>
-
-                    {/* Toggle entre preguntas y herramientas */}
-                    <div className="flex items-center gap-2 mb-6">
-                      <button
-                        onClick={() => setShowTools(false)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          !showTools ? 'bg-violet-100 text-violet-700' : 'text-gray-500 hover:bg-gray-100'
-                        }`}
-                      >
-                        💬 Preguntas
-                      </button>
-                      <button
-                        onClick={() => setShowTools(true)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                          showTools ? 'bg-violet-100 text-violet-700' : 'text-gray-500 hover:bg-gray-100'
-                        }`}
-                      >
-                        <Wrench className="h-4 w-4" />
-                        Herramientas
-                      </button>
-                    </div>
-
-                    {!showTools ? (
-                      /* Sugerencias de preguntas */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                        {suggestions.map((suggestion, i) => (
-                          <motion.button
-                            key={i}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            onClick={() => {
-                              setInput(suggestion.text);
-                              inputRef.current?.focus();
-                            }}
-                            className="flex items-center gap-3 p-4 rounded-2xl text-left group transition-all"
-                            style={{
-                              backgroundColor: '#ffffff',
-                              border: '1px solid #e2e8f0',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.borderColor = '#a78bfa';
-                              e.currentTarget.style.boxShadow = '0 10px 25px rgba(139, 92, 246, 0.15)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.borderColor = '#e2e8f0';
-                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                            }}
-                          >
-                            <div className={`p-2.5 rounded-xl bg-gradient-to-br ${suggestion.gradient} shadow-sm`}>
-                              <suggestion.icon className="h-4 w-4 text-white" />
-                            </div>
-                            <span className="text-sm font-medium" style={{ color: '#475569' }}>
-                              {suggestion.text}
-                            </span>
-                          </motion.button>
-                        ))}
-                      </div>
-                    ) : (
-                      /* Herramientas MCP */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-                        {suggestedTools.map((tool, i) => {
-                          const category = toolCategories[tool.category];
-                          const CategoryIcon = categoryIcons[tool.category];
-                          return (
-                            <motion.button
-                              key={tool.name}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: i * 0.08 }}
+                  <div className="p-4">
+                    {activeTab === "chat" ? (
+                      <>
+                        {/* Quick Actions */}
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+                          Sugerencias
+                        </p>
+                        <div className="space-y-1">
+                          {quickActions.map((action, i) => (
+                            <button
+                              key={i}
                               onClick={() => {
-                                if (tool.examplePrompt) {
-                                  setInput(tool.examplePrompt);
-                                  inputRef.current?.focus();
-                                } else {
-                                  executeTool(tool.name, tool.params, tool.label);
-                                }
+                                setInput(action.query);
+                                inputRef.current?.focus();
                               }}
-                              disabled={mcpExecute.isPending}
-                              className="flex items-center gap-3 p-4 rounded-2xl text-left group transition-all disabled:opacity-50"
-                              style={{
-                                backgroundColor: '#ffffff',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = '#a78bfa';
-                                e.currentTarget.style.boxShadow = '0 10px 25px rgba(139, 92, 246, 0.15)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = '#e2e8f0';
-                                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 transition-colors group"
                             >
-                              <div className={`p-2.5 rounded-xl bg-gradient-to-br ${category.color} shadow-sm flex items-center justify-center`}>
-                                <span className="text-lg">{tool.icon}</span>
+                              <div className="w-6 h-6 rounded-md bg-gray-100 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+                                <MessageSquare className="h-3 w-3 text-gray-400 group-hover:text-violet-500" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm font-medium block" style={{ color: '#1e293b' }}>
-                                  {tool.label}
-                                </span>
-                                <span className="text-xs truncate block" style={{ color: '#64748b' }}>
-                                  {tool.description}
-                                </span>
-                              </div>
-                            </motion.button>
-                          );
-                        })}
-                      </div>
+                              <span className="text-sm text-gray-700">{action.label}</span>
+                              <ChevronRight className="h-3.5 w-3.5 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Tools */}
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+                          Herramientas MCP
+                        </p>
+                        <div className="space-y-1">
+                          {suggestedTools.map((tool) => {
+                            const category = toolCategories[tool.category];
+                            return (
+                              <button
+                                key={tool.name}
+                                onClick={() => {
+                                  if (tool.examplePrompt) {
+                                    setInput(tool.examplePrompt);
+                                    setActiveTab("chat");
+                                    inputRef.current?.focus();
+                                  } else {
+                                    executeTool(tool.name, tool.params, tool.label);
+                                  }
+                                }}
+                                disabled={mcpExecute.isPending}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 transition-colors group disabled:opacity-50"
+                              >
+                                <div
+                                  className="w-6 h-6 rounded-md flex items-center justify-center text-sm"
+                                  style={{ backgroundColor: category.bgColor }}
+                                >
+                                  {tool.icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm text-gray-700 block">{tool.label}</span>
+                                  <span className="text-xs text-gray-400">{tool.description}</span>
+                                </div>
+                                <ChevronRight className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 ) : (
-                  /* Chat Messages */
-                  <div className="space-y-6">
+                  /* Messages */
+                  <div className="p-4 space-y-4">
                     {messages.map((message) => (
-                      <motion.div
+                      <div
                         key={message.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`flex gap-4 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                        className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                       >
                         {/* Avatar */}
                         <div
-                          className="flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm"
-                          style={{
-                            background: message.role === "assistant"
-                              ? 'linear-gradient(135deg, #7c3aed, #8b5cf6, #6366f1)'
+                          className={`w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center ${
+                            message.role === "assistant"
+                              ? "bg-gradient-to-br from-violet-500 to-purple-600"
                               : message.role === "tool"
                               ? message.toolSuccess !== false
-                                ? 'linear-gradient(135deg, #10b981, #34d399)'
-                                : 'linear-gradient(135deg, #ef4444, #f87171)'
-                              : 'linear-gradient(135deg, #475569, #64748b)'
-                          }}
+                                ? "bg-emerald-500"
+                                : "bg-red-500"
+                              : "bg-gray-700"
+                          }`}
                         >
                           {message.role === "assistant" ? (
-                            <Bot className="h-5 w-5 text-white" />
+                            <Sparkles className="h-3 w-3 text-white" />
                           ) : message.role === "tool" ? (
-                            <Wrench className="h-5 w-5 text-white" />
+                            <Zap className="h-3 w-3 text-white" />
                           ) : (
-                            <User className="h-5 w-5 text-white" />
+                            <User className="h-3 w-3 text-white" />
                           )}
                         </div>
 
-                        {/* Message Bubble */}
-                        <div className={`max-w-[75%] ${message.role === "user" ? "text-right" : ""}`}>
+                        {/* Content */}
+                        <div className={`max-w-[85%] ${message.role === "user" ? "text-right" : ""}`}>
+                          {message.role === "tool" && message.toolName && (
+                            <div className="mb-1">
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                message.toolSuccess !== false
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-red-50 text-red-600"
+                              }`}>
+                                {message.toolName}
+                              </span>
+                            </div>
+                          )}
                           <div
-                            className="inline-block px-5 py-3.5 text-sm leading-relaxed"
-                            style={{
-                              backgroundColor: message.role === "assistant" || message.role === "tool" ? '#ffffff' : undefined,
-                              background: message.role === "user" ? 'linear-gradient(to right, #7c3aed, #8b5cf6, #6366f1)' : undefined,
-                              color: message.role === "user" ? '#ffffff' : '#334155',
-                              borderRadius: message.role === "user" ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              border: message.role !== "user" ? '1px solid #e2e8f0' : 'none',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                            }}
+                            className={`inline-block px-3 py-2 text-sm leading-relaxed ${
+                              message.role === "user"
+                                ? "bg-gray-900 text-white rounded-xl rounded-tr-sm"
+                                : "bg-gray-100 text-gray-800 rounded-xl rounded-tl-sm"
+                            }`}
                           >
-                            {message.role === "tool" && message.toolName && (
-                              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
-                                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{
-                                  backgroundColor: message.toolSuccess !== false ? '#d1fae5' : '#fee2e2',
-                                  color: message.toolSuccess !== false ? '#065f46' : '#991b1b'
-                                }}>
-                                  {message.toolName}
-                                </span>
-                              </div>
-                            )}
                             <p className="whitespace-pre-wrap">{message.content}</p>
                           </div>
-                          <p className="text-[10px] mt-1.5 px-1" style={{ color: '#94a3b8' }}>
-                            {message.timestamp.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                          </p>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
 
-                    {/* Loading State */}
+                    {/* Loading */}
                     {(askMutation.isPending || mcpExecute.isPending) && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex gap-4"
-                      >
-                        <div
-                          className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm"
-                          style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6, #6366f1)' }}
-                        >
-                          <Bot className="h-5 w-5 text-white" />
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                          <Sparkles className="h-3 w-3 text-white" />
                         </div>
-                        <div
-                          className="px-5 py-4 rounded-2xl shadow-sm"
-                          style={{
-                            backgroundColor: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderTopLeftRadius: '4px'
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex gap-1.5">
-                              <motion.div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: '#8b5cf6' }}
-                                animate={{ scale: [1, 1.3, 1] }}
-                                transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-                              />
-                              <motion.div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: '#a78bfa' }}
-                                animate={{ scale: [1, 1.3, 1] }}
-                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                              />
-                              <motion.div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: '#c4b5fd' }}
-                                animate={{ scale: [1, 1.3, 1] }}
-                                transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-                              />
-                            </div>
-                            <span className="text-sm" style={{ color: '#64748b' }}>Analizando...</span>
+                        <div className="bg-gray-100 rounded-xl rounded-tl-sm px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <motion.div
+                              className="w-1.5 h-1.5 rounded-full bg-gray-400"
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                            />
+                            <motion.div
+                              className="w-1.5 h-1.5 rounded-full bg-gray-400"
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                            />
+                            <motion.div
+                              className="w-1.5 h-1.5 rounded-full bg-gray-400"
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                            />
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Input Area */}
-              <div
-                className="p-5"
-                style={{ backgroundColor: '#ffffff', borderTop: '1px solid #e2e8f0' }}
-              >
+              {/* Input */}
+              <div className="p-3 border-t border-gray-100">
                 <form onSubmit={handleSubmit} className="relative">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={handleTextareaChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Escribe tu pregunta aquí..."
-                    rows={1}
-                    className="w-full resize-none rounded-2xl px-5 py-4 pr-14 text-sm focus:outline-none transition-all"
-                    style={{
-                      backgroundColor: '#f8fafc',
-                      border: '2px solid #e2e8f0',
-                      color: '#1e293b'
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = '#8b5cf6'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-                    disabled={askMutation.isPending}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!input.trim() || askMutation.isPending}
-                    className="absolute right-3 bottom-3 h-10 w-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      background: 'linear-gradient(to right, #7c3aed, #8b5cf6, #6366f1)',
-                      boxShadow: '0 4px 15px rgba(139, 92, 246, 0.35)'
-                    }}
-                  >
-                    {askMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4 text-white" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100 transition-all">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    <input
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Pregunta algo o escribe un comando..."
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                      disabled={askMutation.isPending}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || askMutation.isPending}
+                      className="p-1.5 rounded-lg bg-gray-900 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                    >
+                      {askMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </form>
-                <div className="flex items-center justify-center gap-4 mt-3">
-                  <p className="text-[11px] flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                    <kbd
-                      className="px-2 py-1 rounded-lg text-[10px] font-mono"
-                      style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}
-                    >⌘K</kbd>
-                    <span>abrir</span>
-                  </p>
-                  <span style={{ color: '#cbd5e1' }}>·</span>
-                  <p className="text-[11px] flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                    <kbd
-                      className="px-2 py-1 rounded-lg text-[10px] font-mono"
-                      style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}
-                    >Enter</kbd>
-                    <span>enviar</span>
-                  </p>
-                  <span style={{ color: '#cbd5e1' }}>·</span>
-                  <p className="text-[11px] flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                    <kbd
-                      className="px-2 py-1 rounded-lg text-[10px] font-mono"
-                      style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}
-                    >Esc</kbd>
-                    <span>cerrar</span>
-                  </p>
+
+                <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-gray-400">
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500">Enter</kbd>
+                    enviar
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500">Esc</kbd>
+                    cerrar
+                  </span>
                 </div>
               </div>
             </motion.div>
