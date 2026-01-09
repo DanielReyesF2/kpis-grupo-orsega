@@ -64,6 +64,13 @@ export const invoiceTemplates: InvoiceTemplate[] = [
         /fecha\s+de\s+emisión[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
         /fecha[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
       ],
+      dueDate: [
+        /fecha\s+de\s+vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /vence[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /fecha\s+límite[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+        /pagar\s+antes\s+(?:de|del)?[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      ],
       taxId: [
         /rfc[\s:]+([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
       ],
@@ -316,6 +323,14 @@ export const fallbackTemplate: InvoiceTemplate = {
     date: [
       /(?:fecha|date)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
       /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
+    ],
+    dueDate: [
+      /fecha\s+de\s+vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /vence[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /fecha\s+límite[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /pagar\s+antes\s+(?:de|del)?[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+      /(?:due\s+date|payment\s+due)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
     ],
     taxId: [
       /rfc[\s:]+([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
