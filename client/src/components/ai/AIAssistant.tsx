@@ -272,33 +272,33 @@ export function AIAssistant({ isOpen: externalIsOpen, onClose }: AIAssistantProp
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop + Centered Container */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 z-50"
-              style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
-            />
-
-            {/* Panel */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-w-[calc(100vw-48px)]"
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
-                maxHeight: 'min(600px, calc(100vh - 100px))',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
             >
+              {/* Panel */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-[560px]"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                  maxHeight: 'calc(100vh - 120px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
+              >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center gap-3">
@@ -552,6 +552,7 @@ export function AIAssistant({ isOpen: externalIsOpen, onClose }: AIAssistantProp
                   </span>
                 </div>
               </div>
+              </motion.div>
             </motion.div>
           </>
         )}
