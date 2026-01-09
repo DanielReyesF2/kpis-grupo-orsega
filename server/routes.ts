@@ -52,6 +52,7 @@ import { getAnnualSummary, getAvailableYears } from "./annual-summary";
 import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR2, getFile } from "./storage/file-storage";
 import * as fileStorage from "./file-storage";
 import { generateSalesAnalystInsights } from "./sales-analyst";
+import { getAvailableTools, executeTool, generateSystemPrompt, findTool } from "./mcp";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -471,6 +472,86 @@ export function registerRoutes(app: express.Application) {
     } catch (error) {
       console.error('[CopilotKit] Error:', error);
       res.status(500).json({ error: 'Error en CopilotKit runtime' });
+    }
+  });
+
+  // ========================================
+  // MCP ECONOVA - Model Context Protocol para Agente AI
+  // ========================================
+
+  // Obtener lista de herramientas MCP disponibles
+  app.get("/api/mcp/tools", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const tools = getAvailableTools();
+      res.json({
+        success: true,
+        tools: tools.map(t => ({
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          inputSchema: t.inputSchema,
+        })),
+        count: tools.length,
+      });
+    } catch (error) {
+      console.error('[MCP] Error obteniendo herramientas:', error);
+      res.status(500).json({ success: false, error: 'Error obteniendo herramientas MCP' });
+    }
+  });
+
+  // Ejecutar una herramienta MCP
+  app.post("/api/mcp/execute", jwtAuthMiddleware, async (req: Request, res) => {
+    try {
+      const { tool_name, params } = req.body;
+      const authReq = req as AuthRequest;
+
+      if (!tool_name) {
+        return res.status(400).json({ success: false, error: 'tool_name es requerido' });
+      }
+
+      // Verificar que la herramienta existe
+      const tool = findTool(tool_name);
+      if (!tool) {
+        return res.status(404).json({ success: false, error: `Herramienta no encontrada: ${tool_name}` });
+      }
+
+      // Preparar contexto
+      const context = {
+        userId: authReq.user?.id?.toString(),
+        companyId: authReq.user?.companyId || undefined,
+        sessionId: req.headers['x-session-id'] as string || undefined,
+      };
+
+      console.log(`[MCP] Ejecutando herramienta: ${tool_name}`, { context });
+
+      // Ejecutar herramienta
+      const result = await executeTool(tool_name, params || {}, context);
+
+      res.json(result);
+    } catch (error) {
+      console.error('[MCP] Error ejecutando herramienta:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Error ejecutando herramienta MCP'
+      });
+    }
+  });
+
+  // Obtener prompt del sistema para Econova
+  app.get("/api/mcp/system-prompt", jwtAuthMiddleware, async (req: Request, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const context = {
+        userId: authReq.user?.id?.toString(),
+        companyId: authReq.user?.companyId || undefined,
+        sessionId: req.headers['x-session-id'] as string || undefined,
+      };
+
+      const prompt = generateSystemPrompt(context);
+      res.json({ success: true, prompt });
+    } catch (error) {
+      console.error('[MCP] Error generando prompt:', error);
+      res.status(500).json({ success: false, error: 'Error generando prompt del sistema' });
     }
   });
 
