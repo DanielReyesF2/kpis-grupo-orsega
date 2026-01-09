@@ -284,18 +284,19 @@ export function AIAssistant({ isOpen: externalIsOpen, onClose }: AIAssistantProp
 
             {/* Panel */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.15 }}
-              className="fixed z-50 left-1/2 top-[12%] -translate-x-1/2 w-[600px] max-w-[calc(100vw-32px)]"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-w-[calc(100vw-48px)]"
               style={{
                 backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                boxShadow: '0 16px 70px rgba(0, 0, 0, 0.2)',
-                maxHeight: 'calc(100vh - 120px)',
+                borderRadius: '16px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                maxHeight: 'min(600px, calc(100vh - 100px))',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                overflow: 'hidden'
               }}
             >
               {/* Header */}
@@ -355,7 +356,7 @@ export function AIAssistant({ isOpen: externalIsOpen, onClose }: AIAssistantProp
               <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto"
-                style={{ minHeight: '300px', maxHeight: '400px' }}
+                style={{ minHeight: '280px', maxHeight: '380px' }}
               >
                 {messages.length === 0 ? (
                   <div className="p-4">
