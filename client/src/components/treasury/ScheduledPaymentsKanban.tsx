@@ -619,7 +619,14 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
       cierre_contable: [],
     };
 
+    // Debug: mostrar todos los pagos recibidos
+    console.log('📊 [Kanban] Total pagos recibidos:', payments.length);
+    console.log('📊 [Kanban] Estados únicos:', [...new Set(payments.map(p => p.status))]);
+
     payments.forEach((payment) => {
+      // Debug para cada pago
+      console.log(`📋 [Kanban] Pago ID:${payment.id} - ${payment.supplierName} - Status: "${payment.status}" - Fecha: ${payment.paymentDate || payment.dueDate}`);
+
       // Primero verificar si está en estados finales
       if (CLOSED_STATUSES.includes(payment.status)) {
         result.cierre_contable.push(payment);
@@ -638,19 +645,25 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
         // Atrasados: fecha de pago anterior a hoy
         if (isBefore(paymentDateToUse, thisWeekStart)) {
           result.atrasados.push(payment);
+          console.log(`  ➡️ Clasificado en: ATRASADOS`);
         }
         // Esta semana
         else if (isWithinInterval(paymentDateToUse, { start: thisWeekStart, end: thisWeekEnd })) {
           result.esta_semana.push(payment);
+          console.log(`  ➡️ Clasificado en: ESTA SEMANA`);
         }
         // Siguiente semana
         else if (isWithinInterval(paymentDateToUse, { start: nextWeekStart, end: nextWeekEnd })) {
           result.siguiente_semana.push(payment);
+          console.log(`  ➡️ Clasificado en: SIGUIENTE SEMANA`);
         }
         // Futuro (más de 2 semanas) - los ponemos en siguiente semana por ahora
         else {
           result.siguiente_semana.push(payment);
+          console.log(`  ➡️ Clasificado en: SIGUIENTE SEMANA (futuro)`);
         }
+      } else {
+        console.warn(`  ⚠️ PAGO NO CLASIFICADO - Status "${payment.status}" no está en ninguna lista`);
       }
     });
 
