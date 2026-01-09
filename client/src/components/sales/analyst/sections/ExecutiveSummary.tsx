@@ -51,19 +51,13 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <div className="space-y-1">
-                    <p className="font-semibold">Umbral adaptativo:</p>
+                    <p className="font-semibold">Criterio:</p>
                     <p className="text-sm">
-                      {statisticalContext?.criticalDaysThreshold 
-                        ? `${Math.round(statisticalContext.criticalDaysThreshold)} días (percentil 90 histórico)`
-                        : '60 días (default)'}
+                      Clientes con más de 6 meses (180 días) sin realizar compras.
                     </p>
-                    <p className="font-semibold mt-2">Criterio:</p>
+                    <p className="font-semibold mt-2">Acción requerida:</p>
                     <p className="text-sm">
-                      Clientes con {statisticalContext?.criticalDaysThreshold 
-                        ? `más de ${Math.round(statisticalContext.criticalDaysThreshold)} días`
-                        : 'más de 60 días'} sin compra y revenue histórico superior a {statisticalContext?.highValueRevenueThreshold 
-                        ? formatCurrency(statisticalContext.highValueRevenueThreshold, companyId)
-                        : formatCurrency(10000, companyId)}
+                      Requieren atención inmediata para evitar pérdida total del cliente.
                     </p>
                   </div>
                 </TooltipContent>
@@ -71,9 +65,7 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
               <span className="text-sm text-muted-foreground">clientes</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {statisticalContext?.criticalDaysThreshold 
-                ? `${Math.round(statisticalContext.criticalDaysThreshold)}+ días sin compra`
-                : '60+ días sin compra'}
+              6+ meses sin compra
             </p>
           </div>
         </ChartCard>
@@ -94,28 +86,21 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <div className="space-y-1">
-                  <p className="font-semibold">Validación estadística:</p>
+                  <p className="font-semibold">Criterio:</p>
                   <p className="text-sm">
-                    Clientes con caída anómala detectada usando Z-score (Z {'>'} 2.0 = 95% confianza)
+                    Clientes con 3 a 6 meses (90-180 días) sin realizar compras.
                   </p>
-                  {statisticalContext?.yoyStats && (
-                    <>
-                      <p className="font-semibold mt-2">Baseline histórico:</p>
-                      <p className="text-sm">
-                        Media: {statisticalContext.yoyStats.mean.toFixed(1)}%
-                      </p>
-                      <p className="text-sm">
-                        Desv. Est.: {statisticalContext.yoyStats.stdDev.toFixed(1)}%
-                      </p>
-                    </>
-                  )}
+                  <p className="font-semibold mt-2">Acción requerida:</p>
+                  <p className="text-sm">
+                    Dar seguimiento proactivo para prevenir que se conviertan en críticos.
+                  </p>
                 </div>
               </TooltipContent>
             </Tooltip>
             <span className="text-sm text-muted-foreground">clientes</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Caída anómala detectada (Z-score {'>'} 2.0)
+            3-6 meses sin compra
           </p>
         </div>
       </ChartCard>

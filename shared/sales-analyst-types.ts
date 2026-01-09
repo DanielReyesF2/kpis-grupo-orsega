@@ -72,8 +72,8 @@ export interface SalesAnalystInsights {
     };
   };
   focusClients: {
-    critical: ClientFocus[];      // 60+ días sin compra, alto valor
-    warning: ClientFocus[];       // Caída >30% YoY
+    critical: ClientFocus[];      // 6+ meses (180 días) sin compra
+    warning: ClientFocus[];       // 3-6 meses (90-180 días) sin compra
     opportunities: ClientFocus[]; // Creciendo >10%
   };
   productOpportunities: {
@@ -96,8 +96,9 @@ export interface SalesAnalystInsights {
     topRisks: RiskFactor[];
   };
   statisticalContext?: {
-    criticalDaysThreshold: number;      // Umbral adaptativo para días sin compra
-    highValueRevenueThreshold: number; // Umbral adaptativo para revenue alto valor
+    criticalDaysThreshold: number;      // Umbral para clientes críticos (6 meses = 180 días)
+    warningDaysThreshold: number;       // Umbral para clientes en riesgo (3 meses = 90 días)
+    highValueRevenueThreshold: number;  // Umbral para revenue alto valor
     yoyStats: {
       mean: number;                     // Media de cambios YoY
       stdDev: number;                   // Desviación estándar de cambios YoY
