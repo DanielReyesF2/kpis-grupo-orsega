@@ -55,8 +55,8 @@ fields:
     regex: (?:Invoice Date|Date|Dated)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
     group: 1
 
-  # Due date
-  date_due:
+  # Due date (due_date para compatibilidad con TypeScript)
+  due_date:
     parser: regex
     regex: (?:Due Date|Payment Due|Pay By)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})
     group: 1

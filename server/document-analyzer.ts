@@ -354,15 +354,68 @@ export async function analyzePaymentDocument(
           if (isNaN(invoiceDate.getTime())) invoiceDate = null;
         }
 
-        if (data.due_date) {
-          dueDate = new Date(data.due_date);
+        // Aceptar tanto due_date como date_due (diferentes convenciones de templates)
+        const dueDateValue = data.due_date || data.date_due;
+        if (dueDateValue) {
+          dueDate = new Date(dueDateValue);
           if (isNaN(dueDate.getTime())) dueDate = null;
         }
 
-        // Si no hay fecha de vencimiento, calcular +30 días
+        // ========================================
+        // SUPLEMENTAR: Si invoice2data no encontró dueDate, extraerlo del texto
+        // ========================================
+        if (!dueDate) {
+          console.log(`🔍 [invoice2data] dueDate no encontrado, intentando extraer del texto...`);
+
+          // Extraer texto del PDF para buscar fecha de vencimiento
+          let pdfText = "";
+          try {
+            const pdfParse = await import('pdf-parse');
+            const pdfData = await pdfParse.default(fileBuffer);
+            pdfText = pdfData.text.trim();
+          } catch (error) {
+            console.warn(`⚠️ [pdf-parse] Error extrayendo texto:`, error);
+          }
+
+          if (pdfText.length > 0) {
+            // Patrones para fecha de vencimiento en español
+            const dueDatePatterns = [
+              /fecha\s+de\s+vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+              /vencimiento[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+              /vence[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+              /fecha\s+l[íi]mite[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+              /pagar\s+antes\s+(?:de|del)?[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+              /(?:due\s+date|payment\s+due)[\s:]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+            ];
+
+            for (const pattern of dueDatePatterns) {
+              const match = pdfText.match(pattern);
+              if (match && match[1]) {
+                const dateStr = match[1].trim();
+                const parts = dateStr.split(/[\/\-]/);
+                if (parts.length === 3) {
+                  const day = parseInt(parts[0]);
+                  const month = parseInt(parts[1]) - 1;
+                  let year = parseInt(parts[2]);
+                  if (year < 100) year += 2000;
+
+                  const parsedDate = new Date(year, month, day);
+                  if (!isNaN(parsedDate.getTime())) {
+                    dueDate = parsedDate;
+                    console.log(`✅ [invoice2data] Fecha de vencimiento extraída del texto: ${dueDate.toISOString().split('T')[0]}`);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Si aún no hay fecha de vencimiento, calcular +30 días desde fecha de factura
         if (!dueDate && invoiceDate) {
           dueDate = new Date(invoiceDate);
           dueDate.setDate(dueDate.getDate() + 30);
+          console.log(`📅 [invoice2data] dueDate calculado (factura + 30 días): ${dueDate.toISOString().split('T')[0]}`);
         }
 
         return {
