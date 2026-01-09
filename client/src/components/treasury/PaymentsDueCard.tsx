@@ -64,7 +64,7 @@ export function PaymentsDueCard({ onViewAll }: PaymentsDueCardProps) {
   sevenDaysFromNow.setDate(today.getDate() + 7);
 
   // Estados sincronizados con ScheduledPaymentsKanban - solo pagos pendientes (sin voucher)
-  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending', 'pago_programado', 'pending'];
 
   const paymentsDue = payments.filter((p) => {
     // Solo mostrar pagos pendientes de pagar (que no tienen voucher aún)

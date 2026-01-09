@@ -4675,6 +4675,73 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // DELETE /api/treasury/payments/:id - Eliminar pago programado
+  app.delete("/api/treasury/payments/:id", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const paymentId = parseInt(req.params.id);
+
+      // Verificar que el pago existe
+      const existing = await sql(`SELECT * FROM scheduled_payments WHERE id = $1`, [paymentId]);
+      if (existing.length === 0) {
+        return res.status(404).json({ error: 'Pago no encontrado' });
+      }
+
+      // Eliminar el pago
+      await sql(`DELETE FROM scheduled_payments WHERE id = $1`, [paymentId]);
+      console.log(`🗑️ [Treasury] Pago eliminado: ID ${paymentId}`);
+
+      res.json({ success: true, message: 'Pago eliminado correctamente' });
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      res.status(500).json({ error: 'Failed to delete payment' });
+    }
+  });
+
+  // POST /api/treasury/payments/cleanup-duplicates - Limpiar pagos duplicados
+  app.post("/api/treasury/payments/cleanup-duplicates", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const { supplierName } = req.body;
+
+      if (!supplierName) {
+        return res.status(400).json({ error: 'supplierName es requerido' });
+      }
+
+      // Buscar duplicados por nombre de proveedor
+      const duplicates = await sql(`
+        SELECT id, supplier_name, amount, due_date, created_at
+        FROM scheduled_payments
+        WHERE LOWER(supplier_name) LIKE LOWER($1)
+        ORDER BY created_at DESC
+      `, [`%${supplierName}%`]);
+
+      if (duplicates.length <= 1) {
+        return res.json({
+          message: 'No se encontraron duplicados',
+          count: duplicates.length
+        });
+      }
+
+      // Mantener el primero (más reciente), eliminar el resto
+      const toKeep = duplicates[0];
+      const toDelete = duplicates.slice(1);
+
+      for (const payment of toDelete) {
+        await sql(`DELETE FROM scheduled_payments WHERE id = $1`, [payment.id]);
+        console.log(`🗑️ [Cleanup] Eliminado duplicado: ID ${payment.id} - ${payment.supplier_name}`);
+      }
+
+      res.json({
+        success: true,
+        message: `Eliminados ${toDelete.length} duplicados de "${supplierName}"`,
+        kept: toKeep,
+        deleted: toDelete.map(p => p.id)
+      });
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+      res.status(500).json({ error: 'Failed to cleanup duplicates' });
+    }
+  });
+
   // POST /api/scheduled-payments/confirm - Confirmar creación de cuenta por pagar con fecha de pago
   app.post("/api/scheduled-payments/confirm", jwtAuthMiddleware, async (req, res) => {
     try {

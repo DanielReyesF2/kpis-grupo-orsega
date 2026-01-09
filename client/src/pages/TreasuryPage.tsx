@@ -122,7 +122,7 @@ export default function TreasuryPage() {
   const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
 
   // Estados sincronizados con ScheduledPaymentsKanban
-  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending'];
+  const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending', 'pago_programado', 'pending'];
   // Los pagos con voucher ya subido no deben mostrarse en las tarjetas de semana
   // porque ya aparecen en el Kanban en "Pendiente REP" o "Cierre Contable"
 
