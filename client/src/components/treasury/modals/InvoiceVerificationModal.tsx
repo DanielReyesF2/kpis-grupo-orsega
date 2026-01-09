@@ -76,26 +76,36 @@ export function InvoiceVerificationModal({
     supplierName: invoiceData.supplier.name,
     supplierId: invoiceData.supplier.id
   }, null, 2));
-  
-  // Estados para los datos editables
-  const [supplierName, setSupplierName] = useState(invoiceData.analysis.extractedSupplierName || '');
-  const [amount, setAmount] = useState(invoiceData.analysis.extractedAmount?.toString() || '');
-  const [currency, setCurrency] = useState(invoiceData.analysis.extractedCurrency || 'MXN');
-  const [dueDate, setDueDate] = useState<Date | null>(
-    invoiceData.analysis.extractedDueDate 
-      ? new Date(invoiceData.analysis.extractedDueDate) 
-      : (invoiceData.analysis.extractedDate 
-          ? (() => {
-              const date = new Date(invoiceData.analysis.extractedDate);
-              date.setDate(date.getDate() + 30); // Default: +30 días
-              return date;
-            })()
-          : null)
+
+  // Estados para los datos editables - usar fallbacks correctos desde el inicio
+  const [supplierName, setSupplierName] = useState(
+    invoiceData.analysis.extractedSupplierName ?? invoiceData.supplier?.name ?? ''
   );
+  const [amount, setAmount] = useState(
+    invoiceData.analysis.extractedAmount?.toString() ?? ''
+  );
+  const [currency, setCurrency] = useState(
+    invoiceData.analysis.extractedCurrency ?? 'MXN'
+  );
+  const [dueDate, setDueDate] = useState<Date | null>(() => {
+    if (invoiceData.analysis.extractedDueDate) {
+      return new Date(invoiceData.analysis.extractedDueDate);
+    }
+    if (invoiceData.analysis.extractedDate) {
+      const date = new Date(invoiceData.analysis.extractedDate);
+      date.setDate(date.getDate() + 30);
+      return date;
+    }
+    return null;
+  });
   const [paymentDate, setPaymentDate] = useState<Date | null>(null); // OBLIGATORIO
-  const [reference, setReference] = useState(invoiceData.analysis.extractedInvoiceNumber || invoiceData.analysis.extractedReference || '');
+  const [reference, setReference] = useState(
+    invoiceData.analysis.extractedInvoiceNumber ?? invoiceData.analysis.extractedReference ?? ''
+  );
   const [notes, setNotes] = useState('');
-  const [taxId, setTaxId] = useState(invoiceData.analysis.extractedTaxId || '');
+  const [taxId, setTaxId] = useState(
+    invoiceData.analysis.extractedTaxId ?? ''
+  );
   const [showPreview, setShowPreview] = useState(false);
   
   // Calcular confianza por campo
