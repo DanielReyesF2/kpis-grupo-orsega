@@ -7903,9 +7903,21 @@ export function registerRoutes(app: express.Application) {
       const file = req.file;
 
       console.log(`💳 [Pay] Procesando pago para voucher ID: ${voucherId}`);
+      console.log(`💳 [Pay] Archivo recibido:`, file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        hasBuffer: !!file.buffer,
+        bufferLength: file.buffer?.length
+      } : 'null');
 
       if (!file) {
         return res.status(400).json({ error: 'No se subió ningún archivo de comprobante' });
+      }
+
+      if (!file.buffer) {
+        console.error('❌ [Pay] Error: file.buffer es undefined');
+        return res.status(400).json({ error: 'Error al procesar archivo: buffer vacío' });
       }
 
       // Obtener el voucher actual
@@ -7926,7 +7938,8 @@ export function registerRoutes(app: express.Application) {
       const fs = await import('fs');
       const path = await import('path');
       const { analyzePaymentDocument } = await import("./document-analyzer");
-      const fileBuffer = fs.readFileSync(file.path);
+      // Usar file.buffer directamente (memoryStorage)
+      const fileBuffer = file.buffer;
       const analysis = await analyzePaymentDocument(fileBuffer, file.mimetype);
 
       console.log(`💳 [Pay] Análisis del comprobante:`, {
@@ -7947,7 +7960,8 @@ export function registerRoutes(app: express.Application) {
 
       const voucherFileName = `${Date.now()}-pago-${file.originalname}`;
       const finalPath = path.join(voucherDir, voucherFileName);
-      fs.renameSync(file.path, finalPath);
+      // Escribir el buffer al archivo (memoryStorage no tiene file.path)
+      fs.writeFileSync(finalPath, fileBuffer);
 
       // Verificar si el proveedor requiere REP
       // Buscar el supplier/client para verificar requiresPaymentComplement
