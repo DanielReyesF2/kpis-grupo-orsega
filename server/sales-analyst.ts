@@ -23,6 +23,10 @@ import type {
 neonConfig.webSocketConstructor = WebSocket;
 const sql = neon(process.env.DATABASE_URL!);
 
+// Umbrales fijos para categorización de clientes (en días)
+const CRITICAL_DAYS_THRESHOLD = 180; // 6 meses sin compra = cliente crítico
+const WARNING_DAYS_THRESHOLD = 90;   // 3 meses sin compra = cliente en riesgo
+
 // Inicializar OpenAI si está configurado
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
@@ -407,17 +411,19 @@ export async function generateSalesAnalystInsights(
     
     console.log(`[generateSalesAnalystInsights] Datos separados: ${clientData.length} clientes, ${productData.length} productos, ${inactiveData.length} inactivos`);
 
-    // Calcular baselines estadísticos para umbrales adaptativos
-    console.log(`[generateSalesAnalystInsights] Calculando umbrales estadísticos...`);
-    const criticalDaysThreshold = await calculatePercentileDaysSincePurchase(companyId, 90);
+    // Usar umbrales fijos para categorización de clientes
+    console.log(`[generateSalesAnalystInsights] Usando umbrales fijos: críticos=${CRITICAL_DAYS_THRESHOLD} días, riesgo=${WARNING_DAYS_THRESHOLD} días`);
+    const criticalDaysThreshold = CRITICAL_DAYS_THRESHOLD; // 6 meses
+    const warningDaysThreshold = WARNING_DAYS_THRESHOLD;   // 3 meses
     const highValueRevenueThreshold = await calculatePercentileRevenue(companyId, 75);
     const yoyStats = await calculateYoYChangeStats(companyId);
-    console.log(`[generateSalesAnalystInsights] Umbrales calculados: criticalDays=${criticalDaysThreshold}, highValueRevenue=${highValueRevenueThreshold}`);
+    console.log(`[generateSalesAnalystInsights] Umbrales: críticos=${criticalDaysThreshold} días, riesgo=${warningDaysThreshold} días, highValueRevenue=${highValueRevenueThreshold}`);
 
-  // Procesar clientes y categorizar con umbrales adaptativos
+  // Procesar clientes y categorizar con umbrales fijos
   const focusClients = categorizeClients(
     clientData,
     criticalDaysThreshold,
+    warningDaysThreshold,
     highValueRevenueThreshold,
     yoyStats
   );
@@ -460,6 +466,7 @@ export async function generateSalesAnalystInsights(
   // Calcular contexto estadístico para insights mejorados
   const statisticalContext = {
     criticalDaysThreshold,
+    warningDaysThreshold,
     highValueRevenueThreshold,
     yoyStats: {
       mean: yoyStats.mean,
@@ -507,11 +514,15 @@ export async function generateSalesAnalystInsights(
 }
 
 /**
- * Categoriza clientes según su estado y prioridad usando umbrales adaptativos
+ * Categoriza clientes según su estado y prioridad usando umbrales fijos
+ * - Críticos: más de 6 meses (180 días) sin compra
+ * - En riesgo: más de 3 meses (90 días) sin compra, pero menos de 6 meses
+ * - Oportunidades: clientes con crecimiento positivo
  */
 function categorizeClients(
   clients: any[],
   criticalDaysThreshold: number,
+  warningDaysThreshold: number,
   highValueRevenueThreshold: number,
   yoyStats: { mean: number; stdDev: number }
 ): {
@@ -531,16 +542,15 @@ function categorizeClients(
     const qtyLastYear = client.qtyLastYear || 0;
     const qtyCurrentYear = client.qtyCurrentYear || 0;
 
-    // Calcular Z-score para validación estadística de anomalías
+    // Calcular Z-score para análisis adicional (no para categorización principal)
     const zScore = calculateZScore(yoyChange, yoyStats.mean, yoyStats.stdDev);
-    const percentileRank = calculatePercentileRank(daysSince, 0, 0); // Para días, usar percentil directo
     const isAnomaly = Math.abs(zScore) > 2.0; // 95% confianza
 
-    // Calcular risk score normalizado (0-100) con ponderación estadística
-    const daysScore = Math.min(daysSince / 180, 1.0); // 180 días = máximo (normalizado)
-    const revenueScore = Math.min(previousRevenue / 500000, 1.0); // $500K = máximo (normalizado)
-    const yoyScore = Math.min(Math.abs(yoyChange) / 100, 1.0); // 100% = máximo (normalizado)
-    
+    // Calcular risk score normalizado (0-100) con ponderación
+    const daysScore = Math.min(daysSince / criticalDaysThreshold, 1.0);
+    const revenueScore = Math.min(previousRevenue / 500000, 1.0);
+    const yoyScore = Math.min(Math.abs(yoyChange) / 100, 1.0);
+
     const riskScore = (
       daysScore * 0.4 +      // 40% peso en recency
       revenueScore * 0.3 +   // 30% peso en valor
@@ -549,51 +559,68 @@ function categorizeClients(
 
     // Generar acciones recomendadas con contexto específico y urgencia
     const recommendedActions: string[] = [];
-    const urgency = daysSince > criticalDaysThreshold * 1.5 ? 'URGENTE' : 
-                    daysSince > criticalDaysThreshold ? 'ALTA' : 'MEDIA';
-    
-    if (daysSince > criticalDaysThreshold) {
+
+    // Determinar categoría basada en días sin compra
+    const isCritical = daysSince >= criticalDaysThreshold; // 6+ meses
+    const isWarning = daysSince >= warningDaysThreshold && daysSince < criticalDaysThreshold; // 3-6 meses
+
+    if (isCritical) {
       const monthsWithoutPurchase = Math.floor(daysSince / 30);
-      const percentile = Math.round(percentileRank);
-      const discountNeeded = Math.min(Math.floor(daysSince / 30) * 5, 25); // Hasta 25% de descuento
-      
+      const discountNeeded = Math.min(Math.floor(monthsWithoutPurchase) * 5, 25);
+
       recommendedActions.push(
-        `${urgency}: Contactar ${client.name} - ` +
-        `${daysSince} días sin compra (percentil ${percentile}%), ` +
+        `URGENTE: Contactar ${client.name} - ` +
+        `${daysSince} días sin compra (${monthsWithoutPurchase} meses), ` +
         `$${previousRevenue.toLocaleString('es-MX')} en riesgo. ` +
         `Última compra: ${new Date(client.lastPurchaseDate || '').toLocaleDateString('es-MX')}. ` +
         `Acción: Llamada inmediata + oferta de reactivación del ${discountNeeded}%`
       );
-    }
-    
-    if (isAnomaly && yoyChange < 0) {
-      const absZScore = Math.abs(zScore).toFixed(2);
+    } else if (isWarning) {
+      const monthsWithoutPurchase = Math.floor(daysSince / 30);
+
       recommendedActions.push(
-        `Investigar caída anómala del ${Math.abs(yoyChange).toFixed(1)}% ` +
-        `(Z-score: ${absZScore}, estadísticamente significativa). ` +
-        `Requiere investigación inmediata de causa raíz.`
+        `ALTA: Dar seguimiento a ${client.name} - ` +
+        `${daysSince} días sin compra (${monthsWithoutPurchase} meses). ` +
+        `Prevenir que se convierta en cliente crítico. ` +
+        `Acción: Contacto proactivo para entender situación.`
       );
     }
-    
+
+    if (isAnomaly && yoyChange < 0) {
+      recommendedActions.push(
+        `Investigar caída del ${Math.abs(yoyChange).toFixed(1)}% vs año anterior. ` +
+        `Requiere análisis de causa raíz.`
+      );
+    }
+
     if (previousRevenue > highValueRevenueThreshold * 0.5 && qtyCurrentYear === 0) {
       recommendedActions.push(
         `Ofrecer promoción especial para reactivación ` +
         `(cliente de alto valor: $${previousRevenue.toLocaleString('es-MX')} histórico)`
       );
     }
-    
+
     if (yoyChange > 10 && qtyCurrentYear > 0) {
       recommendedActions.push(
-        `Aumentar frecuencia de contacto - cliente en crecimiento (+${yoyChange.toFixed(1)}%). ` +
+        `Cliente en crecimiento (+${yoyChange.toFixed(1)}%). ` +
         `Explorar oportunidades de upselling y cross-selling.`
       );
+    }
+
+    // Determinar prioridad basada en días sin compra
+    let priority: 'critical' | 'warning' | 'opportunity';
+    if (isCritical) {
+      priority = 'critical';
+    } else if (isWarning) {
+      priority = 'warning';
+    } else {
+      priority = 'opportunity';
     }
 
     const clientFocus: ClientFocus = {
       name: client.name,
       clientId: client.clientId,
-      priority: daysSince > criticalDaysThreshold ? 'critical' : 
-                 (isAnomaly && yoyChange < 0) ? 'warning' : 'opportunity',
+      priority,
       lastPurchaseDate: client.lastPurchaseDate || '',
       daysSincePurchase: daysSince,
       previousYearRevenue: previousRevenue,
@@ -603,12 +630,15 @@ function categorizeClients(
       recommendedActions
     };
 
-    // Usar umbrales adaptativos para categorización
-    if (daysSince > criticalDaysThreshold && previousRevenue > highValueRevenueThreshold) {
+    // Categorizar basado en días sin compra (umbrales fijos)
+    if (isCritical) {
+      // Críticos: 6+ meses sin compra
       critical.push(clientFocus);
-    } else if (isAnomaly && yoyChange < 0 && qtyLastYear > 0) {
+    } else if (isWarning) {
+      // En riesgo: 3-6 meses sin compra
       warning.push(clientFocus);
     } else if (yoyChange > 10 && qtyCurrentYear > 0) {
+      // Oportunidades: clientes con crecimiento
       opportunities.push(clientFocus);
     }
   });
@@ -698,7 +728,7 @@ function generateRecommendations(
       type: 'client',
       priority: 'high',
       title: `Reactivar ${focusClients.critical.length} clientes críticos`,
-      description: `${focusClients.critical.length} clientes de alto valor no han comprado en más de 60 días. Revenue en riesgo: $${totalRevenueAtRisk.toLocaleString('es-MX')}`,
+      description: `${focusClients.critical.length} clientes de alto valor no han comprado en más de 6 meses. Revenue en riesgo: $${totalRevenueAtRisk.toLocaleString('es-MX')}`,
       impact: 'high',
       effort: 'medium',
       estimatedValue: totalRevenueAtRisk * 0.3, // Asumiendo 30% de recuperación
@@ -714,8 +744,8 @@ function generateRecommendations(
       id: 'rec-2',
       type: 'client',
       priority: 'high',
-      title: `Atender ${focusClients.warning.length} clientes con caída significativa`,
-      description: `${focusClients.warning.length} clientes muestran caída >30% vs año anterior. Requieren atención inmediata para evitar pérdida total.`,
+      title: `Atender ${focusClients.warning.length} clientes en riesgo`,
+      description: `${focusClients.warning.length} clientes tienen 3-6 meses sin comprar. Requieren seguimiento proactivo para evitar que se conviertan en críticos.`,
       impact: 'high',
       effort: 'medium',
       relatedEntities: {
@@ -879,7 +909,7 @@ function calculateRiskAnalysis(
     topRisks.push({
       type: 'client_inactivity',
       severity: 'high',
-      description: `${criticalCount} clientes críticos sin compra en 60+ días`,
+      description: `${criticalCount} clientes críticos sin compra en 6+ meses`,
       affectedCount: criticalCount,
       estimatedImpact: focusClients.critical.reduce((sum, c) => sum + c.previousYearRevenue, 0)
     });
@@ -889,7 +919,7 @@ function calculateRiskAnalysis(
     topRisks.push({
       type: 'revenue_decline',
       severity: 'high',
-      description: `${warningCount} clientes con caída >30%`,
+      description: `${warningCount} clientes en riesgo (3-6 meses sin compra)`,
       affectedCount: warningCount,
       estimatedImpact: focusClients.warning.reduce((sum, c) => sum + c.previousYearRevenue * 0.3, 0)
     });
