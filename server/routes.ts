@@ -4931,7 +4931,7 @@ export function registerRoutes(app: express.Application) {
         clientName: validatedData.supplierName,
         scheduledPaymentId: createdScheduledPayment.id,
         status: 'pago_programado' as const, // ✅ Nuevo status para Kanban
-        voucherFileUrl: `/uploads/facturas/${year}/${month}/${invoiceFileName}`,
+        voucherFileUrl: invoiceFileUrl,
         voucherFileName: validatedData.invoiceFileName,
         voucherFileType: validatedData.invoiceFileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
         extractedAmount: validatedData.amount,
@@ -7739,8 +7739,7 @@ export function registerRoutes(app: express.Application) {
                 </div>
               `;
 
-              // Preparar archivo adjunto
-              const fileBuffer = fs.readFileSync(newFilePath);
+              // Preparar archivo adjunto (fileBuffer ya está disponible desde el inicio del endpoint)
               const attachment = {
                 filename: file.originalname,
                 content: fileBuffer,
