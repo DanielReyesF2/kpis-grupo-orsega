@@ -46,8 +46,23 @@ interface AskResponse {
   source?: string;
 }
 
-export function AIAssistant() {
-  const [isOpen, setIsOpen] = useState(false);
+interface AIAssistantProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function AIAssistant({ isOpen: externalIsOpen, onClose }: AIAssistantProps = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  // Usar estado externo si se proporciona, sino interno
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = (value: boolean) => {
+    if (onClose && !value) {
+      onClose();
+    } else if (externalIsOpen === undefined) {
+      setInternalIsOpen(value);
+    }
+  };
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeTab, setActiveTab] = useState<"chat" | "tools">("chat");
@@ -118,21 +133,37 @@ export function AIAssistant() {
     return JSON.stringify(data, null, 2).substring(0, 500);
   }
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (solo si no hay control externo)
   useEffect(() => {
+    if (externalIsOpen !== undefined) return; // Control externo maneja sus propios shortcuts
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setIsOpen(prev => !prev);
+        setInternalIsOpen(prev => !prev);
       }
-      if (e.key === "Escape" && isOpen) {
-        setIsOpen(false);
+      if (e.key === "Escape" && internalIsOpen) {
+        setInternalIsOpen(false);
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [internalIsOpen, externalIsOpen]);
+
+  // Escape para cerrar cuando hay control externo
+  useEffect(() => {
+    if (externalIsOpen === undefined) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && onClose) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, externalIsOpen, onClose]);
 
   // Auto-scroll
   useEffect(() => {
@@ -209,31 +240,33 @@ export function AIAssistant() {
 
   return (
     <>
-      {/* Trigger Button - Notion Style */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-medium transition-all"
-            style={{
-              backgroundColor: 'rgba(15, 15, 15, 0.95)',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-            }}
-          >
-            <Wand2 className="h-4 w-4" />
-            <span>Econova AI</span>
-            <div className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded bg-white/10 text-[10px]">
-              <Command className="h-2.5 w-2.5" />
-              <span>K</span>
-            </div>
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* Trigger Button - Solo mostrar si no hay control externo */}
+      {externalIsOpen === undefined && (
+        <AnimatePresence>
+          {!isOpen && (
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsOpen(true)}
+              className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-medium transition-all"
+              style={{
+                backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+              }}
+            >
+              <Wand2 className="h-4 w-4" />
+              <span>Econova AI</span>
+              <div className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 rounded bg-white/10 text-[10px]">
+                <Command className="h-2.5 w-2.5" />
+                <span>K</span>
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Modal */}
       <AnimatePresence>
