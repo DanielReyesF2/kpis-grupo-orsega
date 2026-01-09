@@ -7,10 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, Clock, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { es } from "date-fns/locale";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isSingleValueSource } from "@/lib/utils/exchange-rates";
+
+// Zona horaria de México (Ciudad de México)
+const MEXICO_TIMEZONE = "America/Mexico_City";
+
+// Función para formatear fecha en hora de México
+function formatMexicoTime(dateStr: string, formatStr: string): string {
+  const date = new Date(dateStr);
+  const mexicoDate = toZonedTime(date, MEXICO_TIMEZONE);
+  return format(mexicoDate, formatStr, { locale: es });
+}
 
 interface ExchangeRate {
   id: number;
@@ -133,7 +144,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                     <span className={`font-bold text-lg ${colors.text}`}>{source}</span>
                     {rate && (
                       <Badge variant="outline" className="text-xs">
-                        {format(new Date(rate.date), "HH:mm", { locale: es })}
+                        {formatMexicoTime(rate.date, "HH:mm")}
                       </Badge>
                     )}
                   </div>
@@ -263,7 +274,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                     <div className="flex items-center gap-2 text-foreground">
                       <Clock className="h-4 w-4" />
                       <span className="font-medium">
-                        {format(new Date(latestRate.date), "HH:mm:ss", { locale: es })}
+                        {formatMexicoTime(latestRate.date, "HH:mm:ss")}
                       </span>
                     </div>
                     <div className="flex-1" />
@@ -329,7 +340,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                       <div className="flex items-center gap-1.5 text-foreground/80">
                         <Clock className="h-3.5 w-3.5" />
                         <span className="font-medium text-sm">
-                          {format(new Date(rate.date), "HH:mm:ss", { locale: es })}
+                          {formatMexicoTime(rate.date, "HH:mm:ss")}
                         </span>
                       </div>
                       <div className="flex-1" />
@@ -401,7 +412,7 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                         {rate.source}
                       </Badge>
                       <span className="text-foreground/80 text-sm font-medium min-w-[110px]">
-                        {format(new Date(rate.date), "dd MMM HH:mm", { locale: es })}
+                        {formatMexicoTime(rate.date, "dd MMM HH:mm")}
                       </span>
                       <div className="flex-1" />
                       {isSingle ? (

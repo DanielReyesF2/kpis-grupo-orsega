@@ -21,8 +21,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { es } from "date-fns/locale";
 import { normalizeExchangeRate, getRateDisplayConfig } from "@/lib/utils/exchange-rates";
+
+// Zona horaria de México (Ciudad de México)
+const MEXICO_TIMEZONE = "America/Mexico_City";
+
+// Función para formatear fecha en hora de México
+function formatMexicoTime(dateStr: string, formatStr: string): string {
+  const date = new Date(dateStr);
+  const mexicoDate = toZonedTime(date, MEXICO_TIMEZONE);
+  return format(mexicoDate, formatStr, { locale: es });
+}
 
 interface ExchangeRate {
   id: number;
@@ -101,7 +112,7 @@ export function FxModule({
       .map((rate) => {
         const normalized = normalizeExchangeRate(rate);
         return {
-          label: format(new Date(rate.date), "dd MMM HH:mm", { locale: es }),
+          label: formatMexicoTime(rate.date, "dd MMM HH:mm"),
           buy: rate.buy_rate,
           value: normalized.displayValue,
         };
@@ -193,7 +204,7 @@ export function FxModule({
             </Badge>
             <span className="text-xs text-muted-foreground">
               Última actualización:{" "}
-              {format(new Date(latest.date), "dd MMM yyyy HH:mm", { locale: es })}
+              {formatMexicoTime(latest.date, "dd MMM yyyy HH:mm")}
             </span>
           </div>
         </CardHeader>
