@@ -123,6 +123,9 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/sales-monthly-trends'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-top-clients'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sales-alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-yearly-comparison'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-analyst/insights'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-multi-year-trend'] });
 
       // Cerrar modal después de 2 segundos
       setTimeout(() => {
