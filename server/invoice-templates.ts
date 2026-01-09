@@ -74,11 +74,25 @@ export const invoiceTemplates: InvoiceTemplate[] = [
         /\$\s*([\d,]+\.?\d*)\s*(?:mxn|total)/i,
       ],
       invoiceNumber: [
-        /folio[\s:]+([A-Z0-9\-]{1,30})/i,
-        /n[uú]mero\s*(?:de\s*)?factura[\s:]+([A-Z0-9\-]{1,30})/i,
-        /(?:FEA|FAC|INV|FACT)[:\s#]*([A-Z0-9\-]{3,20})/i,
-        /factura[\s:#]+([A-Z0-9\-]{3,20})/i,
-        /serie\s*y?\s*folio[\s:]+([A-Z0-9\-]{1,30})/i,
+        // Patrones específicos de México
+        /no\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /n[°º]\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /n[uú]m\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /n[uú]mero\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /#\s*factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /factura\s*no\.?[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /factura\s*#[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /factura[\s:#]+([A-Z0-9\-\/]{3,20})/i,
+        // Folio y Serie
+        /folio[\s:]+([A-Z0-9\-\/]{1,30})/i,
+        /serie\s*y?\s*folio[\s:]+([A-Z0-9\-\/]{1,30})/i,
+        /folio\s*fiscal[\s:]+([A-Z0-9\-\/]{1,30})/i,
+        /serie[\s:]+([A-Z]{1,5})/i,
+        // Prefijos comunes
+        /(?:F|FA|FACT|INV|FEA)[\-:\s#]+([A-Z0-9\-\/]{3,20})/i,
+        // Documento
+        /documento\s*no\.?[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+        /doc\.?\s*no\.?[\s:#]*([A-Z0-9\-\/]{1,30})/i,
       ],
       date: [
         /fecha\s*(?:de\s*)?emisi[oó]n[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
@@ -88,12 +102,23 @@ export const invoiceTemplates: InvoiceTemplate[] = [
         /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/,
       ],
       dueDate: [
+        // Patrones en español
         /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
         /vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
         /vence[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-        /fecha\s*l[ií]mite(?:\s*de\s*pago)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-        /pagar\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-        /(?:due\s+date|payment\s+due)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /fecha\s*l[ií]mite(?:\s*(?:de\s*)?pago)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /pagar?\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /pago\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /vigencia[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /validez[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        /expira[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        // Patrones en inglés
+        /(?:due\s*date|payment\s*due|pay\s*by)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+        // Formatos ISO
+        /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+        // Formatos con nombre de mes en español
+        /(?:vencimiento|vence|fecha\s*l[ií]mite)[\s:]+(\d{1,2}\s+(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+(?:de\s+|del?\s+)?\d{2,4})?)/i,
+        /(?:vencimiento|vence|fecha\s*l[ií]mite)[\s:]+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{2,4})/i,
       ],
       taxId: [
         /rfc[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,
@@ -412,36 +437,91 @@ export function extractWithTemplate(
 }
 
 /**
+ * Mapa de nombres de meses en español
+ */
+const spanishMonths: { [key: string]: number } = {
+  'enero': 0, 'ene': 0,
+  'febrero': 1, 'feb': 1,
+  'marzo': 2, 'mar': 2,
+  'abril': 3, 'abr': 3,
+  'mayo': 4, 'may': 4,
+  'junio': 5, 'jun': 5,
+  'julio': 6, 'jul': 6,
+  'agosto': 7, 'ago': 7,
+  'septiembre': 8, 'sep': 8, 'sept': 8,
+  'octubre': 9, 'oct': 9,
+  'noviembre': 10, 'nov': 10,
+  'diciembre': 11, 'dic': 11,
+  // English months
+  'january': 0, 'jan': 0,
+  'february': 1,
+  'march': 2,
+  'april': 3, 'apr': 3,
+  'june': 5,
+  'july': 6,
+  'august': 7, 'aug': 7,
+  'september': 8,
+  'october': 9,
+  'november': 10,
+  'december': 11, 'dec': 11,
+};
+
+/**
  * Parsea una fecha según el formato del template
  */
 function parseTemplateDate(dateStr: string, format?: InvoiceTemplate['dateFormat']): Date | null {
   try {
     // Limpiar la cadena
-    dateStr = dateStr.trim();
+    dateStr = dateStr.trim().toLowerCase();
 
-    // Intentar detectar el formato
-    const parts = dateStr.split(/[\/\-]/);
+    // Intentar primero con nombres de meses en español/inglés
+    // Formatos: "15 de enero de 2024", "15 enero 2024", "15 ene 2024", "enero 15, 2024"
+    const monthNameMatch = dateStr.match(/(\d{1,2})\s*(?:de\s+)?([a-záéíóúñ]+)\.?\s*(?:de\s+|del?\s+)?(\d{2,4})?/i);
+    if (monthNameMatch) {
+      const day = parseInt(monthNameMatch[1]);
+      const monthName = monthNameMatch[2].toLowerCase().replace('.', '');
+      const month = spanishMonths[monthName];
+
+      if (month !== undefined) {
+        let year = monthNameMatch[3] ? parseInt(monthNameMatch[3]) : new Date().getFullYear();
+        if (year < 100) {
+          year += year > 50 ? 1900 : 2000;
+        }
+        const date = new Date(year, month, day);
+        return isNaN(date.getTime()) ? null : date;
+      }
+    }
+
+    // Intentar detectar el formato numérico
+    const parts = dateStr.split(/[\/\-\.]/);
     if (parts.length !== 3) return null;
 
     let day: number, month: number, year: number;
 
-    switch (format) {
-      case 'MM/DD/YYYY':
-        month = parseInt(parts[0]) - 1;
-        day = parseInt(parts[1]);
-        year = parseInt(parts[2]);
-        break;
-      case 'YYYY-MM-DD':
-        year = parseInt(parts[0]);
-        month = parseInt(parts[1]) - 1;
-        day = parseInt(parts[2]);
-        break;
-      case 'DD-MM-YYYY':
-      case 'DD/MM/YYYY':
-      default:
-        day = parseInt(parts[0]);
-        month = parseInt(parts[1]) - 1;
-        year = parseInt(parts[2]);
+    // Detectar formato ISO (YYYY-MM-DD) automáticamente si el primer número tiene 4 dígitos
+    if (parts[0].length === 4 && parseInt(parts[0]) > 1900) {
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]) - 1;
+      day = parseInt(parts[2]);
+    } else {
+      switch (format) {
+        case 'MM/DD/YYYY':
+          month = parseInt(parts[0]) - 1;
+          day = parseInt(parts[1]);
+          year = parseInt(parts[2]);
+          break;
+        case 'YYYY-MM-DD':
+          year = parseInt(parts[0]);
+          month = parseInt(parts[1]) - 1;
+          day = parseInt(parts[2]);
+          break;
+        case 'DD-MM-YYYY':
+        case 'DD/MM/YYYY':
+        default:
+          day = parseInt(parts[0]);
+          month = parseInt(parts[1]) - 1;
+          year = parseInt(parts[2]);
+      }
     }
 
     // Ajustar año de 2 dígitos
@@ -483,8 +563,23 @@ export const fallbackTemplate: InvoiceTemplate = {
       /(?:amount|importe|suma|a\s*pagar)[\s:$]*\$?\s*([\d,]+\.?\d*)/i,
     ],
     invoiceNumber: [
-      /(?:folio|n[uú]mero|number|no\.|#|factura|invoice|fact)[\s:#]*([A-Z0-9\-]{1,30})/i,
-      /(?:FEA|FAC|INV|FACT)[:\s#]*([A-Z0-9\-]{3,20})/i,
+      // Patrones específicos de México
+      /no\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /n[°º]\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /n[uú]m\.?\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /n[uú]mero\s*(?:de\s*)?factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /#\s*factura[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /factura\s*no\.?[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /factura[\s:#]+([A-Z0-9\-\/]{3,20})/i,
+      // Folio y Serie
+      /folio[\s:]+([A-Z0-9\-\/]{1,30})/i,
+      /serie\s*y?\s*folio[\s:]+([A-Z0-9\-\/]{1,30})/i,
+      /folio\s*fiscal[\s:]+([A-Z0-9\-\/]{1,30})/i,
+      // Prefijos comunes
+      /(?:F|FA|FACT|INV|FEA)[\-:\s#]+([A-Z0-9\-\/]{3,20})/i,
+      // Genéricos
+      /(?:number|no\.|#|invoice)[\s:#]*([A-Z0-9\-\/]{1,30})/i,
+      /documento\s*no\.?[\s:#]*([A-Z0-9\-\/]{1,30})/i,
     ],
     date: [
       /(?:fecha\s*(?:de\s*)?emisi[oó]n|fecha|date|emitida?)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
@@ -492,12 +587,22 @@ export const fallbackTemplate: InvoiceTemplate = {
       /(\d{4}[\/\-]\d{2}[\/\-]\d{2})/,
     ],
     dueDate: [
+      // Patrones en español
       /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
       /vencimiento[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
       /vence[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-      /fecha\s*l[ií]mite[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-      /pagar\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /fecha\s*l[ií]mite(?:\s*(?:de\s*)?pago)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /pagar?\s*antes\s*(?:de|del)?[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /vigencia[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /validez[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      /expira[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      // Patrones en inglés
       /(?:due\s*date|payment\s*due|pay\s*by)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+      // Formatos ISO
+      /fecha\s*(?:de\s*)?vencimiento[\s:]+(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+      // Formatos con nombre de mes en español
+      /(?:vencimiento|vence|fecha\s*l[ií]mite)[\s:]+(\d{1,2}\s+(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+(?:de\s+|del?\s+)?\d{2,4})?)/i,
+      /(?:vencimiento|vence|fecha\s*l[ií]mite)[\s:]+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{2,4})/i,
     ],
     taxId: [
       /rfc[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})/i,

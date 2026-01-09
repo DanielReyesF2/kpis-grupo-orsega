@@ -88,10 +88,10 @@ fields:
     regex: (?:RFC|R\.F\.C\.)[\s:]*([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})
     group: 1
 
-  # Número de factura (folio)
+  # Número de factura (folio) - Patrones expandidos para máxima compatibilidad
   invoice_number:
     parser: regex
-    regex: (?:Folio|No\.|N[uú]mero|Factura|Serie\s*y?\s*Folio)[\s:#]*([A-Z0-9\-]{1,30})
+    regex: (?:No\.?\s*(?:de\s*)?[Ff]actura|N[°º]\.?\s*(?:de\s*)?[Ff]actura|N[uú]m\.?\s*(?:de\s*)?[Ff]actura|N[uú]mero\s*(?:de\s*)?[Ff]actura|[#]\s*[Ff]actura|Folio|Serie\s*y?\s*[Ff]olio|[Ff]actura\s*[Nn]o\.?|[Ff]actura\s*[#]|Documento\s*[Nn]o\.?|Doc\.?\s*[Nn]o\.?|Serie|F[\-:]|FA[\-:]|FACT[\-:]|INV[\-:]|FEA[\-:]|Folio\s*Fiscal)[\s:#]*([A-Z0-9\-\/]{1,30})
     group: 1
 
   # Monto total
@@ -121,10 +121,10 @@ fields:
     regex: (?:Fecha\s*(?:de\s*)?[Ee]misi[oó]n|Fecha\s*(?:de\s*)?[Ee]xpedici[oó]n|Fecha\s*(?:de\s*)?[Tt]imbrado|Fecha)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
     group: 1
 
-  # Fecha de vencimiento
+  # Fecha de vencimiento - Patrones expandidos para todos los formatos comunes
   due_date:
     parser: regex
-    regex: (?:Fecha\s*(?:de\s*)?[Vv]encimiento|Vencimiento|Vence|Fecha\s*[Ll][ií]mite(?:\s*de\s*[Pp]ago)?|Pagar\s*antes)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})
+    regex: (?:Fecha\s*(?:de\s*)?[Vv]encimiento|Vencimiento|Vence|Fecha\s*[Ll][ií]mite(?:\s*(?:de\s*)?[Pp]ago)?|Pagar\s*(?:antes|antes\s*del?)|Pago\s*(?:antes|antes\s*del?)|Due\s*[Dd]ate|Payment\s*[Dd]ue|Pay\s*[Bb]y|Vigencia|Validez|Expira)[\s:]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}|\d{1,2}\s+(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+(?:de\s+|del?\s+)?\d{2,4})?|\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{2,4})
     group: 1
 
   # UUID del timbrado
@@ -159,5 +159,14 @@ options:
     - "%Y-%m-%d"
     - "%d.%m.%Y"
     - "%d de %B de %Y"
+    - "%d de %b de %Y"
+    - "%d/%m/%y"
+    - "%d-%m-%y"
+    - "%Y/%m/%d"
+    - "%m/%d/%Y"
+    - "%B %d, %Y"
+    - "%b %d, %Y"
+    - "%d %B %Y"
+    - "%d %b %Y"
   decimal_separator: "."
   remove_whitespace: true
