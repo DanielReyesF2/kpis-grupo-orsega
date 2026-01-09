@@ -126,6 +126,27 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
     }
   };
 
+  // Función para obtener etiqueta de estado en español
+  const getStatusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
+      'payment_completed': 'Pagada',
+      'closed': 'Cerrada',
+      'cierre_contable': 'Cerrada',
+      'voucher_uploaded': 'Comprobante subido',
+      'pending': 'Pendiente',
+      'pending_approval': 'Pendiente aprobación',
+      'approved': 'Aprobada',
+      'payment_scheduled': 'Pago programado',
+      'pago_programado': 'Pago programado',
+      'payment_pending': 'Pago pendiente',
+      'pendiente_complemento': 'Esperando REP',
+      'idrall_imported': 'Factura importada',
+      'complemento_recibido': 'REP recibido',
+      'factura_pagada': 'Factura pagada',
+    };
+    return labels[status] || status.replace(/_/g, ' ');
+  };
+
   const handleViewDocuments = (paymentId: number) => {
     setSelectedPaymentId(paymentId);
   };
@@ -308,8 +329,8 @@ export function PaymentHistory({ companyId }: PaymentHistoryProps) {
                           <Building2 className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                           <div>
                             <p className="text-xs font-medium text-gray-600 dark:text-gray-400" style={{ color: '#4b5563' }}>Estado</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white capitalize" style={{ color: '#111827', fontWeight: 700 }}>
-                              {payment.status.replace(/_/g, ' ')}
+                            <p className="text-sm font-bold text-gray-900 dark:text-white" style={{ color: '#111827', fontWeight: 700 }}>
+                              {getStatusLabel(payment.status)}
                             </p>
                           </div>
                         </div>
