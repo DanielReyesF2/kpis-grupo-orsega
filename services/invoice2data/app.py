@@ -181,8 +181,9 @@ async def extract_invoice(file: UploadFile = File(...)):
                     elif isinstance(date_val, str):
                         result.date = date_val
 
-                if 'date_due' in extracted:
-                    due_val = extracted['date_due']
+                # Aceptar tanto 'due_date' como 'date_due' (diferentes convenciones de templates)
+                due_val = extracted.get('due_date') or extracted.get('date_due')
+                if due_val:
                     if isinstance(due_val, datetime):
                         result.due_date = due_val.strftime('%Y-%m-%d')
                     elif isinstance(due_val, str):
