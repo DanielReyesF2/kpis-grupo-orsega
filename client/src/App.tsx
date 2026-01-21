@@ -8,6 +8,7 @@ import { SafeAuthProvider } from "@/components/SafeAuthProvider";
 import { CompanyFilterProvider } from "@/hooks/use-company-filter";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { EcoNovaAssistant } from "@/components/ai/EcoNovaAssistant";
 
 // Import pages directly
 import Dashboard from "@/pages/Dashboard";
@@ -161,6 +162,7 @@ function App() {
             <CompanyFilterProvider>
               <Toaster />
               <Router />
+              <EcoNovaAssistant />
             </CompanyFilterProvider>
           </SafeAuthProvider>
         </ThemeProvider>
