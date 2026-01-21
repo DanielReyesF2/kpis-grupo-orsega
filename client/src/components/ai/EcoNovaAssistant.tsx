@@ -187,10 +187,11 @@ export function EcoNovaAssistant() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-4 sm:inset-auto sm:top-1/2 z-50 w-auto sm:w-[720px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[650px] sm:max-h-[85vh] overflow-hidden flex flex-col"
+              className="fixed z-50 w-[calc(100vw-32px)] sm:w-[720px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[650px] sm:max-h-[85vh] overflow-hidden flex flex-col"
               style={{
-                left: 'calc(50% + 80px)',
-                transform: 'translateX(-50%) translateY(-50%)',
+                top: '50%',
+                left: 'calc(50vw + 80px)',
+                transform: 'translate(-50%, -50%)',
                 backgroundColor: '#ffffff',
                 borderRadius: '24px',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
