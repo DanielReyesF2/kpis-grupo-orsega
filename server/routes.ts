@@ -37,6 +37,7 @@ import { sendEmail as sendGridEmail, getShipmentStatusEmailTemplate, getPaymentR
 import { catalogRouter } from './routes-catalog';
 import { logisticsRouter } from './routes-logistics';
 import { smartSearch } from './smart-search';
+import { econovaSearch } from './econova-agent';
 import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from '@copilotkit/runtime';
 import path from "path";
 import fs from "fs";
@@ -10233,7 +10234,7 @@ export function registerRoutes(app: express.Application) {
   // SMART SEARCH / AI ASSISTANT ENDPOINT
   // ========================================================================
   // POST /api/ask - Interpretar preguntas en lenguaje natural sobre datos
-  // Usa OpenAI function calling para consultas dinámicas
+  // Usa EcoNova (Claude) o OpenAI segun configuracion
   app.post("/api/ask", jwtAuthMiddleware, async (req, res) => {
     try {
       const { question } = req.body;
@@ -10244,14 +10245,29 @@ export function registerRoutes(app: express.Application) {
 
       console.log(`[POST /api/ask] Procesando pregunta: "${question}"`);
 
-      // Usar el nuevo sistema de búsqueda inteligente con OpenAI
-      const result = await smartSearch(question);
+      // Extraer contexto del usuario autenticado
+      const user = (req as any).user;
+      const context = {
+        userId: user?.id,
+        companyId: user?.companyId
+      };
+
+      // Usar EcoNova (Claude) si ANTHROPIC_API_KEY esta configurada
+      // De lo contrario, usar smartSearch (OpenAI)
+      let result;
+      if (process.env.ANTHROPIC_API_KEY) {
+        console.log('[POST /api/ask] Usando EcoNova (Claude)');
+        result = await econovaSearch(question, context);
+      } else {
+        console.log('[POST /api/ask] Usando smartSearch (OpenAI)');
+        result = await smartSearch(question);
+      }
 
       res.json(result);
     } catch (error) {
       console.error('[POST /api/ask] Error:', error);
       res.status(500).json({
-        answer: 'Ocurrió un error al procesar tu pregunta. Por favor intenta de nuevo.',
+        answer: 'Ocurrio un error al procesar tu pregunta. Por favor intenta de nuevo.',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
