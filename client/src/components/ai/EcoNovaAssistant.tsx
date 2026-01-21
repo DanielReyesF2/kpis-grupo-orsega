@@ -170,34 +170,30 @@ export function EcoNovaAssistant() {
       {/* Modal Overlay + Chat Window */}
       <AnimatePresence>
         {isOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
+          /* Backdrop con flexbox para centrar */
+          <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 z-50"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
               style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)' }}
-            />
-
-            {/* Chat Modal - EcoNova themed */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed z-50 w-[calc(100vw-32px)] sm:w-[720px] sm:max-w-[90vw] h-[calc(100vh-32px)] sm:h-[650px] sm:max-h-[85vh] overflow-hidden flex flex-col"
-              style={{
-                top: '50%',
-                left: 'calc(50vw + 80px)',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: '#ffffff',
-                borderRadius: '24px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                border: '1px solid #e2e8f0'
-              }}
             >
+              {/* Chat Modal - EcoNova themed */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full sm:w-[720px] sm:max-w-[90vw] h-full sm:h-[650px] sm:max-h-[85vh] overflow-hidden flex flex-col"
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '24px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                  border: '1px solid #e2e8f0'
+                }}
+              >
               {/* Header - EcoNova gradient */}
               <div
                 className="relative px-6 py-5 flex items-center justify-between"
@@ -491,8 +487,8 @@ export function EcoNovaAssistant() {
                   </p>
                 </div>
               </div>
+              </motion.div>
             </motion.div>
-          </>
         )}
       </AnimatePresence>
     </>
