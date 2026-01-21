@@ -305,9 +305,13 @@ Responde en español. Sé útil, claro y conciso pero completo.`;
     let lastQuery: string | undefined;
     let iterations = 0;
     const maxIterations = 5;
+    let allMessages = [...messages]; // Track full conversation
+
+    console.log(`[EcoNova] Initial stop_reason: ${response.stop_reason}`);
 
     while (response.stop_reason === "tool_use" && iterations < maxIterations) {
       iterations++;
+      console.log(`[EcoNova] Tool iteration ${iterations}/${maxIterations}`);
 
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
@@ -316,7 +320,7 @@ Responde en español. Sé útil, claro y conciso pero completo.`;
       const toolResultContents: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        console.log(`[EcoNova] Tool: ${toolUse.name}`);
+        console.log(`[EcoNova] Tool: ${toolUse.name}`, JSON.stringify(toolUse.input));
 
         const toolResult = await executeClaudeTool(toolUse.name, toolUse.input as Record<string, any>);
 
@@ -324,6 +328,9 @@ Responde en español. Sé útil, claro y conciso pero completo.`;
           lastQuery = (toolUse.input as any).query;
           if (toolResult.success) {
             toolResults = toolResult.result;
+            console.log(`[EcoNova] Query returned ${toolResults.length} rows`);
+          } else {
+            console.log(`[EcoNova] Query error: ${toolResult.error}`);
           }
         }
 
@@ -334,26 +341,45 @@ Responde en español. Sé útil, claro y conciso pero completo.`;
         });
       }
 
+      // Update conversation history
+      allMessages = [
+        ...allMessages,
+        { role: "assistant" as const, content: response.content },
+        { role: "user" as const, content: toolResultContents }
+      ];
+
       // Continuar conversación con resultados
       response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
         system: systemPrompt,
         tools: claudeTools,
-        messages: [
-          ...messages,
-          { role: "assistant", content: response.content },
-          { role: "user", content: toolResultContents }
-        ]
+        messages: allMessages
       });
+
+      console.log(`[EcoNova] Response stop_reason: ${response.stop_reason}`);
     }
 
-    // Extraer respuesta final
-    const textBlock = response.content.find(
+    // Check if we hit the iteration limit
+    if (iterations >= maxIterations && response.stop_reason === "tool_use") {
+      console.warn(`[EcoNova] Hit max iterations (${maxIterations}), response may be incomplete`);
+    }
+
+    // Extraer respuesta final - collect ALL text blocks
+    const textBlocks = response.content.filter(
       (block): block is Anthropic.TextBlock => block.type === "text"
     );
 
-    const finalAnswer = textBlock?.text || "No pude procesar tu mensaje. ¿Podrías reformularlo?";
+    // Join all text blocks if there are multiple
+    let finalAnswer = textBlocks.map(b => b.text).join("\n\n");
+
+    // If no text in final response, check if we have intermediate text
+    if (!finalAnswer) {
+      console.log(`[EcoNova] No text in final response, stop_reason: ${response.stop_reason}`);
+      finalAnswer = "No pude procesar tu mensaje. ¿Podrías reformularlo?";
+    }
+
+    console.log(`[EcoNova] Final answer length: ${finalAnswer.length} chars`);
 
     return {
       answer: finalAnswer,

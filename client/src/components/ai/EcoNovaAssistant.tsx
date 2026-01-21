@@ -35,6 +35,8 @@ export function EcoNovaAssistant() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(0);
 
   // Configuración del SDK para usar el backend existente
   const chatConfig: ChatConfig = useMemo(() => ({
@@ -80,11 +82,25 @@ export function EcoNovaAssistant() {
     };
   }, [isOpen]);
 
-  // Auto-scroll to latest message
+  // Auto-scroll: when new assistant message arrives, scroll to its START
+  // When user sends message, scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const currentLength = messages.length;
+    const prevLength = prevMessagesLengthRef.current;
+
+    if (currentLength > prevLength && currentLength > 0) {
+      const lastMessage = messages[currentLength - 1];
+
+      if (lastMessage.role === "assistant" && lastMessageRef.current) {
+        // New assistant message: scroll to START of the message
+        lastMessageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (lastMessage.role === "user" && scrollRef.current) {
+        // User sent message: scroll to bottom to see loading indicator
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
     }
+
+    prevMessagesLengthRef.current = currentLength;
   }, [messages]);
 
   // Focus input when opened
@@ -329,9 +345,15 @@ export function EcoNovaAssistant() {
                 ) : (
                   /* Chat Messages */
                   <div className="space-y-6">
-                    {messages.map((message) => (
+                    {messages.map((message, index) => {
+                      const isLastAssistantMessage =
+                        message.role === "assistant" &&
+                        index === messages.length - 1;
+
+                      return (
                       <motion.div
                         key={message.id}
+                        ref={isLastAssistantMessage ? lastMessageRef : undefined}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex gap-4 ${message.role === "user" ? "flex-row-reverse" : ""}`}
@@ -372,7 +394,8 @@ export function EcoNovaAssistant() {
                           </p>
                         </div>
                       </motion.div>
-                    ))}
+                      );
+                    })}
 
                     {/* Loading State */}
                     {isLoading && (
