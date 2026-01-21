@@ -14,7 +14,8 @@ var EcoNovaClient = class {
   answerField;
   constructor(config) {
     this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || "https://api.econova.ai";
+    // Use empty string for relative URLs, only default if undefined/null
+    this.baseUrl = config.baseUrl !== undefined ? config.baseUrl : "";
     this.endpoint = config.endpoint || "/chat";
     this.headers = config.headers || {};
     this.questionField = config.questionField || "message";
