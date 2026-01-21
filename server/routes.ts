@@ -10255,13 +10255,18 @@ export function registerRoutes(app: express.Application) {
       // Usar EcoNova (Claude) si ANTHROPIC_API_KEY esta configurada
       // De lo contrario, usar smartSearch (OpenAI)
       let result;
-      if (process.env.ANTHROPIC_API_KEY) {
+      const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
+      console.log(`[POST /api/ask] ANTHROPIC_API_KEY configurada: ${hasAnthropicKey}`);
+
+      if (hasAnthropicKey) {
         console.log('[POST /api/ask] Usando EcoNova (Claude)');
         result = await econovaSearch(question, context);
       } else {
         console.log('[POST /api/ask] Usando smartSearch (OpenAI)');
         result = await smartSearch(question);
       }
+
+      console.log(`[POST /api/ask] Resultado source: ${result.source}`);
 
       res.json(result);
     } catch (error) {

@@ -208,6 +208,8 @@ async function executeClaudeTool(
 export async function econovaSearch(question: string, context?: { userId?: string; companyId?: number }): Promise<SearchResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
+  console.log(`[EcoNova] API Key presente: ${apiKey ? 'SI (' + apiKey.substring(0, 10) + '...)' : 'NO'}`);
+
   if (!apiKey) {
     console.warn("[EcoNova] ANTHROPIC_API_KEY no configurada, usando fallback");
     return fallbackSearch(question);
@@ -217,8 +219,18 @@ export async function econovaSearch(question: string, context?: { userId?: strin
 
   try {
     console.log(`[EcoNova] Pregunta: "${question}"`);
+    console.log(`[EcoNova] Llamando a Claude...`);
 
-    const systemPrompt = `Eres EcoNova, el asistente de IA de Grupo ORSEGA. Tu trabajo es ayudar a los usuarios a consultar datos de ventas, KPIs y metricas del negocio.
+    const systemPrompt = `Eres EcoNova, el asistente de IA de Grupo ORSEGA. Eres amigable, profesional y proactivo.
+
+CAPACIDADES:
+- Consultar datos de ventas, clientes y KPIs
+- Analizar tendencias y metricas del negocio
+- Responder preguntas generales sobre el sistema
+
+CUANDO EL USUARIO PREGUNTE "en que puedes ayudarme" o similar, responde con una lista de tus capacidades sin usar herramientas.
+
+Para consultas de DATOS, usa las herramientas disponibles. Tu trabajo es ayudar a los usuarios a consultar datos de ventas, KPIs y metricas del negocio.
 
 ${DATABASE_SCHEMA}
 
