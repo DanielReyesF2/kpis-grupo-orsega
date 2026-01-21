@@ -95,8 +95,10 @@ function logBootDiagnostics() {
   // Check environment variables (without exposing values)
   const criticalEnvs = [
     'DATABASE_URL',
-    'JWT_SECRET', 
+    'JWT_SECRET',
     'SENDGRID_API_KEY',
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
     'REPL_ID',
     'REPL_SLUG'
   ];
