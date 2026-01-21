@@ -55,7 +55,7 @@ export function EcoNovaAssistant() {
     clearMessages
   } = useChat(chatConfig);
 
-  // Command+K hotkey
+  // Command+K hotkey and custom event listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -67,8 +67,17 @@ export function EcoNovaAssistant() {
       }
     };
 
+    // Listen for custom event from sidebar search button
+    const handleOpenEcoNova = () => {
+      setIsOpen(true);
+    };
+
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("open-econova", handleOpenEcoNova);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("open-econova", handleOpenEcoNova);
+    };
   }, [isOpen]);
 
   // Auto-scroll to latest message

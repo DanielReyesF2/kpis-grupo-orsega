@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { AIAssistant } from "@/components/ai/AIAssistant";
+// AIAssistant removed - using EcoNovaAssistant from App.tsx instead
 import {
   LayoutDashboard,
   Menu,
@@ -77,7 +77,6 @@ function Sidebar() {
   const [location] = useLocation();
   const { user, isAdmin, hasLogisticsAccess, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<number>(() => {
     const storedCompany = localStorage.getItem('selectedCompanyId');
     return storedCompany ? Number(storedCompany) : 1;
@@ -99,18 +98,7 @@ function Sidebar() {
     }
   }, [location]);
 
-  // Keyboard shortcut para búsqueda
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Keyboard shortcut (Cmd+K) handled by EcoNovaAssistant
 
   const toggleMobileMenu = () => {
     setIsMobileOpen(!isMobileOpen);
@@ -164,7 +152,7 @@ function Sidebar() {
         {/* Search Button - Notion style */}
         <div className="p-3 border-b border-border">
           <button
-            onClick={() => setIsSearchOpen(true)}
+            onClick={() => window.dispatchEvent(new CustomEvent('open-econova'))}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground rounded-md border border-border/50 bg-muted/30 hover:bg-muted hover:text-foreground transition-all"
           >
             <Search className="h-4 w-4" />
@@ -389,8 +377,7 @@ function Sidebar() {
         />
       )}
 
-      {/* AI Assistant Modal */}
-      <AIAssistant isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      {/* AI Assistant handled by EcoNovaAssistant in App.tsx */}
     </>
   );
 }
