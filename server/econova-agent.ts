@@ -1,12 +1,16 @@
 /**
- * EcoNova Agent - Sistema de IA con Claude (Anthropic)
- * Reemplaza OpenAI con Claude para consultas inteligentes
+ * EcoNova Agent - Asistente de IA completo con Claude
+ *
+ * Este es un Claude completo que puede:
+ * - Tener conversaciones naturales sobre cualquier tema
+ * - Ayudar con análisis, estrategia, ideas
+ * - Consultar datos de ventas, KPIs y métricas del negocio
+ * - Dar insights proactivos y recomendaciones
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import WebSocket from "ws";
-import { executeTool, getAvailableTools, generateSystemPrompt } from './mcp';
 
 // Configurar WebSocket para Neon
 neonConfig.webSocketConstructor = WebSocket;
@@ -20,108 +24,92 @@ interface SearchResult {
   query?: string;
 }
 
+interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 // ============================================================
-// SCHEMA DEL SISTEMA - Claude conoce toda la estructura de datos
+// SCHEMA DEL NEGOCIO - Para cuando Claude necesite datos
 // ============================================================
 const DATABASE_SCHEMA = `
-## Base de Datos del Sistema KPIs Grupo ORSEGA
+## Base de Datos - KPIs Grupo ORSEGA
 
-### Tabla: sales_data (Datos de Ventas)
-Contiene todas las ventas de ambas empresas.
-- id: ID unico
-- company_id: 1 = DURA International (vende en KG), 2 = Grupo ORSEGA (vende en unidades)
-- client_name: Nombre del cliente
-- quantity: Cantidad vendida (KG para DURA, unidades para ORSEGA)
-- unit: Unidad de medida ('KG' o 'unidades')
-- sale_year: Anio de la venta (ej: 2024, 2025)
-- sale_month: Mes de la venta (1-12)
-- sale_date: Fecha completa de la venta
-- created_at: Fecha de registro
+### sales_data (Ventas)
+- company_id: 1=DURA (vende en KG), 2=ORSEGA (vende en unidades)
+- client_name, quantity, unit, sale_year, sale_month, sale_date
 
-IMPORTANTE sobre fechas:
-- DURA tiene datos hasta junio 2025
-- ORSEGA tiene datos hasta octubre 2025
-- NO usar CURRENT_DATE, usar los datos reales disponibles
+### exchange_rates (Tipos de Cambio)
+- currency (USD/EUR), rate, fecha_publicacion, source
 
-### Tabla: exchange_rates (Tipos de Cambio)
-- id: ID unico
-- currency: Moneda (USD, EUR)
-- rate: Tipo de cambio actual
-- tipo_cambio_anterior: Tipo de cambio anterior
-- fecha_publicacion: Fecha de publicacion
-- source: Fuente del dato (banxico, dof, etc.)
+### kpis (Indicadores)
+- name, value, target, unit, category (ventas/finanzas/operaciones)
 
-### Tabla: kpis (Indicadores Clave)
-- id: ID unico
-- name: Nombre del KPI
-- value: Valor actual
-- target: Meta objetivo
-- unit: Unidad ('%', '$', etc.)
-- category: Categoria (ventas, finanzas, operaciones)
-- frequency: Frecuencia de actualizacion
+### shipments (Embarques)
+- container_number, status, origin, destination, eta
 
-### Tabla: users (Usuarios del Sistema)
-- id, email, name, role (admin/user)
-
-### Tabla: shipments (Embarques/Logistica)
-- id, container_number, status, origin, destination, eta
-
-### Empresas:
-- company_id = 1: DURA International (vende productos en KG)
-- company_id = 2: Grupo ORSEGA (vende productos en unidades)
+Empresas: DURA (company_id=1, KG) | ORSEGA (company_id=2, unidades)
+Datos disponibles: DURA hasta junio 2025, ORSEGA hasta octubre 2025
 `;
 
 // ============================================================
-// CLAUDE TOOL DEFINITIONS
+// HERRAMIENTAS DISPONIBLES
 // ============================================================
 
 const claudeTools: Anthropic.Tool[] = [
   {
-    name: "execute_sql_query",
-    description: "Ejecuta una consulta SQL SELECT para obtener datos del sistema. SIEMPRE usa esta herramienta para responder preguntas sobre datos de ventas, clientes, KPIs, etc.",
+    name: "query_database",
+    description: `Ejecuta una consulta SQL para obtener datos del negocio. Usa esta herramienta cuando necesites información específica sobre ventas, clientes, KPIs, etc.
+
+Schema disponible:
+${DATABASE_SCHEMA}
+
+Ejemplos:
+- Top clientes: SELECT client_name, SUM(quantity) as total FROM sales_data WHERE company_id=1 GROUP BY client_name ORDER BY total DESC LIMIT 10
+- Ventas por mes: SELECT sale_month, SUM(quantity) FROM sales_data WHERE sale_year=2025 GROUP BY sale_month`,
     input_schema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "La consulta SQL a ejecutar. Debe ser SELECT solamente. Usar los nombres de columnas exactos del schema."
+          description: "Consulta SQL SELECT"
         },
-        explanation: {
+        purpose: {
           type: "string",
-          description: "Breve explicacion de que busca esta consulta"
+          description: "Qué información buscas obtener"
         }
       },
-      required: ["query", "explanation"]
-    }
-  },
-  {
-    name: "get_kpi_summary",
-    description: "Obtiene un resumen de los KPIs principales del sistema",
-    input_schema: {
-      type: "object",
-      properties: {
-        category: {
-          type: "string",
-          description: "Categoria de KPIs (ventas, finanzas, operaciones) o 'all' para todos",
-          enum: ["ventas", "finanzas", "operaciones", "all"]
-        }
-      },
-      required: []
+      required: ["query", "purpose"]
     }
   },
   {
     name: "get_exchange_rate",
-    description: "Obtiene el tipo de cambio actual",
+    description: "Obtiene el tipo de cambio actual del dólar o euro",
     input_schema: {
       type: "object",
       properties: {
         currency: {
           type: "string",
-          description: "Moneda a consultar",
-          enum: ["USD", "EUR"]
+          enum: ["USD", "EUR"],
+          description: "Moneda a consultar"
         }
       },
       required: ["currency"]
+    }
+  },
+  {
+    name: "get_business_summary",
+    description: "Obtiene un resumen ejecutivo del estado actual del negocio incluyendo ventas recientes, KPIs principales y métricas clave",
+    input_schema: {
+      type: "object",
+      properties: {
+        focus: {
+          type: "string",
+          enum: ["ventas", "kpis", "clientes", "general"],
+          description: "Área de enfoque del resumen"
+        }
+      },
+      required: []
     }
   }
 ];
@@ -137,19 +125,19 @@ async function executeSafeQuery(query: string): Promise<{ success: boolean; data
     return { success: false, error: "Solo se permiten consultas SELECT" };
   }
 
-  const forbidden = ['insert', 'update', 'delete', 'drop', 'alter', 'create', 'truncate', 'grant', 'revoke'];
+  const forbidden = ['insert', 'update', 'delete', 'drop', 'alter', 'create', 'truncate', 'grant', 'revoke', ';'];
   for (const word of forbidden) {
     if (normalizedQuery.includes(word)) {
-      return { success: false, error: `Operacion no permitida: ${word}` };
+      return { success: false, error: `Operación no permitida: ${word}` };
     }
   }
 
   try {
-    console.log(`[EcoNova] Ejecutando SQL: ${query}`);
+    console.log(`[EcoNova] SQL: ${query}`);
     const result = await sql(query);
     return { success: true, data: result as any[] };
   } catch (error: any) {
-    console.error(`[EcoNova] Error SQL:`, error.message);
+    console.error(`[EcoNova] SQL Error:`, error.message);
     return { success: false, error: error.message };
   }
 }
@@ -162,27 +150,15 @@ async function executeClaudeTool(
   toolName: string,
   toolInput: Record<string, any>
 ): Promise<{ success: boolean; result: any; error?: string }> {
-  console.log(`[EcoNova] Ejecutando tool: ${toolName}`, toolInput);
+  console.log(`[EcoNova] Tool: ${toolName}`, toolInput);
 
   switch (toolName) {
-    case "execute_sql_query": {
+    case "query_database": {
       const queryResult = await executeSafeQuery(toolInput.query);
       if (queryResult.success) {
         return { success: true, result: queryResult.data };
       }
       return { success: false, result: null, error: queryResult.error };
-    }
-
-    case "get_kpi_summary": {
-      const category = toolInput.category || 'all';
-      let query = "SELECT name, value, target, unit, category FROM kpis";
-      if (category !== 'all') {
-        query += ` WHERE category = '${category}'`;
-      }
-      query += " ORDER BY category, name LIMIT 20";
-
-      const result = await executeSafeQuery(query);
-      return { success: result.success, result: result.data, error: result.error };
     }
 
     case "get_exchange_rate": {
@@ -191,9 +167,49 @@ async function executeClaudeTool(
                      FROM exchange_rates
                      WHERE currency = '${currency}'
                      ORDER BY fecha_publicacion DESC LIMIT 1`;
-
       const result = await executeSafeQuery(query);
       return { success: result.success, result: result.data, error: result.error };
+    }
+
+    case "get_business_summary": {
+      const focus = toolInput.focus || 'general';
+      const summaryData: any = {};
+
+      // Ventas recientes
+      if (focus === 'ventas' || focus === 'general') {
+        const salesQuery = `
+          SELECT company_id, sale_year, sale_month, SUM(quantity) as total,
+                 COUNT(DISTINCT client_name) as clientes_unicos
+          FROM sales_data
+          WHERE sale_year = 2025
+          GROUP BY company_id, sale_year, sale_month
+          ORDER BY sale_month DESC
+          LIMIT 6`;
+        const salesResult = await executeSafeQuery(salesQuery);
+        summaryData.ventas_recientes = salesResult.data;
+      }
+
+      // KPIs
+      if (focus === 'kpis' || focus === 'general') {
+        const kpiQuery = `SELECT name, value, target, unit, category FROM kpis ORDER BY category LIMIT 15`;
+        const kpiResult = await executeSafeQuery(kpiQuery);
+        summaryData.kpis = kpiResult.data;
+      }
+
+      // Top clientes
+      if (focus === 'clientes' || focus === 'general') {
+        const clientQuery = `
+          SELECT company_id, client_name, SUM(quantity) as total
+          FROM sales_data
+          WHERE sale_year = 2025 AND client_name IS NOT NULL AND client_name <> ''
+          GROUP BY company_id, client_name
+          ORDER BY total DESC
+          LIMIT 10`;
+        const clientResult = await executeSafeQuery(clientQuery);
+        summaryData.top_clientes = clientResult.data;
+      }
+
+      return { success: true, result: summaryData };
     }
 
     default:
@@ -202,75 +218,97 @@ async function executeClaudeTool(
 }
 
 // ============================================================
-// FUNCION PRINCIPAL - ECONOVA AGENT
+// SISTEMA PRINCIPAL - CLAUDE COMPLETO
 // ============================================================
 
-export async function econovaSearch(question: string, context?: { userId?: string; companyId?: number }): Promise<SearchResult> {
+export async function econovaSearch(
+  question: string,
+  context?: { userId?: string; companyId?: number; conversationHistory?: ConversationMessage[] }
+): Promise<SearchResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  console.log(`[EcoNova] API Key presente: ${apiKey ? 'SI (' + apiKey.substring(0, 10) + '...)' : 'NO'}`);
+  console.log(`[EcoNova] API Key: ${apiKey ? 'SI' : 'NO'}`);
 
   if (!apiKey) {
-    console.warn("[EcoNova] ANTHROPIC_API_KEY no configurada, usando fallback");
-    return fallbackSearch(question);
+    console.warn("[EcoNova] ANTHROPIC_API_KEY no configurada");
+    return {
+      answer: "El asistente de IA no está disponible en este momento. Por favor contacta al administrador.",
+      source: "Error de configuración"
+    };
   }
 
   const anthropic = new Anthropic({ apiKey });
 
   try {
     console.log(`[EcoNova] Pregunta: "${question}"`);
-    console.log(`[EcoNova] Llamando a Claude...`);
 
-    const systemPrompt = `Eres EcoNova, el asistente de IA de Grupo ORSEGA. Eres amigable, profesional y proactivo.
+    const systemPrompt = `Eres EcoNova, el asistente de IA de Grupo ORSEGA. Eres Claude, un asistente de IA creado por Anthropic.
+
+PERSONALIDAD:
+- Eres inteligente, amigable y profesional
+- Puedes ayudar con CUALQUIER tema: análisis, estrategia, ideas, preguntas generales, consejos, etc.
+- Cuando el usuario hace preguntas sobre datos del negocio, usas las herramientas disponibles
+- Eres proactivo: das insights, sugieres análisis adicionales, identificas oportunidades
 
 CAPACIDADES:
-- Consultar datos de ventas, clientes y KPIs
-- Analizar tendencias y metricas del negocio
-- Responder preguntas generales sobre el sistema
+1. **Conversación general** - Puedes hablar de cualquier tema, dar consejos, explicar conceptos
+2. **Análisis de negocio** - Tienes acceso a datos de ventas, clientes, KPIs de Grupo ORSEGA
+3. **Consultoría estratégica** - Puedes ayudar con estrategia, planeación, toma de decisiones
+4. **Creatividad** - Ideas, brainstorming, solución de problemas
 
-CUANDO EL USUARIO PREGUNTE "en que puedes ayudarme" o similar, responde con una lista de tus capacidades sin usar herramientas.
+DATOS DEL NEGOCIO DISPONIBLES:
+- Ventas de DURA International (productos en KG) y Grupo ORSEGA (productos en unidades)
+- KPIs y métricas de rendimiento
+- Tipos de cambio actuales
+- Información de embarques y logística
 
-Para consultas de DATOS, usa las herramientas disponibles. Tu trabajo es ayudar a los usuarios a consultar datos de ventas, KPIs y metricas del negocio.
+CUANDO USES DATOS:
+- Usa las herramientas disponibles para consultar información real
+- Interpreta los datos y da insights útiles
+- Sugiere análisis adicionales si son relevantes
+- Formatea números de forma legible (ej: 1,234,567)
 
-${DATABASE_SCHEMA}
+CONTEXTO DEL USUARIO:
+- Usuario ID: ${context?.userId || 'usuario'}
+- Empresa preferida: ${context?.companyId === 1 ? 'DURA International' : context?.companyId === 2 ? 'Grupo ORSEGA' : 'ambas empresas'}
 
-REGLAS IMPORTANTES:
-1. SIEMPRE usa la herramienta execute_sql_query para responder preguntas sobre datos
-2. Usa nombres de columnas EXACTOS del schema
-3. Para ventas, SIEMPRE filtra por company_id (1=DURA en KG, 2=ORSEGA en unidades)
-4. Meses: enero=1, febrero=2, marzo=3, abril=4, mayo=5, junio=6, julio=7, agosto=8, septiembre=9, octubre=10, noviembre=11, diciembre=12
-5. Si no especifican empresa, incluye datos de ambas con GROUP BY company_id
-6. Si no especifican anio, usa 2025
-7. Usa COALESCE para evitar NULLs en sumas
-8. Para contar clientes unicos: COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '')
-9. Limita resultados a 20 filas maximo con LIMIT
-10. Formatea numeros grandes con separadores de miles
-11. Se breve pero informativo en tus respuestas
+Responde en español. Sé útil, claro y conciso pero completo.`;
 
-EJEMPLOS DE QUERIES:
-- "cuantos pedidos en noviembre" -> SELECT sale_year, SUM(quantity) as total, COUNT(*) as registros FROM sales_data WHERE sale_month = 11 GROUP BY sale_year, company_id ORDER BY sale_year DESC
-- "top 5 clientes de DURA" -> SELECT client_name, SUM(quantity) as total_kg FROM sales_data WHERE company_id = 1 AND sale_year = 2025 GROUP BY client_name ORDER BY total_kg DESC LIMIT 5
+    // Construir mensajes con historial si existe
+    const messages: Anthropic.MessageParam[] = [];
 
-CONTEXTO:
-- Usuario ID: ${context?.userId || 'anonimo'}
-- Empresa preferida: ${context?.companyId === 1 ? 'DURA' : context?.companyId === 2 ? 'ORSEGA' : 'ambas'}`;
+    if (context?.conversationHistory && context.conversationHistory.length > 0) {
+      // Agregar historial de conversación (últimos 10 mensajes)
+      const recentHistory = context.conversationHistory.slice(-10);
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    }
 
-    // Paso 1: Llamar a Claude con tools
+    // Agregar la pregunta actual
+    messages.push({ role: "user", content: question });
+
+    // Llamar a Claude
     let response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
+      max_tokens: 4096,
       system: systemPrompt,
       tools: claudeTools,
-      messages: [
-        { role: "user", content: question }
-      ]
+      messages: messages
     });
 
-    // Procesar tool calls en un loop hasta obtener respuesta final
+    // Procesar tool calls en loop
     let toolResults: any[] = [];
     let lastQuery: string | undefined;
+    let iterations = 0;
+    const maxIterations = 5;
 
-    while (response.stop_reason === "tool_use") {
+    while (response.stop_reason === "tool_use" && iterations < maxIterations) {
+      iterations++;
+
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
       );
@@ -278,11 +316,11 @@ CONTEXTO:
       const toolResultContents: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        console.log(`[EcoNova] Tool call: ${toolUse.name}`);
+        console.log(`[EcoNova] Tool: ${toolUse.name}`);
 
         const toolResult = await executeClaudeTool(toolUse.name, toolUse.input as Record<string, any>);
 
-        if (toolUse.name === "execute_sql_query") {
+        if (toolUse.name === "query_database") {
           lastQuery = (toolUse.input as any).query;
           if (toolResult.success) {
             toolResults = toolResult.result;
@@ -296,146 +334,41 @@ CONTEXTO:
         });
       }
 
-      // Continuar la conversacion con los resultados
+      // Continuar conversación con resultados
       response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
+        max_tokens: 4096,
         system: systemPrompt,
         tools: claudeTools,
         messages: [
-          { role: "user", content: question },
+          ...messages,
           { role: "assistant", content: response.content },
           { role: "user", content: toolResultContents }
         ]
       });
     }
 
-    // Extraer respuesta final de texto
+    // Extraer respuesta final
     const textBlock = response.content.find(
       (block): block is Anthropic.TextBlock => block.type === "text"
     );
 
-    const finalAnswer = textBlock?.text || "No pude procesar tu pregunta.";
+    const finalAnswer = textBlock?.text || "No pude procesar tu mensaje. ¿Podrías reformularlo?";
 
     return {
       answer: finalAnswer,
       data: toolResults.length > 0 ? toolResults : undefined,
-      source: lastQuery ? `EcoNova AI (Claude) - SQL: ${lastQuery}` : "EcoNova AI (Claude)",
+      source: "EcoNova AI",
       query: lastQuery
     };
 
   } catch (error: any) {
     console.error("[EcoNova] Error:", error.message);
-    return fallbackSearch(question);
+    return {
+      answer: `Ocurrió un error al procesar tu mensaje. Por favor intenta de nuevo.\n\nError: ${error.message}`,
+      source: "Error"
+    };
   }
-}
-
-// ============================================================
-// BUSQUEDA DE RESPALDO (sin Claude)
-// ============================================================
-
-async function fallbackSearch(question: string): Promise<SearchResult> {
-  const q = question.toLowerCase().trim();
-
-  const monthMap: { [key: string]: number } = {
-    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
-    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
-    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
-  };
-
-  let month: number | null = null;
-  for (const [name, num] of Object.entries(monthMap)) {
-    if (q.includes(name)) {
-      month = num;
-      break;
-    }
-  }
-
-  const isDura = q.includes('dura');
-  const isOrsega = q.includes('orsega');
-
-  try {
-    if (month) {
-      let query = '';
-      if (isDura) {
-        query = `SELECT sale_year, SUM(quantity) as total_kg, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE company_id = 1 AND sale_month = ${month}
-                 GROUP BY sale_year ORDER BY sale_year DESC LIMIT 5`;
-      } else if (isOrsega) {
-        query = `SELECT sale_year, SUM(quantity) as total_unidades, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE company_id = 2 AND sale_month = ${month}
-                 GROUP BY sale_year ORDER BY sale_year DESC LIMIT 5`;
-      } else {
-        query = `SELECT company_id, sale_year, SUM(quantity) as total, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE sale_month = ${month}
-                 GROUP BY company_id, sale_year ORDER BY sale_year DESC, company_id LIMIT 10`;
-      }
-
-      const result = await executeSafeQuery(query);
-      if (result.success && result.data) {
-        const monthName = Object.keys(monthMap).find(k => monthMap[k] === month) || '';
-        let answer = `Datos de ${monthName}:\n\n`;
-
-        result.data.forEach((row: any) => {
-          const company = row.company_id === 1 ? 'DURA' : row.company_id === 2 ? 'ORSEGA' : '';
-          const unit = row.company_id === 1 ? 'KG' : 'unidades';
-          const total = row.total_kg || row.total_unidades || row.total || 0;
-          answer += `${company ? company + ' ' : ''}${row.sale_year}: ${Number(total).toLocaleString('es-MX')} ${unit}, ${row.clientes} clientes\n`;
-        });
-
-        return { answer, data: result.data, source: "Busqueda local (fallback)", query };
-      }
-    }
-
-    // Resumen general
-    if (q.includes('resumen') || q.includes('general') || q.includes('total')) {
-      const query = `SELECT company_id, sale_year, SUM(quantity) as total, COUNT(DISTINCT client_name) as clientes
-                     FROM sales_data GROUP BY company_id, sale_year ORDER BY sale_year DESC, company_id LIMIT 10`;
-      const result = await executeSafeQuery(query);
-
-      if (result.success && result.data) {
-        let answer = "Resumen de ventas:\n\n";
-        result.data.forEach((row: any) => {
-          const company = row.company_id === 1 ? 'DURA' : 'ORSEGA';
-          const unit = row.company_id === 1 ? 'KG' : 'unidades';
-          answer += `${company} ${row.sale_year}: ${Number(row.total).toLocaleString('es-MX')} ${unit}, ${row.clientes} clientes\n`;
-        });
-        return { answer, data: result.data, source: "Busqueda local (fallback)", query };
-      }
-    }
-
-    // Top clientes
-    if (q.includes('top') || q.includes('mejores') || q.includes('principales')) {
-      const companyId = isDura ? 1 : 2;
-      const query = `SELECT client_name, SUM(quantity) as total
-                     FROM sales_data WHERE company_id = ${companyId} AND sale_year = 2025
-                     AND client_name IS NOT NULL AND client_name <> ''
-                     GROUP BY client_name ORDER BY total DESC LIMIT 10`;
-      const result = await executeSafeQuery(query);
-
-      if (result.success && result.data) {
-        const company = isDura ? 'DURA' : 'ORSEGA';
-        const unit = isDura ? 'KG' : 'unidades';
-        let answer = `Top clientes ${company} 2025:\n\n`;
-        result.data.forEach((row: any, i: number) => {
-          answer += `${i + 1}. ${row.client_name}: ${Number(row.total).toLocaleString('es-MX')} ${unit}\n`;
-        });
-        return { answer, data: result.data, source: "Busqueda local (fallback)", query };
-      }
-    }
-
-  } catch (error) {
-    console.error("[Fallback] Error:", error);
-  }
-
-  return {
-    answer: `No pude procesar tu pregunta. Prueba preguntar:
-- Cuanto vendimos en noviembre?
-- Cuales son los top clientes de DURA?
-- Dame un resumen de ventas
-- Cuantos clientes tiene ORSEGA en octubre?`,
-    source: "Ayuda"
-  };
 }
 
 export default econovaSearch;
