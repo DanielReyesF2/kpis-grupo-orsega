@@ -84,7 +84,7 @@ Ejemplos:
   },
   {
     name: "get_exchange_rate",
-    description: "Obtiene el tipo de cambio actual del dólar o euro",
+    description: "Obtiene los tipos de cambio MÁS RECIENTES del dólar o euro de TODAS las fuentes disponibles (DOF/Banxico, MONEX, Santander, etc.). Retorna el último tipo de cambio de cada fuente ordenados por fecha.",
     input_schema: {
       type: "object",
       properties: {
@@ -163,11 +163,21 @@ async function executeClaudeTool(
 
     case "get_exchange_rate": {
       const currency = toolInput.currency || 'USD';
-      const query = `SELECT currency, rate, fecha_publicacion, source
-                     FROM exchange_rates
-                     WHERE currency = '${currency}'
-                     ORDER BY fecha_publicacion DESC LIMIT 1`;
+      // Get the most recent exchange rates from ALL sources (last 24 hours or latest per source)
+      const query = `
+        WITH latest_per_source AS (
+          SELECT currency, rate, fecha_publicacion, source,
+                 ROW_NUMBER() OVER (PARTITION BY source ORDER BY fecha_publicacion DESC) as rn
+          FROM exchange_rates
+          WHERE currency = '${currency}'
+        )
+        SELECT currency, rate, fecha_publicacion, source
+        FROM latest_per_source
+        WHERE rn = 1
+        ORDER BY fecha_publicacion DESC
+        LIMIT 10`;
       const result = await executeSafeQuery(query);
+      console.log(`[EcoNova] Exchange rate query returned ${result.data?.length || 0} sources`);
       return { success: result.success, result: result.data, error: result.error };
     }
 
