@@ -1,12 +1,11 @@
 /**
- * EcoNova AI Assistant - Branded with EcoNova colors
+ * NovaAI Assistant - Branded with EcoNova colors
  * #273949 (dark slate) + #b5e951 (lime green)
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles,
   X,
   Loader2,
   ArrowUp,
@@ -143,12 +142,12 @@ export function EcoNovaAssistant() {
             }}
           >
             <div
-              className="w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: COLORS.lime }}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+              style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
             >
-              <Sparkles className="h-3 w-3" style={{ color: COLORS.dark }} />
+              N
             </div>
-            <span>EcoNova AI</span>
+            <span>NovaAI</span>
             <kbd
               className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded"
               style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.7)' }}
@@ -191,13 +190,13 @@ export function EcoNovaAssistant() {
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center"
-                    style={{ backgroundColor: COLORS.lime }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold"
+                    style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
                   >
-                    <Sparkles className="h-4 w-4" style={{ color: COLORS.dark }} />
+                    N
                   </div>
                   <div>
-                    <span className="font-semibold text-white text-sm">EcoNova AI</span>
+                    <span className="font-semibold text-white text-sm">NovaAI</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div
                         className="w-1.5 h-1.5 rounded-full animate-pulse"
@@ -251,19 +250,13 @@ export function EcoNovaAssistant() {
                 style={{ minHeight: '250px', maxHeight: 'calc(75vh - 160px)' }}
               >
                 {messages.length === 0 ? (
-                  /* Welcome State */
+                  /* Welcome State - Clean and minimal */
                   <div className="h-full flex flex-col items-center justify-center text-center px-8 py-16">
-                    <div
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-                      style={{ backgroundColor: COLORS.lime }}
-                    >
-                      <Sparkles className="h-8 w-8" style={{ color: COLORS.dark }} />
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">
-                      ¡Hola, {firstName}!
+                    <h2 className="text-2xl font-bold text-white mb-3">
+                      ¡Hola, {firstName}! 👋
                     </h2>
                     <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Soy <span className="font-semibold" style={{ color: COLORS.lime }}>EcoNova AI</span>, tu asistente inteligente.
+                      Soy <span className="font-semibold" style={{ color: COLORS.lime }}>NovaAI</span>, tu asistente inteligente.
                       Pregúntame lo que necesites.
                     </p>
                   </div>
