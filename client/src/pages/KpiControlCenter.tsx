@@ -15,6 +15,7 @@ import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { CollaboratorCard, type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
+import { TremorKpiDashboard, type TremorCollaboratorData } from '@/components/tremor';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -477,7 +478,7 @@ export default function KpiControlCenter() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
-  const [viewType, setViewType] = useState<'collaborators' | 'kpis'>('collaborators'); // Toggle entre vista por colaborador o por KPI
+  const [viewType, setViewType] = useState<'collaborators' | 'kpis' | 'tremor'>('tremor'); // Toggle entre vista por colaborador, por KPI, o Tremor
   
   // Estados para vistas históricas (nueva funcionalidad)
   const [selectedUserIdForHistory, setSelectedUserIdForHistory] = useState<number | null>(null);
@@ -856,8 +857,17 @@ export default function KpiControlCenter() {
                         }
                       </Badge>
                     </CardTitle>
-                    {/* Toggle entre vista por colaborador y por KPI */}
+                    {/* Toggle entre vistas */}
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewType === 'tremor' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewType('tremor')}
+                        className="flex items-center gap-2"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Dashboard
+                      </Button>
                       <Button
                         variant={viewType === 'collaborators' ? 'default' : 'outline'}
                         size="sm"
@@ -1017,6 +1027,60 @@ export default function KpiControlCenter() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Vista Tremor Dashboard */}
+                {viewType === 'tremor' && (
+                  <>
+                    {collaboratorsLoading && (
+                      <div className="text-center py-8">
+                        <Activity className="h-8 w-8 mx-auto mb-4 text-gray-300 animate-spin" />
+                        <p className="text-gray-500">Cargando dashboard...</p>
+                      </div>
+                    )}
+                    {!collaboratorsLoading && collaborators && (
+                      <TremorKpiDashboard
+                        collaborators={collaborators.map((c): TremorCollaboratorData => ({
+                          name: c.name,
+                          score: c.score,
+                          status: c.status,
+                          averageCompliance: c.averageCompliance,
+                          compliantKpis: c.compliantKpis,
+                          alertKpis: c.alertKpis,
+                          notCompliantKpis: c.notCompliantKpis,
+                          totalKpis: c.totalKpis,
+                          lastUpdate: c.lastUpdate,
+                          scoreChange: c.scoreChange,
+                          trendDirection: c.trendDirection,
+                          kpis: c.kpis.map(k => ({
+                            id: k.id,
+                            name: k.name || (k as any).kpiName || 'KPI',
+                            compliance: k.compliance,
+                            complianceChange: k.complianceChange,
+                            trendDirection: k.trendDirection,
+                            status: k.status,
+                            target: (k as any).target,
+                            unit: (k as any).unit,
+                            latestValue: (k as any).latestValue,
+                          })),
+                        }))}
+                        metrics={{
+                          totalKpis: kpiStats.total,
+                          compliantKpis: kpiStats.complies,
+                          alertKpis: kpiStats.alert,
+                          criticalKpis: kpiStats.not_compliant,
+                          averageCompliance: processedKpis.length > 0
+                            ? processedKpis.reduce((sum: number, k: any) => sum + (k.compliancePercentage || 0), 0) / processedKpis.length
+                            : 0,
+                          previousAverageCompliance: teamMetrics?.trend ? teamMetrics.average - teamMetrics.trend : undefined,
+                        }}
+                        onViewKpiDetails={handleUpdateKpi}
+                        onUpdateKpi={handleUpdateKpi}
+                        title={`KPIs ${selectedCompany?.name || ''}`}
+                        subtitle={`Monitoreo de indicadores - ${collaborators.length} colaboradores`}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* Vista por Colaboradores */}
                 {viewType === 'collaborators' && (
                   <>
