@@ -39,8 +39,11 @@ const DATABASE_SCHEMA = `
 - company_id: 1=DURA (vende en KG), 2=ORSEGA (vende en unidades)
 - client_name, quantity, unit, sale_year, sale_month, sale_date
 
-### exchange_rates (Tipos de Cambio)
-- currency (USD/EUR), rate, fecha_publicacion, source
+### exchange_rates (Tipos de Cambio USD/MXN)
+- buy_rate: Tipo de cambio compra
+- sell_rate: Tipo de cambio venta
+- source: Fuente (DOF, MONEX, Santander)
+- date: Fecha y hora de la cotización
 
 ### kpis (Indicadores)
 - name, value, target, unit, category (ventas/finanzas/operaciones)
@@ -84,17 +87,11 @@ Ejemplos:
   },
   {
     name: "get_exchange_rate",
-    description: "Obtiene los tipos de cambio MÁS RECIENTES del dólar o euro de TODAS las fuentes disponibles (DOF/Banxico, MONEX, Santander, etc.). Retorna el último tipo de cambio de cada fuente ordenados por fecha.",
+    description: "Obtiene los tipos de cambio USD/MXN MÁS RECIENTES de TODAS las fuentes disponibles (DOF/Banxico, MONEX, Santander). Retorna buy_rate (compra), sell_rate (venta), source (fuente) y fecha de cada cotización.",
     input_schema: {
       type: "object",
-      properties: {
-        currency: {
-          type: "string",
-          enum: ["USD", "EUR"],
-          description: "Moneda a consultar"
-        }
-      },
-      required: ["currency"]
+      properties: {},
+      required: []
     }
   },
   {
@@ -162,19 +159,18 @@ async function executeClaudeTool(
     }
 
     case "get_exchange_rate": {
-      const currency = toolInput.currency || 'USD';
-      // Get the most recent exchange rates from ALL sources (last 24 hours or latest per source)
+      // Get the most recent exchange rates from ALL sources
       const query = `
         WITH latest_per_source AS (
-          SELECT currency, rate, fecha_publicacion, source,
-                 ROW_NUMBER() OVER (PARTITION BY source ORDER BY fecha_publicacion DESC) as rn
+          SELECT source, buy_rate, sell_rate, date,
+                 ROW_NUMBER() OVER (PARTITION BY source ORDER BY date DESC) as rn
           FROM exchange_rates
-          WHERE currency = '${currency}'
         )
-        SELECT currency, rate, fecha_publicacion, source
+        SELECT source, buy_rate, sell_rate,
+               to_char(date AT TIME ZONE 'America/Mexico_City', 'DD/MM/YYYY HH24:MI') as fecha
         FROM latest_per_source
         WHERE rn = 1
-        ORDER BY fecha_publicacion DESC
+        ORDER BY date DESC
         LIMIT 10`;
       const result = await executeSafeQuery(query);
       console.log(`[EcoNova] Exchange rate query returned ${result.data?.length || 0} sources`);
