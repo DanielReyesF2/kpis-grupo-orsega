@@ -14,3 +14,4 @@ export {
   type DashboardKpi,
   type DashboardMetrics
 } from './TremorKpiDashboard';
+export { TremorKpiUpdateModal } from './TremorKpiUpdateModal';
