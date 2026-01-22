@@ -11,11 +11,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { KpiUpdateModal } from '@/components/kpis/KpiUpdateModal';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
-import { TremorKpiDashboard, type TremorCollaboratorData } from '@/components/tremor';
+import { TremorKpiDashboard, TremorKpiUpdateModal, type TremorCollaboratorData } from '@/components/tremor';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -1073,7 +1072,7 @@ export default function KpiControlCenter() {
 
 
         {/* Modal de Actualización KPI */}
-        <KpiUpdateModal
+        <TremorKpiUpdateModal
           kpiId={selectedKpiId || 0}
           isOpen={isUpdateModalOpen}
           onClose={() => {
