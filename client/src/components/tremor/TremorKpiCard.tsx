@@ -8,15 +8,23 @@ import {
   Metric,
   Text,
   Flex,
+  Grid,
+  Col,
   BadgeDelta,
   ProgressBar,
   SparkAreaChart,
   Bold,
-  Grid,
-  Col,
+  Tracker,
+  Callout,
 } from "@tremor/react";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+
+// Tipo para datos del Tracker
+interface TrackerItem {
+  color: "emerald" | "yellow" | "rose" | "gray";
+  tooltip: string;
+}
 
 export type DeltaType = "increase" | "moderateIncrease" | "unchanged" | "moderateDecrease" | "decrease";
 
@@ -174,23 +182,56 @@ export function TremorKpiCard({
         className="mt-2"
       />
 
-      {/* Status indicator */}
-      <Flex className="mt-2" justifyContent="between" alignItems="center">
-        <Text className={`text-xs font-medium ${
-          status === 'complies' ? 'text-emerald-600' :
-          status === 'alert' ? 'text-yellow-600' : 'text-rose-600'
-        }`}>
-          {getStatusText(status)}
-        </Text>
+      {/* Tracker - historial visual compacto (solo si hay datos) */}
+      {historicalData && historicalData.length > 0 && (
+        <div className="mt-3">
+          <Text className="text-xs text-gray-500 mb-1">Historial reciente</Text>
+          <Tracker
+            data={historicalData.slice(-12).map((d): TrackerItem => {
+              const compliance = typeof d.value === 'number' ? d.value : 0;
+              return {
+                color: compliance >= 100 ? 'emerald' : compliance >= 90 ? 'yellow' : 'rose',
+                tooltip: `${d.date}: ${compliance.toFixed(1)}%`,
+              };
+            })}
+            className="w-full"
+          />
+        </div>
+      )}
 
-        {onViewDetails && (
+      {/* Callout para KPIs críticos */}
+      {status === 'not_compliant' && compliancePercentage < 80 && (
+        <Callout
+          title="Requiere atención"
+          icon={AlertTriangle}
+          color="rose"
+          className="mt-3 text-xs"
+        >
+          {(100 - compliancePercentage).toFixed(1)}% por debajo de la meta
+        </Callout>
+      )}
+
+      {/* Status indicator */}
+      <Flex className="mt-3" justifyContent="between" alignItems="center">
+        <Flex alignItems="center" className="gap-1">
+          {status === 'complies' && <TrendingUp className="h-3 w-3 text-emerald-600" />}
+          {status === 'not_compliant' && <TrendingDown className="h-3 w-3 text-rose-600" />}
+          <Text className={`text-xs font-medium ${
+            status === 'complies' ? 'text-emerald-600' :
+            status === 'alert' ? 'text-yellow-600' : 'text-rose-600'
+          }`}>
+            {getStatusText(status)}
+          </Text>
+        </Flex>
+
+        {onUpdate && (
           <Button
             variant="ghost"
             size="sm"
             className="h-7 text-xs"
-            onClick={() => onViewDetails(id)}
+            onClick={() => onUpdate(id)}
           >
-            Ver detalles
+            Actualizar
             <ChevronRight className="h-3 w-3 ml-1" />
           </Button>
         )}

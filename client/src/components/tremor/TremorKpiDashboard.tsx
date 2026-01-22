@@ -16,20 +16,15 @@ import {
   ProgressBar,
   AreaChart,
   DonutChart,
+  BarChart,
   BarList,
-  Bold,
   Divider,
-  TabGroup,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
   Select,
   SelectItem,
 } from "@tremor/react";
-import { TremorKpiCard, TremorKpiCardCompact } from "./TremorKpiCard";
-import { TremorCollaboratorCard, TremorCollaboratorCardExpanded, type TremorCollaboratorData } from "./TremorCollaboratorCard";
-import { Target, Users, TrendingUp, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { TremorKpiCard } from "./TremorKpiCard";
+import { type TremorCollaboratorData } from "./TremorCollaboratorCard";
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import type { DeltaType } from "./TremorKpiCard";
 
 // Tipos para los datos del dashboard
@@ -67,6 +62,8 @@ interface TremorKpiDashboardProps {
   onUpdateKpi?: (kpiId: number) => void;
   title?: string;
   subtitle?: string;
+  selectedCollaborator?: string;
+  statusFilter?: string;
 }
 
 // Función para obtener delta type
@@ -89,16 +86,39 @@ export function TremorKpiDashboard({
   onUpdateKpi,
   title = "Centro de Control de KPIs",
   subtitle = "Monitoreo de indicadores clave de desempeño",
+  selectedCollaborator = 'all',
+  statusFilter = 'all',
 }: TremorKpiDashboardProps) {
   const [expandedCollaborator, setExpandedCollaborator] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'collaborators' | 'kpis'>('collaborators');
   const [sortBy, setSortBy] = useState<'compliance' | 'name' | 'status'>('compliance');
 
-  // Calcular métricas si no se proporcionan
-  const calculatedMetrics = useMemo(() => {
-    if (metrics) return metrics;
+  // Filtrar colaboradores según el filtro seleccionado
+  const filteredCollaborators = useMemo(() => {
+    if (selectedCollaborator === 'all') return collaborators;
+    return collaborators.filter(c => c.name === selectedCollaborator);
+  }, [collaborators, selectedCollaborator]);
 
-    const allKpis = collaborators.flatMap(c => c.kpis);
+  // Filtrar KPIs por estado
+  const filteredCollaboratorsWithStatus = useMemo(() => {
+    if (statusFilter === 'all') return filteredCollaborators;
+
+    return filteredCollaborators.map(c => ({
+      ...c,
+      kpis: c.kpis.filter(k => {
+        const kpiStatus = k.compliance >= 100 ? 'complies' :
+                         k.compliance >= 90 ? 'alert' : 'not_compliant';
+        return kpiStatus === statusFilter;
+      }),
+      // Recalcular conteos
+      compliantKpis: c.kpis.filter(k => k.compliance >= 100 && (statusFilter === 'all' || statusFilter === 'complies')).length,
+      alertKpis: c.kpis.filter(k => k.compliance >= 90 && k.compliance < 100 && (statusFilter === 'all' || statusFilter === 'alert')).length,
+      notCompliantKpis: c.kpis.filter(k => k.compliance < 90 && (statusFilter === 'all' || statusFilter === 'not_compliant')).length,
+    })).filter(c => c.kpis.length > 0);
+  }, [filteredCollaborators, statusFilter]);
+
+  // Calcular métricas basadas en colaboradores filtrados
+  const calculatedMetrics = useMemo(() => {
+    const allKpis = filteredCollaboratorsWithStatus.flatMap(c => c.kpis);
     const totalKpis = allKpis.length;
     const compliantKpis = allKpis.filter(k => k.compliance >= 100).length;
     const alertKpis = allKpis.filter(k => k.compliance >= 90 && k.compliance < 100).length;
@@ -107,6 +127,11 @@ export function TremorKpiDashboard({
       ? allKpis.reduce((sum, k) => sum + k.compliance, 0) / totalKpis
       : 0;
 
+    // Si hay métricas externas y no hay filtro, usarlas
+    if (metrics && selectedCollaborator === 'all' && statusFilter === 'all') {
+      return metrics;
+    }
+
     return {
       totalKpis,
       compliantKpis,
@@ -114,7 +139,7 @@ export function TremorKpiDashboard({
       criticalKpis,
       averageCompliance,
     };
-  }, [collaborators, metrics]);
+  }, [filteredCollaboratorsWithStatus, metrics, selectedCollaborator, statusFilter]);
 
   // Datos para el gráfico de área
   const chartData = useMemo(() => {
@@ -138,9 +163,20 @@ export function TremorKpiDashboard({
     { name: "Críticos", value: calculatedMetrics.criticalKpis },
   ];
 
+  // Datos para BarChart comparativo de colaboradores
+  const collaboratorComparisonData = useMemo(() => {
+    return collaborators.map(c => ({
+      name: c.name,
+      "Cumplimiento": parseFloat(c.averageCompliance.toFixed(1)),
+      "KPIs Cumplidos": c.compliantKpis,
+      "KPIs en Riesgo": c.alertKpis,
+      "KPIs Críticos": c.notCompliantKpis,
+    }));
+  }, [collaborators]);
+
   // Top KPIs críticos para BarList
   const criticalKpisList = useMemo(() => {
-    const allKpis = collaborators.flatMap(c =>
+    const allKpis = filteredCollaboratorsWithStatus.flatMap(c =>
       c.kpis.map(k => ({ ...k, collaborator: c.name }))
     );
     return allKpis
@@ -151,11 +187,11 @@ export function TremorKpiDashboard({
         name: `${k.name} (${k.collaborator})`,
         value: k.compliance,
       }));
-  }, [collaborators]);
+  }, [filteredCollaboratorsWithStatus]);
 
   // Ordenar colaboradores
-  const sortedCollaborators = useMemo(() => {
-    return [...collaborators].sort((a, b) => {
+  const sortedFilteredCollaborators = useMemo(() => {
+    return [...filteredCollaboratorsWithStatus].sort((a, b) => {
       switch (sortBy) {
         case 'compliance':
           return b.averageCompliance - a.averageCompliance;
@@ -168,7 +204,7 @@ export function TremorKpiDashboard({
           return 0;
       }
     });
-  }, [collaborators, sortBy]);
+  }, [filteredCollaboratorsWithStatus, sortBy]);
 
   const deltaValue = metrics?.previousAverageCompliance
     ? `${(calculatedMetrics.averageCompliance - metrics.previousAverageCompliance) >= 0 ? '+' : ''}${(calculatedMetrics.averageCompliance - metrics.previousAverageCompliance).toFixed(1)}%`
@@ -298,6 +334,24 @@ export function TremorKpiDashboard({
         </Card>
       </Grid>
 
+      {/* Comparativa de Colaboradores - Solo si hay más de 1 y no hay filtro de colaborador */}
+      {collaborators.length > 1 && selectedCollaborator === 'all' && (
+        <Card>
+          <Title>Comparativa de Colaboradores</Title>
+          <Text className="text-gray-500 mb-4">Cumplimiento promedio por persona</Text>
+          <BarChart
+            className="h-60"
+            data={collaboratorComparisonData}
+            index="name"
+            categories={["Cumplimiento"]}
+            colors={["blue"]}
+            valueFormatter={(value: number) => `${value}%`}
+            showLegend={false}
+            showGridLines={true}
+          />
+        </Card>
+      )}
+
       {/* KPIs que requieren atención */}
       {criticalKpisList.length > 0 && (
         <Card>
@@ -313,17 +367,17 @@ export function TremorKpiDashboard({
 
       <Divider />
 
-      {/* Tabs para alternar entre vistas */}
-      <TabGroup>
-        <Flex justifyContent="between" alignItems="center">
-          <TabList variant="solid">
-            <Tab icon={Users}>Por Colaborador</Tab>
-            <Tab icon={Target}>Por KPI</Tab>
-          </TabList>
-
+      {/* Grid de tarjetas KPI */}
+      <div>
+        <Flex justifyContent="between" alignItems="center" className="mb-4">
+          <Title>
+            {selectedCollaborator !== 'all'
+              ? `KPIs de ${selectedCollaborator}`
+              : 'Todos los KPIs'}
+          </Title>
           <Select
             value={sortBy}
-            onValueChange={(value) => setSortBy(value as any)}
+            onValueChange={(value: string) => setSortBy(value as any)}
             className="w-40"
           >
             <SelectItem value="compliance">Por Cumplimiento</SelectItem>
@@ -332,107 +386,53 @@ export function TremorKpiDashboard({
           </Select>
         </Flex>
 
-        <TabPanels>
-          {/* Vista por Colaborador */}
-          <TabPanel>
-            <div className="space-y-4 mt-4">
-              {sortedCollaborators.length === 0 ? (
-                <Card>
-                  <Text className="text-center py-8 text-gray-500">
-                    No hay colaboradores para mostrar
-                  </Text>
-                </Card>
-              ) : (
-                sortedCollaborators.map((collaborator) => (
-                  <div key={collaborator.name}>
-                    <TremorCollaboratorCard
-                      collaborator={collaborator}
-                      expanded={expandedCollaborator === collaborator.name}
-                      onToggleExpand={() =>
-                        setExpandedCollaborator(
-                          expandedCollaborator === collaborator.name ? null : collaborator.name
-                        )
-                      }
-                      onUpdateKpi={onUpdateKpi}
-                    />
-                    {expandedCollaborator === collaborator.name && (
-                      <TremorCollaboratorCardExpanded
-                        collaborator={collaborator}
-                        onUpdateKpi={onUpdateKpi}
-                      />
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </TabPanel>
+        {sortedFilteredCollaborators.length === 0 ? (
+          <Card>
+            <Text className="text-center py-8 text-gray-500">
+              No hay KPIs que coincidan con los filtros seleccionados
+            </Text>
+          </Card>
+        ) : (
+          <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-4">
+            {sortedFilteredCollaborators.flatMap(c =>
+              c.kpis.map(kpi => ({
+                ...kpi,
+                collaborator: c.name,
+              }))
+            ).sort((a, b) => {
+              switch (sortBy) {
+                case 'compliance':
+                  return b.compliance - a.compliance;
+                case 'name':
+                  return a.name.localeCompare(b.name);
+                default:
+                  return 0;
+              }
+            }).map((kpi) => {
+              const extendedKpi = kpi as any;
+              const kpiStatus = kpi.compliance >= 100 ? 'complies' as const :
+                               kpi.compliance >= 90 ? 'alert' as const : 'not_compliant' as const;
 
-          {/* Vista por KPI */}
-          <TabPanel>
-            <div className="mt-4">
-              {kpis.length > 0 ? (
-                <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-4">
-                  {kpis.map((kpi) => (
-                    <TremorKpiCard
-                      key={kpi.id}
-                      id={kpi.id}
-                      name={kpi.name}
-                      value={kpi.value}
-                      target={kpi.target}
-                      unit={kpi.unit}
-                      status={kpi.status}
-                      compliancePercentage={kpi.compliancePercentage}
-                      previousValue={kpi.previousValue}
-                      historicalData={kpi.historicalData}
-                      frequency={kpi.frequency}
-                      onViewDetails={onViewKpiDetails}
-                      onUpdate={onUpdateKpi}
-                    />
-                  ))}
-                </Grid>
-              ) : (
-                <div className="space-y-2">
-                  {sortedCollaborators.flatMap(c =>
-                    c.kpis.map(kpi => ({
-                      ...kpi,
-                      collaborator: c.name,
-                    }))
-                  ).sort((a, b) => {
-                    switch (sortBy) {
-                      case 'compliance':
-                        return b.compliance - a.compliance;
-                      case 'name':
-                        return a.name.localeCompare(b.name);
-                      default:
-                        return 0;
-                    }
-                  }).map((kpi) => {
-                    const extendedKpi = kpi as any;
-                    return (
-                      <TremorKpiCardCompact
-                        key={`${kpi.collaborator}-${kpi.id}`}
-                        id={kpi.id}
-                        name={`${kpi.name} (${kpi.collaborator})`}
-                        value={extendedKpi.latestValue?.value ?? kpi.compliance}
-                        target={extendedKpi.target || '100'}
-                        unit={extendedKpi.unit || '%'}
-                        status={
-                          kpi.compliance >= 100 ? 'complies' :
-                          kpi.compliance >= 90 ? 'alert' : 'not_compliant'
-                        }
-                        compliancePercentage={kpi.compliance}
-                        previousValue={null}
-                        onViewDetails={onViewKpiDetails}
-                        onUpdate={onUpdateKpi}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </TabPanel>
-        </TabPanels>
-      </TabGroup>
+              return (
+                <TremorKpiCard
+                  key={`${kpi.collaborator}-${kpi.id}`}
+                  id={kpi.id}
+                  name={kpi.name}
+                  value={extendedKpi.latestValue?.value ?? `${kpi.compliance.toFixed(1)}%`}
+                  target={extendedKpi.target || '100%'}
+                  unit={extendedKpi.unit || ''}
+                  status={kpiStatus}
+                  compliancePercentage={kpi.compliance}
+                  previousValue={kpi.complianceChange}
+                  frequency={`${kpi.collaborator}`}
+                  onViewDetails={onViewKpiDetails}
+                  onUpdate={onUpdateKpi}
+                />
+              );
+            })}
+          </Grid>
+        )}
+      </div>
     </div>
   );
 }
