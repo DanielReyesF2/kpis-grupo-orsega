@@ -10,15 +10,16 @@ import {
   X,
   Loader2,
   ArrowUp,
-  RotateCcw,
-  MessageSquare
+  RotateCcw
 } from "lucide-react";
 
 import { useChat, type ChatConfig } from "@/lib/econova-sdk";
 import { getAuthToken } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 export function EcoNovaAssistant() {
   const authToken = getAuthToken();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,12 +111,8 @@ export function EcoNovaAssistant() {
     }
   };
 
-  const suggestions = [
-    "¿Cómo van las ventas este mes?",
-    "Top 5 clientes de DURA",
-    "Tipo de cambio actual",
-    "Comparar DURA vs ORSEGA"
-  ];
+  // Get user's first name for personalized greeting
+  const firstName = user?.name?.split(' ')[0] || 'Usuario';
 
   return (
     <>
@@ -199,26 +196,18 @@ export function EcoNovaAssistant() {
                 style={{ minHeight: '200px', maxHeight: 'calc(70vh - 140px)' }}
               >
                 {messages.length === 0 ? (
-                  /* Empty State - Notion style */
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 text-gray-400 mb-6">
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="text-xs uppercase tracking-wide font-medium">Sugerencias</span>
+                  /* Welcome State - Personalized greeting */
+                  <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
+                    <div className="w-12 h-12 rounded-2xl bg-gray-900 flex items-center justify-center mb-6">
+                      <Sparkles className="h-6 w-6 text-white" />
                     </div>
-                    <div className="space-y-2">
-                      {suggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            setInput(suggestion);
-                            inputRef.current?.focus();
-                          }}
-                          className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                      ¡Hola, {firstName}!
+                    </h2>
+                    <p className="text-gray-500 text-sm leading-relaxed max-w-sm">
+                      Soy <span className="font-medium text-gray-700">EcoNova AI</span>, tu asistente inteligente.
+                      Pregúntame sobre ventas, clientes, métricas o cualquier dato que necesites.
+                    </p>
                   </div>
                 ) : (
                   /* Messages - Clean minimal style */
