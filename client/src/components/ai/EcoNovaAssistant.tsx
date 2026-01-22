@@ -5,6 +5,8 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   X,
   Loader2,
@@ -23,6 +25,116 @@ const COLORS = {
   limeDark: '#9ed43e',
   darkLight: '#344a5c',
   darkLighter: '#3d566a'
+};
+
+// Styled Markdown components for NovaAI responses
+const MarkdownComponents = {
+  // Tables with EcoNova styling
+  table: ({ children }: any) => (
+    <div className="my-3 overflow-x-auto rounded-lg" style={{ border: `1px solid ${COLORS.darkLighter}` }}>
+      <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }: any) => (
+    <thead style={{ backgroundColor: COLORS.darkLight }}>
+      {children}
+    </thead>
+  ),
+  th: ({ children }: any) => (
+    <th
+      className="px-3 py-2 text-left font-semibold text-xs uppercase tracking-wide"
+      style={{ color: COLORS.lime, borderBottom: `1px solid ${COLORS.darkLighter}` }}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children }: any) => (
+    <td
+      className="px-3 py-2"
+      style={{ borderBottom: `1px solid ${COLORS.darkLighter}`, color: 'rgba(255,255,255,0.85)' }}
+    >
+      {children}
+    </td>
+  ),
+  tr: ({ children }: any) => (
+    <tr className="transition-colors" style={{ backgroundColor: 'transparent' }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.darkLight + '40'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+    >
+      {children}
+    </tr>
+  ),
+  // Headers
+  h1: ({ children }: any) => (
+    <h1 className="text-lg font-bold mt-4 mb-2" style={{ color: COLORS.lime }}>{children}</h1>
+  ),
+  h2: ({ children }: any) => (
+    <h2 className="text-base font-bold mt-3 mb-2" style={{ color: COLORS.lime }}>{children}</h2>
+  ),
+  h3: ({ children }: any) => (
+    <h3 className="text-sm font-semibold mt-3 mb-1" style={{ color: COLORS.lime }}>{children}</h3>
+  ),
+  // Lists
+  ul: ({ children }: any) => (
+    <ul className="my-2 ml-4 space-y-1" style={{ listStyleType: 'none' }}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children }: any) => (
+    <ol className="my-2 ml-4 space-y-1 list-decimal list-inside">
+      {children}
+    </ol>
+  ),
+  li: ({ children }: any) => (
+    <li className="flex items-start gap-2">
+      <span style={{ color: COLORS.lime }}>•</span>
+      <span>{children}</span>
+    </li>
+  ),
+  // Code blocks
+  code: ({ inline, children }: any) => (
+    inline ? (
+      <code
+        className="px-1.5 py-0.5 rounded text-xs font-mono"
+        style={{ backgroundColor: COLORS.darkLight, color: COLORS.lime }}
+      >
+        {children}
+      </code>
+    ) : (
+      <pre
+        className="my-2 p-3 rounded-lg overflow-x-auto text-xs font-mono"
+        style={{ backgroundColor: COLORS.darkLight }}
+      >
+        <code style={{ color: 'rgba(255,255,255,0.9)' }}>{children}</code>
+      </pre>
+    )
+  ),
+  // Bold and emphasis
+  strong: ({ children }: any) => (
+    <strong className="font-semibold" style={{ color: COLORS.lime }}>{children}</strong>
+  ),
+  em: ({ children }: any) => (
+    <em style={{ color: 'rgba(255,255,255,0.95)' }}>{children}</em>
+  ),
+  // Paragraphs
+  p: ({ children }: any) => (
+    <p className="my-1.5 leading-relaxed">{children}</p>
+  ),
+  // Horizontal rule
+  hr: () => (
+    <hr className="my-3" style={{ borderColor: COLORS.darkLighter }} />
+  ),
+  // Blockquote
+  blockquote: ({ children }: any) => (
+    <blockquote
+      className="my-2 pl-3 italic"
+      style={{ borderLeft: `3px solid ${COLORS.lime}`, color: 'rgba(255,255,255,0.8)' }}
+    >
+      {children}
+    </blockquote>
+  ),
 };
 
 export function EcoNovaAssistant() {
@@ -284,10 +396,15 @@ export function EcoNovaAssistant() {
                             </div>
                           ) : (
                             <div
-                              className="text-sm leading-relaxed whitespace-pre-wrap"
+                              className="text-sm leading-relaxed nova-markdown"
                               style={{ color: 'rgba(255,255,255,0.9)' }}
                             >
-                              {message.content}
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={MarkdownComponents}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
                             </div>
                           )}
                         </motion.div>
