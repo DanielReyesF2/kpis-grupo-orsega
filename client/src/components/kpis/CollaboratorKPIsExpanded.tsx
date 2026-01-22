@@ -4,8 +4,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpDown, ArrowDown, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ArrowUpDown, ArrowDown, ArrowUp, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Target, Calendar } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { EnhancedKpiCard } from './EnhancedKpiCard';
 import type { CollaboratorScore } from './CollaboratorCard';
 
@@ -167,13 +169,13 @@ export function CollaboratorKPIsExpanded({
                   open={expandedKpiId === kpi.id}
                   onOpenChange={(open) => setExpandedKpiId(open ? kpi.id : null)}
                 >
-                  {/* Fila principal del KPI - Formato horizontal tipo tabla */}
+                  {/* Fila principal del KPI - Formato horizontal mejorado */}
                   <CollapsibleTrigger asChild>
                     <button className="w-full p-5 hover:bg-gray-50/50 transition-colors text-left border-b border-gray-100 last:border-b-0">
-                      <div className="flex items-center justify-between gap-6">
-                        {/* Información principal del KPI - Diseño horizontal */}
-                        <div className="flex-1 grid grid-cols-3 gap-6 items-center">
-                          {/* Nombre del KPI */}
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Información principal del KPI - Diseño horizontal mejorado */}
+                        <div className="flex-1 grid grid-cols-4 gap-4 items-center">
+                          {/* Nombre del KPI y Estado */}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="text-sm font-bold text-gray-900 truncate">
@@ -189,7 +191,7 @@ export function CollaboratorKPIsExpanded({
                             </div>
                           </div>
 
-                          {/* Valor Actual */}
+                          {/* Valor Actual con Variación */}
                           <div>
                             <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Valor Actual</div>
                             <div className="text-lg font-bold text-gray-900">
@@ -211,8 +213,49 @@ export function CollaboratorKPIsExpanded({
                               {kpi.unit && <span className="text-sm font-normal text-gray-500 ml-1">{kpi.unit}</span>}
                             </div>
                           </div>
+
+                          {/* Barra de Progreso y Cumplimiento */}
+                          <div className="min-w-[120px]">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-500 uppercase tracking-wide">Cumplimiento</span>
+                              <span className={`text-xs font-bold ${
+                                kpi.compliancePercentage >= 100 ? 'text-green-600' :
+                                kpi.compliancePercentage >= 90 ? 'text-amber-600' : 'text-red-600'
+                              }`}>
+                                {kpi.compliancePercentage.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  kpi.compliancePercentage >= 100 ? 'bg-green-500' :
+                                  kpi.compliancePercentage >= 90 ? 'bg-amber-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(kpi.compliancePercentage, 100)}%` }}
+                              />
+                            </div>
+                            {/* Indicador de tendencia */}
+                            <div className="flex items-center justify-end mt-1">
+                              {kpi.compliancePercentage >= 100 ? (
+                                <span className="flex items-center text-xs text-green-600">
+                                  <TrendingUp className="h-3 w-3 mr-0.5" />
+                                  En meta
+                                </span>
+                              ) : kpi.compliancePercentage >= 90 ? (
+                                <span className="flex items-center text-xs text-amber-600">
+                                  <Minus className="h-3 w-3 mr-0.5" />
+                                  Cerca
+                                </span>
+                              ) : (
+                                <span className="flex items-center text-xs text-red-600">
+                                  <TrendingDown className="h-3 w-3 mr-0.5" />
+                                  Bajo meta
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        
+
                         {/* Botones de acción */}
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Button

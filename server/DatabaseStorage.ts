@@ -1700,6 +1700,49 @@ export class DatabaseStorage implements IStorage {
                                   status === 'not_compliant' ? 'non-compliant' :
                                   status;
 
+          // Calcular trend REAL basado en valor anterior (no hardcodeado)
+          let trend: 'up' | 'down' | 'stable' = 'stable';
+          let previousValue: string | null = null;
+          let trendPercentage: number | null = null;
+
+          // Intentar obtener valor anterior para calcular tendencia
+          try {
+            const historyValues = await this.getCompanyKpiValuesByKpiNormalized(
+              this.resolveCompany(user.companyId!),
+              kpi.id
+            );
+
+            if (historyValues && historyValues.length >= 2) {
+              // Ordenar por fecha descendente y tomar el segundo valor (anterior)
+              const sortedValues = historyValues.sort((a, b) => {
+                const dateA = new Date(a.date || a.createdAt || 0).getTime();
+                const dateB = new Date(b.date || b.createdAt || 0).getTime();
+                return dateB - dateA;
+              });
+
+              const currentNum = parseFloat(String(currentValue || '0').replace(/[^0-9.-]+/g, ''));
+              const prevValue = sortedValues[1];
+              previousValue = prevValue?.value ?? null;
+              const prevNum = parseFloat(String(previousValue || '0').replace(/[^0-9.-]+/g, ''));
+
+              if (!isNaN(currentNum) && !isNaN(prevNum) && prevNum !== 0) {
+                const change = ((currentNum - prevNum) / prevNum) * 100;
+                trendPercentage = change;
+
+                if (change > 5) {
+                  trend = 'up';
+                } else if (change < -5) {
+                  trend = 'down';
+                } else {
+                  trend = 'stable';
+                }
+              }
+            }
+          } catch (e) {
+            // Si falla, mantener trend como stable
+            console.warn(`[getKPIOverview] Error calculando trend para KPI ${kpi.id}:`, e);
+          }
+
           overview.push({
             userId: user.id,
             userName: user.name,
@@ -1714,7 +1757,9 @@ export class DatabaseStorage implements IStorage {
             lastUpdate,
             status: normalizedStatus,
             compliancePercentage,
-            trend: "stable",
+            trend,
+            previousValue,
+            trendPercentage,
           });
         }
       }
