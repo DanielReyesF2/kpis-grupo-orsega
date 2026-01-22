@@ -10237,19 +10237,24 @@ export function registerRoutes(app: express.Application) {
   // Usa EcoNova (Claude) o OpenAI segun configuracion
   app.post("/api/ask", jwtAuthMiddleware, async (req, res) => {
     try {
-      const { question } = req.body;
+      const { question, conversationHistory } = req.body;
 
       if (!question || typeof question !== 'string') {
         return res.status(400).json({ error: 'Pregunta requerida' });
       }
 
       console.log(`[POST /api/ask] Procesando pregunta: "${question}"`);
+      console.log(`[POST /api/ask] Historial de conversación: ${conversationHistory?.length || 0} mensajes`);
 
       // Extraer contexto del usuario autenticado
       const user = (req as any).user;
       const context = {
         userId: user?.id,
-        companyId: user?.companyId
+        companyId: user?.companyId,
+        // Pasar historial de conversación para que Claude tenga memoria
+        conversationHistory: Array.isArray(conversationHistory)
+          ? conversationHistory.slice(-10) // Limitar a últimos 10 mensajes para evitar tokens excesivos
+          : undefined
       };
 
       // Usar EcoNova (Claude) si ANTHROPIC_API_KEY esta configurada

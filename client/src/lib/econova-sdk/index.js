@@ -21,7 +21,7 @@ var EcoNovaClient = class {
     this.questionField = config.questionField || "message";
     this.answerField = config.answerField || "response";
   }
-  async sendMessage(message, conversationId) {
+  async sendMessage(message, conversationHistory = []) {
     const headers = {
       "Content-Type": "application/json",
       ...this.headers
@@ -29,12 +29,17 @@ var EcoNovaClient = class {
     if (this.apiKey) {
       headers["Authorization"] = `Bearer ${this.apiKey}`;
     }
+
+    // Build request body with conversation history for context
     const body = {
-      [this.questionField]: message
+      [this.questionField]: message,
+      // Send conversation history so Claude has memory of the conversation
+      conversationHistory: conversationHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
     };
-    if (conversationId) {
-      body.conversationId = conversationId;
-    }
+
     const response = await fetch(`${this.baseUrl}${this.endpoint}`, {
       method: "POST",
       headers,
@@ -49,7 +54,6 @@ var EcoNovaClient = class {
     const data = await response.json();
     return {
       response: data[this.answerField] || data.answer || data.response || data.message || "",
-      conversationId: data.conversationId || conversationId,
       data: data.data,
       source: data.source
     };
@@ -61,7 +65,6 @@ function useChat(config) {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [conversationId, setConversationId] = useState(null);
   const client = useMemo(() => new EcoNovaClient(config), [
     config.apiKey,
     config.baseUrl,
@@ -69,6 +72,7 @@ function useChat(config) {
     config.questionField,
     config.answerField
   ]);
+
   const sendMessage = useCallback(async (content) => {
     const userMessage = {
       id: crypto.randomUUID(),
@@ -76,11 +80,22 @@ function useChat(config) {
       content,
       createdAt: /* @__PURE__ */ new Date()
     };
-    setMessages((prev) => [...prev, userMessage]);
+
+    // Get current messages before adding new one (for history)
+    let currentMessages = [];
+    setMessages((prev) => {
+      currentMessages = prev;
+      return [...prev, userMessage];
+    });
+
     setIsLoading(true);
     setError(null);
+
     try {
-      const response = await client.sendMessage(content, conversationId || void 0);
+      // Pass conversation history (previous messages) to Claude
+      const historyForClaude = [...currentMessages, userMessage];
+      const response = await client.sendMessage(content, historyForClaude);
+
       const assistantMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -88,34 +103,31 @@ function useChat(config) {
         createdAt: /* @__PURE__ */ new Date()
       };
       setMessages((prev) => [...prev, assistantMessage]);
-      if (response.conversationId) {
-        setConversationId(response.conversationId);
-      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err : new Error("Unknown error");
       setError(errorMessage);
       const errorAssistantMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Lo siento, ocurri\xF3 un error: ${errorMessage.message}`,
+        content: `Lo siento, ocurrió un error: ${errorMessage.message}`,
         createdAt: /* @__PURE__ */ new Date()
       };
       setMessages((prev) => [...prev, errorAssistantMessage]);
     } finally {
       setIsLoading(false);
     }
-  }, [client, conversationId]);
+  }, [client]);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
-    setConversationId(null);
     setError(null);
   }, []);
+
   return {
     messages,
     sendMessage,
     isLoading,
     error,
-    conversationId,
     clearMessages
   };
 }
@@ -177,7 +189,7 @@ function EcoNovaChat({
           className: `flex-1 px-4 py-2 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"} focus:outline-none focus:ring-2 focus:ring-blue-500`
         }
       ),
-      /* @__PURE__ */ jsx(
+      /* @__PURE__*/ jsx(
         "button",
         {
           type: "submit",
