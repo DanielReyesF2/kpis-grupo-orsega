@@ -1,6 +1,6 @@
 /**
- * EcoNova AI Assistant - Notion-style minimal design
- * Clean, simple, elegant interface
+ * EcoNova AI Assistant - Branded with EcoNova colors
+ * #273949 (dark slate) + #b5e951 (lime green)
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -16,6 +16,15 @@ import {
 import { useChat, type ChatConfig } from "@/lib/econova-sdk";
 import { getAuthToken } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+
+// EcoNova brand colors
+const COLORS = {
+  dark: '#273949',
+  lime: '#b5e951',
+  limeDark: '#9ed43e',
+  darkLight: '#344a5c',
+  darkLighter: '#3d566a'
+};
 
 export function EcoNovaAssistant() {
   const authToken = getAuthToken();
@@ -43,6 +52,9 @@ export function EcoNovaAssistant() {
     isLoading,
     clearMessages
   } = useChat(chatConfig);
+
+  // Get user's first name
+  const firstName = user?.name?.split(' ')[0] || 'Usuario';
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -111,30 +123,38 @@ export function EcoNovaAssistant() {
     }
   };
 
-  // Get user's first name for personalized greeting
-  const firstName = user?.name?.split(' ')[0] || 'Usuario';
-
   return (
     <>
-      {/* Floating Button - Minimal dark style */}
+      {/* Floating Button - EcoNova branded */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full text-white text-sm font-medium transition-all"
+            className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-5 py-3 rounded-full text-sm font-medium transition-all"
             style={{
-              backgroundColor: 'rgba(17, 17, 17, 0.95)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+              backgroundColor: COLORS.dark,
+              color: '#ffffff',
+              boxShadow: `0 4px 20px ${COLORS.dark}50`
             }}
           >
-            <Sparkles className="h-4 w-4" />
-            <span>Ask AI</span>
-            <kbd className="ml-1 px-1.5 py-0.5 text-[10px] font-mono bg-white/15 rounded">⌘K</kbd>
+            <div
+              className="w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: COLORS.lime }}
+            >
+              <Sparkles className="h-3 w-3" style={{ color: COLORS.dark }} />
+            </div>
+            <span>EcoNova AI</span>
+            <kbd
+              className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded"
+              style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.7)' }}
+            >
+              ⌘K
+            </kbd>
           </motion.button>
         )}
       </AnimatePresence>
@@ -147,8 +167,8 @@ export function EcoNovaAssistant() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)' }}
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] px-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
           >
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.98 }}
@@ -156,25 +176,51 @@ export function EcoNovaAssistant() {
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
               transition={{ type: "spring", damping: 30, stiffness: 400 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-[600px] flex flex-col bg-white rounded-xl overflow-hidden"
+              className="w-full max-w-[580px] flex flex-col overflow-hidden"
               style={{
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                maxHeight: '70vh'
+                backgroundColor: COLORS.dark,
+                borderRadius: '20px',
+                boxShadow: `0 25px 60px -12px rgba(0, 0, 0, 0.5)`,
+                maxHeight: '75vh'
               }}
             >
-              {/* Header - Simple and clean */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-gray-900 flex items-center justify-center">
-                    <Sparkles className="h-3.5 w-3.5 text-white" />
+              {/* Header */}
+              <div
+                className="flex items-center justify-between px-5 py-4"
+                style={{ borderBottom: `1px solid ${COLORS.darkLight}` }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: COLORS.lime }}
+                  >
+                    <Sparkles className="h-4 w-4" style={{ color: COLORS.dark }} />
                   </div>
-                  <span className="font-semibold text-gray-900 text-sm">EcoNova AI</span>
+                  <div>
+                    <span className="font-semibold text-white text-sm">EcoNova AI</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full animate-pulse"
+                        style={{ backgroundColor: COLORS.lime }}
+                      />
+                      <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>Online</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   {messages.length > 0 && (
                     <button
                       onClick={clearMessages}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      className="p-2 rounded-lg transition-colors"
+                      style={{ color: 'rgba(255,255,255,0.5)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = COLORS.darkLight;
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                      }}
                       title="Nueva conversación"
                     >
                       <RotateCcw className="h-4 w-4" />
@@ -182,7 +228,16 @@ export function EcoNovaAssistant() {
                   )}
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    className="p-2 rounded-lg transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.5)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = COLORS.darkLight;
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                    }}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -193,25 +248,28 @@ export function EcoNovaAssistant() {
               <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto"
-                style={{ minHeight: '200px', maxHeight: 'calc(70vh - 140px)' }}
+                style={{ minHeight: '250px', maxHeight: 'calc(75vh - 160px)' }}
               >
                 {messages.length === 0 ? (
-                  /* Welcome State - Personalized greeting */
-                  <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
-                    <div className="w-12 h-12 rounded-2xl bg-gray-900 flex items-center justify-center mb-6">
-                      <Sparkles className="h-6 w-6 text-white" />
+                  /* Welcome State */
+                  <div className="h-full flex flex-col items-center justify-center text-center px-8 py-16">
+                    <div
+                      className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+                      style={{ backgroundColor: COLORS.lime }}
+                    >
+                      <Sparkles className="h-8 w-8" style={{ color: COLORS.dark }} />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    <h2 className="text-2xl font-bold text-white mb-2">
                       ¡Hola, {firstName}!
                     </h2>
-                    <p className="text-gray-500 text-sm leading-relaxed max-w-sm">
-                      Soy <span className="font-medium text-gray-700">EcoNova AI</span>, tu asistente inteligente.
-                      Pregúntame sobre ventas, clientes, métricas o cualquier dato que necesites.
+                    <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Soy <span className="font-semibold" style={{ color: COLORS.lime }}>EcoNova AI</span>, tu asistente inteligente.
+                      Pregúntame lo que necesites.
                     </p>
                   </div>
                 ) : (
-                  /* Messages - Clean minimal style */
-                  <div className="p-4 space-y-4">
+                  /* Messages */
+                  <div className="p-5 space-y-5">
                     {messages.map((message, index) => {
                       const isLastAssistant = message.role === "assistant" && index === messages.length - 1;
                       const isUser = message.role === "user";
@@ -225,11 +283,17 @@ export function EcoNovaAssistant() {
                           className={isUser ? "flex justify-end" : ""}
                         >
                           {isUser ? (
-                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-gray-900 text-white text-sm">
+                            <div
+                              className="max-w-[85%] px-4 py-3 rounded-2xl rounded-br-md text-sm"
+                              style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
+                            >
                               {message.content}
                             </div>
                           ) : (
-                            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            <div
+                              className="text-sm leading-relaxed whitespace-pre-wrap"
+                              style={{ color: 'rgba(255,255,255,0.9)' }}
+                            >
                               {message.content}
                             </div>
                           )}
@@ -242,9 +306,10 @@ export function EcoNovaAssistant() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="flex items-center gap-2 text-gray-400"
+                        className="flex items-center gap-2"
+                        style={{ color: 'rgba(255,255,255,0.5)' }}
                       >
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" style={{ color: COLORS.lime }} />
                         <span className="text-sm">Pensando...</span>
                       </motion.div>
                     )}
@@ -252,35 +317,70 @@ export function EcoNovaAssistant() {
                 )}
               </div>
 
-              {/* Input - Clean Notion style */}
-              <div className="p-3 border-t border-gray-100">
+              {/* Input */}
+              <div
+                className="p-4"
+                style={{ borderTop: `1px solid ${COLORS.darkLight}` }}
+              >
                 <form onSubmit={handleSubmit} className="relative">
                   <textarea
                     ref={inputRef}
                     value={input}
                     onChange={handleTextareaChange}
                     onKeyDown={handleKeyDown}
-                    placeholder="Pregunta algo..."
+                    placeholder="Escribe tu pregunta..."
                     rows={1}
                     disabled={isLoading}
-                    className="w-full resize-none rounded-lg px-4 py-3 pr-12 text-sm bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-300 focus:bg-white transition-colors"
+                    className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm focus:outline-none transition-all"
+                    style={{
+                      backgroundColor: COLORS.darkLight,
+                      border: `1px solid ${COLORS.darkLighter}`,
+                      color: '#ffffff',
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = COLORS.lime}
+                    onBlur={(e) => e.currentTarget.style.borderColor = COLORS.darkLighter}
                   />
                   <button
                     type="submit"
                     disabled={!input.trim() || isLoading}
-                    className="absolute right-2 bottom-2 p-2 rounded-md bg-gray-900 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                    className="absolute right-2 bottom-2 p-2.5 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: COLORS.lime,
+                      color: COLORS.dark
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = COLORS.limeDark;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = COLORS.lime;
+                    }}
                   >
                     <ArrowUp className="h-4 w-4" />
                   </button>
                 </form>
-                <div className="flex items-center justify-center gap-3 mt-2 text-[11px] text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-mono text-[10px]">↵</kbd>
+                <div
+                  className="flex items-center justify-center gap-4 mt-3 text-[11px]"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <kbd
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                      style={{ backgroundColor: COLORS.darkLight }}
+                    >
+                      ↵
+                    </kbd>
                     enviar
                   </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-mono text-[10px]">esc</kbd>
+                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                  <span className="flex items-center gap-1.5">
+                    <kbd
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                      style={{ backgroundColor: COLORS.darkLight }}
+                    >
+                      esc
+                    </kbd>
                     cerrar
                   </span>
                 </div>
