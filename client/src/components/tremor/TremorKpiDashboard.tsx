@@ -312,7 +312,7 @@ export function TremorKpiDashboard({
             </Flex>
           </Card>
         ) : (
-          <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-4">
+          <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-6">
             {sortedCollaborators.map((collaborator) => {
               const complianceColor =
                 collaborator.averageCompliance >= 100
@@ -336,63 +336,65 @@ export function TremorKpiDashboard({
                   key={collaborator.name}
                   decoration="left"
                   decorationColor={getStatusDecorationColor(collaborator.status)}
+                  className="p-6"
                 >
                   {/* Nombre + BadgeDelta */}
-                  <Flex justifyContent="between" alignItems="start">
-                    <p className="font-semibold truncate min-w-0 flex-1 text-sm" style={{ color: 'var(--text-primary, #111827)' }}>
+                  <Flex justifyContent="between" alignItems="center">
+                    <p className="font-bold truncate min-w-0 flex-1 text-lg" style={{ color: '#111827' }}>
                       {collaborator.name}
                     </p>
                     {scoreChangeValue && (
-                      <BadgeDelta deltaType={getDeltaTypeFromChange(collaborator.scoreChange)} size="xs">
+                      <BadgeDelta deltaType={getDeltaTypeFromChange(collaborator.scoreChange)}>
                         {scoreChangeValue}
                       </BadgeDelta>
                     )}
                   </Flex>
 
                   {/* Status dot + label */}
-                  <Flex justifyContent="start" className="gap-1.5 mt-1">
-                    <span className={`inline-block w-2 h-2 rounded-full ${getStatusDotColor(collaborator.status)}`} />
-                    <Text className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className={`inline-block w-3 h-3 rounded-full ${getStatusDotColor(collaborator.status)}`} />
+                    <p className="text-sm" style={{ color: '#6b7280' }}>
                       {getStatusLabel(collaborator.status)}
-                    </Text>
-                  </Flex>
+                    </p>
+                  </div>
 
                   {/* Hero: % de cumplimiento */}
-                  <div className="mt-3 mb-3">
-                    <Metric className={complianceColor}>
+                  <div className="mt-4 mb-4">
+                    <p className={`text-4xl font-bold tracking-tight ${complianceColor}`}>
                       {collaborator.averageCompliance.toFixed(1)}%
-                    </Metric>
-                    <Text className="text-xs text-gray-500 dark:text-gray-400">Cumplimiento</Text>
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: '#6b7280' }}>Cumplimiento</p>
                   </div>
 
                   {/* CategoryBar distribución */}
                   <CategoryBar
                     values={categoryValues}
                     colors={["emerald", "yellow", "rose"]}
+                    className="h-3"
                   />
 
                   {/* Desglose con colores */}
-                  <Flex justifyContent="start" className="mt-3 gap-1 flex-wrap">
-                    <Text className="text-xs">
-                      <Bold className="text-emerald-600 dark:text-emerald-400">{collaborator.compliantKpis}</Bold>
-                      <span className="text-gray-500 dark:text-gray-400"> cumplidos</span>
-                    </Text>
-                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <Text className="text-xs">
-                      <Bold className="text-yellow-600 dark:text-yellow-400">{collaborator.alertKpis}</Bold>
-                      <span className="text-gray-500 dark:text-gray-400"> riesgo</span>
-                    </Text>
-                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <Text className="text-xs">
-                      <Bold className="text-rose-600 dark:text-rose-400">{collaborator.notCompliantKpis}</Bold>
-                      <span className="text-gray-500 dark:text-gray-400"> críticos</span>
-                    </Text>
-                  </Flex>
+                  <div className="flex items-center gap-2 mt-4 flex-wrap">
+                    <span className="text-sm">
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{collaborator.compliantKpis}</span>
+                      <span style={{ color: '#6b7280' }}> cumplidos</span>
+                    </span>
+                    <span style={{ color: '#d1d5db' }}>|</span>
+                    <span className="text-sm">
+                      <span className="font-bold text-yellow-600 dark:text-yellow-400">{collaborator.alertKpis}</span>
+                      <span style={{ color: '#6b7280' }}> riesgo</span>
+                    </span>
+                    <span style={{ color: '#d1d5db' }}>|</span>
+                    <span className="text-sm">
+                      <span className="font-bold text-rose-600 dark:text-rose-400">{collaborator.notCompliantKpis}</span>
+                      <span style={{ color: '#6b7280' }}> críticos</span>
+                    </span>
+                  </div>
 
                   {/* Ratio resumen */}
-                  <Text className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-sm mt-2" style={{ color: '#6b7280' }}>
                     {collaborator.compliantKpis}/{collaborator.totalKpis} cumplidos
-                  </Text>
+                  </p>
                 </Card>
               );
             })}
