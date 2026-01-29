@@ -1913,6 +1913,23 @@ export function registerRoutes(app: express.Application) {
         collaboratorsMap.get(responsible)!.kpis.push(kpi);
       });
 
+      // Incluir usuarios del sistema (collaborator/manager) aunque no tengan KPIs asignados
+      const allUsers = await storage.getUsers();
+      allUsers.forEach((user: any) => {
+        if (user.role !== 'collaborator' && user.role !== 'manager') return;
+        // Filtrar por empresa si se especificó (null = todas las empresas)
+        if (companyIdParam !== undefined && user.companyId !== null && user.companyId !== companyIdParam) return;
+        const userName = user.name?.trim();
+        if (!userName) return;
+        if (!collaboratorsMap.has(userName)) {
+          collaboratorsMap.set(userName, {
+            name: userName,
+            kpis: [],
+            kpiValues: []
+          });
+        }
+      });
+
       // Agrupar valores por KPI para acceso rápido
       const valuesByKpiId = new Map<number, any[]>();
       kpiValues.forEach((value: any) => {
