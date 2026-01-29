@@ -1,26 +1,24 @@
 /**
- * TremorKpiDashboard - Dashboard principal de KPIs con Tremor
- * Vista general con métricas, gráficas y listado de colaboradores
+ * TremorKpiDashboard - Dashboard ejecutivo de KPIs con Tremor
+ * Vista "Colaborador-First": scoreboard del equipo con semáforo y distribución de KPIs
  */
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   Card,
   Metric,
   Text,
   Flex,
   Grid,
-  Col,
   Title,
   BadgeDelta,
   ProgressBar,
-  AreaChart,
-  DonutChart,
-  BarChart,
+  CategoryBar,
   BarList,
+  Bold,
 } from "@tremor/react";
 import { type TremorCollaboratorData } from "./TremorCollaboratorCard";
-import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Users } from "lucide-react";
 import type { DeltaType } from "./TremorKpiCard";
 
 // Umbrales de cumplimiento (deben coincidir con @shared/kpi-utils.ts)
@@ -36,6 +34,28 @@ function getStatusFromCompliance(compliance: number): 'complies' | 'alert' | 'no
   if (compliance >= KPI_THRESHOLDS.COMPLIES) return 'complies';
   if (compliance >= KPI_THRESHOLDS.ALERT) return 'alert';
   return 'not_compliant';
+}
+
+// Helper para obtener etiqueta de status en español
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'excellent': return "Excelente";
+    case 'good': return "Bueno";
+    case 'regular': return "Regular";
+    case 'critical': return "Crítico";
+    default: return "Sin estado";
+  }
+}
+
+// Helper para obtener color del dot de status
+function getStatusDotColor(status: string): string {
+  switch (status) {
+    case 'excellent': return "bg-emerald-500";
+    case 'good': return "bg-blue-500";
+    case 'regular': return "bg-yellow-500";
+    case 'critical': return "bg-rose-500";
+    default: return "bg-gray-400";
+  }
 }
 
 // Tipos para los datos del dashboard
@@ -88,6 +108,16 @@ function getDeltaType(current: number, previous: number | undefined): DeltaType 
   return "decrease";
 }
 
+// Función para obtener delta type desde un cambio numérico
+function getDeltaTypeFromChange(change: number | null | undefined): DeltaType {
+  if (change === null || change === undefined) return "unchanged";
+  if (change >= 10) return "increase";
+  if (change > 0) return "moderateIncrease";
+  if (change === 0) return "unchanged";
+  if (change > -10) return "moderateDecrease";
+  return "decrease";
+}
+
 export function TremorKpiDashboard({
   collaborators,
   kpis = [],
@@ -100,8 +130,6 @@ export function TremorKpiDashboard({
   selectedCollaborator = 'all',
   statusFilter = 'all',
 }: TremorKpiDashboardProps) {
-  const [expandedCollaborator, setExpandedCollaborator] = useState<string | null>(null);
-
   // Filtrar colaboradores según el filtro seleccionado
   const filteredCollaborators = useMemo(() => {
     if (selectedCollaborator === 'all') return collaborators;
@@ -151,34 +179,21 @@ export function TremorKpiDashboard({
     };
   }, [filteredCollaboratorsWithStatus, metrics, selectedCollaborator, statusFilter]);
 
-  // Datos para el gráfico de área
-  const chartData = useMemo(() => {
-    if (historicalData.length > 0) return historicalData;
+  // Conteo de colaboradores que necesitan atención
+  const collaboratorsNeedingAttention = useMemo(() => {
+    return filteredCollaboratorsWithStatus.filter(
+      c => c.status === 'critical' || c.status === 'regular'
+    ).length;
+  }, [filteredCollaboratorsWithStatus]);
 
-    // Sin datos históricos, mostrar solo el punto actual
-    if (calculatedMetrics.averageCompliance > 0) {
-      return [{ date: "Actual", compliance: calculatedMetrics.averageCompliance }];
-    }
-    return [];
-  }, [historicalData, calculatedMetrics.averageCompliance]);
-
-  // Datos para DonutChart
-  const donutData = [
-    { name: "Cumplidos", value: calculatedMetrics.compliantKpis },
-    { name: "En Riesgo", value: calculatedMetrics.alertKpis },
-    { name: "Críticos", value: calculatedMetrics.criticalKpis },
-  ];
-
-  // Datos para BarChart comparativo de colaboradores
-  const collaboratorComparisonData = useMemo(() => {
-    return collaborators.map(c => ({
-      name: c.name,
-      "Cumplimiento": parseFloat(c.averageCompliance.toFixed(1)),
-      "KPIs Cumplidos": c.compliantKpis,
-      "KPIs en Riesgo": c.alertKpis,
-      "KPIs Críticos": c.notCompliantKpis,
-    }));
-  }, [collaborators]);
+  // Colaboradores ordenados: peor primero
+  const sortedCollaborators = useMemo(() => {
+    return [...filteredCollaboratorsWithStatus].sort((a, b) => {
+      if (a.averageCompliance !== b.averageCompliance)
+        return a.averageCompliance - b.averageCompliance;
+      return b.notCompliantKpis - a.notCompliantKpis; // más críticos primero
+    });
+  }, [filteredCollaboratorsWithStatus]);
 
   // Top KPIs críticos para BarList (KPIs que no cumplen al 100%)
   const criticalKpisList = useMemo(() => {
@@ -207,13 +222,13 @@ export function TremorKpiDashboard({
         <Text className="text-gray-500">{subtitle}</Text>
       </div>
 
-      {/* Métricas principales */}
-      <Grid numItemsSm={2} numItemsLg={4} className="gap-4">
-        {/* Cumplimiento promedio */}
+      {/* Sección 1: Resumen compacto - 3 tarjetas */}
+      <Grid numItemsSm={2} numItemsLg={3} className="gap-4">
+        {/* Cumplimiento del Equipo */}
         <Card decoration="top" decorationColor="blue">
           <Flex alignItems="start" justifyContent="between">
             <div>
-              <Text>Cumplimiento Promedio</Text>
+              <Text>Cumplimiento del Equipo</Text>
               <Metric className={`${
                 calculatedMetrics.averageCompliance >= 100 ? 'text-emerald-600' :
                 calculatedMetrics.averageCompliance >= 90 ? 'text-yellow-600' : 'text-rose-600'
@@ -237,111 +252,123 @@ export function TremorKpiDashboard({
           />
         </Card>
 
-        {/* KPIs Cumplidos */}
+        {/* Total de KPIs */}
         <Card decoration="top" decorationColor="emerald">
           <Flex alignItems="center" className="gap-2">
             <CheckCircle className="h-5 w-5 text-emerald-500" />
-            <Text>KPIs Cumplidos</Text>
+            <Text>Total de KPIs</Text>
           </Flex>
-          <Metric className="text-emerald-600">{calculatedMetrics.compliantKpis}</Metric>
-          <Text className="text-xs text-gray-500 mt-1">
-            de {calculatedMetrics.totalKpis} totales
+          <Metric>{calculatedMetrics.totalKpis}</Metric>
+          <CategoryBar
+            values={[
+              calculatedMetrics.compliantKpis,
+              calculatedMetrics.alertKpis,
+              calculatedMetrics.criticalKpis,
+            ]}
+            colors={["emerald", "yellow", "rose"]}
+            className="mt-3"
+          />
+          <Text className="text-xs text-gray-500 mt-2">
+            {calculatedMetrics.compliantKpis} cumplidos / {calculatedMetrics.alertKpis} riesgo / {calculatedMetrics.criticalKpis} críticos
           </Text>
         </Card>
 
-        {/* KPIs en Riesgo */}
-        <Card decoration="top" decorationColor="yellow">
-          <Flex alignItems="center" className="gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            <Text>KPIs en Riesgo</Text>
-          </Flex>
-          <Metric className="text-yellow-600">{calculatedMetrics.alertKpis}</Metric>
-          <Text className="text-xs text-gray-500 mt-1">
-            requieren atención
-          </Text>
-        </Card>
-
-        {/* KPIs Críticos */}
+        {/* Colaboradores en Alerta */}
         <Card decoration="top" decorationColor="rose">
           <Flex alignItems="center" className="gap-2">
-            <XCircle className="h-5 w-5 text-rose-500" />
-            <Text>KPIs Críticos</Text>
+            <AlertTriangle className="h-5 w-5 text-rose-500" />
+            <Text>Colaboradores en Alerta</Text>
           </Flex>
-          <Metric className="text-rose-600">{calculatedMetrics.criticalKpis}</Metric>
+          <Metric className={collaboratorsNeedingAttention > 0 ? "text-rose-600" : "text-emerald-600"}>
+            {collaboratorsNeedingAttention}
+          </Metric>
           <Text className="text-xs text-gray-500 mt-1">
-            por debajo de meta
+            de {filteredCollaboratorsWithStatus.length} colaboradores
           </Text>
         </Card>
       </Grid>
 
-      {/* Gráficos */}
-      <Grid numItemsSm={1} numItemsLg={3} className="gap-4">
-        {/* Gráfico de tendencia */}
-        <Col numColSpan={1} numColSpanLg={2}>
-          <Card>
-            <Title>Tendencia de Cumplimiento</Title>
-            <AreaChart
-              className="h-52 mt-4"
-              data={chartData}
-              index="date"
-              categories={["compliance"]}
-              colors={["blue"]}
-              valueFormatter={(value) => `${value.toFixed(1)}%`}
-              showLegend={false}
-              showGridLines={true}
-              curveType="monotone"
-            />
-          </Card>
-        </Col>
+      {/* Sección 2: Scoreboard del Equipo */}
+      <Card>
+        <Title>Scoreboard del Equipo</Title>
+        <Text className="text-gray-500 mb-4">Ordenado por cumplimiento (menor a mayor)</Text>
 
-        {/* Distribución de KPIs */}
-        <Card>
-          <Title>Distribución de KPIs</Title>
-          <DonutChart
-            className="h-40 mt-4"
-            data={donutData}
-            category="value"
-            index="name"
-            colors={["emerald", "yellow", "rose"]}
-            valueFormatter={(value) => `${value} KPIs`}
-            showAnimation={true}
-          />
-          <Flex className="mt-4 gap-4" justifyContent="center">
-            <Flex alignItems="center" className="gap-1">
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <Text className="text-xs">Cumplidos</Text>
-            </Flex>
-            <Flex alignItems="center" className="gap-1">
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <Text className="text-xs">En Riesgo</Text>
-            </Flex>
-            <Flex alignItems="center" className="gap-1">
-              <div className="w-3 h-3 rounded-full bg-rose-500" />
-              <Text className="text-xs">Críticos</Text>
-            </Flex>
+        {sortedCollaborators.length === 0 ? (
+          /* Estado vacío */
+          <Flex justifyContent="center" alignItems="center" className="py-12 flex-col gap-3">
+            <Users className="h-12 w-12 text-gray-300" />
+            <Text className="text-gray-400">Sin datos de colaboradores</Text>
           </Flex>
-        </Card>
-      </Grid>
+        ) : (
+          <div className="space-y-2">
+            {sortedCollaborators.map((collaborator) => {
+              const complianceColor =
+                collaborator.averageCompliance >= 100 ? 'text-emerald-600' :
+                collaborator.averageCompliance >= 90 ? 'text-yellow-600' : 'text-rose-600';
 
-      {/* Comparativa de Colaboradores - Solo si hay más de 1 y no hay filtro de colaborador */}
-      {collaborators.length > 1 && selectedCollaborator === 'all' && (
-        <Card>
-          <Title>Comparativa de Colaboradores</Title>
-          <Text className="text-gray-500 mb-4">Cumplimiento promedio por persona</Text>
-          <BarChart
-            className="h-60"
-            data={collaboratorComparisonData}
-            index="name"
-            categories={["Cumplimiento"]}
-            colors={["blue"]}
-            valueFormatter={(value: number) => `${value}%`}
-            showLegend={false}
-            showGridLines={true}
-          />
-        </Card>
-      )}
+              const categoryValues = [
+                collaborator.compliantKpis,
+                collaborator.alertKpis,
+                collaborator.notCompliantKpis,
+              ];
 
-      {/* KPIs que requieren atención */}
+              const scoreChangeValue = collaborator.scoreChange !== null && collaborator.scoreChange !== undefined
+                ? `${collaborator.scoreChange >= 0 ? '+' : ''}${collaborator.scoreChange.toFixed(1)}%`
+                : null;
+
+              return (
+                <div
+                  key={collaborator.name}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  {/* Status dot */}
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusDotColor(collaborator.status)}`} />
+
+                  {/* Nombre y status label */}
+                  <div className="min-w-[160px] max-w-[200px] flex-shrink-0">
+                    <Text className="font-medium truncate">{collaborator.name}</Text>
+                    <Text className="text-xs text-gray-400">{getStatusLabel(collaborator.status)}</Text>
+                  </div>
+
+                  {/* % de cumplimiento */}
+                  <div className="min-w-[70px] flex-shrink-0 text-right">
+                    <Bold className={`text-lg ${complianceColor}`}>
+                      {collaborator.averageCompliance.toFixed(1)}%
+                    </Bold>
+                  </div>
+
+                  {/* CategoryBar de distribución */}
+                  <div className="flex-1 min-w-[120px]">
+                    <CategoryBar
+                      values={categoryValues}
+                      colors={["emerald", "yellow", "rose"]}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Texto cumplidos */}
+                  <div className="min-w-[100px] flex-shrink-0 text-right">
+                    <Text className="text-sm">
+                      <Bold>{collaborator.compliantKpis}</Bold>/{collaborator.totalKpis} cumplidos
+                    </Text>
+                  </div>
+
+                  {/* BadgeDelta si hay cambio */}
+                  <div className="min-w-[70px] flex-shrink-0 text-right">
+                    {scoreChangeValue && (
+                      <BadgeDelta deltaType={getDeltaTypeFromChange(collaborator.scoreChange)} size="xs">
+                        {scoreChangeValue}
+                      </BadgeDelta>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* Sección 3: KPIs que requieren atención */}
       {criticalKpisList.length > 0 && (
         <Card>
           <Title>KPIs que Requieren Atención</Title>
