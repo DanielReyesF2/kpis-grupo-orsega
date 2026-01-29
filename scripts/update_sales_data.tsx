@@ -64,7 +64,7 @@ async function updateSalesData() {
       let status;
       if (compliancePercentage >= 100) {
         status = "complies";
-      } else if (compliancePercentage >= 85) {
+      } else if (compliancePercentage >= 90) {
         status = "alert";
       } else {
         status = "not_compliant";
@@ -106,7 +106,7 @@ async function updateSalesData() {
       let status;
       if (compliancePercentage >= 100) {
         status = "complies";
-      } else if (compliancePercentage >= 85) {
+      } else if (compliancePercentage >= 90) {
         status = "alert";
       } else {
         status = "not_compliant";

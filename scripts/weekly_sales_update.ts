@@ -154,10 +154,10 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     const valueUnit = selectedCompanyId === 1 ? "KG" : "unidades";
     const fullFormattedValue = `${formattedValue} ${valueUnit}`;
     
-    // Calcular compliance semanal
+    // Calcular compliance semanal (umbrales centralizados: 100%/90%)
     const weeklyCompliance = (salesData.value / weeklyTarget) * 100;
-    const weeklyStatus = weeklyCompliance >= 95 ? "complies" : 
-                        weeklyCompliance >= 85 ? "alert" : "not_compliant";
+    const weeklyStatus = weeklyCompliance >= 100 ? "complies" :
+                        weeklyCompliance >= 90 ? "alert" : "not_compliant";
     
     const weeklyKpiValue = {
       companyId: volumeKpi.companyId ?? selectedCompanyId,
@@ -198,9 +198,10 @@ export async function updateWeeklySales(salesData: SalesData): Promise<WeeklySal
     console.log(`[UpdateWeeklySales] Total mensual recalculado: ${formattedMonthlyTotal} ${valueUnit} (${currentMonthWeeklySales.length} semanas)`);
     
     // 8. Calcular métricas mensuales en tiempo real (no guardar aún)
+    // Umbrales centralizados: 100%/90% (ver shared/kpi-utils.ts)
     const monthlyCompliancePercentage = (monthlyTotal / monthlyTarget) * 100;
-    const monthlyStatus = monthlyCompliancePercentage >= 95 ? "complies" : 
-                         monthlyCompliancePercentage >= 85 ? "alert" : "not_compliant";
+    const monthlyStatus = monthlyCompliancePercentage >= 100 ? "complies" :
+                         monthlyCompliancePercentage >= 90 ? "alert" : "not_compliant";
     
     const monthlyComment = `Total mensual: ${formattedMonthlyTotal} ${valueUnit} de ${currentMonthWeeklySales.length} semanas (${monthlyCompliancePercentage.toFixed(1)}% del objetivo)`;
     
@@ -284,8 +285,9 @@ export async function autoCloseMonth(companyId: number, month?: string, year?: n
     const annualTarget = parseFloat((volumeKpi.target ?? '0').replace(/[^0-9.,]+/g, '').replace(',', ''));
     const monthlyTarget = Math.round(annualTarget / 12);
     const compliancePercentage = (monthlyTotal / monthlyTarget) * 100;
-    const status = compliancePercentage >= 95 ? "complies" : 
-                  compliancePercentage >= 85 ? "alert" : "not_compliant";
+    // Umbrales centralizados: 100%/90% (ver shared/kpi-utils.ts)
+    const status = compliancePercentage >= 100 ? "complies" :
+                  compliancePercentage >= 90 ? "alert" : "not_compliant";
     
     const valueUnit = companyId === 1 ? "KG" : "unidades";
     const formattedTotal = new Intl.NumberFormat('es-MX').format(monthlyTotal);

@@ -27,6 +27,21 @@ import { type TremorCollaboratorData } from "./TremorCollaboratorCard";
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import type { DeltaType } from "./TremorKpiCard";
 
+// Umbrales de cumplimiento (deben coincidir con @shared/kpi-utils.ts)
+// Fuente de verdad: shared/kpi-utils.ts -> calculateKpiStatus()
+const KPI_THRESHOLDS = {
+  COMPLIES: 100,    // >= 100% = cumple
+  ALERT: 90,        // >= 90% = alerta
+  // < 90% = no cumple
+} as const;
+
+// Helper para determinar status desde compliance
+function getStatusFromCompliance(compliance: number): 'complies' | 'alert' | 'not_compliant' {
+  if (compliance >= KPI_THRESHOLDS.COMPLIES) return 'complies';
+  if (compliance >= KPI_THRESHOLDS.ALERT) return 'alert';
+  return 'not_compliant';
+}
+
 // Tipos para los datos del dashboard
 export interface DashboardKpi {
   id: number;
@@ -105,14 +120,13 @@ export function TremorKpiDashboard({
     return filteredCollaborators.map(c => ({
       ...c,
       kpis: c.kpis.filter(k => {
-        const kpiStatus = k.compliance >= 100 ? 'complies' :
-                         k.compliance >= 90 ? 'alert' : 'not_compliant';
+        const kpiStatus = getStatusFromCompliance(k.compliance);
         return kpiStatus === statusFilter;
       }),
-      // Recalcular conteos
-      compliantKpis: c.kpis.filter(k => k.compliance >= 100 && (statusFilter === 'all' || statusFilter === 'complies')).length,
-      alertKpis: c.kpis.filter(k => k.compliance >= 90 && k.compliance < 100 && (statusFilter === 'all' || statusFilter === 'alert')).length,
-      notCompliantKpis: c.kpis.filter(k => k.compliance < 90 && (statusFilter === 'all' || statusFilter === 'not_compliant')).length,
+      // Recalcular conteos usando umbrales centralizados
+      compliantKpis: c.kpis.filter(k => k.compliance >= KPI_THRESHOLDS.COMPLIES && (statusFilter === 'all' || statusFilter === 'complies')).length,
+      alertKpis: c.kpis.filter(k => k.compliance >= KPI_THRESHOLDS.ALERT && k.compliance < KPI_THRESHOLDS.COMPLIES && (statusFilter === 'all' || statusFilter === 'alert')).length,
+      notCompliantKpis: c.kpis.filter(k => k.compliance < KPI_THRESHOLDS.ALERT && (statusFilter === 'all' || statusFilter === 'not_compliant')).length,
     })).filter(c => c.kpis.length > 0);
   }, [filteredCollaborators, statusFilter]);
 
@@ -120,9 +134,10 @@ export function TremorKpiDashboard({
   const calculatedMetrics = useMemo(() => {
     const allKpis = filteredCollaboratorsWithStatus.flatMap(c => c.kpis);
     const totalKpis = allKpis.length;
-    const compliantKpis = allKpis.filter(k => k.compliance >= 100).length;
-    const alertKpis = allKpis.filter(k => k.compliance >= 90 && k.compliance < 100).length;
-    const criticalKpis = allKpis.filter(k => k.compliance < 90).length;
+    // Usar umbrales centralizados para consistencia con backend
+    const compliantKpis = allKpis.filter(k => k.compliance >= KPI_THRESHOLDS.COMPLIES).length;
+    const alertKpis = allKpis.filter(k => k.compliance >= KPI_THRESHOLDS.ALERT && k.compliance < KPI_THRESHOLDS.COMPLIES).length;
+    const criticalKpis = allKpis.filter(k => k.compliance < KPI_THRESHOLDS.ALERT).length;
     const averageCompliance = totalKpis > 0
       ? allKpis.reduce((sum, k) => sum + k.compliance, 0) / totalKpis
       : 0;
@@ -174,13 +189,13 @@ export function TremorKpiDashboard({
     }));
   }, [collaborators]);
 
-  // Top KPIs críticos para BarList
+  // Top KPIs críticos para BarList (KPIs que no cumplen al 100%)
   const criticalKpisList = useMemo(() => {
     const allKpis = filteredCollaboratorsWithStatus.flatMap(c =>
       c.kpis.map(k => ({ ...k, collaborator: c.name }))
     );
     return allKpis
-      .filter(k => k.compliance < 100)
+      .filter(k => k.compliance < KPI_THRESHOLDS.COMPLIES)
       .sort((a, b) => a.compliance - b.compliance)
       .slice(0, 5)
       .map(k => ({

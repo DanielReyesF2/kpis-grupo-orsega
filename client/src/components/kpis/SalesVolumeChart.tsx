@@ -155,7 +155,7 @@ const CustomTooltip = ({ active, payload, label, formatter, labelFormatter, cust
               
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-xs text-muted-foreground">Cumplimiento:</span>
-                <span className={`text-xs font-bold ${parseFloat(cumplimiento) >= 100 ? 'text-[#22C55E]' : parseFloat(cumplimiento) >= 85 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
+                <span className={`text-xs font-bold ${parseFloat(cumplimiento) >= 100 ? 'text-[#22C55E]' : parseFloat(cumplimiento) >= 90 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
                   {cumplimiento}%
                 </span>
               </div>
@@ -323,7 +323,7 @@ export function SalesVolumeChart({
     const compliancePercent = (value / monthlyTarget) * 100;
     
     if (compliancePercent >= 100) return "#10b981"; // verde - cumple
-    if (compliancePercent >= 85) return "#f59e0b"; // amarillo - alerta
+    if (compliancePercent >= 90) return "#f59e0b"; // amarillo - alerta (umbral centralizado: 90%)
     return "#ef4444"; // rojo - no cumple
   };
 

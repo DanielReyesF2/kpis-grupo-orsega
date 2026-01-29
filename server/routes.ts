@@ -18,6 +18,7 @@ interface AuthRequest extends Request {
 import { storage, type IStorage } from "./storage";
 import { jwtAuthMiddleware, jwtAdminMiddleware, loginUser } from "./auth";
 import { insertCompanySchema, insertAreaSchema, insertKpiSchema, insertKpiValueSchema, insertUserSchema, updateShipmentStatusSchema, insertShipmentSchema, updateKpiSchema, insertClientSchema, insertProviderSchema, type InsertPaymentVoucher, type Kpi, paymentVouchers, deletedPaymentVouchers } from "@shared/schema";
+import { calculateKpiStatus, calculateCompliance, parseNumericValue, isLowerBetterKPI } from "@shared/kpi-utils";
 import { db } from "./db";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { getSourceSeries, getComparison } from "./fx-analytics";
@@ -100,31 +101,11 @@ function redactSensitiveData(obj: unknown): unknown {
   return result;
 }
 
-// Funciones utilitarias mejoradas para validación de KPIs
-function extractNumericValue(value: string | number): number {
-  if (typeof value === 'number') return value;
-  if (typeof value !== 'string') return NaN;
-  
-  // Remover caracteres no numéricos excepto punto decimal y signo negativo
-  const cleaned = value.replace(/[^0-9.-]/g, '');
-  return parseFloat(cleaned);
-}
-
-function isLowerBetterKPI(kpiName: string): boolean {
-  const lowerBetterPatterns = [
-    'rotación de cuentas por cobrar',
-    'velocidad de rotación',
-    'tiempo de',
-    'días de',
-    'plazo de',
-    'demora'
-  ];
-  
-  const lowerKpiName = kpiName.toLowerCase();
-  return lowerBetterPatterns.some(pattern => 
-    lowerKpiName.includes(pattern) && !lowerKpiName.includes('entrega')
-  );
-}
+// Funciones utilitarias de KPI importadas desde @shared/kpi-utils
+// - parseNumericValue: Extrae valor numérico de string/number
+// - isLowerBetterKPI: Determina si un KPI es "menor es mejor"
+// - calculateKpiStatus: Calcula estado (complies/alert/not_compliant)
+// - calculateCompliance: Calcula porcentaje de cumplimiento
 
 // Función para crear notificaciones automáticas en cambios de estado críticos
 async function createKPIStatusChangeNotification(
@@ -1579,26 +1560,15 @@ export function registerRoutes(app: express.Application) {
               ? `${['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][month - 1]} ${year}`
               : `${['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][now.getMonth()]} ${now.getFullYear()}`;
             
-            // Calcular compliance si hay target/goal
+            // Calcular compliance y status usando funciones centralizadas de @shared/kpi-utils
             let compliancePercentage: string | null = null;
             let status: string | null = null;
-            
+
             if (kpi.target || kpi.goal) {
-              const target = parseFloat((kpi.target || kpi.goal || '0').toString().replace(/[^0-9.-]+/g, ''));
-              const value = typeof calculatedValue.value === 'number' ? calculatedValue.value : parseFloat(calculatedValue.value.toString().replace(/[^0-9.-]+/g, ''));
-              
-              if (!isNaN(target) && target > 0 && !isNaN(value)) {
-                const compliance = (value / target) * 100;
-                compliancePercentage = `${compliance.toFixed(1)}%`;
-                
-                if (compliance >= 100) {
-                  status = 'complies';
-                } else if (compliance >= 85) {
-                  status = 'alert';
-                } else {
-                  status = 'not_compliant';
-                }
-              }
+              const targetReference = kpi.target || kpi.goal;
+              const kpiNameForCalc = kpi.name || kpiName || '';
+              status = calculateKpiStatus(calculatedValue.value, targetReference, kpiNameForCalc);
+              compliancePercentage = calculateCompliance(calculatedValue.value, targetReference, kpiNameForCalc);
             }
             
             const kpiValue = {
@@ -1905,55 +1875,24 @@ export function registerRoutes(app: express.Application) {
             });
           }
 
-          // Calcular compliance si no existe o recalcular si es necesario
+          // Calcular compliance usando funciones centralizadas de @shared/kpi-utils
           let compliance = latestValue
             ? parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0')
             : 0;
 
-          // Si no hay compliancePercentage o es 0, calcularlo desde el valor y la meta
+          // Si no hay compliancePercentage o es 0, calcularlo con funciones centralizadas
           if (compliance === 0 && latestValue && (kpi.target || kpi.goal)) {
             const targetReference = kpi.target || kpi.goal;
-            const numericValue = extractNumericValue(latestValue.value);
-            const numericTarget = extractNumericValue(targetReference);
-            
-            if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
-              const lowerBetter = isLowerBetterKPI(kpi.name || "");
-              if (lowerBetter) {
-                compliance = Math.min((numericTarget / numericValue) * 100, 100);
-              } else {
-                compliance = Math.min((numericValue / numericTarget) * 100, 100);
-              }
-            }
+            const complianceStr = calculateCompliance(latestValue.value, targetReference, kpi.name || "");
+            compliance = parseFloat(complianceStr.replace('%', '')) || 0;
           }
 
-          // Determinar status si no existe o recalcular si es necesario
+          // Determinar status usando funciones centralizadas
           let status = latestValue?.status || 'not_compliant';
           if (!latestValue?.status || latestValue.status === 'null' || latestValue.status === null) {
             if (latestValue && (kpi.target || kpi.goal)) {
               const targetReference = kpi.target || kpi.goal;
-              const numericValue = extractNumericValue(latestValue.value);
-              const numericTarget = extractNumericValue(targetReference);
-              
-              if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
-                const lowerBetter = isLowerBetterKPI(kpi.name || "");
-                if (lowerBetter) {
-                  if (numericValue <= numericTarget) {
-                    status = "complies";
-                  } else if (numericValue <= numericTarget * 1.1) {
-                    status = "alert";
-                  } else {
-                    status = "not_compliant";
-                  }
-                } else {
-                  if (numericValue >= numericTarget) {
-                    status = "complies";
-                  } else if (numericValue >= numericTarget * 0.9) {
-                    status = "alert";
-                  } else {
-                    status = "not_compliant";
-                  }
-                }
-              }
+              status = calculateKpiStatus(latestValue.value, targetReference, kpi.name || "");
             }
           }
 
@@ -1961,20 +1900,11 @@ export function registerRoutes(app: express.Application) {
             ? parseFloat(previousValue.compliancePercentage?.toString().replace('%', '') || '0')
             : null;
 
-          // Si previousCompliance es 0, intentar calcularlo
+          // Si previousCompliance es 0, calcularlo con funciones centralizadas
           if (previousCompliance === 0 && previousValue && (kpi.target || kpi.goal)) {
             const targetReference = kpi.target || kpi.goal;
-            const numericValue = extractNumericValue(previousValue.value);
-            const numericTarget = extractNumericValue(targetReference);
-            
-            if (!isNaN(numericValue) && !isNaN(numericTarget) && numericTarget > 0) {
-              const lowerBetter = isLowerBetterKPI(kpi.name || "");
-              if (lowerBetter) {
-                previousCompliance = Math.min((numericTarget / numericValue) * 100, 100);
-              } else {
-                previousCompliance = Math.min((numericValue / numericTarget) * 100, 100);
-              }
-            }
+            const prevCompStr = calculateCompliance(previousValue.value, targetReference, kpi.name || "");
+            previousCompliance = parseFloat(prevCompStr.replace('%', '')) || 0;
           }
 
           // Calcular tendencia de compliance
@@ -2073,11 +2003,12 @@ export function registerRoutes(app: express.Application) {
           else scoreTrendDirection = 'stable';
         }
 
-        // Clasificación del estado
+        // Clasificación del estado del colaborador (basado en score promedio)
+        // Umbrales alineados con kpi-utils.ts: 100% cumple, 90% alerta, <90% no cumple
         let status: 'excellent' | 'good' | 'regular' | 'critical';
-        if (score >= 85) status = 'excellent';
-        else if (score >= 70) status = 'good';
-        else if (score >= 50) status = 'regular';
+        if (score >= 100) status = 'excellent';
+        else if (score >= 90) status = 'good';
+        else if (score >= 70) status = 'regular';
         else status = 'critical';
 
         // Última actualización (más reciente de todos los KPIs)
@@ -2254,80 +2185,39 @@ export function registerRoutes(app: express.Application) {
       let compliancePercentage = validatedData.compliancePercentage ?? null;
 
       const targetReference = kpi.target ?? kpi.goal;
-      console.log(`[KPI Update] Calculando estado para KPI ${kpi.id} (${kpi.name})`);
+      const kpiName = kpi.name || "";
+      console.log(`[KPI Update] Calculando estado para KPI ${kpi.id} (${kpiName})`);
       console.log(`[KPI Update] Valor: "${validatedData.value}", Target/Goal: "${targetReference}"`);
-      
+
+      // ✅ Usar funciones centralizadas de @shared/kpi-utils
+      // Esto garantiza consistencia entre backend y frontend
       if (targetReference) {
-        const numericCurrentValue = extractNumericValue(validatedData.value);
-        const numericTarget = extractNumericValue(targetReference);
+        const numericCurrentValue = parseNumericValue(validatedData.value);
+        const numericTarget = parseNumericValue(targetReference);
 
         console.log(`[KPI Update] Valores numéricos - Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
+        console.log(`[KPI Update] ¿Métrica invertida (lower is better)? ${isLowerBetterKPI(kpiName)}`);
 
-        // ✅ FIX BUG #4: Validar que target > 0 para evitar división por cero
-        if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
-          const lowerBetter = isLowerBetterKPI(kpi.name || "");
-          let percentage: number;
+        if (!isNaN(numericCurrentValue) && !isNaN(numericTarget)) {
+          // Calcular estado y compliance usando funciones centralizadas
+          status = calculateKpiStatus(validatedData.value, targetReference, kpiName);
+          compliancePercentage = calculateCompliance(validatedData.value, targetReference, kpiName).replace('%', '');
 
-          console.log(`[KPI Update] ¿Métrica invertida (lower is better)? ${lowerBetter}`);
-
-          if (lowerBetter) {
-            // Para lowerBetter también necesitamos validar currentValue > 0
-            if (numericCurrentValue > 0) {
-              percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
-            } else {
-              // Si currentValue es 0, el compliance es 100% (óptimo para lower is better)
-              percentage = 100;
-            }
-
-            if (numericCurrentValue <= numericTarget) {
-              status = "complies";
-            } else if (numericCurrentValue <= numericTarget * 1.1) {
-              status = "alert";
-            } else {
-              status = "not_compliant";
-            }
-          } else {
-            percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
-            // Asegurar que cuando valor == target, sea "complies"
-            if (numericCurrentValue >= numericTarget) {
-              status = "complies";
-            } else if (numericCurrentValue >= numericTarget * 0.9) {
-              status = "alert";
-            } else {
-              status = "not_compliant";
-            }
-          }
-
-          const formattedPercentage = percentage.toFixed(1);
-          compliancePercentage = formattedPercentage;
-          
-          console.log(`[KPI Update] Estado calculado: ${status}, Compliance: ${compliancePercentage}`);
+          console.log(`[KPI Update] Estado calculado: ${status}, Compliance: ${compliancePercentage}%`);
         } else {
-          console.warn(`[KPI Update] No se pudieron convertir valores a números o target es 0. Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
-          // Si no se puede calcular, asignar estado por defecto
-          if (!status) {
-            status = "alert";
-            compliancePercentage = "0.0";
-          }
+          console.warn(`[KPI Update] No se pudieron convertir valores a números. Actual: ${numericCurrentValue}, Target: ${numericTarget}`);
+          status = status || "alert";
+          compliancePercentage = compliancePercentage || "0.0";
         }
       } else {
         console.warn(`[KPI Update] No hay target ni goal definido para KPI ${kpi.id}`);
-        // Si no hay target/goal, asignar estado por defecto
-        if (!status) {
-          status = "alert";
-          compliancePercentage = "0.0";
-        }
+        status = status || "alert";
+        compliancePercentage = compliancePercentage || "0.0";
       }
-      
-      // Asegurar que siempre haya un estado asignado
-      if (!status) {
-        status = "alert";
-        console.warn(`[KPI Update] No se pudo determinar estado, usando "alert" por defecto`);
-      }
-      
-      if (!compliancePercentage) {
-        compliancePercentage = "0.0";
-      }
+
+      // Asegurar que siempre haya valores asignados
+      status = status || "alert";
+      compliancePercentage = compliancePercentage || "0.0";
 
       const payload = {
         ...validatedData,
@@ -2447,42 +2337,12 @@ export function registerRoutes(app: express.Application) {
         let status: string | null = null;
         let compliancePercentage: string | null = null;
 
-        // Calcular status y compliancePercentage
+        // Calcular status y compliancePercentage usando funciones centralizadas de @shared/kpi-utils
         if (targetReference) {
           try {
-            const numericCurrentValue = extractNumericValue(value);
-            const numericTarget = extractNumericValue(targetReference);
-
-            if (!isNaN(numericCurrentValue) && !isNaN(numericTarget) && numericTarget > 0) {
-              const lowerBetter = isLowerBetterKPI(kpi.name || "");
-              let percentage: number;
-
-              if (lowerBetter) {
-                percentage = Math.min((numericTarget / numericCurrentValue) * 100, 100);
-                if (numericCurrentValue <= numericTarget) {
-                  status = "complies";
-                } else if (numericCurrentValue <= numericTarget * 1.1) {
-                  status = "alert";
-                } else {
-                  status = "not_compliant";
-                }
-              } else {
-                percentage = Math.min((numericCurrentValue / numericTarget) * 100, 100);
-                if (numericCurrentValue >= numericTarget) {
-                  status = "complies";
-                } else if (numericCurrentValue >= numericTarget * 0.9) {
-                  status = "alert";
-                } else {
-                  status = "not_compliant";
-                }
-              }
-
-              compliancePercentage = percentage.toFixed(1);
-            } else {
-              console.warn(`[PUT /api/kpi-values/bulk] ⚠️ No se pudieron convertir valores a números para ${month} ${year}: value=${numericCurrentValue}, target=${numericTarget}`);
-              status = "alert";
-              compliancePercentage = "0.0";
-            }
+            const kpiName = kpi.name || "";
+            status = calculateKpiStatus(value, targetReference, kpiName);
+            compliancePercentage = calculateCompliance(value, targetReference, kpiName).replace('%', '');
           } catch (calcError: any) {
             console.error(`[PUT /api/kpi-values/bulk] ❌ Error calculando status para ${month} ${year}:`, calcError);
             status = "alert";
@@ -2758,7 +2618,7 @@ export function registerRoutes(app: express.Application) {
         monthlyTarget = !isNaN(goalValue) && goalValue > 0 ? Math.round(goalValue) : (numericCompanyId === 1 ? 55620 : 858373);
       }
       
-      const numericValue = extractNumericValue(value);
+      const numericValue = parseNumericValue(value);
       const compliance = isNaN(numericValue)
         ? null
         : Math.round((numericValue / monthlyTarget) * 100);

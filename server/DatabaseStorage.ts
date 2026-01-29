@@ -1603,26 +1603,17 @@ export class DatabaseStorage implements IStorage {
                 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
                 const periodString = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
                 
-                // Calcular compliance si hay target/goal
+                // Calcular compliance y status usando funciones centralizadas de @shared/kpi-utils
                 let compliancePercentage: string | null = null;
                 let status: string | null = null;
-                
+
                 if (kpi.target || kpi.goal) {
-                  const target = parseFloat((kpi.target || kpi.goal || '0').toString().replace(/[^0-9.-]+/g, ''));
-                  const value = typeof calculatedValue.value === 'number' ? calculatedValue.value : parseFloat(calculatedValue.value.toString().replace(/[^0-9.-]+/g, ''));
-                  
-                  if (!isNaN(target) && target > 0 && !isNaN(value)) {
-                    const compliance = (value / target) * 100;
-                    compliancePercentage = `${compliance.toFixed(1)}%`;
-                    
-                    if (compliance >= 100) {
-                      status = 'complies';
-                    } else if (compliance >= 85) {
-                      status = 'alert';
-                    } else {
-                      status = 'not_compliant';
-                    }
-                  }
+                  const targetReference = kpi.target || kpi.goal;
+                  const kpiName = kpi.name || '';
+
+                  // Usar funciones centralizadas para garantizar consistencia
+                  status = calculateKpiStatus(calculatedValue.value, targetReference, kpiName);
+                  compliancePercentage = calculateCompliance(calculatedValue.value, targetReference, kpiName);
                 }
                 
                 const calculatedKpiValue: KpiValue = {
