@@ -96,10 +96,17 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
   });
 
   // Mutations
+  // Helper para invalidar todas las queries relacionadas con KPIs
+  const invalidateAllKpiQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/kpis', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      invalidateAllKpiQueries();
       toast({ title: 'KPI creado', description: 'El KPI se ha creado correctamente.' });
       setShowCreateDialog(false);
       setFormData(EMPTY_FORM);
@@ -113,7 +120,7 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
     mutationFn: ({ id, data }: { id: number; data: any }) =>
       apiRequest('PUT', `/api/kpis/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      invalidateAllKpiQueries();
       toast({ title: 'KPI actualizado', description: 'Los cambios se guardaron correctamente.' });
       setEditingKpi(null);
       setFormData(EMPTY_FORM);
@@ -126,7 +133,7 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest('DELETE', `/api/kpis/${id}?companyId=${companyId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      invalidateAllKpiQueries();
       toast({ title: 'KPI eliminado', description: 'El KPI ha sido eliminado.' });
       setDeletingKpi(null);
     },
@@ -139,7 +146,7 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
     mutationFn: ({ id, responsible }: { id: number; responsible: string }) =>
       apiRequest('PATCH', `/api/kpis/${id}/transfer`, { responsible, companyId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+      invalidateAllKpiQueries();
       toast({ title: 'KPI transferido', description: `El KPI se transfirió a ${transferTo}.` });
       setTransferringKpi(null);
       setTransferTo('');
