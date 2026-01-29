@@ -25,7 +25,9 @@ import {
   Building,
   Search,
   X,
-  Sparkles
+  Sparkles,
+  BarChart3,
+  Users
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -338,9 +340,30 @@ function Sidebar() {
             Centro de Control
           </NavItem>
 
-          {/* Admin */}
+          {/* Secciones solo visibles para admin (superadmin) */}
           {isAdmin && (
             <>
+              <div className="my-3 border-t border-border" />
+              <p className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                Ejecutivo
+              </p>
+              <NavItem
+                href="/trends-analysis"
+                icon={<BarChart3 className="h-4 w-4" />}
+                active={location === "/trends-analysis"}
+                onClick={closeMenu}
+              >
+                Análisis de Tendencias
+              </NavItem>
+              <NavItem
+                href="/team-management"
+                icon={<Users className="h-4 w-4" />}
+                active={location === "/team-management"}
+                onClick={closeMenu}
+              >
+                Gestión del Equipo
+              </NavItem>
+
               <div className="my-3 border-t border-border" />
               <p className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
                 Sistema

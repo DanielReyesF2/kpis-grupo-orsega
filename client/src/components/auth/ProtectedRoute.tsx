@@ -47,7 +47,10 @@ const ProtectedRoute = ({ children, adminOnly = false, executiveOnly = false, lo
 
     // Solo validar permisos si authReady es true y hay usuario
     if (authReady && user) {
-      if (adminOnly && !isAdmin) {
+      // Superadmin: admin bypasses ALL route restrictions
+      if (isAdmin) {
+        // Admin always has full access — no redirect needed
+      } else if (adminOnly) {
         setLocation('/');
       } else if (executiveOnly && !isMarioOrAdmin) {
         setLocation('/');
@@ -55,7 +58,6 @@ const ProtectedRoute = ({ children, adminOnly = false, executiveOnly = false, lo
         setLocation('/');
       } else if (salesOnly && !hasSalesAccess) {
         setLocation('/');
-      } else {
       }
     }
   }, [user, isLoading, authReady, isAdmin, isMarioOrAdmin, adminOnly, executiveOnly, setLocation, location, refreshUser, hasLogisticsAccess, hasSalesAccess, logisticsOnly, salesOnly]);
@@ -77,7 +79,8 @@ const ProtectedRoute = ({ children, adminOnly = false, executiveOnly = false, lo
   }
 
   // No renderizar si el usuario no tiene permisos (pero no devolver null para evitar pantalla en blanco)
-  if (!user || (adminOnly && !isAdmin) || (executiveOnly && !isMarioOrAdmin) || (logisticsOnly && !hasLogisticsAccess) || (salesOnly && !hasSalesAccess)) {
+  // Superadmin: admin always passes all permission checks
+  if (!user || (!isAdmin && ((adminOnly) || (executiveOnly && !isMarioOrAdmin) || (logisticsOnly && !hasLogisticsAccess) || (salesOnly && !hasSalesAccess)))) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center">

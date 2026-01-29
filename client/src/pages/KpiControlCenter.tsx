@@ -533,7 +533,7 @@ export default function KpiControlCenter() {
     queryKey: ['/api/collaborators-performance', { companyId: selectedCompanyId || null }],
     staleTime: 2 * 60 * 1000, // Los datos son válidos por 2 minutos
     refetchInterval: 30000, // Actualizar cada 30 segundos
-    enabled: !!user && !!selectedCompanyId,
+    enabled: !!user,
     retry: 1, // Solo 1 reintento
     retryDelay: 1000,
     refetchOnWindowFocus: false, // No refetch al cambiar de ventana
@@ -556,34 +556,38 @@ export default function KpiControlCenter() {
     enabled: !!user, // Disponible para todos los usuarios logueados
   });
 
-  // 🔧 SIMPLIFIED: Siempre mostrar datos, empresa es solo visual
+  // Inicializar empresa: admin ve todas, el resto Grupo Orsega por defecto
   useEffect(() => {
-    console.log('🚨 DEBUG useEffect ejecutándose, companies:', companies?.length);
-    if (!companies || companies.length === 0) {
-      console.log('🚨 No hay companies, saliendo...');
+    if (!companies || companies.length === 0) return;
+
+    // Admin: iniciar viendo todas las empresas
+    if (isAdmin) {
+      setSelectedCompanyId(null);
+      localStorage.removeItem('selectedCompanyId');
       return;
     }
-    
-    console.log('🚨 Companies encontradas:', companies.map(c => `${c.id}:${c.name}`));
-    
-    // Limpiar localStorage anterior y forzar Grupo Orsega (ID=2) 
+
+    // Resto de usuarios: forzar Grupo Orsega (ID=2)
     localStorage.removeItem('selectedCompanyId');
     const orsega = companies.find((c: Company) => c.id === 2);
     if (orsega) {
-      console.log('✅ ENCONTRÉ Grupo Orsega:', orsega.name);
       setSelectedCompanyId(2);
       localStorage.setItem('selectedCompanyId', '2');
     } else {
-      console.log('🚨 No se encontró Grupo Orsega, usando:', companies[0]?.name);
       setSelectedCompanyId(companies[0]?.id || 1);
     }
-  }, [companies]);
+  }, [companies, isAdmin]);
 
   // Guardar empresa seleccionada
   const handleCompanyChange = (companyId: string) => {
-    const id = parseInt(companyId);
-    setSelectedCompanyId(id);
-    localStorage.setItem('selectedCompanyId', id.toString());
+    if (companyId === 'all') {
+      setSelectedCompanyId(null);
+      localStorage.removeItem('selectedCompanyId');
+    } else {
+      const id = parseInt(companyId);
+      setSelectedCompanyId(id);
+      localStorage.setItem('selectedCompanyId', id.toString());
+    }
   };
 
   // Obtener área del usuario
@@ -942,11 +946,14 @@ export default function KpiControlCenter() {
                   {/* Selector de Empresa movido aquí */}
                   <div className="flex items-center gap-4 pb-2 border-b">
                     <Building className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <Select value={selectedCompanyId?.toString() || ''} onValueChange={handleCompanyChange}>
+                    <Select value={selectedCompanyId?.toString() || 'all'} onValueChange={handleCompanyChange}>
                       <SelectTrigger className="w-full max-w-xs">
                         <SelectValue placeholder="Selecciona una empresa" />
                       </SelectTrigger>
                       <SelectContent>
+                        {isAdmin && (
+                          <SelectItem value="all">Todas las empresas</SelectItem>
+                        )}
                         {companies?.map((company: Company) => (
                           <SelectItem key={company.id} value={company.id.toString()}>
                             {company.name}
@@ -954,9 +961,13 @@ export default function KpiControlCenter() {
                         ))}
                       </SelectContent>
                     </Select>
-                    {selectedCompany && (
+                    {selectedCompany ? (
                       <span className="text-sm text-gray-600">
                         Monitoreando: <span className="font-semibold text-blue-600">{selectedCompany.name}</span>
+                      </span>
+                    ) : isAdmin && !selectedCompanyId && (
+                      <span className="text-sm text-gray-600">
+                        Monitoreando: <span className="font-semibold text-purple-600">Todas las empresas</span>
                       </span>
                     )}
                   </div>
