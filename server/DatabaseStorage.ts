@@ -1706,8 +1706,8 @@ export class DatabaseStorage implements IStorage {
             if (historyValues && historyValues.length >= 2) {
               // Ordenar por fecha descendente y tomar el segundo valor (anterior)
               const sortedValues = historyValues.sort((a, b) => {
-                const dateA = new Date(a.date || a.createdAt || 0).getTime();
-                const dateB = new Date(b.date || b.createdAt || 0).getTime();
+                const dateA = new Date(a.date || 0).getTime();
+                const dateB = new Date(b.date || 0).getTime();
                 return dateB - dateA;
               });
 

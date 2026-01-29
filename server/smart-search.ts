@@ -160,7 +160,7 @@ function formatResultsForHuman(data: any[], explanation: string): string {
 // FUNCIÓN PRINCIPAL DE BÚSQUEDA INTELIGENTE
 // ============================================================
 
-export async function smartSearch(question: string): Promise<SearchResult> {
+export async function smartSearch(question: string, companyId?: number): Promise<SearchResult> {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -202,7 +202,9 @@ EJEMPLOS:
         },
         {
           role: "user",
-          content: question
+          content: companyId
+            ? `${question} (Contexto: empresa company_id=${companyId}, ${companyId === 1 ? 'DURA International' : companyId === 2 ? 'Grupo Orsega' : 'otra'})`
+            : question
         }
       ],
       tools: [sqlGeneratorFunction],

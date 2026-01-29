@@ -538,11 +538,10 @@ async function processInvoice(
     const { file_base64, file_url, file_type = 'auto', document_type_hint, extract_line_items = true, validate_cfdi = false } = params;
 
     // Importar el analizador de documentos existente
-    const { analyzeDocument } = await import('../../document-analyzer');
+    const { analyzePaymentDocument } = await import('../../document-analyzer');
 
     // Preparar el archivo
     let fileBuffer: Buffer;
-    let fileName = 'document';
     let mimeType = 'application/pdf';
 
     if (file_base64) {
@@ -550,17 +549,14 @@ async function processInvoice(
       // Detectar tipo por magic bytes
       if (fileBuffer[0] === 0x3C) { // '<' = XML
         mimeType = 'text/xml';
-        fileName = 'document.xml';
       } else if (fileBuffer[0] === 0x25 && fileBuffer[1] === 0x50) { // '%P' = PDF
         mimeType = 'application/pdf';
-        fileName = 'document.pdf';
       }
     } else if (file_url) {
       // Descargar archivo desde URL
       const response = await fetch(file_url);
       const arrayBuffer = await response.arrayBuffer();
       fileBuffer = Buffer.from(arrayBuffer);
-      fileName = file_url.split('/').pop() || 'document';
       mimeType = response.headers.get('content-type') || 'application/pdf';
     } else {
       return {
@@ -569,39 +565,39 @@ async function processInvoice(
       };
     }
 
-    // Usar el analizador existente
-    const result = await analyzeDocument(fileBuffer, fileName, mimeType);
+    // Usar el analizador existente (2 args: buffer + mimeType)
+    const result = await analyzePaymentDocument(fileBuffer, mimeType);
 
-    // Formatear respuesta
+    // Formatear respuesta mapeando desde DocumentAnalysisResult
     return {
       success: true,
       data: {
         // Datos extraídos
         supplier: {
-          name: result.supplierName || null,
-          rfc: result.taxId || null,
+          name: result.extractedSupplierName || null,
+          rfc: result.extractedTaxId || null,
         },
         invoice: {
-          number: result.invoiceNumber || null,
-          uuid: result.uuid || null,
-          date: result.issueDate || null,
-          due_date: result.dueDate || null,
+          number: result.extractedInvoiceNumber || null,
+          uuid: result.relatedInvoiceUUID || null,
+          date: result.extractedDate || null,
+          due_date: result.extractedDueDate || null,
         },
         amounts: {
-          subtotal: result.subtotal || null,
-          iva: result.iva || null,
-          isr_retained: result.isrRetained || null,
-          iva_retained: result.ivaRetained || null,
-          total: result.amount || null,
-          currency: result.currency || 'MXN',
+          subtotal: null, // No disponible en DocumentAnalysisResult
+          iva: null,
+          isr_retained: null,
+          iva_retained: null,
+          total: result.extractedAmount || null,
+          currency: result.extractedCurrency || 'MXN',
         },
         // Metadatos
         document_type: result.documentType || 'invoice',
-        extraction_method: result.extractionMethod || 'unknown',
+        extraction_method: result.paymentMethod || 'unknown',
         confidence: result.ocrConfidence || 0,
-        raw_text: result.rawText?.substring(0, 500) || null,
-        // Conceptos si se solicitaron
-        line_items: extract_line_items ? (result.concepts || []) : [],
+        raw_text: result.rawResponse?.substring(0, 500) || null,
+        // Conceptos no disponibles en DocumentAnalysisResult
+        line_items: [],
       },
     };
 
