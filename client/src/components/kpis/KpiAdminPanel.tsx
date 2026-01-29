@@ -8,7 +8,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, getAuthToken } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Kpi, Area } from '@shared/schema';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -25,7 +24,6 @@ import {
   ArrowRightLeft,
   Search,
   Target,
-  X,
 } from 'lucide-react';
 
 interface KpiAdminPanelProps {
@@ -227,143 +225,137 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
   const isFormValid = formData.kpiName.trim() !== '' && formData.area.trim() !== '';
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Administrar KPIs - {companyName}</h2>
-          <p className="text-sm text-muted-foreground">
-            {filteredKpis.length} KPI{filteredKpis.length !== 1 ? 's' : ''} encontrados
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={openCreate} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Nuevo KPI
-          </Button>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <X className="h-4 w-4 mr-1" />
-            Cerrar
-          </Button>
-        </div>
-      </div>
+    <>
+      {/* Modal principal de administración */}
+      <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Administrar KPIs - {companyName}</DialogTitle>
+            <DialogDescription>
+              {filteredKpis.length} KPI{filteredKpis.length !== 1 ? 's' : ''} encontrados
+            </DialogDescription>
+          </DialogHeader>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, area o responsable..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={areaFilter} onValueChange={setAreaFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por area" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las areas</SelectItem>
-            {uniqueAreas.map(area => (
-              <SelectItem key={area} value={area}>{area}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="space-y-4">
+            {/* Actions + Filters */}
+            <div className="flex gap-3 flex-wrap items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre, area o responsable..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={areaFilter} onValueChange={setAreaFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las areas</SelectItem>
+                  {uniqueAreas.map(area => (
+                    <SelectItem key={area} value={area}>{area}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={openCreate} size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Nuevo KPI
+              </Button>
+            </div>
 
-      {/* KPI Table */}
-      {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Cargando KPIs...</div>
-      ) : filteredKpis.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center py-12">
-            <Target className="h-12 w-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">No se encontraron KPIs</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" />
-              Crear primer KPI
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30%]">Nombre</TableHead>
-                  <TableHead>Area</TableHead>
-                  <TableHead>Meta</TableHead>
-                  <TableHead>Frecuencia</TableHead>
-                  <TableHead>Responsable</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredKpis.map((kpi: any) => (
-                  <TableRow key={`${kpi.id}-${kpi.companyId}`}>
-                    <TableCell className="font-medium">
-                      {kpi.kpiName || kpi.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {kpi.area || 'Sin area'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">
-                        {kpi.goal || '-'}{' '}
-                        {kpi.unit && <span className="text-muted-foreground">{kpi.unit}</span>}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {FREQUENCY_OPTIONS.find(f => f.value === kpi.frequency)?.label || kpi.frequency || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {kpi.responsible || <span className="text-muted-foreground italic">Sin asignar</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Editar"
-                          onClick={() => openEdit(kpi)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Transferir"
-                          onClick={() => {
-                            setTransferringKpi(kpi);
-                            setTransferTo(kpi.responsible || '');
-                          }}
-                        >
-                          <ArrowRightLeft className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          title="Eliminar"
-                          onClick={() => setDeletingKpi(kpi)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {/* KPI Table */}
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Cargando KPIs...</div>
+            ) : filteredKpis.length === 0 ? (
+              <div className="flex flex-col items-center py-12">
+                <Target className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground">No se encontraron KPIs</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Crear primer KPI
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[30%]">Nombre</TableHead>
+                      <TableHead>Area</TableHead>
+                      <TableHead>Meta</TableHead>
+                      <TableHead>Frecuencia</TableHead>
+                      <TableHead>Responsable</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredKpis.map((kpi: any) => (
+                      <TableRow key={`${kpi.id}-${kpi.companyId}`}>
+                        <TableCell className="font-medium">
+                          {kpi.kpiName || kpi.name}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {kpi.area || 'Sin area'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {kpi.goal || '-'}{' '}
+                            {kpi.unit && <span className="text-muted-foreground">{kpi.unit}</span>}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {FREQUENCY_OPTIONS.find(f => f.value === kpi.frequency)?.label || kpi.frequency || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {kpi.responsible || <span className="text-muted-foreground italic">Sin asignar</span>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Editar"
+                              onClick={() => openEdit(kpi)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Transferir"
+                              onClick={() => {
+                                setTransferringKpi(kpi);
+                                setTransferTo(kpi.responsible || '');
+                              }}
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              title="Eliminar"
+                              onClick={() => setDeletingKpi(kpi)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
-        </Card>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog
@@ -635,6 +627,6 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

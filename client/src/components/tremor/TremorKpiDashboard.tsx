@@ -339,7 +339,7 @@ export function TremorKpiDashboard({
                 >
                   {/* Nombre + BadgeDelta */}
                   <Flex justifyContent="between" alignItems="start">
-                    <p className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100 text-sm">
+                    <p className="font-semibold truncate min-w-0 flex-1 !text-gray-900 dark:!text-gray-100 text-sm">
                       {collaborator.name}
                     </p>
                     {scoreChangeValue && (
