@@ -197,12 +197,12 @@ export function TremorKpiDashboard({
     ).length;
   }, [filteredCollaboratorsWithStatus]);
 
-  // Colaboradores ordenados: peor primero
+  // Colaboradores ordenados: mejor primero (mayor a menor cumplimiento)
   const sortedCollaborators = useMemo(() => {
     return [...filteredCollaboratorsWithStatus].sort((a, b) => {
       if (a.averageCompliance !== b.averageCompliance)
-        return a.averageCompliance - b.averageCompliance;
-      return b.notCompliantKpis - a.notCompliantKpis; // más críticos primero
+        return b.averageCompliance - a.averageCompliance;
+      return a.notCompliantKpis - b.notCompliantKpis; // menos críticos primero
     });
   }, [filteredCollaboratorsWithStatus]);
 
@@ -302,7 +302,7 @@ export function TremorKpiDashboard({
       {/* Sección 2: Tarjetas por Colaborador */}
       <div>
         <Title>Scoreboard del Equipo</Title>
-        <Text className="text-gray-500 dark:text-gray-400 mb-4">Ordenado por cumplimiento (menor a mayor)</Text>
+        <Text className="text-gray-500 dark:text-gray-400 mb-4">Ordenado por cumplimiento (mayor a menor)</Text>
 
         {sortedCollaborators.length === 0 ? (
           <Card>
@@ -339,9 +339,9 @@ export function TremorKpiDashboard({
                 >
                   {/* Nombre + BadgeDelta */}
                   <Flex justifyContent="between" alignItems="start">
-                    <Text className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100">
+                    <p className="font-semibold truncate min-w-0 flex-1 text-gray-900 dark:text-gray-100 text-sm">
                       {collaborator.name}
-                    </Text>
+                    </p>
                     {scoreChangeValue && (
                       <BadgeDelta deltaType={getDeltaTypeFromChange(collaborator.scoreChange)} size="xs">
                         {scoreChangeValue}
