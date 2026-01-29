@@ -1357,6 +1357,83 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // PATCH /api/kpis/:id/transfer - Transferir un KPI a otra persona
+  app.patch("/api/kpis/:id/transfer", jwtAuthMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "ID de KPI inválido" });
+    }
+
+    try {
+      const authReq = req as AuthRequest;
+
+      // 🔒 SEGURO: Solo administradores y gerentes pueden transferir KPIs
+      if (authReq.user?.role !== 'admin' && authReq.user?.role !== 'manager') {
+        return res.status(403).json({ message: "No tienes permisos para transferir KPIs" });
+      }
+
+      const { responsible, companyId: bodyCompanyId } = req.body;
+
+      if (!responsible || typeof responsible !== 'string') {
+        return res.status(400).json({ message: "El campo 'responsible' es requerido y debe ser una cadena de texto" });
+      }
+
+      // Determinar companyId del body o buscando el KPI
+      let companyId: number | undefined;
+      if (bodyCompanyId !== undefined && bodyCompanyId !== null) {
+        companyId = typeof bodyCompanyId === 'string' ? parseInt(bodyCompanyId, 10) : bodyCompanyId;
+      } else {
+        // Si no se proporciona, buscar el KPI para obtener su companyId
+        console.log(`[PATCH /api/kpis/${id}/transfer] companyId no proporcionado, buscando automáticamente...`);
+        const allKpis = await storage.getKpis();
+        const match = allKpis.find((item) => item.id === id);
+        if (match) {
+          companyId = match.companyId ?? undefined;
+        }
+      }
+
+      if (companyId !== undefined && companyId !== null && companyId !== 1 && companyId !== 2) {
+        return res.status(400).json({ message: "companyId debe ser 1 (Dura) o 2 (Orsega)" });
+      }
+
+      // VUL-001: Validar acceso multi-tenant
+      if (companyId) {
+        try {
+          validateTenantAccess(req as AuthRequest, companyId);
+        } catch (tenantError) {
+          console.error(`[PATCH /api/kpis/${id}/transfer] Error de validación de tenant:`, tenantError);
+          return res.status(403).json({
+            message: tenantError instanceof Error ? tenantError.message : "Acceso denegado",
+            code: 'TENANT_ACCESS_DENIED'
+          });
+        }
+      }
+
+      const kpi = await storage.updateKpi(id, { responsible, companyId });
+
+      if (!kpi) {
+        return res.status(404).json({ message: "KPI no encontrado o no se pudo transferir" });
+      }
+
+      console.log(`[PATCH /api/kpis/${id}/transfer] KPI transferido exitosamente a "${responsible}" por usuario ${authReq.user?.name} (role: ${authReq.user?.role})`);
+      res.json(kpi);
+    } catch (error) {
+      if (error instanceof Error && (error.message.includes('Forbidden') || error.message.includes('Access denied'))) {
+        console.error(`[PATCH /api/kpis/${id}/transfer] Error de acceso:`, error.message);
+        return res.status(403).json({ message: error.message });
+      }
+      if (error instanceof Error && (error.message.includes('No se pudo determinar') || error.message.includes('no encontrado'))) {
+        console.error(`[PATCH /api/kpis/${id}/transfer] Error al encontrar KPI:`, error.message);
+        return res.status(404).json({ message: error.message });
+      }
+      console.error(`[PATCH /api/kpis/${id}/transfer] Error interno:`, error);
+      res.status(500).json({
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
 
   // GET /api/kpis-by-user/:userId - Obtener KPIs específicos de un usuario
   app.get("/api/kpis-by-user/:userId", jwtAuthMiddleware, async (req, res) => {

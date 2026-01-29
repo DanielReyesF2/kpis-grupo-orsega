@@ -15,6 +15,7 @@ import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
 import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
 import { type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
 import { TremorKpiDashboard, TremorKpiUpdateModal, type TremorCollaboratorData } from '@/components/tremor';
+import { KpiAdminPanel } from '@/components/kpis/KpiAdminPanel';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -46,7 +47,8 @@ import {
   Eye,
   ChevronUp,
   FolderTree,
-  Search
+  Search,
+  Settings
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -467,7 +469,7 @@ function UserHistoryView({ userId, months, users }: { userId: number; months: nu
 export default function KpiControlCenter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isMarioOrAdmin } = useAuth();
   const [location] = useLocation();
   
   // Estados para KPIs - 🔧 FORZAR Grupo Orsega por defecto
@@ -486,6 +488,9 @@ export default function KpiControlCenter() {
   // Estados para Vista General mejorada
   const [showAllKpis, setShowAllKpis] = useState(false);
   const [showAllCharts, setShowAllCharts] = useState(false);
+
+  // Estado para panel de administración de KPIs
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   
 
 
@@ -873,6 +878,17 @@ export default function KpiControlCenter() {
                         <Target className="h-4 w-4" />
                         Tarjetas KPI
                       </Button>
+                      {isMarioOrAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAdminPanel(true)}
+                          className="flex items-center gap-2 ml-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Administrar KPIs
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -1070,6 +1086,14 @@ export default function KpiControlCenter() {
                   </div>
 
 
+
+        {/* Panel de Administración de KPIs (solo gerente/admin) */}
+        {showAdminPanel && isMarioOrAdmin && (
+          <KpiAdminPanel
+            companyId={selectedCompanyId || 2}
+            onClose={() => setShowAdminPanel(false)}
+          />
+        )}
 
         {/* Modal de Actualización KPI */}
         <TremorKpiUpdateModal

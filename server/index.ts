@@ -625,6 +625,15 @@ process.on('uncaughtException', (error: Error) => {
       console.error("⚠️ Error details:", error);
     }
 
+    // Run KPI data migrations (idempotent)
+    try {
+      const { runKpiMigrations } = await import("./kpi-migrations");
+      await runKpiMigrations();
+      console.log("✅ KPI migrations applied");
+    } catch (error) {
+      console.error("⚠️ Warning: Error applying KPI migrations (server still running):", error);
+    }
+
     // Register routes (this might take time but won't block /health)
     try {
       registerRoutes(app);
