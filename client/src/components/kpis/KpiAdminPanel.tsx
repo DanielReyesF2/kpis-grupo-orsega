@@ -5,7 +5,7 @@
  */
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, getAuthToken } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Kpi, Area } from '@shared/schema';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +85,7 @@ export function KpiAdminPanel({ companyId, onClose }: KpiAdminPanelProps) {
   const { data: kpis = [], isLoading } = useQuery<Kpi[]>({
     queryKey: ['/api/kpis', { companyId }],
     queryFn: () => fetch(`/api/kpis?companyId=${companyId}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${getAuthToken()}` }
     }).then(r => r.json()),
   });
 

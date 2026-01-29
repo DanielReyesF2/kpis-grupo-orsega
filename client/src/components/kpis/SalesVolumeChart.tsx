@@ -276,45 +276,44 @@ export function SalesVolumeChart({
     }));
   }, [chartData, monthlyTarget]);
   
-  // Calcular progreso semanal - para seguimiento actual
+  // Calcular progreso semanal - estimación basada en distribución del total mensual
   const generateWeeklyData = () => {
     if (chartDataWithTarget.length === 0) return [];
-    
+
     // Usamos el último mes registrado para desglosarlo por semanas
     const lastPeriod = chartDataWithTarget[chartDataWithTarget.length - 1];
-    const targetPerWeek = monthlyTarget / 4; // Dividir objetivo mensual en 4 semanas
-    
-    // Valor actual del mes
+    const targetPerWeek = monthlyTarget / 4;
     const currentMonthValue = lastPeriod.value;
-    
-    // Desglosamos el valor actual por semanas
+
+    // Distribución estimada del valor mensual por semanas
     return [
-      { 
-        semana: 'Semana 1', 
-        valor: Math.round(currentMonthValue * 0.2), 
+      {
+        semana: 'Semana 1',
+        valor: Math.round(currentMonthValue * 0.2),
         objetivo: targetPerWeek,
         diferencia: Math.round(currentMonthValue * 0.2) - targetPerWeek
       },
-      { 
-        semana: 'Semana 2', 
-        valor: Math.round(currentMonthValue * 0.25), 
+      {
+        semana: 'Semana 2',
+        valor: Math.round(currentMonthValue * 0.25),
         objetivo: targetPerWeek,
         diferencia: Math.round(currentMonthValue * 0.25) - targetPerWeek
       },
-      { 
-        semana: 'Semana 3', 
-        valor: Math.round(currentMonthValue * 0.3), 
+      {
+        semana: 'Semana 3',
+        valor: Math.round(currentMonthValue * 0.3),
         objetivo: targetPerWeek,
         diferencia: Math.round(currentMonthValue * 0.3) - targetPerWeek
       },
-      { 
-        semana: 'Semana 4', 
-        valor: Math.round(currentMonthValue * 0.25), 
+      {
+        semana: 'Semana 4',
+        valor: Math.round(currentMonthValue * 0.25),
         objetivo: targetPerWeek,
         diferencia: Math.round(currentMonthValue * 0.25) - targetPerWeek
       }
     ];
   };
+  const isWeeklyEstimated = true; // Flag: weekly data is estimated, not real
 
   // Determinar el color según el cumplimiento del último valor
   const getStatusColor = (value: number) => {
@@ -449,7 +448,7 @@ export function SalesVolumeChart({
                   value="weekly"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-foreground data-[state=inactive]:opacity-70"
                 >
-                  Seguimiento Semanal
+                  Semanal (Estimado)
                 </TabsTrigger>
               </TabsList>
             )}

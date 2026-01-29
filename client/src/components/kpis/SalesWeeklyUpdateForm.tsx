@@ -68,10 +68,10 @@ export default function SalesWeeklyUpdateForm({ showHeader = true, defaultCompan
   });
 
   // Efecto para actualizar el ID de la empresa seleccionada
+  const watchedCompanyId = form.watch("companyId");
   useEffect(() => {
-    const companyIdValue = form.watch("companyId");
-    setSelectedCompanyId(companyIdValue);
-  }, [form.watch("companyId")]);
+    setSelectedCompanyId(watchedCompanyId);
+  }, [watchedCompanyId]);
 
   // Determinar la unidad según la empresa seleccionada
   const getUnitLabel = () => {

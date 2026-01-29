@@ -160,15 +160,11 @@ export function TremorKpiDashboard({
   const chartData = useMemo(() => {
     if (historicalData.length > 0) return historicalData;
 
-    // Generar datos de ejemplo si no hay históricos
-    return [
-      { date: "Ene", compliance: 85 },
-      { date: "Feb", compliance: 88 },
-      { date: "Mar", compliance: 87 },
-      { date: "Abr", compliance: 91 },
-      { date: "May", compliance: 89 },
-      { date: "Jun", compliance: calculatedMetrics.averageCompliance },
-    ];
+    // Sin datos históricos, mostrar solo el punto actual
+    if (calculatedMetrics.averageCompliance > 0) {
+      return [{ date: "Actual", compliance: calculatedMetrics.averageCompliance }];
+    }
+    return [];
   }, [historicalData, calculatedMetrics.averageCompliance]);
 
   // Datos para DonutChart

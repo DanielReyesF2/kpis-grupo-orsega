@@ -652,9 +652,10 @@ export default function KpiControlCenter() {
       const complianceNum = parseFloat(latestValue.compliancePercentage?.toString().replace('%', '') || '0');
 
       // Determinar status visual basado en los umbrales centralizados (kpi-utils.ts)
-      // >= 100% = complies (excellent), >= 90% = alert (warning), < 90% = not_compliant (critical)
+      // >= 100% = excellent, >= 95% = good, >= 90% = warning, < 90% = critical
       let visualStatus: 'excellent' | 'good' | 'warning' | 'critical' = 'critical';
       if (complianceNum >= 100) visualStatus = 'excellent';
+      else if (complianceNum >= 95) visualStatus = 'good';
       else if (complianceNum >= 90) visualStatus = 'warning';
       else visualStatus = 'critical';
 

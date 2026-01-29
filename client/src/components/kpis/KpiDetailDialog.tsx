@@ -449,7 +449,7 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
               <TabsContent value="overview" className="space-y-3 sm:space-y-4 pt-2 sm:pt-4">
                 <Card className="shadow-sm">
                   <CardHeader className="pb-2 sm:pb-4">
-                    <CardTitle className="text-sm sm:text-base">Tendencia del Volumen de Ventas</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">Tendencia de {kpi?.name || 'KPI'}</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Evolución del KPI en el tiempo</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -467,11 +467,11 @@ export function KpiDetailDialog({ kpiId, isOpen, onClose }: KpiDetailDialogProps
                             tickLine={false}
                           />
                           <YAxis 
-                            label={{ 
-                              value: 'Kilogramos (KG)', 
-                              angle: -90, 
+                            label={{
+                              value: kpi?.unit || 'Valor',
+                              angle: -90,
                               position: 'insideLeft',
-                              style: { fontSize: '10px', fill: 'hsl(var(--muted-foreground))' } 
+                              style: { fontSize: '10px', fill: 'hsl(var(--muted-foreground))' }
                             }} 
                             tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                             axisLine={{ stroke: 'hsl(var(--chart-axis))', opacity: 0.5 }}

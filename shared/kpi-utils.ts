@@ -160,9 +160,13 @@ export function normalizeStatus(status: string | null | undefined): KpiStatus {
   const statusMap: Record<string, KpiStatus> = {
     'compliant': 'complies',
     'non-compliant': 'not_compliant',
+    'not_complies': 'not_compliant',
+    'no_complies': 'not_compliant',
+    'no cumple': 'not_compliant',
     'alert': 'alert',
+    'warning': 'alert',
     'complies': 'complies',
-    'not_compliant': 'not_compliant'
+    'not_compliant': 'not_compliant',
   };
   
   return statusMap[status.toLowerCase()] || 'not_compliant';

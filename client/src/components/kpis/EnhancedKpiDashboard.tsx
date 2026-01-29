@@ -154,7 +154,7 @@ export function EnhancedKpiDashboard({ kpis, companyName, areaName, companyId, o
 
   const recentPerformance = useMemo(() => {
     return kpis.slice(0, 6).map(kpi => ({
-      name: kpi.name.substring(0, 20) + '...',
+      name: kpi.name.length > 20 ? kpi.name.substring(0, 20) + '...' : kpi.name,
       compliance: parseFloat(kpi.compliancePercentage || '0'),
       target: 100,
       status: kpi.status
@@ -246,7 +246,7 @@ export function EnhancedKpiDashboard({ kpis, companyName, areaName, companyId, o
           </CardContent>
         </Card>
 
-        <Card className={`border-l-4 border-l-yellow-500 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${stats.alert > 0 ? 'bg-amber-50 dark:bg-amber-900/10 ring-2 ring-amber-300 ring-opacity-50 animate-pulse' : ''}`}>
+        <Card className={`border-l-4 border-l-yellow-500 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${stats.alert > 0 ? 'bg-amber-50 dark:bg-amber-900/10 ring-2 ring-amber-300 ring-opacity-50' : ''}`}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -301,7 +301,7 @@ export function EnhancedKpiDashboard({ kpis, companyName, areaName, companyId, o
                     key={performer.area_id}
                     className={`flex items-center justify-between p-4 rounded-lg border transition-all duration-300 ${
                       isWinner 
-                        ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-yellow-300 dark:border-yellow-700 ring-2 ring-yellow-400 ring-opacity-50 animate-pulse' 
+                        ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-yellow-300 dark:border-yellow-700 ring-2 ring-yellow-400 ring-opacity-50'
                         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
                     }`}
                   >

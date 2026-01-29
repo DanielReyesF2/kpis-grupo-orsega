@@ -77,9 +77,9 @@ function getStatusText(status: string): string {
     case 'complies':
       return "En meta";
     case 'alert':
-      return "Cerca";
+      return "En alerta";
     case 'not_compliant':
-      return "Bajo meta";
+      return "No cumple";
     default:
       return "Sin datos";
   }
