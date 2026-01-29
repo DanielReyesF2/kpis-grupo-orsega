@@ -18,11 +18,7 @@ import {
   DonutChart,
   BarChart,
   BarList,
-  Divider,
-  Select,
-  SelectItem,
 } from "@tremor/react";
-import { TremorKpiCard } from "./TremorKpiCard";
 import { type TremorCollaboratorData } from "./TremorCollaboratorCard";
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import type { DeltaType } from "./TremorKpiCard";
@@ -105,7 +101,6 @@ export function TremorKpiDashboard({
   statusFilter = 'all',
 }: TremorKpiDashboardProps) {
   const [expandedCollaborator, setExpandedCollaborator] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'compliance' | 'name' | 'status'>('compliance');
 
   // Filtrar colaboradores según el filtro seleccionado
   const filteredCollaborators = useMemo(() => {
@@ -199,23 +194,6 @@ export function TremorKpiDashboard({
         value: k.compliance,
       }));
   }, [filteredCollaboratorsWithStatus]);
-
-  // Ordenar colaboradores
-  const sortedFilteredCollaborators = useMemo(() => {
-    return [...filteredCollaboratorsWithStatus].sort((a, b) => {
-      switch (sortBy) {
-        case 'compliance':
-          return b.averageCompliance - a.averageCompliance;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'status':
-          const statusOrder = { excellent: 4, good: 3, regular: 2, critical: 1 };
-          return statusOrder[b.status] - statusOrder[a.status];
-        default:
-          return 0;
-      }
-    });
-  }, [filteredCollaboratorsWithStatus, sortBy]);
 
   const deltaValue = metrics?.previousAverageCompliance
     ? `${(calculatedMetrics.averageCompliance - metrics.previousAverageCompliance) >= 0 ? '+' : ''}${(calculatedMetrics.averageCompliance - metrics.previousAverageCompliance).toFixed(1)}%`
@@ -376,74 +354,6 @@ export function TremorKpiDashboard({
         </Card>
       )}
 
-      <Divider />
-
-      {/* Grid de tarjetas KPI */}
-      <div>
-        <Flex justifyContent="between" alignItems="center" className="mb-4">
-          <Title>
-            {selectedCollaborator !== 'all'
-              ? `KPIs de ${selectedCollaborator}`
-              : 'Todos los KPIs'}
-          </Title>
-          <Select
-            value={sortBy}
-            onValueChange={(value: string) => setSortBy(value as any)}
-            className="w-40"
-          >
-            <SelectItem value="compliance">Por Cumplimiento</SelectItem>
-            <SelectItem value="name">Por Nombre</SelectItem>
-            <SelectItem value="status">Por Estado</SelectItem>
-          </Select>
-        </Flex>
-
-        {sortedFilteredCollaborators.length === 0 ? (
-          <Card>
-            <Text className="text-center py-8 text-gray-500">
-              No hay KPIs que coincidan con los filtros seleccionados
-            </Text>
-          </Card>
-        ) : (
-          <Grid numItemsSm={1} numItemsMd={2} numItemsLg={3} className="gap-4">
-            {sortedFilteredCollaborators.flatMap(c =>
-              c.kpis.map(kpi => ({
-                ...kpi,
-                collaborator: c.name,
-              }))
-            ).sort((a, b) => {
-              switch (sortBy) {
-                case 'compliance':
-                  return b.compliance - a.compliance;
-                case 'name':
-                  return a.name.localeCompare(b.name);
-                default:
-                  return 0;
-              }
-            }).map((kpi) => {
-              const extendedKpi = kpi as any;
-              const kpiStatus = kpi.compliance >= 100 ? 'complies' as const :
-                               kpi.compliance >= 90 ? 'alert' as const : 'not_compliant' as const;
-
-              return (
-                <TremorKpiCard
-                  key={`${kpi.collaborator}-${kpi.id}`}
-                  id={kpi.id}
-                  name={kpi.name}
-                  value={extendedKpi.latestValue?.value ?? `${kpi.compliance.toFixed(1)}%`}
-                  target={extendedKpi.target || '100%'}
-                  unit={extendedKpi.unit || ''}
-                  status={kpiStatus}
-                  compliancePercentage={kpi.compliance}
-                  previousValue={kpi.complianceChange}
-                  frequency={`${kpi.collaborator}`}
-                  onViewDetails={onViewKpiDetails}
-                  onUpdate={onUpdateKpi}
-                />
-              );
-            })}
-          </Grid>
-        )}
-      </div>
     </div>
   );
 }
