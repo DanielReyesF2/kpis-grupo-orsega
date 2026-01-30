@@ -206,3 +206,6 @@ export {
   EcoNovaClient,
   useChat
 };
+
+// Re-export Nova streaming hook
+export { useNovaChat } from './useNovaChat';

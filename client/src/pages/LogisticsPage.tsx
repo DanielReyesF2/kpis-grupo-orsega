@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { NovaPageWidget } from '@/components/ai/NovaPageWidget';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -671,6 +672,17 @@ export default function LogisticsPage() {
       </Dialog>
 
       {/* Product Form Dialog */}
+      {/* Nova AI Logistics Widget */}
+      <div className="mt-4">
+        <NovaPageWidget
+          pageContext="logistics"
+          quickActions={[
+            { label: "Estado de embarques", prompt: "Cual es el estado actual de todos los embarques activos?" },
+            { label: "ETAs proximos", prompt: "Cuales son los proximos ETAs de embarques?" },
+          ]}
+        />
+      </div>
+
       <ProductFormDialog
         isOpen={isProductFormOpen}
         onClose={() => {

@@ -39,7 +39,7 @@ import { catalogRouter } from './routes-catalog';
 import { logisticsRouter } from './routes-logistics';
 import { smartSearch } from './smart-search';
 import { econovaSearch } from './econova-agent';
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from '@copilotkit/runtime';
+import { novaRouter } from './nova/nova-routes';
 import path from "path";
 import fs from "fs";
 import { neon } from '@neondatabase/serverless';
@@ -55,6 +55,7 @@ import { uploadFile, uploadMulterFile, saveTempFile, moveTempToStorage, isUsingR
 import * as fileStorage from "./file-storage";
 import { generateSalesAnalystInsights } from "./sales-analyst";
 import { getAvailableTools, executeTool, generateSystemPrompt, findTool } from "./mcp";
+import { autoAnalyzeSalesUpload, autoAnalyzeInvoice } from "./nova/nova-auto-analyze";
 
 // Tenant validation middleware - VUL-001 fix
 import { validateTenantFromBody, validateTenantFromParams, validateTenantAccess } from "./middleware/tenant-validation";
@@ -240,21 +241,20 @@ async function updateLogisticsKPIs(companyId: number) {
       }
     ];
 
-    for (const kpiUpdate of kpiUpdates) {
-      // Buscar el KPI por nombre y companyId
-      const kpiResult = await sql`
-        SELECT id, goal FROM "Kpi"
-        WHERE name = ${kpiUpdate.name}
-        AND "companyId" = ${companyId}
-        LIMIT 1
-      `;
+    // Obtener todos los KPIs de la empresa para buscar por nombre
+    const allCompanyKpis = await storage.getKpis(companyId);
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-      if (kpiResult.length === 0) {
+    for (const kpiUpdate of kpiUpdates) {
+      // Buscar el KPI por nombre usando el storage layer
+      const kpi = allCompanyKpis.find((k: any) => k.name === kpiUpdate.name);
+
+      if (!kpi) {
         console.log(`[KPI Logística] ⚠️  KPI "${kpiUpdate.name}" no encontrado para company ${companyId}, omitiendo...`);
         continue;
       }
 
-      const kpi = kpiResult[0];
       const kpiGoal = parseFloat(kpi.goal?.toString() || kpiUpdate.goal.toString());
       const actualValue = parseFloat(kpiUpdate.value);
 
@@ -266,36 +266,20 @@ async function updateLogisticsKPIs(companyId: number) {
         compliancePercentage = Math.min((kpiGoal / actualValue) * 100, 100);
       }
 
-      // Insertar o actualizar valor del KPI en la tabla KpiValue
-      await sql`
-        INSERT INTO "KpiValue" (
-          "kpiId",
-          "companyId",
-          value,
-          "compliancePercentage",
-          date,
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          ${kpi.id},
-          ${companyId},
-          ${kpiUpdate.value},
-          ${compliancePercentage.toFixed(2)},
-          ${now},
-          ${now},
-          ${now}
-        )
-        ON CONFLICT ("kpiId", date)
-        DO UPDATE SET
-          value = EXCLUDED.value,
-          "compliancePercentage" = EXCLUDED."compliancePercentage",
-          "updatedAt" = EXCLUDED."updatedAt"
-      `;
+      // Insertar o actualizar valor del KPI usando el storage layer (upsert)
+      await storage.createKpiValue({
+        kpiId: kpi.id,
+        companyId: companyId as 1 | 2,
+        value: kpiUpdate.value,
+        compliancePercentage: compliancePercentage.toFixed(2),
+        status: calculateKpiStatus(parseFloat(kpiUpdate.value), kpiGoal, kpiUpdate.name),
+        period: `${monthNames[now.getMonth()]} ${now.getFullYear()}`
+      });
 
       console.log(`[KPI Logística] ✅ KPI "${kpiUpdate.name}" actualizado: ${kpiUpdate.value} (compliance: ${compliancePercentage.toFixed(2)}%)`);
     }
 
+    collaboratorPerformanceCache.flushAll();
     console.log(`[KPI Logística] ✅ Actualización completa para company ${companyId}`);
   } catch (error) {
     console.error('[KPI Logística] ❌ Error actualizando KPIs:', error);
@@ -367,95 +351,9 @@ export function registerRoutes(app: express.Application) {
 
 
   // ========================================
-  // COPILOTKIT AI ASSISTANT (SIN AUTH - debe ir ANTES del middleware global)
+  // NOVA AI — SSE Streaming Chat + File Upload
   // ========================================
-  // CopilotKit Runtime - Endpoint para el asistente AI
-  app.all("/api/copilotkit", async (req, res) => {
-    try {
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return res.status(500).json({ error: 'OpenAI API key not configured' });
-      }
-
-      const runtime = new CopilotRuntime({
-        actions: [
-          {
-            name: "searchData",
-            description: "Busca información en la base de datos del sistema: ventas, clientes, métricas, KPIs, tipos de cambio, embarques. Usa esta acción cuando el usuario pregunte sobre datos del negocio.",
-            parameters: [
-              {
-                name: "query",
-                type: "string",
-                description: "La pregunta o consulta del usuario sobre los datos del negocio",
-                required: true
-              }
-            ],
-            handler: async ({ query }: { query: string }) => {
-              try {
-                const result = await smartSearch(query);
-                return JSON.stringify({
-                  answer: result.answer,
-                  data: result.data,
-                  source: result.source
-                });
-              } catch (error) {
-                console.error('[CopilotKit Action] Error en searchData:', error);
-                return JSON.stringify({ error: 'Error al buscar datos' });
-              }
-            }
-          }
-        ]
-      });
-
-      const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o-mini" });
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: "/api/copilotkit",
-        runtime,
-        serviceAdapter
-      });
-
-      return handler(req, res);
-    } catch (error) {
-      console.error('[CopilotKit] Error:', error);
-      res.status(500).json({ error: 'Error en CopilotKit runtime' });
-    }
-  });
-
-  // CopilotKit sub-routes (info, etc) - también sin auth
-  app.all("/api/copilotkit/*", async (req, res) => {
-    try {
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return res.status(500).json({ error: 'OpenAI API key not configured' });
-      }
-
-      const runtime = new CopilotRuntime({
-        actions: [
-          {
-            name: "searchData",
-            description: "Busca información en la base de datos",
-            parameters: [{ name: "query", type: "string", description: "La pregunta", required: true }],
-            handler: async ({ query }: { query: string }) => {
-              const result = await smartSearch(query);
-              return JSON.stringify(result);
-            }
-          }
-        ]
-      });
-
-      const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o-mini" });
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: "/api/copilotkit",
-        runtime,
-        serviceAdapter
-      });
-
-      return handler(req, res);
-    } catch (error) {
-      console.error('[CopilotKit] Error:', error);
-      res.status(500).json({ error: 'Error en CopilotKit runtime' });
-    }
-  });
+  app.use(novaRouter);
 
   // ========================================
   // MCP ECONOVA - Model Context Protocol para Agente AI
@@ -722,17 +620,6 @@ export function registerRoutes(app: express.Application) {
   });
 
 
-
-  // GET /api/user - Obtener información del usuario autenticado
-  app.get("/api/user", jwtAuthMiddleware, async (req, res) => {
-    try {
-      const user = getAuthUser(req as AuthRequest);
-      res.json(user);
-    } catch (error) {
-      console.error('Error getting user:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  });
 
   // Admin: Resetear contraseña de un usuario específico
   app.post("/api/admin/reset-user-password", jwtAuthMiddleware, jwtAdminMiddleware, async (req, res) => {
@@ -1219,6 +1106,7 @@ export function registerRoutes(app: express.Application) {
       }
       
       const kpi = await storage.createKpi(validatedData);
+      collaboratorPerformanceCache.flushAll();
       res.status(201).json(kpi);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1296,6 +1184,7 @@ export function registerRoutes(app: express.Application) {
       }
       
       console.log(`[PUT /api/kpis/${id}] KPI actualizado exitosamente:`, kpi.id);
+      collaboratorPerformanceCache.flushAll();
       res.json(kpi);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1351,6 +1240,7 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ message: "KPI not found" });
       }
       
+      collaboratorPerformanceCache.flushAll();
       res.json({ message: "KPI eliminado exitosamente" });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -1416,6 +1306,7 @@ export function registerRoutes(app: express.Application) {
       }
 
       console.log(`[PATCH /api/kpis/${id}/transfer] KPI transferido exitosamente a "${responsible}" por usuario ${authReq.user?.name} (role: ${authReq.user?.role})`);
+      collaboratorPerformanceCache.flushAll();
       res.json(kpi);
     } catch (error) {
       if (error instanceof Error && (error.message.includes('Forbidden') || error.message.includes('Access denied'))) {
@@ -2176,37 +2067,45 @@ export function registerRoutes(app: express.Application) {
           // Query SQL optimizada para obtener 12 meses de datos históricos
           const twelveMonthsAgo = new Date();
           twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+          const minYear = twelveMonthsAgo.getFullYear();
+
+          // Determinar tabla correcta basada en el companyId del KPI
+          const kpiCompanyId = collaborator.kpis[0]?.companyId;
+          const tableName = kpiCompanyId === 1 ? 'kpi_values_dura' : 'kpi_values_orsega';
 
           // Construir query con placeholders seguros
-          const startIdx = companyIdParam ? 3 : 2;
-          const placeholders = kpiIds.map((_, idx) => `$${idx + startIdx}`).join(', ');
+          const placeholders = kpiIds.map((_: number, idx: number) => `$${idx + 2}`).join(', ');
+          const monthCase = `CASE UPPER(month)
+              WHEN 'ENERO' THEN '01' WHEN 'FEBRERO' THEN '02' WHEN 'MARZO' THEN '03'
+              WHEN 'ABRIL' THEN '04' WHEN 'MAYO' THEN '05' WHEN 'JUNIO' THEN '06'
+              WHEN 'JULIO' THEN '07' WHEN 'AGOSTO' THEN '08' WHEN 'SEPTIEMBRE' THEN '09'
+              WHEN 'OCTUBRE' THEN '10' WHEN 'NOVIEMBRE' THEN '11' WHEN 'DICIEMBRE' THEN '12'
+              ELSE '00'
+            END`;
           const query = `
             SELECT
-              TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') as month,
+              year::text || '-' || (${monthCase}) as month_key,
               AVG(
                 CASE
-                  WHEN "compliancePercentage" IS NOT NULL
-                  THEN CAST(REPLACE("compliancePercentage", '%', '') AS DECIMAL)
+                  WHEN compliance_percentage IS NOT NULL
+                  THEN CAST(REPLACE(compliance_percentage, '%', '') AS DECIMAL)
                   ELSE NULL
                 END
               ) as avg_compliance
-            FROM "KpiValue"
-            WHERE "kpiId" IN (${placeholders})
-              AND date >= $1
-              ${companyIdParam ? 'AND "companyId" = $2' : ''}
-            GROUP BY DATE_TRUNC('month', date)
-            ORDER BY month ASC
+            FROM ${tableName}
+            WHERE kpi_id IN (${placeholders})
+              AND year >= $1
+            GROUP BY year, UPPER(month)
+            ORDER BY month_key ASC
           `;
 
-          const params = companyIdParam
-            ? [twelveMonthsAgo.toISOString(), companyIdParam, ...kpiIds]
-            : [twelveMonthsAgo.toISOString(), ...kpiIds];
+          const params = [minYear, ...kpiIds];
 
           const historicalData = await sql(query, params);
 
           // Transformar y rellenar meses faltantes
           const transformedData = historicalData.map((row: any) => ({
-            month: row.month,
+            month: row.month_key,
             compliance: row.avg_compliance ? parseFloat(row.avg_compliance) : null
           }));
 
@@ -2324,6 +2223,7 @@ export function registerRoutes(app: express.Application) {
       console.log('[POST /api/kpi-values] Creando KPI value con payload:', JSON.stringify(payload, null, 2));
       const kpiValue = await storage.createKpiValue(payload);
       console.log('[POST /api/kpi-values] ✅ KPI value creado exitosamente:', kpiValue.id);
+      collaboratorPerformanceCache.flushAll();
 
       // Intentar crear notificación de cambio de estado (si aplica)
       if (previous?.status && kpiValue.status && previous.status !== kpiValue.status) {
@@ -2505,7 +2405,10 @@ export function registerRoutes(app: express.Application) {
       };
 
       console.log(`[PUT /api/kpi-values/bulk] ✅ Bulk update completado:`, summary);
-      
+
+      if (successCount > 0) {
+        collaboratorPerformanceCache.flushAll();
+      }
       res.json(summary);
     } catch (error: any) {
       console.error('[PUT /api/kpi-values/bulk] ❌ Error general en bulk update:', error);
@@ -9645,6 +9548,31 @@ export function registerRoutes(app: express.Application) {
 
       const format = await detectExcelFormat(workbook);
       console.log(`📋 [Sales Upload] Formato detectado: ${format}`);
+
+      // Capture response to trigger auto-analysis
+      const origJson = res.json.bind(res);
+      let uploadSuccess = false;
+      res.json = function(body: any) {
+        if (!res.headersSent && body && !body.error) {
+          uploadSuccess = true;
+        }
+        const result = origJson(body);
+        // Fire-and-forget auto-analysis after successful upload
+        if (uploadSuccess) {
+          const user = (req as any).user;
+          const sheetNames = workbook.worksheets.map((s: any) => s.name);
+          autoAnalyzeSalesUpload(
+            { summary: `Archivo Excel subido con hojas: ${sheetNames.join(', ')}. Formato: ${format}`, rowCount: workbook.worksheets.reduce((acc: number, s: any) => acc + s.rowCount, 0), companies: sheetNames },
+            user?.companyId,
+            user?.id?.toString()
+          ).then(({ analysisId }) => {
+            console.log(`[Nova] Sales auto-analysis started: ${analysisId}`);
+          }).catch(err => {
+            console.error('[Nova] Sales auto-analysis error:', err);
+          });
+        }
+        return result;
+      } as any;
 
       if (format === 'IDRALL') {
         // Usar handler de IDRALL para formato nuevo

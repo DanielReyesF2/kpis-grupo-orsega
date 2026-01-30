@@ -28,6 +28,7 @@ import {
   TableIcon
 } from "lucide-react";
 import type { SalesMetrics } from "@/types/sales";
+import { NovaPageWidget } from "@/components/ai/NovaPageWidget";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -1573,6 +1574,16 @@ export default function SalesPage() {
             <SalesYearlyComparisonTable companyId={selectedCompany} />
           </div>
         )}
+
+        {/* Nova AI Sales Widget */}
+        <NovaPageWidget
+          pageContext="sales"
+          quickActions={[
+            { label: "Analizar tendencias", prompt: "Analiza las tendencias de ventas de los ultimos 6 meses" },
+            { label: "Top clientes", prompt: "Cuales son los top 10 clientes por volumen de ventas este ano?" },
+            { label: "Comparar con ano anterior", prompt: "Compara las ventas de este mes con el mismo mes del ano anterior" },
+          ]}
+        />
 
       </div>
     </AppLayout>

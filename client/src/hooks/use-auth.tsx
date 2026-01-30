@@ -210,8 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   // Verificar si el usuario es administrador
   const isAdmin = user?.role === 'admin';
   
-  // Verificar si el usuario es Mario o admin (acceso completo)
-  const isMarioOrAdmin = user?.role === 'admin' || user?.role === 'manager' || user?.name === 'Mario Reynoso';
+  // Verificar si el usuario es admin o gerente (acceso completo)
+  const isMarioOrAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   // ✅ ACCESO UNIVERSAL DE LECTURA: Todos pueden VER logística
   // Mantener función para restricciones de escritura basadas en backend

@@ -7,7 +7,7 @@
 //   4. Fallback → OpenAI Vision (para documentos desconocidos)
 // ================================================
 
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { isCFDI, parseCFDI, cfdiToInvoiceData } from "./cfdi-parser";
 import { findMatchingTemplate, extractWithTemplate, fallbackTemplate } from "./invoice-templates";
 
@@ -542,27 +542,23 @@ export async function analyzePaymentDocument(
           transferType: null,
         };
       } else {
-        console.log(`⚠️ [Templates] Template no extrajo suficientes datos, usando OpenAI como fallback`);
+        console.log(`⚠️ [Templates] Template no extrajo suficientes datos, usando Claude como fallback`);
       }
     }
   }
 
   // ========================================
-  // PASO 3: Fallback a OpenAI Vision
+  // PASO 3: Fallback a Claude Vision (Anthropic)
   // ========================================
-  console.log(`🤖 [OpenAI] Usando OpenAI Vision como fallback...`);
+  console.log(`🤖 [Claude] Usando Claude Vision como fallback...`);
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
   // Si no hay API key, devolver resultado vacío para verificación manual
-  if (!apiKey) {
+  if (!anthropicKey) {
     console.warn("⚠️ [Document Analyzer] ==================================================");
-    console.warn("⚠️ [Document Analyzer] OPENAI_API_KEY NO ESTÁ CONFIGURADA");
+    console.warn("⚠️ [Document Analyzer] ANTHROPIC_API_KEY NO ESTÁ CONFIGURADA");
     console.warn("⚠️ [Document Analyzer] ==================================================");
-    console.warn("⚠️ [Document Analyzer] El microservicio invoice2data tampoco extrajo datos.");
-    console.warn("⚠️ [Document Analyzer] Los templates TypeScript tampoco extrajeron datos.");
-    console.warn("⚠️ [Document Analyzer] SOLUCIÓN: Configurar OPENAI_API_KEY en las variables de entorno.");
-    console.warn("⚠️ [Document Analyzer] El usuario deberá completar todos los campos manualmente.");
 
     return {
       extractedAmount: null,
@@ -575,8 +571,8 @@ export async function analyzePaymentDocument(
       extractedTrackingKey: null,
       extractedBeneficiaryName: null,
       ocrConfidence: 0,
-      rawResponse: 'OPENAI_API_KEY no configurada y invoice2data no disponible. Configure la API key de OpenAI o despliegue el microservicio Python.',
-      documentType: 'invoice', // Asumir factura si viene de flujo de facturas
+      rawResponse: 'ANTHROPIC_API_KEY no configurada. Configure la API key de Anthropic.',
+      documentType: 'invoice',
       extractedSupplierName: null,
       extractedDueDate: null,
       extractedInvoiceNumber: null,
@@ -588,9 +584,9 @@ export async function analyzePaymentDocument(
     };
   }
 
-  const openai = new OpenAI({ apiKey });
+  const anthropic = new Anthropic();
 
-  console.log(`🔍 [OpenAI Fallback] Analizando documento tipo: ${fileType}`);
+  console.log(`🔍 [Claude Fallback] Analizando documento tipo: ${fileType}`);
 
   try {
     // Reutilizar texto ya extraído en pasos anteriores
@@ -599,7 +595,7 @@ export async function analyzePaymentDocument(
 
     // --- 1️⃣ Si no tenemos texto, intentar extraer (para imágenes o PDFs no procesados) ---
     if (!textContent && fileType.includes("pdf")) {
-      console.log(`📄 [OpenAI] Extrayendo texto de PDF (no se extrajo previamente)...`);
+      console.log(`📄 [Claude] Extrayendo texto de PDF (no se extrajo previamente)...`);
 
       // Método 1: pdf-parse
       try {
@@ -650,10 +646,10 @@ export async function analyzePaymentDocument(
 
     // Para imágenes o PDFs sin texto, usar base64 para visión
     if (!textContent || textContent.length < 50) {
-      console.warn('⚠️ [OpenAI] Texto insuficiente, usando análisis visual');
+      console.warn('⚠️ [Claude] Texto insuficiente, usando análisis visual');
       base64Data = fileBuffer.toString("base64");
     } else {
-      console.log(`✅ [OpenAI] Texto disponible: ${textContent.length} caracteres`);
+      console.log(`✅ [Claude] Texto disponible: ${textContent.length} caracteres`);
     }
 
     // Para imágenes, siempre usar base64
@@ -750,114 +746,90 @@ Extract ALL visible data from the document, even if it's in different formats, l
 Now analyze the following document carefully and extract ALL available information. Respond ONLY with valid JSON, no explanations.
 `;
 
-    // --- 3️⃣ LLAMADA A OPENAI ---
-    let response;
+    // --- 3️⃣ LLAMADA A CLAUDE VISION (Anthropic) ---
+    let claudeResponse: string | null = null;
+
+    // Build content blocks for Claude
+    const contentBlocks: any[] = [];
+
     if (fileType.includes("pdf")) {
-      // Si tenemos texto extraído, usarlo para análisis
       if (textContent && textContent.length > 50) {
-        const fullText = textContent.length > 30000 
-          ? textContent.slice(0, 30000) + "\n\n[Texto truncado...]" 
+        const fullText = textContent.length > 30000
+          ? textContent.slice(0, 30000) + "\n\n[Texto truncado...]"
           : textContent;
-        
-        console.log(`📤 [OpenAI] Enviando ${fullText.length} caracteres de texto para análisis`);
-        
-        response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: `${documentTypePrompt}\n\n=== CONTENIDO DEL DOCUMENTO ===\n${fullText}\n\n=== FIN DEL CONTENIDO ===\n\nAnaliza el contenido anterior y extrae TODOS los datos disponibles.`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 1200,
+
+        console.log(`📤 [Claude] Enviando ${fullText.length} caracteres de texto para análisis`);
+
+        contentBlocks.push({
+          type: "text",
+          text: `${documentTypePrompt}\n\n=== CONTENIDO DEL DOCUMENTO ===\n${fullText}\n\n=== FIN DEL CONTENIDO ===\n\nAnaliza el contenido anterior y extrae TODOS los datos disponibles.`,
         });
       } else if (textContent && textContent.length > 0) {
-        console.warn(`⚠️ [PDF] Texto extraído limitado (${textContent.length} caracteres). El PDF podría ser una imagen escaneada.`);
-        
-        response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "user",
-              content: `${documentTypePrompt}\n\n=== CONTENIDO DEL DOCUMENTO (TEXTO LIMITADO) ===\n${textContent}\n\n=== FIN DEL CONTENIDO ===\n\nAnaliza el contenido anterior. Si el texto es limitado, extrae TODO lo que puedas identificar.`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 1200,
+        console.warn(`⚠️ [PDF] Texto extraído limitado (${textContent.length} caracteres).`);
+
+        contentBlocks.push({
+          type: "text",
+          text: `${documentTypePrompt}\n\n=== CONTENIDO DEL DOCUMENTO (TEXTO LIMITADO) ===\n${textContent}\n\n=== FIN DEL CONTENIDO ===\n\nAnaliza el contenido anterior.`,
         });
       } else {
-        // ========================================
-        // PDF SIN TEXTO - USAR MICROSERVICIO PARA IMAGEN
-        // ========================================
-        console.warn('⚠️ [PDF] PDF sin texto extraíble detectado. Esto podría ser una imagen escaneada.');
-        console.log('🖼️ [PDF to Image] Convirtiendo PDF a imagen via MICROSERVICIO...');
-
-        // Convertir PDF a imagen usando el MICROSERVICIO
+        // PDF sin texto — convertir a imagen para Claude Vision
+        console.warn('⚠️ [PDF] PDF sin texto extraíble. Intentando conversión a imagen...');
         const pngBase64 = await convertPdfToImage(fileBuffer);
 
         if (pngBase64) {
-          console.log('📸 [OpenAI Vision] Enviando imagen PNG a OpenAI Vision...');
-          const pngDataUrl = `data:image/png;base64,${pngBase64}`;
-
-          try {
-            response = await openai.chat.completions.create({
-              model: "gpt-4o",
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: documentTypePrompt },
-                    { type: "image_url", image_url: { url: pngDataUrl, detail: "high" } },
-                  ],
-                },
-              ],
-              temperature: 0.1,
-              max_tokens: 1200,
-            });
-            console.log('✅ [OpenAI Vision] Análisis visual completado');
-          } catch (visionError: any) {
-            console.error('❌ [OpenAI Vision] Error en análisis visual:', visionError.message);
-            response = null as any;
-          }
+          console.log('📸 [Claude Vision] Enviando imagen PNG a Claude Vision...');
+          contentBlocks.push({
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: pngBase64 },
+          });
+          contentBlocks.push({ type: "text", text: documentTypePrompt });
         } else {
           console.error('❌ [PDF to Image] No se pudo convertir el PDF a imagen');
-          console.error('❌ [PDF to Image] Verifica que INVOICE2DATA_URL esté configurada correctamente');
-          console.log('📝 [Fallback] El usuario deberá completar los datos manualmente');
-          response = null as any;
+          contentBlocks.push({
+            type: "text",
+            text: `${documentTypePrompt}\n\nNo se pudo extraer texto ni imagen del PDF. Retorna todos los campos como null.`,
+          });
         }
       }
     } else {
-      // Para imágenes (PNG, JPG), usar análisis de visión
-      console.log(`📤 [OpenAI Vision] Analizando imagen: ${fileType}`);
-      response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: documentTypePrompt },
-              { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
-            ],
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 1200,
+      // Imágenes (PNG, JPG) — enviar como multimodal
+      console.log(`📤 [Claude Vision] Analizando imagen: ${fileType}`);
+      const mediaType = fileType.includes("png") ? "image/png" : "image/jpeg";
+      contentBlocks.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data: base64Data },
       });
+      contentBlocks.push({ type: "text", text: documentTypePrompt });
+    }
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1200,
+        messages: [{ role: "user", content: contentBlocks }],
+      });
+
+      // Extract text from response
+      const textBlock = response.content.find((b: any) => b.type === "text");
+      claudeResponse = textBlock ? (textBlock as any).text?.trim() || "" : "";
+      console.log('✅ [Claude Vision] Análisis completado');
+    } catch (visionError: any) {
+      console.error('❌ [Claude Vision] Error:', visionError.message);
+      claudeResponse = null;
     }
 
     // --- 4️⃣ PARSING ROBUSTO MEJORADO ---
     let parsedData: any;
     let rawResponse = "";
-    
-    if (!response) {
-      console.log(`⚠️ [Parsing] No hay respuesta de OpenAI, usando solo análisis manual`);
+
+    if (!claudeResponse) {
+      console.log(`⚠️ [Parsing] No hay respuesta de Claude, usando solo análisis manual`);
       parsedData = {};
       rawResponse = "";
     } else {
-      rawResponse = response.choices[0]?.message?.content?.trim() || "";
-      console.log(`🧠 [OpenAI Response] Respuesta recibida (${rawResponse.length} caracteres)`);
-      console.log(`🧠 [OpenAI Response] Fragmento: ${rawResponse.slice(0, 600)}...`);
+      rawResponse = claudeResponse;
+      console.log(`🧠 [Claude Response] Respuesta recibida (${rawResponse.length} caracteres)`);
+      console.log(`🧠 [Claude Response] Fragmento: ${rawResponse.slice(0, 600)}...`);
       
       try {
         let jsonStr = rawResponse;
@@ -1158,13 +1130,13 @@ Now analyze the following document carefully and extract ALL available informati
     console.error("❌ Error durante el análisis:", error);
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const isOpenAIError = errorMessage.includes('API key') ||
-                          errorMessage.includes('401') ||
-                          errorMessage.includes('OpenAI') ||
-                          errorMessage.includes('OPENAI');
+    const isAIError = errorMessage.includes('API key') ||
+                      errorMessage.includes('401') ||
+                      errorMessage.includes('Anthropic') ||
+                      errorMessage.includes('ANTHROPIC');
 
-    if (isOpenAIError) {
-      console.warn('⚠️ [Document Analyzer] OpenAI no disponible. Continuando sin análisis automático.');
+    if (isAIError) {
+      console.warn('⚠️ [Document Analyzer] Claude no disponible. Continuando sin análisis automático.');
       console.warn('⚠️ [Document Analyzer] El usuario deberá verificar los datos manualmente.');
     }
 

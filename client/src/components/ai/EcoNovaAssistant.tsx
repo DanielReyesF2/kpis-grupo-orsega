@@ -1,9 +1,15 @@
 /**
- * NovaAI Assistant - Branded with EcoNova colors
+ * NovaAI Assistant — Branded with EcoNova colors
  * #273949 (dark slate) + #b5e951 (lime green)
+ *
+ * Features:
+ * - SSE streaming (tokens appear in real-time)
+ * - File upload via paperclip + drag-and-drop
+ * - Tool execution indicators
+ * - Keyboard shortcuts (Ctrl+K / Cmd+K)
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,11 +17,16 @@ import {
   X,
   Loader2,
   ArrowUp,
-  RotateCcw
+  RotateCcw,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  XCircle,
+  Wrench,
 } from "lucide-react";
 
-import { useChat, type ChatConfig } from "@/lib/econova-sdk";
-import { getAuthToken } from "@/lib/queryClient";
+import { useNovaChat } from "@/lib/econova-sdk/useNovaChat";
+import { usePageContext } from "@/hooks/usePageContext";
 import { useAuth } from "@/hooks/use-auth";
 
 // EcoNova brand colors
@@ -27,9 +38,31 @@ const COLORS = {
   darkLighter: '#3d566a'
 };
 
+// Tool name → friendly label
+const TOOL_LABELS: Record<string, string> = {
+  smart_query: 'Consultando base de datos...',
+  get_sales_data: 'Obteniendo datos de ventas...',
+  get_kpis: 'Consultando KPIs...',
+  get_customers: 'Buscando clientes...',
+  get_products: 'Buscando productos...',
+  get_suppliers: 'Buscando proveedores...',
+  get_exchange_rate: 'Consultando tipo de cambio...',
+  get_cash_flow: 'Calculando flujo de caja...',
+  get_pending_payments: 'Buscando pagos pendientes...',
+  get_accounts: 'Consultando cuentas...',
+  process_invoice: 'Procesando factura...',
+  search_invoices: 'Buscando facturas...',
+  analyze_data: 'Analizando datos...',
+  generate_pdf_report: 'Generando reporte PDF...',
+  get_executive_summary: 'Generando resumen ejecutivo...',
+};
+
+function getToolLabel(toolName: string): string {
+  return TOOL_LABELS[toolName] || `Ejecutando ${toolName}...`;
+}
+
 // Styled Markdown components for NovaAI responses
 const MarkdownComponents = {
-  // Tables with EcoNova styling
   table: ({ children }: any) => (
     <div className="my-3 overflow-x-auto rounded-lg" style={{ border: `1px solid ${COLORS.darkLighter}` }}>
       <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
@@ -66,7 +99,6 @@ const MarkdownComponents = {
       {children}
     </tr>
   ),
-  // Headers
   h1: ({ children }: any) => (
     <h1 className="text-lg font-bold mt-4 mb-2" style={{ color: COLORS.lime }}>{children}</h1>
   ),
@@ -76,7 +108,6 @@ const MarkdownComponents = {
   h3: ({ children }: any) => (
     <h3 className="text-sm font-semibold mt-3 mb-1" style={{ color: COLORS.lime }}>{children}</h3>
   ),
-  // Lists
   ul: ({ children }: any) => (
     <ul className="my-2 ml-4 space-y-1" style={{ listStyleType: 'none' }}>
       {children}
@@ -93,7 +124,6 @@ const MarkdownComponents = {
       <span>{children}</span>
     </li>
   ),
-  // Code blocks
   code: ({ inline, children }: any) => (
     inline ? (
       <code
@@ -111,22 +141,18 @@ const MarkdownComponents = {
       </pre>
     )
   ),
-  // Bold and emphasis
   strong: ({ children }: any) => (
     <strong className="font-semibold" style={{ color: COLORS.lime }}>{children}</strong>
   ),
   em: ({ children }: any) => (
     <em style={{ color: 'rgba(255,255,255,0.95)' }}>{children}</em>
   ),
-  // Paragraphs
   p: ({ children }: any) => (
     <p className="my-1.5 leading-relaxed">{children}</p>
   ),
-  // Horizontal rule
   hr: () => (
     <hr className="my-3" style={{ borderColor: COLORS.darkLighter }} />
   ),
-  // Blockquote
   blockquote: ({ children }: any) => (
     <blockquote
       className="my-2 pl-3 italic"
@@ -137,34 +163,44 @@ const MarkdownComponents = {
   ),
 };
 
+// File icon helper
+function FileIcon({ name }: { name: string }) {
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+    return <ImageIcon className="h-4 w-4" style={{ color: COLORS.lime }} />;
+  }
+  return <FileText className="h-4 w-4" style={{ color: COLORS.lime }} />;
+}
+
+// Format file size
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function EcoNovaAssistant() {
-  const authToken = getAuthToken();
   const { user } = useAuth();
+  const { page } = usePageContext();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
-
-  const chatConfig: ChatConfig = useMemo(() => ({
-    baseUrl: '',
-    endpoint: '/api/ask',
-    questionField: 'question',
-    answerField: 'answer',
-    headers: authToken ? {
-      'Authorization': `Bearer ${authToken}`
-    } : undefined
-  }), [authToken]);
 
   const {
     messages,
     sendMessage,
     isLoading,
+    isStreaming,
+    activeTools,
     clearMessages
-  } = useChat(chatConfig);
+  } = useNovaChat({ pageContext: page });
 
-  // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'Usuario';
 
   // Keyboard shortcuts
@@ -189,7 +225,7 @@ export function EcoNovaAssistant() {
     };
   }, [isOpen]);
 
-  // Smart scroll
+  // Smart scroll — on new messages or during streaming
   useEffect(() => {
     const currentLength = messages.length;
     const prevLength = prevMessagesLengthRef.current;
@@ -204,6 +240,13 @@ export function EcoNovaAssistant() {
     }
     prevMessagesLengthRef.current = currentLength;
   }, [messages]);
+
+  // Auto-scroll during streaming
+  useEffect(() => {
+    if (isStreaming && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [isStreaming, messages]);
 
   // Focus input
   useEffect(() => {
@@ -220,12 +263,14 @@ export function EcoNovaAssistant() {
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
     const message = input.trim();
+    const files = [...attachedFiles];
     setInput("");
+    setAttachedFiles([]);
     if (inputRef.current) inputRef.current.style.height = "auto";
-    await sendMessage(message);
-  }, [input, isLoading, sendMessage]);
+    await sendMessage(message || '(archivos adjuntos)', files.length > 0 ? files : undefined);
+  }, [input, attachedFiles, isLoading, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -234,9 +279,38 @@ export function EcoNovaAssistant() {
     }
   };
 
+  // File handling
+  const addFiles = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files).slice(0, 5);
+    setAttachedFiles(prev => [...prev, ...fileArray].slice(0, 5));
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      addFiles(e.dataTransfer.files);
+    }
+  }, [addFiles]);
+
   return (
     <>
-      {/* Floating Button - EcoNova branded */}
+      {/* Floating Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -264,7 +338,7 @@ export function EcoNovaAssistant() {
               className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded"
               style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.7)' }}
             >
-              ⌘K
+              {'\u2318'}K
             </kbd>
           </motion.button>
         )}
@@ -287,14 +361,33 @@ export function EcoNovaAssistant() {
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
               transition={{ type: "spring", damping: 30, stiffness: 400 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-[580px] flex flex-col overflow-hidden"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className="w-full max-w-[580px] flex flex-col overflow-hidden relative"
               style={{
                 backgroundColor: COLORS.dark,
                 borderRadius: '20px',
                 boxShadow: `0 25px 60px -12px rgba(0, 0, 0, 0.5)`,
-                maxHeight: '75vh'
+                maxHeight: '75vh',
+                border: isDragging ? `2px dashed ${COLORS.lime}` : '2px solid transparent',
               }}
             >
+              {/* Drag overlay */}
+              {isDragging && (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center rounded-[18px]"
+                  style={{ backgroundColor: `${COLORS.dark}ee` }}
+                >
+                  <div className="text-center">
+                    <Paperclip className="h-8 w-8 mx-auto mb-2" style={{ color: COLORS.lime }} />
+                    <p className="text-sm font-medium" style={{ color: COLORS.lime }}>
+                      Suelta archivos aqui
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Header */}
               <div
                 className="flex items-center justify-between px-5 py-4"
@@ -332,7 +425,7 @@ export function EcoNovaAssistant() {
                         e.currentTarget.style.backgroundColor = 'transparent';
                         e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
                       }}
-                      title="Nueva conversación"
+                      title="Nueva conversacion"
                     >
                       <RotateCcw className="h-4 w-4" />
                     </button>
@@ -362,18 +455,19 @@ export function EcoNovaAssistant() {
                 style={{ minHeight: '250px', maxHeight: 'calc(75vh - 160px)' }}
               >
                 {messages.length === 0 ? (
-                  /* Welcome State - Clean and minimal */
                   <div className="h-full flex flex-col items-center justify-center text-center px-8 py-16">
                     <h2 className="text-2xl font-bold text-white mb-3">
-                      ¡Hola, {firstName}! 👋
+                      Hola, {firstName}!
                     </h2>
                     <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
                       Soy <span className="font-semibold" style={{ color: COLORS.lime }}>NovaAI</span>, tu asistente inteligente.
-                      Pregúntame lo que necesites.
+                      Preguntame lo que necesites.
+                    </p>
+                    <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Puedes adjuntar archivos PDF, Excel o imagenes
                     </p>
                   </div>
                 ) : (
-                  /* Messages */
                   <div className="p-5 space-y-5">
                     {messages.map((message, index) => {
                       const isLastAssistant = message.role === "assistant" && index === messages.length - 1;
@@ -388,11 +482,28 @@ export function EcoNovaAssistant() {
                           className={isUser ? "flex justify-end" : ""}
                         >
                           {isUser ? (
-                            <div
-                              className="max-w-[85%] px-4 py-3 rounded-2xl rounded-br-md text-sm"
-                              style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
-                            >
-                              {message.content}
+                            <div className="max-w-[85%]">
+                              <div
+                                className="px-4 py-3 rounded-2xl rounded-br-md text-sm"
+                                style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
+                              >
+                                {message.content}
+                              </div>
+                              {/* Show attached file names */}
+                              {message.files && message.files.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1.5 justify-end">
+                                  {message.files.map((f, i) => (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px]"
+                                      style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.7)' }}
+                                    >
+                                      <FileIcon name={f.name} />
+                                      {f.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div
@@ -405,14 +516,36 @@ export function EcoNovaAssistant() {
                               >
                                 {message.content}
                               </ReactMarkdown>
+                              {/* Streaming cursor */}
+                              {isLastAssistant && isStreaming && (
+                                <span
+                                  className="inline-block w-2 h-4 ml-0.5 animate-pulse rounded-sm"
+                                  style={{ backgroundColor: COLORS.lime }}
+                                />
+                              )}
                             </div>
                           )}
                         </motion.div>
                       );
                     })}
 
-                    {/* Loading */}
-                    {isLoading && (
+                    {/* Tool execution indicators */}
+                    {activeTools.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                        style={{ backgroundColor: COLORS.darkLight }}
+                      >
+                        <Wrench className="h-3.5 w-3.5 animate-spin" style={{ color: COLORS.lime }} />
+                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          {getToolLabel(activeTools[activeTools.length - 1])}
+                        </span>
+                      </motion.div>
+                    )}
+
+                    {/* Loading (before streaming starts) */}
+                    {isLoading && !isStreaming && activeTools.length === 0 && (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -426,6 +559,35 @@ export function EcoNovaAssistant() {
                   </div>
                 )}
               </div>
+
+              {/* Attached files preview */}
+              {attachedFiles.length > 0 && (
+                <div
+                  className="px-4 py-2 flex flex-wrap gap-2"
+                  style={{ borderTop: `1px solid ${COLORS.darkLight}` }}
+                >
+                  {attachedFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
+                      style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.8)' }}
+                    >
+                      <FileIcon name={file.name} />
+                      <span className="max-w-[120px] truncate">{file.name}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        {formatSize(file.size)}
+                      </span>
+                      <button
+                        onClick={() => removeFile(i)}
+                        className="ml-0.5 hover:opacity-80"
+                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Input */}
               <div
@@ -441,7 +603,7 @@ export function EcoNovaAssistant() {
                     placeholder="Escribe tu pregunta..."
                     rows={1}
                     disabled={isLoading}
-                    className="w-full resize-none rounded-xl px-4 py-3 pr-14 text-sm focus:outline-none transition-all"
+                    className="w-full resize-none rounded-xl px-4 py-3 pl-11 pr-14 text-sm focus:outline-none transition-all"
                     style={{
                       backgroundColor: COLORS.darkLight,
                       border: `1px solid ${COLORS.darkLighter}`,
@@ -450,9 +612,33 @@ export function EcoNovaAssistant() {
                     onFocus={(e) => e.currentTarget.style.borderColor = COLORS.lime}
                     onBlur={(e) => e.currentTarget.style.borderColor = COLORS.darkLighter}
                   />
+                  {/* Paperclip button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute left-3 bottom-3 p-1.5 rounded-md transition-colors"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = COLORS.lime}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                    title="Adjuntar archivo"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.xml,.png,.jpg,.jpeg,.webp,.xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) addFiles(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                  {/* Send button */}
                   <button
                     type="submit"
-                    disabled={!input.trim() || isLoading}
+                    disabled={(!input.trim() && attachedFiles.length === 0) || isLoading}
                     className="absolute right-2 bottom-2 p-2.5 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: COLORS.lime,
@@ -479,7 +665,7 @@ export function EcoNovaAssistant() {
                       className="px-1.5 py-0.5 rounded text-[10px] font-mono"
                       style={{ backgroundColor: COLORS.darkLight }}
                     >
-                      ↵
+                      {'\u21b5'}
                     </kbd>
                     enviar
                   </span>

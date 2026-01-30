@@ -271,7 +271,15 @@ app.get("/api/debug/env-keys", (req, res) => {
 });
 
 // Compression middleware - reduce tamaño de respuestas
-app.use(compression());
+// Skip compression for SSE streams (text/event-stream) to prevent buffering
+app.use(compression({
+  filter: (req, res) => {
+    if (res.getHeader('Content-Type') === 'text/event-stream') {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 // ⚠️ IMPORTANTE: Excluir multipart/form-data de body parsers
 // Multer necesita acceso directo al stream sin procesamiento previo
@@ -309,7 +317,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Permitir inline scripts para Vite HMR
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"], // Permitir blob URLs para previews de imágenes
-      connectSrc: ["'self'", "https://api.cloud.copilotkit.ai"], // Permitir CopilotKit API
+      connectSrc: ["'self'"], // Nova AI uses same-origin SSE
       fontSrc: ["'self'", "data:"], // Permitir fuentes embebidas (data URIs)
       objectSrc: ["'self'", "blob:"], // ✅ Permitir PDFs embebidos
       mediaSrc: ["'self'", "blob:"], // Permitir blob URLs para videos/audio

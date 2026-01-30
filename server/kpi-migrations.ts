@@ -239,17 +239,59 @@ async function ensureSymmetricKpis(): Promise<number> {
 // ============================================================================
 // MAIN: Run all migrations
 // ============================================================================
+/**
+ * Fix data quality issues in the areas table:
+ * - "Tesoreris" → "Tesorería" (typo fix)
+ * - Trim whitespace/tabs from area names and descriptions
+ */
+async function fixAreaDataQuality(): Promise<number> {
+  const sql = neon(process.env.DATABASE_URL!);
+  let changes = 0;
+
+  // Fix "Tesoreris" typo
+  const typoFix = await sql`
+    UPDATE areas SET name = 'Tesorería' WHERE name = 'Tesoreris'
+  `;
+  if (typoFix.length !== undefined) {
+    const count = (typoFix as any).count ?? 0;
+    if (count > 0) {
+      console.log(`[kpi-migrations] Fixed area typo: "Tesoreris" → "Tesorería" (${count} rows)`);
+      changes += count;
+    }
+  }
+
+  // Trim whitespace and tab characters from names and descriptions
+  const trimNames = await sql`
+    UPDATE areas SET name = TRIM(BOTH FROM REPLACE(name, E'\t', ''))
+    WHERE name != TRIM(BOTH FROM REPLACE(name, E'\t', ''))
+  `;
+  const trimDesc = await sql`
+    UPDATE areas SET description = TRIM(BOTH FROM REPLACE(description, E'\t', ''))
+    WHERE description IS NOT NULL AND description != TRIM(BOTH FROM REPLACE(description, E'\t', ''))
+  `;
+
+  const nameCount = (trimNames as any).count ?? 0;
+  const descCount = (trimDesc as any).count ?? 0;
+  if (nameCount > 0 || descCount > 0) {
+    console.log(`[kpi-migrations] Trimmed whitespace: ${nameCount} names, ${descCount} descriptions`);
+    changes += nameCount + descCount;
+  }
+
+  return changes;
+}
+
 export async function runKpiMigrations(): Promise<void> {
   console.log('[kpi-migrations] Starting KPI migrations...');
   console.log('[kpi-migrations] Rule: Dura & Orsega = same team, same KPIs, same responsibles.');
 
   try {
+    const fixedAreas = await fixAreaDataQuality();
     const fixedGoals = await fixCostosLogisticosGoal();
     const assignedResponsibles = await assignMissingResponsibles();
     const createdCalidad = await ensureCalidadKpis();
     const createdSymmetric = await ensureSymmetricKpis();
 
-    const totalChanges = fixedGoals + assignedResponsibles + createdCalidad + createdSymmetric;
+    const totalChanges = fixedAreas + fixedGoals + assignedResponsibles + createdCalidad + createdSymmetric;
 
     if (totalChanges > 0) {
       console.log(`[kpi-migrations] Done. Applied ${totalChanges} change(s) total.`);

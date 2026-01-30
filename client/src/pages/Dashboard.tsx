@@ -11,6 +11,7 @@ import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
 import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
 import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
+import { NovaPageWidget } from '@/components/ai/NovaPageWidget';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -69,6 +70,18 @@ export default function Dashboard() {
           <div className="col-span-12">
             <AnnualSummary companyId={selectedCompany} />
           </div>
+        </div>
+
+        {/* Nova AI Widget */}
+        <div className="col-span-12">
+          <NovaPageWidget
+            pageContext="dashboard"
+            quickActions={[
+              { label: "Resumen del dia", prompt: "Dame un resumen ejecutivo del dia de hoy con los KPIs mas importantes" },
+              { label: "KPIs criticos", prompt: "Cuales son los KPIs que estan en rojo o amarillo y requieren atencion?" },
+              { label: "Comparar empresas", prompt: "Compara el desempeno de DURA International vs Grupo ORSEGA este mes" },
+            ]}
+          />
         </div>
 
         {/* KPI Details Dialog */}
