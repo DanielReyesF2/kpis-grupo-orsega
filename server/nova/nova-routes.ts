@@ -37,6 +37,40 @@ const MAX_MESSAGE_LENGTH = 10_000;
 const MAX_PAGE_CONTEXT_LENGTH = 100;
 
 // ============================================================================
+// RATE LIMITER (per-user, in-memory)
+// ============================================================================
+
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10;  // 10 requests per window
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
+// Cleanup stale rate-limit entries every 5 minutes
+const rateLimitCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000);
+if (rateLimitCleanup.unref) rateLimitCleanup.unref();
+
+// ============================================================================
 // MULTER CONFIG
 // ============================================================================
 
@@ -296,6 +330,14 @@ novaRouter.post(
     });
 
     try {
+      // --- Rate limiting ---
+      const rateLimitUserId = req.user?.id?.toString() || 'anonymous';
+      if (!checkRateLimit(rateLimitUserId)) {
+        safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Demasiadas solicitudes. Espera un momento antes de enviar otro mensaje.' })}\n\n`);
+        safeEnd();
+        return;
+      }
+
       // --- Input validation ---
       const message = req.body.message;
       if (!message || typeof message !== 'string') {
@@ -375,12 +417,16 @@ novaRouter.post(
         fullContext += `\n\n[ARCHIVOS EXCEL DISPONIBLES PARA PROCESAMIENTO]\nEl usuario adjuntó archivos Excel que pueden ser procesados con la herramienta process_sales_excel.\nUsa el file_id correspondiente como parámetro:\n${fileInfo}`;
       }
 
+      // Get image content blocks for multimodal Claude vision
+      const imageBlocks = getImageContentBlocks(validFiles);
+
       const ctx: NovaContext = {
         userId,
         companyId: user?.companyId || undefined,
         conversationHistory: conversationHistory.slice(-10),
         pageContext,
         additionalContext: fullContext || undefined,
+        imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
       };
 
       console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}`);

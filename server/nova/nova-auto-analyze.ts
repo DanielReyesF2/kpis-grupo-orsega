@@ -16,6 +16,25 @@ let activeAnalyses = 0;
 // Max entries in analysisStore
 const MAX_ANALYSIS_STORE_SIZE = 1000;
 
+// Max size per analysis result (500KB)
+const MAX_RESULT_SIZE = 500 * 1024;
+
+/**
+ * Truncate a result object to fit within MAX_RESULT_SIZE.
+ */
+function truncateResult(result: any): any {
+  const json = JSON.stringify(result);
+  if (json.length <= MAX_RESULT_SIZE) return result;
+
+  // Truncate the answer field if present
+  if (result.answer && typeof result.answer === 'string') {
+    const overhead = json.length - result.answer.length;
+    const maxAnswerLen = MAX_RESULT_SIZE - overhead - 50;
+    return { ...result, answer: result.answer.slice(0, Math.max(100, maxAnswerLen)) + '\n\n[Respuesta truncada por limite de tamaño]' };
+  }
+  return result;
+}
+
 /**
  * Generate a cryptographically secure analysis ID.
  */
@@ -48,11 +67,11 @@ export async function autoAnalyzeSalesUpload(
   parsedData: { summary: string; rowCount: number; companies?: string[] },
   companyId: number | undefined,
   userId: string | undefined
-): Promise<{ analysisId: string }> {
+): Promise<{ analysisId: string; error?: string }> {
   // Concurrency guard
   if (activeAnalyses >= MAX_CONCURRENT_ANALYSES) {
     console.warn('[Nova] Max concurrent analyses reached, skipping');
-    return { analysisId: '' };
+    return { analysisId: '', error: 'Demasiados analisis en curso. Intenta de nuevo mas tarde.' };
   }
 
   const analysisId = generateAnalysisId();
@@ -96,12 +115,12 @@ Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
       });
 
       analysisStore.set(analysisId, {
-        result: {
+        result: truncateResult({
           status: 'completed',
           analysisId,
           answer: result.answer,
           toolsUsed: result.toolsUsed,
-        },
+        }),
         timestamp: Date.now(),
         userId: userId?.toString(),
       });
@@ -142,11 +161,11 @@ export async function autoAnalyzeInvoice(
   },
   fileName: string,
   userId: string | undefined
-): Promise<{ analysisId: string }> {
+): Promise<{ analysisId: string; error?: string }> {
   // Concurrency guard
   if (activeAnalyses >= MAX_CONCURRENT_ANALYSES) {
     console.warn('[Nova] Max concurrent analyses reached, skipping');
-    return { analysisId: '' };
+    return { analysisId: '', error: 'Demasiados analisis en curso. Intenta de nuevo mas tarde.' };
   }
 
   const analysisId = generateAnalysisId();
@@ -188,12 +207,12 @@ Se conciso.`;
       });
 
       analysisStore.set(analysisId, {
-        result: {
+        result: truncateResult({
           status: 'completed',
           analysisId,
           answer: result.answer,
           toolsUsed: result.toolsUsed,
-        },
+        }),
         timestamp: Date.now(),
         userId: userId?.toString(),
       });

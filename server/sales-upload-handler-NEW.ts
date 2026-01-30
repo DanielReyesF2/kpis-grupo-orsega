@@ -385,16 +385,18 @@ export async function handleSalesUpload(
   } catch (error: any) {
     console.error('❌ [Sales Upload] Error:', error);
 
-    // Actualizar status del upload a error si existe
+    // Compensating cleanup: remove partial data then mark as error
     if (uploadId) {
       try {
+        await sql(`DELETE FROM sales_acciones WHERE excel_origen_id = $1`, [uploadId]);
+        await sql(`DELETE FROM sales_data WHERE upload_id = $1`, [uploadId]);
         await sql(`
           UPDATE sales_uploads
           SET status = 'error', notes = $1
           WHERE id = $2
         `, [error.message || 'Error desconocido', uploadId]);
       } catch (updateError) {
-        console.error('Error actualizando status del upload:', updateError);
+        console.error('Error en cleanup del upload:', updateError);
       }
     }
 

@@ -194,6 +194,9 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
                   );
                   break;
               }
+
+              // Reset eventType after processing to prevent stale type on next data line
+              eventType = '';
             } catch {
               // Ignore JSON parse errors
             }

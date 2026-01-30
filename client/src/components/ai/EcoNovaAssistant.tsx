@@ -40,6 +40,7 @@ const COLORS = {
 
 // Tool name → friendly label
 const TOOL_LABELS: Record<string, string> = {
+  process_sales_excel: 'Procesando Excel de ventas...',
   smart_query: 'Consultando base de datos...',
   get_sales_data: 'Obteniendo datos de ventas...',
   get_kpis: 'Consultando KPIs...',
@@ -202,6 +203,12 @@ export function EcoNovaAssistant() {
   } = useNovaChat({ pageContext: page });
 
   const firstName = user?.name?.split(' ')[0] || 'Usuario';
+
+  // Wrap clearMessages to also reset the scroll ref
+  const handleClear = useCallback(() => {
+    clearMessages();
+    prevMessagesLengthRef.current = 0;
+  }, [clearMessages]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -414,7 +421,7 @@ export function EcoNovaAssistant() {
                 <div className="flex items-center gap-1">
                   {messages.length > 0 && (
                     <button
-                      onClick={clearMessages}
+                      onClick={handleClear}
                       className="p-2 rounded-lg transition-colors"
                       style={{ color: 'rgba(255,255,255,0.5)' }}
                       onMouseEnter={(e) => {

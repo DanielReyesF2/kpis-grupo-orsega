@@ -765,14 +765,8 @@ async function searchInvoices(
 ): Promise<MCPToolResult> {
   // TODO: Implementar búsqueda en base de datos
   return {
-    success: true,
-    data: {
-      invoices: [],
-      total: 0,
-      page: params.page || 1,
-      limit: params.limit || 20,
-      message: 'Búsqueda de facturas pendiente de implementar con conexión a DB',
-    },
+    success: false,
+    error: 'Herramienta search_invoices no implementada aun. Usa smart_query para consultar facturas.',
   };
 }
 
@@ -785,10 +779,8 @@ async function getInvoiceDetails(
 ): Promise<MCPToolResult> {
   // TODO: Implementar consulta a base de datos
   return {
-    success: true,
-    data: {
-      message: 'Detalle de factura pendiente de implementar con conexión a DB',
-    },
+    success: false,
+    error: 'Herramienta get_invoice_details no implementada aun. Usa smart_query para consultar facturas.',
   };
 }
 
@@ -801,10 +793,8 @@ async function compareInvoices(
 ): Promise<MCPToolResult> {
   // TODO: Implementar comparación
   return {
-    success: true,
-    data: {
-      message: 'Comparación de facturas pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta compare_invoices no implementada aun.',
   };
 }
 
@@ -817,10 +807,8 @@ async function getSupplierHistory(
 ): Promise<MCPToolResult> {
   // TODO: Implementar consulta a base de datos
   return {
-    success: true,
-    data: {
-      message: 'Historial de proveedor pendiente de implementar con conexión a DB',
-    },
+    success: false,
+    error: 'Herramienta get_supplier_history no implementada aun. Usa smart_query para consultar proveedores.',
   };
 }
 
@@ -833,10 +821,8 @@ async function extractFromEmail(
 ): Promise<MCPToolResult> {
   // TODO: Implementar extracción de email
   return {
-    success: true,
-    data: {
-      message: 'Extracción de email pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta extract_from_email no implementada aun.',
   };
 }
 

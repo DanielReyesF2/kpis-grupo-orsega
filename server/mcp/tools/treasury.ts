@@ -20,6 +20,9 @@
  */
 
 import type { MCPTool, MCPToolResult, MCPContext } from '../index';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL!);
 
 // ============================================================================
 // DEFINICIÓN DE HERRAMIENTAS
@@ -567,20 +570,15 @@ export async function executeTreasuryTool(
 async function getAccounts(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   // TODO: Conectar con base de datos
   return {
-    success: true,
-    data: {
-      accounts: [],
-      message: 'Conexión a cuentas bancarias pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_accounts no implementada aun. Usa smart_query para consultar cuentas bancarias.',
   };
 }
 
 async function getCashFlow(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      message: 'Análisis de flujo de caja pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_cash_flow no implementada aun. Usa smart_query para consultar flujo de caja.',
   };
 }
 
@@ -608,20 +606,69 @@ async function schedulePayment(params: Record<string, any>, context: MCPContext)
 
 async function getPendingPayments(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      payments: [],
-      total: 0,
-      message: 'Consulta de pagos pendientes de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_pending_payments no implementada aun. Usa smart_query para consultar pagos pendientes.',
   };
 }
 
 async function getExchangeRate(params: Record<string, any>): Promise<MCPToolResult> {
-  const { from_currency, to_currency } = params;
+  const { from_currency, to_currency, date, source } = params;
 
-  // Tipos de cambio aproximados (en producción usar API de Banxico)
-  const rates: Record<string, number> = {
+  // Only USD/MXN pair is stored in DB (exchange_rates table)
+  const isUsdMxn = (from_currency === 'USD' && to_currency === 'MXN') ||
+                   (from_currency === 'MXN' && to_currency === 'USD');
+
+  if (isUsdMxn) {
+    try {
+      // Query the latest exchange rate from DB
+      let query = `SELECT buy_rate, sell_rate, date, source FROM exchange_rates`;
+      const conditions: string[] = [];
+      const queryParams: any[] = [];
+
+      if (source && source !== 'all') {
+        queryParams.push(source.toUpperCase());
+        conditions.push(`UPPER(source) = $${queryParams.length}`);
+      }
+
+      if (date && date !== 'today') {
+        queryParams.push(date);
+        conditions.push(`date = $${queryParams.length}`);
+      }
+
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+
+      query += ` ORDER BY date DESC LIMIT 1`;
+
+      const rows = await sql(query, queryParams);
+
+      if (rows.length > 0) {
+        const row = rows[0];
+        const rate = from_currency === 'USD'
+          ? parseFloat(row.sell_rate || row.buy_rate)
+          : 1 / parseFloat(row.buy_rate || row.sell_rate);
+
+        return {
+          success: true,
+          data: {
+            from: from_currency,
+            to: to_currency,
+            rate: Math.round(rate * 10000) / 10000,
+            buy_rate: parseFloat(row.buy_rate),
+            sell_rate: parseFloat(row.sell_rate),
+            date: row.date,
+            source: row.source,
+          },
+        };
+      }
+    } catch (error) {
+      console.warn('[MCP Treasury] Error querying exchange_rates, falling back to hardcoded:', error);
+    }
+  }
+
+  // Fallback: hardcoded approximate rates
+  const fallbackRates: Record<string, number> = {
     'USD_MXN': 17.15,
     'EUR_MXN': 18.50,
     'EUR_USD': 1.08,
@@ -630,9 +677,9 @@ async function getExchangeRate(params: Record<string, any>): Promise<MCPToolResu
   const key = `${from_currency}_${to_currency}`;
   const reverseKey = `${to_currency}_${from_currency}`;
 
-  let rate = rates[key];
-  if (!rate && rates[reverseKey]) {
-    rate = 1 / rates[reverseKey];
+  let rate = fallbackRates[key];
+  if (!rate && fallbackRates[reverseKey]) {
+    rate = 1 / fallbackRates[reverseKey];
   }
 
   if (!rate) {
@@ -644,10 +691,10 @@ async function getExchangeRate(params: Record<string, any>): Promise<MCPToolResu
     data: {
       from: from_currency,
       to: to_currency,
-      rate: rate,
+      rate,
       date: new Date().toISOString().split('T')[0],
-      source: 'cache',
-      note: 'Tipo de cambio aproximado. En producción usar API de Banxico.',
+      source: 'fallback',
+      note: 'Tipo de cambio aproximado (no se encontraron datos recientes en la BD).',
     },
   };
 }
@@ -682,23 +729,15 @@ async function convertCurrency(params: Record<string, any>): Promise<MCPToolResu
 
 async function getReceivables(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      receivables: [],
-      total: 0,
-      message: 'Cuentas por cobrar pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_receivables no implementada aun. Usa smart_query para consultar cuentas por cobrar.',
   };
 }
 
 async function getPayables(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      payables: [],
-      total: 0,
-      message: 'Cuentas por pagar pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_payables no implementada aun. Usa smart_query para consultar cuentas por pagar.',
   };
 }
 
@@ -719,12 +758,8 @@ async function cancelPayment(params: Record<string, any>, context: MCPContext): 
 
 async function getBankMovements(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      movements: [],
-      total: 0,
-      message: 'Movimientos bancarios pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_bank_movements no implementada aun. Usa smart_query para consultar movimientos bancarios.',
   };
 }
 

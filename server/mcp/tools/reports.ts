@@ -403,31 +403,22 @@ export async function executeReportsTool(
 
 async function generatePDFReport(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      message: 'Generación de PDF pendiente de implementar',
-      report_type: params.report_type,
-    },
+    success: false,
+    error: 'Herramienta generate_pdf_report no implementada aun.',
   };
 }
 
 async function generateExcelExport(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      message: 'Exportación a Excel pendiente de implementar',
-      data_source: params.data_source,
-    },
+    success: false,
+    error: 'Herramienta generate_excel_export no implementada aun.',
   };
 }
 
 async function generateChart(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      message: 'Generación de gráfica pendiente de implementar',
-      chart_type: params.chart_type,
-    },
+    success: false,
+    error: 'Herramienta generate_chart no implementada aun.',
   };
 }
 
@@ -458,23 +449,15 @@ async function analyzeData(params: Record<string, any>, context: MCPContext): Pr
 
 async function getExecutiveSummary(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      period: params.period,
-      message: 'Resumen ejecutivo pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_executive_summary no implementada aun.',
   };
 }
 
 async function scheduleReport(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      schedule_id: Date.now(),
-      status: 'scheduled',
-      message: 'Programación de reportes pendiente de implementar',
-      params,
-    },
+    success: false,
+    error: 'Herramienta schedule_report no implementada aun.',
   };
 }
 

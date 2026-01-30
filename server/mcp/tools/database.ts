@@ -469,11 +469,8 @@ async function smartQuery(params: Record<string, any>, context: MCPContext): Pro
 async function getSalesData(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   // TODO: Implementar consulta directa a sales_data
   return {
-    success: true,
-    data: {
-      message: 'Consulta de ventas pendiente de implementar con filtros específicos',
-      params,
-    },
+    success: false,
+    error: 'Herramienta get_sales_data no implementada aun. Usa smart_query para consultar ventas.',
   };
 }
 
@@ -500,41 +497,29 @@ async function getKPIs(params: Record<string, any>, context: MCPContext): Promis
 
 async function getCustomers(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      customers: [],
-      message: 'Consulta de clientes pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_customers no implementada aun. Usa smart_query para consultar clientes.',
   };
 }
 
 async function getProducts(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      products: [],
-      message: 'Consulta de productos pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_products no implementada aun. Usa smart_query para consultar productos.',
   };
 }
 
 async function getSuppliers(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      suppliers: [],
-      message: 'Consulta de proveedores pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_suppliers no implementada aun. Usa smart_query para consultar proveedores.',
   };
 }
 
 async function executeReport(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   return {
-    success: true,
-    data: {
-      report: params.report_name,
-      message: 'Ejecución de reportes pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta execute_report no implementada aun. Usa smart_query para obtener datos.',
   };
 }
 

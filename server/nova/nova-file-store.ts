@@ -23,6 +23,7 @@ interface StoredFile {
 const fileStore = new Map<string, StoredFile>();
 const TTL_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_FILES = 200;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
  * Store a file buffer and return a unique ID.
@@ -33,6 +34,11 @@ export function storeFile(
   mimetype: string,
   userId: string
 ): string {
+  // Reject files exceeding size limit
+  if (buffer.length > MAX_FILE_SIZE) {
+    throw new Error(`Archivo excede el limite de ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+  }
+
   // Evict expired entries first
   evictExpired();
 

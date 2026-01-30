@@ -23,6 +23,11 @@ export interface NovaContext {
   pageContext?: string;
   /** Additional context (e.g. parsed file data) injected into the user message */
   additionalContext?: string;
+  /** Base64-encoded image blocks for Claude multimodal vision */
+  imageBlocks?: Array<{
+    type: 'image';
+    source: { type: 'base64'; media_type: string; data: string };
+  }>;
 }
 
 export interface NovaConversationMessage {
@@ -52,6 +57,23 @@ export interface NovaStreamCallbacks {
 const MAX_ITERATIONS = 8;
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 4096;
+const TOOL_TIMEOUT_MS = 30_000;
+
+/**
+ * Execute a tool with a timeout to prevent hanging.
+ */
+async function executeToolWithTimeout(
+  toolName: string,
+  toolInput: Record<string, any>,
+  mcpContext: { userId?: string; companyId?: number }
+): Promise<MCPToolResult> {
+  return Promise.race([
+    executeTool(toolName, toolInput, mcpContext),
+    new Promise<MCPToolResult>((_, reject) =>
+      setTimeout(() => reject(new Error(`Herramienta ${toolName} excedio el tiempo limite (${TOOL_TIMEOUT_MS / 1000}s)`)), TOOL_TIMEOUT_MS)
+    ),
+  ]);
+}
 
 // Singleton Anthropic client — reuses HTTP connections across calls
 const anthropicClient = new Anthropic();
@@ -88,13 +110,29 @@ function buildMessages(
     }
   }
 
-  // Build user message with optional additional context
-  let userContent = question;
+  // Build user message with optional additional context and images
+  let userText = question;
   if (ctx.additionalContext) {
-    userContent = `${question}\n\n--- Datos adjuntos ---\n${ctx.additionalContext}`;
+    userText = `${question}\n\n--- Datos adjuntos ---\n${ctx.additionalContext}`;
   }
 
-  messages.push({ role: 'user', content: userContent });
+  // If we have image blocks, build a multimodal content array
+  if (ctx.imageBlocks && ctx.imageBlocks.length > 0) {
+    const contentBlocks: Anthropic.ContentBlockParam[] = [
+      { type: 'text', text: userText },
+      ...ctx.imageBlocks.map((img) => ({
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: img.source.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+          data: img.source.data,
+        },
+      })),
+    ];
+    messages.push({ role: 'user', content: contentBlocks });
+  } else {
+    messages.push({ role: 'user', content: userText });
+  }
 
   return messages;
 }
@@ -167,7 +205,7 @@ export async function novaChat(
         console.log(`[Nova] [MCP] Ejecutando herramienta: ${toolName}`);
 
         try {
-          const result: MCPToolResult = await executeTool(toolName, toolInput, {
+          const result: MCPToolResult = await executeToolWithTimeout(toolName, toolInput, {
             userId: ctx.userId,
             companyId: ctx.companyId,
           });
@@ -308,7 +346,7 @@ export async function novaChatStream(
         console.log(`[Nova Stream] [MCP] Ejecutando herramienta: ${toolName}`);
 
         try {
-          const result: MCPToolResult = await executeTool(toolName, toolInput, {
+          const result: MCPToolResult = await executeToolWithTimeout(toolName, toolInput, {
             userId: ctx.userId,
             companyId: ctx.companyId,
           });

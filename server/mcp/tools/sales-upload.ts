@@ -153,8 +153,24 @@ async function processSalesExcel(
       };
     }
 
-    // Create upload record
+    // Check for duplicate upload (same file name + size in last 24h)
     const resolvedCompanyId = 1; // DI by default; both DI and GO are processed
+    const duplicateCheck = await sql(`
+      SELECT id, status, created_at FROM sales_uploads
+      WHERE file_name = $1 AND file_size = $2
+        AND created_at > NOW() - INTERVAL '24 hours'
+      ORDER BY created_at DESC LIMIT 1
+    `, [storedFile.originalName, storedFile.size]);
+
+    if (duplicateCheck.length > 0) {
+      const dup = duplicateCheck[0];
+      return {
+        success: false,
+        error: `Este archivo ya fue subido hace menos de 24 horas (upload ID: ${dup.id}, estado: ${dup.status}). Si deseas volver a procesarlo, espera 24 horas o usa un nombre diferente.`,
+      };
+    }
+
+    // Create upload record
     const uploadResult = await sql(`
       INSERT INTO sales_uploads (
         company_id, uploaded_by, file_name, file_size,
@@ -370,13 +386,16 @@ async function processSalesExcel(
 
     if (uploadId) {
       try {
+        // Compensating cleanup: remove partial data
+        await sql(`DELETE FROM sales_acciones WHERE excel_origen_id = $1`, [uploadId]);
+        await sql(`DELETE FROM sales_data WHERE upload_id = $1`, [uploadId]);
         await sql(`
           UPDATE sales_uploads
           SET status = 'error', notes = $1
           WHERE id = $2
         `, [error.message || 'Error desconocido', uploadId]);
       } catch {
-        // Ignore update error
+        // Ignore cleanup error
       }
     }
 

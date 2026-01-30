@@ -511,14 +511,8 @@ async function sendWhatsApp(params: Record<string, any>, context: MCPContext): P
 async function createAlert(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   // TODO: Guardar en base de datos
   return {
-    success: true,
-    data: {
-      alert_id: Date.now(),
-      title: params.title,
-      level: params.level,
-      status: 'created',
-      message: 'Alerta creada (simulación)',
-    },
+    success: false,
+    error: 'Herramienta create_alert no implementada aun.',
   };
 }
 
@@ -535,39 +529,24 @@ async function createReminder(params: Record<string, any>, context: MCPContext):
 
   // TODO: Guardar en base de datos y programar
   return {
-    success: true,
-    data: {
-      reminder_id: Date.now(),
-      title: params.title,
-      remind_at: params.remind_at,
-      status: 'scheduled',
-      message: 'Recordatorio programado (simulación)',
-    },
+    success: false,
+    error: 'Herramienta create_reminder no implementada aun.',
   };
 }
 
 async function getNotifications(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   // TODO: Consultar base de datos
   return {
-    success: true,
-    data: {
-      notifications: [],
-      total: 0,
-      unread_count: 0,
-      message: 'Consulta de notificaciones pendiente de implementar',
-    },
+    success: false,
+    error: 'Herramienta get_notifications no implementada aun.',
   };
 }
 
 async function markNotification(params: Record<string, any>, context: MCPContext): Promise<MCPToolResult> {
   // TODO: Actualizar en base de datos
   return {
-    success: true,
-    data: {
-      updated: params.notification_ids?.length || 0,
-      action: params.action,
-      message: 'Notificaciones actualizadas (simulación)',
-    },
+    success: false,
+    error: 'Herramienta mark_notification no implementada aun.',
   };
 }
 
@@ -591,13 +570,8 @@ async function sendBulkNotification(params: Record<string, any>, context: MCPCon
 
   // TODO: Implementar envío masivo real
   return {
-    success: true,
-    data: {
-      batch_id: `batch_${Date.now()}`,
-      status: 'queued',
-      channel: params.channel,
-      message: 'Notificación masiva en cola (simulación)',
-    },
+    success: false,
+    error: 'Herramienta send_bulk_notification no implementada aun.',
   };
 }
 
