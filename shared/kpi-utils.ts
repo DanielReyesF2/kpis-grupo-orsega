@@ -11,7 +11,15 @@ export type KpiStatus = 'complies' | 'alert' | 'not_compliant';
 export function parseNumericValue(raw?: string | number | null): number {
   if (raw === null || raw === undefined) return NaN;
   if (typeof raw === 'number') return raw;
-  const cleaned = raw.replace(/[^\d.-]/g, "");
+  let cleaned = raw.replace(/[$%,\s]/g, "");
+  // Handle European format: 1.234,56 → 1234.56
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(cleaned)) {
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+  }
+  // Handle single comma as decimal: 123,45 → 123.45
+  else if (/^\d+(,\d+)$/.test(cleaned)) {
+    cleaned = cleaned.replace(',', '.');
+  }
   return parseFloat(cleaned);
 }
 
@@ -22,19 +30,33 @@ export function parseNumericValue(raw?: string | number | null): number {
 const LOWER_BETTER_KPIS = [
   'días de cobro',
   'días de pago',
+  'cobro',
   'tiempo de entrega',
   'tiempo promedio',
   'tiempo de respuesta',
   'tiempo de ciclo',
+  'tiempo',
+  'plazo',
   'días de inventario',
   'rotación de inventario',
+  'rotación',
   'defectos',
   'errores',
   'quejas',
   'devoluciones',
+  'rechazos',
+  'merma',
+  'desperdicio',
+  'retraso',
+  'demora',
   'huella de carbono',
   'costos',
-  'gastos'
+  'gastos',
+  'gasto',
+  'churn',
+  'cancelacion',
+  'cartera vencida',
+  'descuento',
 ];
 
 export function isLowerBetterKPI(kpiName: string): boolean {

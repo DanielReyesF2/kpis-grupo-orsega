@@ -51,7 +51,7 @@ import type {
   ScheduledPayment, InsertScheduledPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import type { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
@@ -1146,20 +1146,55 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  /**
+   * Batch-enrich shipments with items and cycle times in 2 queries instead of N+1.
+   */
+  private async batchEnrichShipments(shipmentList: Shipment[]): Promise<ShipmentWithCycleTimes[]> {
+    if (shipmentList.length === 0) return [];
+
+    const ids = shipmentList.map(s => s.id);
+
+    // Batch load all items and cycle times in 2 queries
+    const [allItems, allCycleTimes] = await Promise.all([
+      db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, ids)),
+      db.select().from(shipmentCycleTimes).where(inArray(shipmentCycleTimes.shipmentId, ids)),
+    ]);
+
+    // Index by shipmentId for O(1) lookup
+    const itemsByShipment = new Map<number, typeof allItems>();
+    for (const item of allItems) {
+      const list = itemsByShipment.get(item.shipmentId) || [];
+      list.push(item);
+      itemsByShipment.set(item.shipmentId, list);
+    }
+
+    const cycleTimeByShipment = new Map<number, typeof allCycleTimes[0]>();
+    for (const ct of allCycleTimes) {
+      cycleTimeByShipment.set(ct.shipmentId, ct);
+    }
+
+    return shipmentList.map(shipment => {
+      const cycleTime = cycleTimeByShipment.get(shipment.id);
+      return {
+        ...shipment,
+        items: itemsByShipment.get(shipment.id) || [],
+        cycleTimes: cycleTime ? {
+          hoursTotalCycle: cycleTime.hoursTotalCycle,
+          hoursPendingToTransit: cycleTime.hoursPendingToTransit,
+          hoursTransitToDelivered: cycleTime.hoursTransitToDelivered,
+          hoursDeliveredToClosed: cycleTime.hoursDeliveredToClosed,
+          hoursToDelivery: cycleTime.hoursToDelivery,
+          computedAt: cycleTime.computedAt || undefined,
+          updatedAt: cycleTime.updatedAt || undefined,
+        } : null,
+      };
+    });
+  }
+
   async getShipments(): Promise<ShipmentWithCycleTimes[]> {
     try {
       const allShipments = await db.select().from(shipments);
-      
-      // Cargar items y cycle times para cada shipment
-      const shipmentsWithData = await Promise.all(
-        allShipments.map(async (shipment) => {
-          const items = await this.getShipmentItems(shipment.id);
-          const enrichedShipment = await this.enrichShipmentWithCycleTimes(shipment);
-          return { ...enrichedShipment, items };
-        })
-      );
-      
-      return shipmentsWithData;
+      return await this.batchEnrichShipments(allShipments);
     } catch (error) {
       console.error("Error getting shipments:", error);
       return [];
@@ -1169,17 +1204,7 @@ export class DatabaseStorage implements IStorage {
   async getShipmentsByCompany(companyId: number): Promise<ShipmentWithCycleTimes[]> {
     try {
       const companyShipments = await db.select().from(shipments).where(eq(shipments.companyId, companyId));
-      
-      // Cargar items y cycle times para cada shipment
-      const shipmentsWithData = await Promise.all(
-        companyShipments.map(async (shipment) => {
-          const items = await this.getShipmentItems(shipment.id);
-          const enrichedShipment = await this.enrichShipmentWithCycleTimes(shipment);
-          return { ...enrichedShipment, items };
-        })
-      );
-      
-      return shipmentsWithData;
+      return await this.batchEnrichShipments(companyShipments);
     } catch (error) {
       console.error("Error getting shipments by company:", error);
       return [];

@@ -11,6 +11,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { novaChatStream } from './nova-agent';
 import type { NovaContext } from './nova-agent';
+import { novaAIClient } from './nova-client';
 import { jwtAuthMiddleware } from '../auth';
 import { isCFDI, parseCFDI, cfdiToInvoiceData } from '../cfdi-parser';
 import { storeFile } from './nova-file-store';
@@ -393,64 +394,111 @@ novaRouter.post(
         }
       }
 
-      // Store Excel file buffers for MCP tool access
       const user = req.user;
       const userId = user?.id?.toString() || '';
-      const storedFileIds: Array<{ fileId: string; name: string }> = [];
-      for (const file of validFiles) {
-        if (file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel')) {
-          const fileId = storeFile(file.buffer, file.originalname, file.mimetype, userId);
-          storedFileIds.push({ fileId, name: file.originalname });
-          console.log(`[Nova Route] Stored Excel file "${file.originalname}" as ${fileId}`);
+
+      console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}, novaAI: ${novaAIClient.isConfigured()}`);
+
+      // ================================================================
+      // PROXY PATH: Forward to Nova AI 2.0 when configured
+      // ================================================================
+      if (novaAIClient.isConfigured()) {
+        const filesToForward = validFiles.map(f => ({
+          buffer: f.buffer,
+          originalname: f.originalname,
+          mimetype: f.mimetype,
+        }));
+
+        await novaAIClient.streamChat(
+          message,
+          filesToForward,
+          {
+            conversationHistory: conversationHistory.slice(-10),
+            pageContext,
+            userId,
+            companyId: user?.companyId || undefined,
+          },
+          {
+            onToken(text) {
+              safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
+            },
+            onToolStart(tool) {
+              safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
+            },
+            onToolResult(tool, success) {
+              safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
+            },
+            onDone(response) {
+              safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
+              safeEnd();
+            },
+            onError(error) {
+              safeWrite(`event: error\ndata: ${JSON.stringify({ message: error.message || 'Error procesando solicitud' })}\n\n`);
+              safeEnd();
+            },
+          },
+          abortController.signal
+        );
+      } else {
+        // ================================================================
+        // LOCAL FALLBACK: Use local nova-agent.ts (existing behavior)
+        // ================================================================
+
+        // Store Excel file buffers for MCP tool access
+        const storedFileIds: Array<{ fileId: string; name: string }> = [];
+        for (const file of validFiles) {
+          if (file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel')) {
+            const fileId = storeFile(file.buffer, file.originalname, file.mimetype, userId);
+            storedFileIds.push({ fileId, name: file.originalname });
+            console.log(`[Nova Route] Stored Excel file "${file.originalname}" as ${fileId}`);
+          }
         }
+
+        // Parse uploaded files into context text
+        const fileContext = await parseUploadedFiles(validFiles);
+
+        // Add file IDs to context so the agent knows about processable files
+        let fullContext = fileContext || '';
+        if (storedFileIds.length > 0) {
+          const fileInfo = storedFileIds
+            .map(f => `  - file_id: "${f.fileId}" (${f.name})`)
+            .join('\n');
+          fullContext += `\n\n[ARCHIVOS EXCEL DISPONIBLES PARA PROCESAMIENTO]\nEl usuario adjuntó archivos Excel que pueden ser procesados con la herramienta process_sales_excel.\nUsa el file_id correspondiente como parámetro:\n${fileInfo}`;
+        }
+
+        // Get image content blocks for multimodal Claude vision
+        const imageBlocks = getImageContentBlocks(validFiles);
+
+        const ctx: NovaContext = {
+          userId,
+          companyId: user?.companyId || undefined,
+          conversationHistory: conversationHistory.slice(-10),
+          pageContext,
+          additionalContext: fullContext || undefined,
+          imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
+        };
+
+        // Stream response with abort signal
+        await novaChatStream(message, ctx, {
+          onToken(text) {
+            safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
+          },
+          onToolStart(tool) {
+            safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
+          },
+          onToolResult(tool, success) {
+            safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
+          },
+          onDone(response) {
+            safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
+            safeEnd();
+          },
+          onError(error) {
+            safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Error procesando solicitud' })}\n\n`);
+            safeEnd();
+          },
+        }, abortController.signal);
       }
-
-      // Parse uploaded files into context text
-      const fileContext = await parseUploadedFiles(validFiles);
-
-      // Add file IDs to context so the agent knows about processable files
-      let fullContext = fileContext || '';
-      if (storedFileIds.length > 0) {
-        const fileInfo = storedFileIds
-          .map(f => `  - file_id: "${f.fileId}" (${f.name})`)
-          .join('\n');
-        fullContext += `\n\n[ARCHIVOS EXCEL DISPONIBLES PARA PROCESAMIENTO]\nEl usuario adjuntó archivos Excel que pueden ser procesados con la herramienta process_sales_excel.\nUsa el file_id correspondiente como parámetro:\n${fileInfo}`;
-      }
-
-      // Get image content blocks for multimodal Claude vision
-      const imageBlocks = getImageContentBlocks(validFiles);
-
-      const ctx: NovaContext = {
-        userId,
-        companyId: user?.companyId || undefined,
-        conversationHistory: conversationHistory.slice(-10),
-        pageContext,
-        additionalContext: fullContext || undefined,
-        imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
-      };
-
-      console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}`);
-
-      // Stream response with abort signal
-      await novaChatStream(message, ctx, {
-        onToken(text) {
-          safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
-        },
-        onToolStart(tool) {
-          safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
-        },
-        onToolResult(tool, success) {
-          safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
-        },
-        onDone(response) {
-          safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
-          safeEnd();
-        },
-        onError(error) {
-          safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Error procesando solicitud' })}\n\n`);
-          safeEnd();
-        },
-      }, abortController.signal);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error interno';
       console.error('[Nova Route] Error:', msg);

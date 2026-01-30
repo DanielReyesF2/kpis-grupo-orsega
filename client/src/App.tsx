@@ -9,21 +9,31 @@ import { CompanyFilterProvider } from "@/hooks/use-company-filter";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { EcoNovaAssistant } from "@/components/ai/EcoNovaAssistant";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
-// Import pages directly
-import Dashboard from "@/pages/Dashboard";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import LogisticsPage from "@/pages/LogisticsPage";
-import TrendsAnalysisPage from "@/pages/TrendsAnalysisPage";
-import KpiControlCenter from "@/pages/KpiControlCenter";
-import SystemAdminPage from "@/pages/SystemAdminPage";
-import ProfilePage from "@/pages/ProfilePage";
-import UserActivation from "@/pages/UserActivation";
-import ShipmentsPage from "@/pages/ShipmentsPage";
-import NewShipmentPage from "@/pages/NewShipmentPage";
-import TreasuryPage from "@/pages/TreasuryPage";
-import SalesPage from "@/pages/SalesPage";
+// Lazy-loaded pages (code splitting)
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Login = lazy(() => import("@/pages/Login"));
+const Register = lazy(() => import("@/pages/Register"));
+const LogisticsPage = lazy(() => import("@/pages/LogisticsPage"));
+const TrendsAnalysisPage = lazy(() => import("@/pages/TrendsAnalysisPage"));
+const KpiControlCenter = lazy(() => import("@/pages/KpiControlCenter"));
+const SystemAdminPage = lazy(() => import("@/pages/SystemAdminPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const UserActivation = lazy(() => import("@/pages/UserActivation"));
+const ShipmentsPage = lazy(() => import("@/pages/ShipmentsPage"));
+const NewShipmentPage = lazy(() => import("@/pages/NewShipmentPage"));
+const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
+const SalesPage = lazy(() => import("@/pages/SalesPage"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -161,7 +171,9 @@ function App() {
           <SafeAuthProvider>
             <CompanyFilterProvider>
               <Toaster />
-              <Router />
+              <Suspense fallback={<PageLoader />}>
+                <Router />
+              </Suspense>
               <EcoNovaAssistant />
             </CompanyFilterProvider>
           </SafeAuthProvider>

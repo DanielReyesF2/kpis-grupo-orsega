@@ -98,23 +98,39 @@ const sqlGeneratorFunction = {
 
 // Ejecutar query de forma segura (solo SELECT)
 async function executeSafeQuery(query: string): Promise<{ success: boolean; data?: any[]; error?: string }> {
-  // Validar que sea solo SELECT
-  const normalizedQuery = query.trim().toLowerCase();
+  const trimmed = query.trim();
+  const normalizedQuery = trimmed.toLowerCase();
 
+  // Must start with SELECT
   if (!normalizedQuery.startsWith('select')) {
     return { success: false, error: "Solo se permiten consultas SELECT" };
   }
 
-  // Bloquear palabras peligrosas
-  const forbidden = ['insert', 'update', 'delete', 'drop', 'alter', 'create', 'truncate', 'grant', 'revoke'];
+  // Block multiple statements (semicolons outside of string literals)
+  if (trimmed.replace(/'[^']*'/g, '').includes(';')) {
+    return { success: false, error: "No se permiten múltiples sentencias SQL" };
+  }
+
+  // Block dangerous keywords as whole words (using word boundaries)
+  const forbidden = [
+    'insert', 'update', 'delete', 'drop', 'alter', 'create', 'truncate',
+    'grant', 'revoke', 'exec', 'execute', 'copy', 'pg_read_file',
+    'pg_write_file', 'lo_import', 'lo_export'
+  ];
   for (const word of forbidden) {
-    if (normalizedQuery.includes(word)) {
+    // Match as whole word to avoid false positives (e.g. "updated_at" matching "update")
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    if (regex.test(normalizedQuery)) {
       return { success: false, error: `Operación no permitida: ${word}` };
     }
   }
 
+  // Enforce a row limit to prevent unbounded result sets
+  if (!normalizedQuery.includes('limit')) {
+    query = trimmed + ' LIMIT 500';
+  }
+
   try {
-    console.log(`[Smart Search] Ejecutando SQL: ${query}`);
     const result = await sql(query);
     return { success: true, data: result as any[] };
   } catch (error: any) {

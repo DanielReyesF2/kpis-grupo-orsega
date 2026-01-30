@@ -7,6 +7,7 @@
 
 import crypto from 'crypto';
 import { novaChat } from './nova-agent';
+import { novaAIClient } from './nova-client';
 import { analysisStore } from './nova-routes';
 
 // Max concurrent auto-analysis tasks
@@ -108,11 +109,15 @@ Proporciona:
 
 Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
 
-      const result = await novaChat(prompt, {
+      const chatContext = {
         userId: userId?.toString(),
         companyId,
-        pageContext: 'sales',
-      });
+        pageContext: 'sales' as const,
+      };
+
+      const result = novaAIClient.isConfigured()
+        ? await novaAIClient.chat(prompt, chatContext)
+        : await novaChat(prompt, chatContext);
 
       analysisStore.set(analysisId, {
         result: truncateResult({
@@ -125,7 +130,7 @@ Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
         userId: userId?.toString(),
       });
 
-      console.log(`[Nova] Auto-analysis completed: ${analysisId}`);
+      console.log(`[Nova] Auto-analysis completed (${novaAIClient.isConfigured() ? 'nova-ai' : 'local'}): ${analysisId}`);
     } catch (error) {
       console.error(`[Nova] Auto-analysis error for ${analysisId}:`, error instanceof Error ? error.message : error);
 
@@ -201,10 +206,14 @@ Por favor:
 
 Se conciso.`;
 
-      const result = await novaChat(prompt, {
+      const chatContext = {
         userId: userId?.toString(),
-        pageContext: 'invoices',
-      });
+        pageContext: 'invoices' as const,
+      };
+
+      const result = novaAIClient.isConfigured()
+        ? await novaAIClient.chat(prompt, chatContext)
+        : await novaChat(prompt, chatContext);
 
       analysisStore.set(analysisId, {
         result: truncateResult({
@@ -217,7 +226,7 @@ Se conciso.`;
         userId: userId?.toString(),
       });
 
-      console.log(`[Nova] Invoice analysis completed: ${analysisId}`);
+      console.log(`[Nova] Invoice analysis completed (${novaAIClient.isConfigured() ? 'nova-ai' : 'local'}): ${analysisId}`);
     } catch (error) {
       console.error(`[Nova] Invoice analysis error for ${analysisId}:`, error instanceof Error ? error.message : error);
 
