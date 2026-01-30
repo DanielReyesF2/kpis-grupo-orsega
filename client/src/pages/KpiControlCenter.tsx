@@ -659,6 +659,7 @@ export default function KpiControlCenter() {
       else if (complianceNum >= 90) visualStatus = 'warning';
       else visualStatus = 'critical';
 
+      const companyId = kpi.companyId ?? selectedCompanyId ?? undefined;
       return {
         ...kpi,
         id: kpiId,
@@ -673,7 +674,8 @@ export default function KpiControlCenter() {
         historicalData,
         areaName: areaName,
         responsible: kpi.responsible,
-        company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
+        companyId,
+        company: kpi.company || (companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined)
       };
     });
   }, [kpis, kpiValues, areas, selectedCompanyId]);
@@ -1080,7 +1082,8 @@ export default function KpiControlCenter() {
                               areaName: kpi.areaName,
                               responsible: kpi.responsible,
                               historicalData: kpi.historicalData,
-                              company: kpi.company || (selectedCompanyId === 2 ? 'Orsega' : selectedCompanyId === 1 ? 'Dura' : undefined)
+                              companyId: kpi.companyId,
+                              company: kpi.company || (kpi.companyId === 1 ? 'Dura' : kpi.companyId === 2 ? 'Orsega' : undefined)
                             }}
                             onClick={() => handleUpdateKpi(kpi.id)}
                             delay={index * 0.05}
