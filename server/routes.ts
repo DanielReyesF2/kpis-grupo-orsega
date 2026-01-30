@@ -1840,10 +1840,34 @@ export function registerRoutes(app: express.Application) {
       });
 
       // Calcular métricas para cada colaborador
-      const collaborators = Array.from(collaboratorsMap.values()).map((collab) => {
-        const kpisWithData = collab.kpis.map((kpi: any) => {
+      const collaborators = await Promise.all(Array.from(collaboratorsMap.values()).map(async (collab) => {
+        const kpisWithData = await Promise.all(collab.kpis.map(async (kpi: any) => {
           const values = valuesByKpiId.get(kpi.id) || [];
-          const latestValue = values[0] || null;
+          let latestValue = values[0] || null;
+
+          // Si es un KPI de ventas, calcular valor en tiempo real desde sales_data
+          const kpiName = kpi.name || kpi.kpiName || '';
+          if (storage.isSalesKpi(kpiName) && kpi.companyId) {
+            try {
+              const now = new Date();
+              const calculatedValue = await calculateSalesKpiValue(kpiName, kpi.companyId, { year: now.getFullYear(), month: now.getMonth() + 1 });
+              if (calculatedValue) {
+                const targetRef = kpi.target || kpi.goal;
+                const dynStatus = targetRef ? calculateKpiStatus(calculatedValue.value, targetRef, kpiName) : 'not_compliant';
+                const dynCompliance = targetRef ? calculateCompliance(calculatedValue.value, targetRef, kpiName) : '0%';
+                latestValue = {
+                  ...latestValue,
+                  value: calculatedValue.value.toString() + (calculatedValue.unit ? ` ${calculatedValue.unit}` : ''),
+                  status: dynStatus,
+                  compliancePercentage: dynCompliance,
+                  date: now,
+                  comments: 'Calculado en tiempo real desde sales_data',
+                };
+              }
+            } catch (err) {
+              console.error(`[collaborators-performance] Error calculando KPI dinámico "${kpiName}":`, err);
+            }
+          }
           
           // Obtener valor del período anterior
           const frequency = kpi.frequency || 'monthly';
@@ -1915,7 +1939,7 @@ export function registerRoutes(app: express.Application) {
             status,
             lastUpdate: latestValue?.date || null
           };
-        });
+        }));
 
         const totalKpis = kpisWithData.length;
         const kpisWithValues = kpisWithData.filter(k => k.latestValue);
@@ -2017,7 +2041,8 @@ export function registerRoutes(app: express.Application) {
           trendDirection: scoreTrendDirection,
           kpis: kpisWithData
         };
-      }).sort((a, b) => b.score - a.score); // Ordenar por score descendente
+      }));
+      collaborators.sort((a, b) => b.score - a.score); // Ordenar por score descendente
 
       // Calcular promedio del equipo y tendencia
       const teamScores = collaborators.map(c => c.score);

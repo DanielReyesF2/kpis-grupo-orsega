@@ -47,6 +47,12 @@ interface EnhancedKpiCardProps {
   expandedLayout?: boolean; // Si es true, usa un layout más expandido para el panel
 }
 
+const getCompanyAccent = (companyId?: number) => {
+  if (companyId === 1) return { borderLeft: 'border-l-emerald-500', avatarBg: 'bg-emerald-600', badgeBg: 'bg-emerald-100 text-emerald-700 border-emerald-300', label: 'DURA' };
+  if (companyId === 2) return { borderLeft: 'border-l-purple-500', avatarBg: 'bg-purple-600', badgeBg: 'bg-purple-100 text-purple-700 border-purple-300', label: 'ORSEGA' };
+  return { borderLeft: '', avatarBg: 'bg-primary', badgeBg: '', label: '' };
+};
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'excellent':
@@ -80,6 +86,7 @@ const getStatusIcon = (status: string) => {
 export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expandedLayout = false }: EnhancedKpiCardProps) {
   const [isExpanded, setIsExpanded] = useState(expandedLayout); // Si está en expandedLayout, empezar expandido
   const statusColors = getStatusColor(kpi.status);
+  const companyAccent = getCompanyAccent(kpi.companyId);
 
   // Detectar si es un KPI de porcentaje estático (0-100%) que no requiere gráfica de tendencia
   const isStaticPercentageKPI = useMemo(() => {
@@ -389,8 +396,8 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       className="h-full"
     >
-      <Card 
-        className={`h-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70`}
+      <Card
+        className={`h-full transition-all duration-200 border-2 ${statusColors.border} ${statusColors.bg} hover:shadow-lg hover:border-opacity-70 ${companyAccent.borderLeft ? `border-l-4 ${companyAccent.borderLeft}` : ''}`}
         data-onboarding="kpi-card"
       >
         <CardContent className="p-5">
@@ -400,13 +407,15 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
               {/* Responsable destacado */}
               {kpi.responsible && (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-xs font-bold shadow-md">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${companyAccent.avatarBg} text-white text-xs font-bold shadow-md`}>
                     {kpi.responsible.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-gray-900">{kpi.responsible}</p>
-                    {kpi.company && (
-                      <p className="text-xs text-gray-500">{kpi.company}</p>
+                    {companyAccent.label && (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${companyAccent.badgeBg}`}>
+                        {companyAccent.label}
+                      </span>
                     )}
                   </div>
                 </div>
