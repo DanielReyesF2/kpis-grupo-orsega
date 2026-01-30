@@ -40,6 +40,7 @@ import { treasuryTools, executeTreasuryTool } from './tools/treasury';
 import { databaseTools, executeDatabaseTool } from './tools/database';
 import { reportsTools, executeReportsTool } from './tools/reports';
 import { notificationTools, executeNotificationTool } from './tools/notifications';
+import { salesUploadTools, executeSalesUploadTool } from './tools/sales-upload';
 
 // ============================================================================
 // TIPOS Y INTERFACES
@@ -48,7 +49,7 @@ import { notificationTools, executeNotificationTool } from './tools/notification
 export interface MCPTool {
   name: string;
   description: string;
-  category: 'invoices' | 'treasury' | 'database' | 'reports' | 'notifications';
+  category: 'invoices' | 'treasury' | 'database' | 'reports' | 'notifications' | 'sales';
   inputSchema: {
     type: 'object';
     properties: Record<string, {
@@ -96,6 +97,7 @@ export const mcpToolRegistry: MCPTool[] = [
   ...databaseTools,
   ...reportsTools,
   ...notificationTools,
+  ...salesUploadTools,
 ];
 
 /**
@@ -172,6 +174,9 @@ export async function executeTool(
         break;
       case 'notifications':
         result = await executeNotificationTool(toolName, params, context);
+        break;
+      case 'sales':
+        result = await executeSalesUploadTool(toolName, params, context);
         break;
       default:
         result = {
@@ -281,6 +286,7 @@ export {
   databaseTools,
   reportsTools,
   notificationTools,
+  salesUploadTools,
 };
 
 export default {

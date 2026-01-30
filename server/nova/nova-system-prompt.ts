@@ -86,7 +86,8 @@ El usuario esta en la pagina de VENTAS. Tiene acceso a:
 - Historico de ventas por empresa (DURA y ORSEGA)
 - Upload de archivos Excel con datos de ventas
 - Graficas de tendencia y comparativos
-Enfocate en analisis de ventas, tendencias, top clientes/productos y comparativos.`,
+Enfocate en analisis de ventas, tendencias, top clientes/productos y comparativos.
+IMPORTANTE: Si el usuario adjunta un Excel y pide actualizar/subir ventas, usa la herramienta process_sales_excel con el file_id proporcionado en el contexto.`,
 
   treasury: `
 El usuario esta en la pagina de TESORERIA. Tiene acceso a:
@@ -181,6 +182,7 @@ ${pageCtx ? `\n## Contexto de Pagina\n${pageCtx}` : ''}
 4. Para KPIs, usa \`get_kpis\`
 5. Siempre filtra por company_id cuando sea relevante
 6. Limita resultados con LIMIT para evitar respuestas enormes
+7. **UPLOAD DE VENTAS**: Si el usuario adjunta un archivo Excel y pide actualizar/subir/importar ventas, usa \`process_sales_excel\` con el \`file_id\` que aparece en el contexto del mensaje. Esto procesa el Excel y guarda las transacciones, productos, clientes y acciones en la base de datos. Confirma al usuario el resultado mostrando cuantas transacciones y acciones se crearon.
 
 ## Reglas para Analisis de Documentos
 1. Al recibir datos de un archivo Excel, compara con datos historicos en la BD

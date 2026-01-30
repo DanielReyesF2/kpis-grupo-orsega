@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Users, History, FileText, DollarSign } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
-import { NovaPageWidget } from "@/components/ai/NovaPageWidget";
+
 
 // Core components
 import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
@@ -370,17 +370,7 @@ export default function TreasuryPage() {
         </div>
       </div>
 
-      {/* Nova AI Treasury Widget */}
-      <div className="mt-4">
-        <NovaPageWidget
-          pageContext="treasury"
-          quickActions={[
-            { label: "Flujo de caja", prompt: "Cual es el estado actual del flujo de caja?" },
-            { label: "Pagos pendientes", prompt: "Cuales son los pagos pendientes mas urgentes?" },
-            { label: "Conciliar comprobante", prompt: "Ayudame a verificar los ultimos comprobantes de pago subidos" },
-          ]}
-        />
-      </div>
+
 
       {/* Modal de Verificación de Factura */}
       {showInvoiceVerificationModal && invoiceVerificationData && (

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { NovaPageWidget } from '@/components/ai/NovaPageWidget';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -465,15 +465,7 @@ export default function TrendsAnalysisPage() {
           </CardContent>
         </Card>
 
-        {/* Nova AI Trends Widget */}
-        <NovaPageWidget
-          pageContext="trends-analysis"
-          quickActions={[
-            { label: "Explicar tendencia", prompt: "Explica las principales tendencias de ventas que observas en los datos historicos" },
-            { label: "Proyeccion", prompt: "Cual es la proyeccion de ventas para los proximos 3 meses basada en datos historicos?" },
-            { label: "Comparar periodos", prompt: "Compara el primer semestre del ano actual con el del ano anterior" },
-          ]}
-        />
+
       </div>
     </AppLayout>
   );

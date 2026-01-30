@@ -13,6 +13,7 @@ import { novaChatStream } from './nova-agent';
 import type { NovaContext } from './nova-agent';
 import { jwtAuthMiddleware } from '../auth';
 import { isCFDI, parseCFDI, cfdiToInvoiceData } from '../cfdi-parser';
+import { storeFile } from './nova-file-store';
 
 // In-memory store for auto-analysis results (with userId for ownership)
 const MAX_ANALYSIS_STORE_SIZE = 1000;
@@ -350,16 +351,36 @@ novaRouter.post(
         }
       }
 
+      // Store Excel file buffers for MCP tool access
+      const user = req.user;
+      const userId = user?.id?.toString() || '';
+      const storedFileIds: Array<{ fileId: string; name: string }> = [];
+      for (const file of validFiles) {
+        if (file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel')) {
+          const fileId = storeFile(file.buffer, file.originalname, file.mimetype, userId);
+          storedFileIds.push({ fileId, name: file.originalname });
+          console.log(`[Nova Route] Stored Excel file "${file.originalname}" as ${fileId}`);
+        }
+      }
+
       // Parse uploaded files into context text
       const fileContext = await parseUploadedFiles(validFiles);
 
-      const user = req.user;
+      // Add file IDs to context so the agent knows about processable files
+      let fullContext = fileContext || '';
+      if (storedFileIds.length > 0) {
+        const fileInfo = storedFileIds
+          .map(f => `  - file_id: "${f.fileId}" (${f.name})`)
+          .join('\n');
+        fullContext += `\n\n[ARCHIVOS EXCEL DISPONIBLES PARA PROCESAMIENTO]\nEl usuario adjuntó archivos Excel que pueden ser procesados con la herramienta process_sales_excel.\nUsa el file_id correspondiente como parámetro:\n${fileInfo}`;
+      }
+
       const ctx: NovaContext = {
-        userId: user?.id?.toString() || '',
+        userId,
         companyId: user?.companyId || undefined,
         conversationHistory: conversationHistory.slice(-10),
         pageContext,
-        additionalContext: fileContext || undefined,
+        additionalContext: fullContext || undefined,
       };
 
       console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}`);
