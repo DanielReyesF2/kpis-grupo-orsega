@@ -232,7 +232,7 @@ export function EcoNovaAssistant() {
     };
   }, [isOpen]);
 
-  // Smart scroll — on new messages or during streaming
+  // Smart scroll — delay slightly so ReactMarkdown content is rendered
   useEffect(() => {
     const currentLength = messages.length;
     const prevLength = prevMessagesLengthRef.current;
@@ -240,7 +240,12 @@ export function EcoNovaAssistant() {
     if (currentLength > prevLength && currentLength > 0) {
       const lastMessage = messages[currentLength - 1];
       if (lastMessage.role === "assistant" && lastMessageRef.current) {
-        lastMessageRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Wait for ReactMarkdown to finish rendering before scrolling
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 50);
+        });
       } else if (lastMessage.role === "user" && scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
