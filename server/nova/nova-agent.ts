@@ -8,9 +8,10 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { mcpToolRegistry, executeTool } from '../mcp/index';
-import type { MCPTool, MCPToolResult } from '../mcp/index';
+import { executeTool } from '../mcp/index';
+import type { MCPToolResult } from '../mcp/index';
 import { buildNovaSystemPrompt } from './nova-system-prompt';
+import { getToolsForContext } from './nova-tool-router';
 
 // ============================================================================
 // TYPES
@@ -56,7 +57,7 @@ export interface NovaStreamCallbacks {
 
 const MAX_ITERATIONS = 8;
 const MODEL = 'claude-sonnet-4-20250514';
-const MAX_TOKENS = 4096;
+const MAX_TOKENS = 8192;
 const TOOL_TIMEOUT_MS = 30_000;
 
 /**
@@ -77,18 +78,6 @@ async function executeToolWithTimeout(
 
 // Singleton Anthropic client — reuses HTTP connections across calls
 const anthropicClient = new Anthropic();
-
-/**
- * Convert MCPTool[] to Anthropic Tool[] format.
- * Renames `inputSchema` → `input_schema`.
- */
-function mcpToolsToAnthropicTools(): Anthropic.Tool[] {
-  return mcpToolRegistry.map((tool: MCPTool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema as Anthropic.Tool.InputSchema,
-  }));
-}
 
 /**
  * Build the messages array for the Anthropic API from conversation history.
@@ -150,7 +139,8 @@ export async function novaChat(
   question: string,
   ctx: NovaContext = {}
 ): Promise<NovaResponse> {
-  const tools = mcpToolsToAnthropicTools();
+  const tools = getToolsForContext(ctx.pageContext, question);
+  console.log(`[Nova] Tools selected: ${tools.length} (page: ${ctx.pageContext})`);
   const systemPrompt = buildNovaSystemPrompt({
     userId: ctx.userId,
     companyId: ctx.companyId,
@@ -266,7 +256,8 @@ export async function novaChatStream(
   callbacks: NovaStreamCallbacks,
   abortSignal?: AbortSignal
 ): Promise<void> {
-  const tools = mcpToolsToAnthropicTools();
+  const tools = getToolsForContext(ctx.pageContext, question);
+  console.log(`[Nova Stream] Tools selected: ${tools.length} (page: ${ctx.pageContext})`);
   const systemPrompt = buildNovaSystemPrompt({
     userId: ctx.userId,
     companyId: ctx.companyId,
