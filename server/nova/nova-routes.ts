@@ -262,6 +262,12 @@ novaRouter.post(
 
       const files = (req.files as Express.Multer.File[]) || [];
 
+      // Diagnostic logging for file upload debugging
+      console.log(`[Nova Route] Raw multer files: ${files.length}, content-type: ${req.headers['content-type']?.substring(0, 60)}, body keys: ${Object.keys(req.body || {}).join(',')}`);
+      if (files.length > 0) {
+        files.forEach((f, i) => console.log(`[Nova Route] File[${i}]: ${f.originalname} (${f.mimetype}, ${f.size} bytes)`));
+      }
+
       // Validate file content via magic bytes
       const validFiles: Express.Multer.File[] = [];
       for (const file of files) {
