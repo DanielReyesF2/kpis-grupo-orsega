@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAuthToken } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
 
 // ============================================================================
 // Types
@@ -179,6 +180,24 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
                         m.id === assistantId ? { ...m, content: data.answer } : m
                       )
                     );
+                  }
+                  // Invalidate React Query caches when data-modifying tools were used
+                  if (data.toolsUsed && Array.isArray(data.toolsUsed)) {
+                    const dataTools = ['process_sales_excel', 'process_invoice', 'schedule_payment'];
+                    const usedDataTool = data.toolsUsed.some((t: string) => dataTools.includes(t));
+                    if (usedDataTool) {
+                      setTimeout(() => {
+                        queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/top-performers'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/payment-vouchers'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/treasury'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/treasury/payments'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/scheduled-payments'] });
+                      }, 200);
+                    }
                   }
                   break;
 
