@@ -5,4 +5,5 @@
 export { novaRouter } from './nova-routes';
 export { novaAIClient } from './nova-client';
 export { autoAnalyzeSalesUpload } from './nova-auto-analyze';
+export { analyzeVoucherBackground } from './nova-voucher-analyze';
 export type { NovaContext, NovaResponse, NovaStreamCallbacks, NovaAnalysisResult } from './types';

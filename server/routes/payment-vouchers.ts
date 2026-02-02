@@ -11,6 +11,7 @@ import { type InsertPaymentVoucher, paymentVouchers, deletedPaymentVouchers } fr
 import { db } from '../db';
 import { eq } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
+import { analyzeVoucherBackground } from '../nova/nova-voucher-analyze';
 
 const router = Router();
 
@@ -229,6 +230,16 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       console.error('❌ [Upload Voucher] Error al crear voucher en la BD:', dbError);
       throw new Error(`Error al crear comprobante: ${dbError?.message || 'Error desconocido'}`);
     }
+
+    // Fire-and-forget background analysis via Nova 2.0
+    analyzeVoucherBackground({
+      voucherId: voucher.id,
+      scheduledPaymentId: scheduledPaymentId,
+      fileName: file.originalname,
+      fileUrl: voucherUrl,
+      companyId: scheduledPayment.companyId,
+      userId: user.id.toString(),
+    });
 
     // Actualizar scheduled payment con voucherId y estado
     // SIEMPRE cambiar el estado basado en si el cliente requiere REP
@@ -452,6 +463,16 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
         .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
       console.log(`💳 [Pay] Scheduled payment ${existingVoucher.scheduledPaymentId} actualizado a ${requiresREP ? 'voucher_uploaded' : 'payment_completed'}`);
     }
+
+    // Fire-and-forget background analysis via Nova 2.0
+    analyzeVoucherBackground({
+      voucherId: voucherId,
+      scheduledPaymentId: existingVoucher.scheduledPaymentId || undefined,
+      fileName: file.originalname,
+      fileUrl: `/uploads/comprobantes/${year}/${month}/${voucherFileName}`,
+      companyId: existingVoucher.companyId,
+      userId: user.id.toString(),
+    });
 
     console.log(`✅ [Pay] Pago registrado exitosamente. Voucher ${voucherId} actualizado a ${newStatus}`);
 

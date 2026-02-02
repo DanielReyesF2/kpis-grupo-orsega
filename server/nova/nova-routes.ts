@@ -8,7 +8,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { novaAIClient } from './nova-client';
+import { sanitizeSSE } from './sse-utils';
 import { jwtAuthMiddleware } from '../auth';
 
 // In-memory store for auto-analysis results (with userId for ownership)
@@ -33,38 +35,25 @@ const MAX_MESSAGE_LENGTH = 10_000;
 const MAX_PAGE_CONTEXT_LENGTH = 100;
 
 // ============================================================================
-// RATE LIMITER (per-user, in-memory)
+// RATE LIMITER (per-user, via express-rate-limit)
 // ============================================================================
 
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 10;  // 10 requests per window
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(userId);
-
-  if (!entry || now >= entry.resetAt) {
-    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
-
-// Cleanup stale rate-limit entries every 5 minutes
-const rateLimitCleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now >= entry.resetAt) rateLimitMap.delete(key);
-  }
-}, 5 * 60 * 1000);
-if (rateLimitCleanup.unref) rateLimitCleanup.unref();
+const novaChatLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  keyGenerator: (req: AuthRequest) => req.user?.id?.toString() || req.ip || 'unknown',
+  handler: (_req, res) => {
+    // SSE-compatible error response (not JSON 429)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.write(`event: error\ndata: ${JSON.stringify({ message: 'Demasiadas solicitudes. Espera un momento antes de enviar otro mensaje.' })}\n\n`);
+    res.end();
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Primary key is req.user.id (JWT-authenticated); req.ip is only a fallback
+  validate: false,
+});
 
 // ============================================================================
 // MULTER CONFIG
@@ -170,6 +159,7 @@ export const novaRouter = Router();
 novaRouter.post(
   '/api/nova/chat',
   jwtAuthMiddleware,
+  novaChatLimiter,
   novaUpload.array('files', 5),
   async (req: AuthRequest, res: Response) => {
     // SSE headers
@@ -208,14 +198,6 @@ novaRouter.post(
     });
 
     try {
-      // --- Rate limiting ---
-      const rateLimitUserId = req.user?.id?.toString() || 'anonymous';
-      if (!checkRateLimit(rateLimitUserId)) {
-        safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Demasiadas solicitudes. Espera un momento antes de enviar otro mensaje.' })}\n\n`);
-        safeEnd();
-        return;
-      }
-
       // --- Input validation ---
       const message = req.body.message;
       if (!message || typeof message !== 'string') {
@@ -307,16 +289,29 @@ novaRouter.post(
         },
         {
           onToken(text) {
-            safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
+            if (typeof text === 'string' && text.length <= 50_000) {
+              safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
+            }
           },
           onToolStart(tool) {
-            safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
+            if (typeof tool === 'string' && tool.length <= 200) {
+              safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
+            }
           },
           onToolResult(tool, success) {
-            safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
+            if (typeof tool === 'string' && tool.length <= 200) {
+              safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success: !!success })}\n\n`);
+            }
           },
           onDone(response) {
-            safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
+            const safe = {
+              answer: sanitizeSSE(response.answer),
+              toolsUsed: Array.isArray(response.toolsUsed)
+                ? response.toolsUsed.filter((t): t is string => typeof t === 'string').slice(0, 50)
+                : [],
+              source: sanitizeSSE(response.source, 100),
+            };
+            safeWrite(`event: done\ndata: ${JSON.stringify(safe)}\n\n`);
             safeEnd();
           },
           onError(error) {
