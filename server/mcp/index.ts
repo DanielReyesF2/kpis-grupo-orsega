@@ -121,14 +121,6 @@ export function findTool(name: string): MCPTool | undefined {
   return mcpToolRegistry.find(tool => tool.name === name);
 }
 
-/**
- * Busca múltiples herramientas por nombre (O(1) lookup con Set)
- */
-export function findToolsByNames(names: string[]): MCPTool[] {
-  const nameSet = new Set(names);
-  return mcpToolRegistry.filter(tool => nameSet.has(tool.name));
-}
-
 // ============================================================================
 // EJECUTOR DE HERRAMIENTAS
 // ============================================================================
@@ -301,7 +293,6 @@ export default {
   getAvailableTools,
   getToolsByCategory,
   findTool,
-  findToolsByNames,
   executeTool,
   generateSystemPrompt,
   mcpToolRegistry,
