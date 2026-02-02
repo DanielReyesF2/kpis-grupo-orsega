@@ -867,12 +867,13 @@ Now analyze the following document carefully and extract ALL available informati
       
       // Detección de tipo de documento
       if (!parsedData.documentType || parsedData.documentType === 'unknown') {
-        const isInvoice = /factura|invoice|cfdi|rfc|folio fiscal|proveedor|supplier|bill|recibo fiscal|nota de venta/.test(txt);
-        const isVoucher = /spei|clabe|banco|transferencia|voucher|comprobante de pago|transferencia bancaria/.test(txt);
+        const isInvoice = /factura|invoice|cfdi|rfc|folio fiscal|proveedor|supplier|bill|recibo fiscal|nota de venta|folio/.test(txt);
         const isRep = /complemento de pago|cfdi de pago|uuid relacionado|folio relacionado|payment complement/.test(txt);
-        
-        if (isInvoice) parsedData.documentType = 'invoice';
-        else if (isRep) parsedData.documentType = 'rep';
+        const isVoucher = !isInvoice && (/spei|clabe|comprobante de pago/.test(txt) ||
+          (txt.includes('transferencia') && !txt.includes('forma de pago') && !txt.includes('metodo de pago') && !txt.includes('método de pago')));
+
+        if (isRep) parsedData.documentType = 'rep';
+        else if (isInvoice) parsedData.documentType = 'invoice';
         else if (isVoucher) parsedData.documentType = 'voucher';
         else parsedData.documentType = parsedData.documentType || 'unknown';
       }

@@ -8,7 +8,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import multer from 'multer';
-import crypto from 'crypto';
 import { novaAIClient } from './nova-client';
 import { jwtAuthMiddleware } from '../auth';
 
