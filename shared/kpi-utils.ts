@@ -191,7 +191,7 @@ export function normalizeStatus(status: string | null | undefined): KpiStatus {
     'not_compliant': 'not_compliant',
   };
   
-  return statusMap[status.toLowerCase()] || 'not_compliant';
+  return statusMap[status.trim().toLowerCase()] || 'not_compliant';
 }
 
 

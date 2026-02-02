@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-import { Users, BarChart3, Plus, Edit, Trash2, UserPlus, Building, Settings, Mail } from 'lucide-react';
+import { Users, BarChart3, Plus, Edit, Trash2, UserPlus, Building, Settings, Mail, Package, CheckCircle2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { apiRequest } from '@/lib/queryClient';
@@ -834,6 +835,49 @@ export default function SystemAdminPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* ========================================
+            MODULOS INSTALADOS
+            ======================================== */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Modulos Instalados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-gray-100">
+              {[
+                { name: 'Dashboard Ejecutivo', version: '4.2.0', description: 'Panel principal con KPIs consolidados y metricas en tiempo real' },
+                { name: 'Pipeline Comercial', version: '6.3.0', description: 'Ventas por empresa, analytics, alertas, churn risk, top clientes/productos' },
+                { name: 'Centro de Control KPIs', version: '5.1.0', description: 'CRUD de KPIs, valores historicos, cumplimiento, tendencias avanzadas' },
+                { name: 'Tesoreria', version: '7.0.0', description: 'Comprobantes de pago, tipos de cambio, IDRALL, contabilidad, pagos programados' },
+                { name: 'Logistica y Operaciones', version: '4.5.0', description: 'Embarques, tracking, planes de accion, tiempos de ciclo, notificaciones' },
+                { name: 'Nova AI', version: '3.8.0', description: 'Asistente de IA con streaming, analisis automatico de ventas y documentos' },
+                { name: 'Analisis de Tendencias', version: '2.6.0', description: 'Comparativas anuales, tendencias multi-anio, resumen ejecutivo anual' },
+                { name: 'Gestion de Equipo', version: '3.2.0', description: 'Perfiles de puesto, historial KPI por usuario, actividad del equipo' },
+                { name: 'Catalogos', version: '2.4.0', description: 'Clientes, productos, proveedores con validacion multi-tenant' },
+                { name: 'Onboarding', version: '2.1.0', description: 'Activacion de cuentas, envio de emails, seed de datos de produccion' },
+                { name: 'Integraciones N8N', version: '1.5.0', description: 'Webhooks, contexto de ventas y tipo de cambio para automatizaciones' },
+                { name: 'API Docs', version: '1.0.0', description: 'Catalogo auto-generado de endpoints REST' },
+                { name: 'Configuracion', version: '3.2.0', description: 'Administracion de usuarios, roles, areas y configuracion del sistema' },
+              ].map((mod) => (
+                <div key={mod.name} className="flex items-center justify-between py-3">
+                  <div>
+                    <span className="font-medium text-gray-900">{mod.name}</span>
+                    <span className="ml-2 text-sm text-gray-500">v{mod.version}</span>
+                    <p className="text-xs text-gray-400 mt-0.5">{mod.description}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Activo
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
