@@ -115,12 +115,14 @@ async function processSingleInvoice(
     `[InvoiceProcessor] Analysis: type=${analysis.documentType}, amount=${analysis.extractedAmount}, supplier=${analysis.extractedSupplierName}`,
   );
 
-  // Reject non-invoice documents
-  if (analysis.documentType === 'voucher' || analysis.documentType === 'rep') {
+  // Only reject complemento de pago (REP) — these are payment receipts, not invoices.
+  // Vouchers and unknown types with extractable amounts are still processable
+  // since the user explicitly uploaded them on the treasury page.
+  if (analysis.documentType === 'rep') {
     return {
       success: false,
       fileName: file.originalname,
-      error: `Documento detectado como ${analysis.documentType}, no como factura`,
+      error: 'Documento detectado como complemento de pago (REP), no como factura',
       analysis,
     };
   }

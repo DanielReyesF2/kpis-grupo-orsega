@@ -510,13 +510,21 @@ export async function analyzePaymentDocument(
       if (hasGoodData) {
         console.log(`✅ [Templates] Extracción exitosa con template "${templateToUse.name}"`);
 
-        // Determinar tipo de documento
+        // Determinar tipo de documento — priorizar invoice sobre voucher
+        // Un PDF de factura puede contener "transferencia" como método de pago
         let documentType: "invoice" | "voucher" | "rep" | "unknown" = "invoice";
         const lowerText = extractedText.toLowerCase();
-        if (lowerText.includes('spei') || lowerText.includes('transferencia') || lowerText.includes('comprobante de pago')) {
-          documentType = "voucher";
-        } else if (lowerText.includes('complemento de pago') || lowerText.includes('cfdi de pago')) {
+        const isInvoice = /factura|invoice|cfdi|rfc|folio fiscal|proveedor|supplier|bill|recibo fiscal|nota de venta|folio/.test(lowerText);
+        const isRep = lowerText.includes('complemento de pago') || lowerText.includes('cfdi de pago');
+        const isVoucher = !isInvoice && (lowerText.includes('spei') || lowerText.includes('comprobante de pago') ||
+          (lowerText.includes('transferencia') && !lowerText.includes('forma de pago') && !lowerText.includes('metodo de pago') && !lowerText.includes('método de pago')));
+
+        if (isRep) {
           documentType = "rep";
+        } else if (isInvoice) {
+          documentType = "invoice";
+        } else if (isVoucher) {
+          documentType = "voucher";
         }
 
         return {
