@@ -96,6 +96,12 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
       }
     }
 
+    // Debug: log what we're sending so we can verify files are included
+    if (process.env.NODE_ENV === 'development' || files?.length) {
+      console.log(`[Nova SDK] Sending: message=${content.length}chars, files=${files?.length ?? 0}, pageContext=${options.pageContext}`);
+      files?.forEach((f, i) => console.log(`[Nova SDK] File[${i}]: ${f.name} (${f.type}, ${f.size} bytes)`));
+    }
+
     const authToken = getAuthToken();
 
     // Prepare assistant message placeholder
