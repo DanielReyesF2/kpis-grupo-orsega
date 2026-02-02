@@ -855,13 +855,6 @@ export default function SystemAdminPage() {
                 { name: 'Tesoreria', version: '7.0.0', description: 'Comprobantes de pago, tipos de cambio, IDRALL, contabilidad, pagos programados' },
                 { name: 'Logistica y Operaciones', version: '4.5.0', description: 'Embarques, tracking, planes de accion, tiempos de ciclo, notificaciones' },
                 { name: 'Nova AI', version: '3.8.0', description: 'Asistente de IA con streaming, analisis automatico de ventas y documentos' },
-                { name: 'Analisis de Tendencias', version: '2.6.0', description: 'Comparativas anuales, tendencias multi-anio, resumen ejecutivo anual' },
-                { name: 'Gestion de Equipo', version: '3.2.0', description: 'Perfiles de puesto, historial KPI por usuario, actividad del equipo' },
-                { name: 'Catalogos', version: '2.4.0', description: 'Clientes, productos, proveedores con validacion multi-tenant' },
-                { name: 'Onboarding', version: '2.1.0', description: 'Activacion de cuentas, envio de emails, seed de datos de produccion' },
-                { name: 'Integraciones N8N', version: '1.5.0', description: 'Webhooks, contexto de ventas y tipo de cambio para automatizaciones' },
-                { name: 'API Docs', version: '1.0.0', description: 'Catalogo auto-generado de endpoints REST' },
-                { name: 'Configuracion', version: '3.2.0', description: 'Administracion de usuarios, roles, areas y configuracion del sistema' },
               ].map((mod) => (
                 <div key={mod.name} className="flex items-center justify-between py-3">
                   <div>
