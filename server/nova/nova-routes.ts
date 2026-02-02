@@ -336,11 +336,21 @@ novaRouter.post(
         return;
       }
 
-      const filesToForward = validFiles.map(f => ({
-        buffer: f.buffer,
-        originalname: f.originalname,
-        mimetype: f.mimetype,
-      }));
+      // When invoices were processed locally, don't forward those PDFs/XMLs to Nova AI.
+      // Otherwise Nova AI re-analyzes them and gives generic instructions instead of
+      // acknowledging the processing results from additionalContext.
+      const filesToForward = invoiceToolUsed
+        ? validFiles
+            .filter(f => !f.mimetype.includes('pdf') && !f.mimetype.includes('xml'))
+            .map(f => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype }))
+        : validFiles.map(f => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype }));
+
+      // When invoices were processed, wrap the context as a system instruction
+      // so Nova AI confirms the results instead of asking for manual data.
+      let finalContext = additionalContext || undefined;
+      if (invoiceToolUsed && additionalContext) {
+        finalContext = `[SISTEMA] El servidor ya procesó automáticamente los archivos adjuntos. Resultados:\n${additionalContext}\nResponde al usuario confirmando estos resultados. NO pidas datos de la factura — ya fue procesada.`;
+      }
 
       await novaAIClient.streamChat(
         message,
@@ -350,7 +360,7 @@ novaRouter.post(
           pageContext,
           userId,
           companyId: user?.companyId || undefined,
-          additionalContext: additionalContext || undefined,
+          additionalContext: finalContext,
         },
         {
           onToken(text) {
