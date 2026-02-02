@@ -1,26 +1,20 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Upload,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
   Users,
-  FileSpreadsheet,
   BarChart3,
   Package,
   ArrowLeft,
   Sparkles,
   Activity,
-  CheckCircle2,
-  XCircle,
-  Loader2,
   UserPlus,
   UserMinus,
   DollarSign,
@@ -54,14 +48,11 @@ import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
 
-type ViewMode = "dashboard" | "overview" | "upload" | "comparison" | "alerts" | "analytics" | "analyst";
+type ViewMode = "dashboard" | "overview" | "comparison" | "alerts" | "analytics" | "analyst";
 
 export default function SalesPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [location, setLocation] = useLocation();
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Determinar empresa inicial desde la URL como fuente de verdad primaria
   const getInitialCompany = () => {
@@ -75,7 +66,7 @@ export default function SalesPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view');
-      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+      if (view === 'analyst' || view === 'overview' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
         return view as ViewMode;
       }
     }
@@ -99,7 +90,7 @@ export default function SalesPage() {
     const view = params.get('view');
     console.log('[SalesPage] useEffect - location:', location, 'view param:', view, 'current viewMode:', viewMode);
     
-    if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+    if (view === 'analyst' || view === 'overview' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
       if (viewMode !== view) {
         console.log('[SalesPage] Cambiando viewMode de', viewMode, 'a', view);
         setViewMode(view as ViewMode);
@@ -120,7 +111,7 @@ export default function SalesPage() {
       const view = params.get('view');
       console.log('[SalesPage] checkQueryParams - view:', view, 'current viewMode:', viewMode);
       
-      if (view === 'analyst' || view === 'overview' || view === 'upload' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
+      if (view === 'analyst' || view === 'overview' || view === 'comparison' || view === 'alerts' || view === 'analytics') {
         if (viewMode !== view) {
           console.log('[SalesPage] Query params cambiaron - actualizando viewMode a', view);
           setViewMode(view as ViewMode);
@@ -148,8 +139,6 @@ export default function SalesPage() {
       window.removeEventListener('hashchange', handleHashChange);
     };
   }, []); // Solo ejecutar una vez al montar
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
 
   // Determinar qué empresas puede ver el usuario
@@ -211,132 +200,6 @@ export default function SalesPage() {
     enabled: !!user && viewMode === 'overview',
     refetchInterval: 60000
   });
-
-  // Mutación para subir archivo Excel
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('companyId', selectedCompany.toString());
-
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("No se encontró token de autenticación");
-      }
-
-      const res = await fetch("/api/sales/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
-        throw new Error(errorData.details || errorData.error || 'Error al subir el archivo');
-      }
-
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "✅ Archivo procesado exitosamente",
-        description: `Se procesaron ${data.recordsProcessed} registros de ventas`,
-        variant: "default",
-      });
-      
-      // Limpiar archivo seleccionado
-      setSelectedFile(null);
-      
-      // Invalidar queries para refrescar datos
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-comparison'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-monthly-trends'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-top-clients'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-alerts'] });
-      
-      // Volver a overview después de 2 segundos
-      setTimeout(() => {
-        setViewMode("overview");
-      }, 2000);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "❌ Error al subir archivo",
-        description: error.message || "Ocurrió un error al procesar el archivo",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handlers para drag & drop
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setSelectedFile(file);
-      } else {
-        toast({
-          title: "Formato no válido",
-          description: "Solo se permiten archivos Excel (.xlsx, .xls)",
-          variant: "destructive",
-        });
-      }
-    }
-  }, [toast]);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setSelectedFile(file);
-      } else {
-        toast({
-          title: "Formato no válido",
-          description: "Solo se permiten archivos Excel (.xlsx, .xls)",
-          variant: "destructive",
-        });
-      }
-    }
-  }, [toast]);
-
-  const handleUpload = useCallback(() => {
-    if (!selectedFile) {
-      toast({
-        title: "Error",
-        description: "Selecciona un archivo antes de subirlo",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    uploadMutation.mutate(selectedFile);
-  }, [selectedFile, uploadMutation, toast]);
-
-  const handleRemoveFile = useCallback(() => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, []);
 
   // Colores según empresa - Look and Feel completo (estilo como LogisticsPage)
   const companyColors = selectedCompany === 1 
@@ -402,15 +265,6 @@ export default function SalesPage() {
                   </p>
                 </div>
 
-                <Button
-                  onClick={() => setViewMode("upload")}
-                  variant="default"
-                  size="sm"
-                  className={`shrink-0 ${companyColors.button}`}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Subir Excel
-                </Button>
               </div>
             </div>
 
@@ -784,25 +638,6 @@ export default function SalesPage() {
                 </CardContent>
               </Card>
 
-              <Card
-                className={`cursor-pointer ${companyColors.cardBg} ${companyColors.cardBorder} border-2 shadow-sm hover:shadow-md transition-all`}
-                onClick={() => setViewMode("upload")}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Cargar Datos</p>
-                      <p className="text-xs text-muted-foreground">Excel semanal de ventas</p>
-                    </div>
-                    <div className={`${companyColors.iconBg} p-3 rounded-full`}>
-                      <FileSpreadsheet className={`w-10 h-10 ${companyColors.iconColor}`} />
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Subir el reporte semanal para actualizar el análisis
-                  </p>
-                </CardContent>
-              </Card>
             </div>
 
             {/* GRÁFICA DE BARRAS - Panorama Histórico de Ventas */}
@@ -837,14 +672,6 @@ export default function SalesPage() {
                     <div className="h-64 flex flex-col items-center justify-center text-center">
                       <BarChart3 className="h-12 w-12 text-gray-300 mb-4" />
                       <p className="text-gray-500">No hay datos disponibles</p>
-                      <Button
-                        onClick={() => setViewMode("upload")}
-                        className="mt-4"
-                        size="sm"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Subir Datos
-                      </Button>
                     </div>
                   ) : (
                     <div className="h-64">
@@ -1064,174 +891,11 @@ export default function SalesPage() {
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">Año {currentYear}</p>
                       </div>
-                      <Button
-                        onClick={() => setViewMode("upload")}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Subir Nuevos Datos
-                      </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </div>
-          </div>
-        )}
-
-        {viewMode === "upload" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Upload className="h-6 w-6" />
-                  Subir Excel Semanal
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Arrastra y suelta o haz clic para seleccionar el archivo
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setViewMode("overview");
-                  setSelectedFile(null);
-                }}
-                className="flex items-center gap-2"
-                disabled={uploadMutation.isPending}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Volver
-              </Button>
-            </div>
-
-            {!selectedFile ? (
-              <Card 
-                className={`shadow-lg border-2 border-dashed transition-all duration-300 ${
-                  isDragging 
-                    ? 'border-primary bg-primary/5 dark:bg-primary/10' 
-                    : 'border-gray-300 dark:border-gray-700 hover:border-primary'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <CardContent className="pt-12 pb-12">
-                  <div className="flex flex-col items-center justify-center space-y-6">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-2xl"></div>
-                      <div className="relative p-8 rounded-full bg-gradient-to-br from-primary/10 to-primary/5">
-                        <Upload className="h-20 w-20 text-primary mx-auto" />
-                      </div>
-                    </div>
-                    
-                    <div className="text-center space-y-2">
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Arrastra tu archivo aquí o haz clic para seleccionar
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Formatos soportados: .xlsx, .xls (máximo 20MB)
-                      </p>
-                    </div>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label htmlFor="file-upload">
-                      <Button 
-                        size="lg" 
-                        className="bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
-                        asChild
-                      >
-                        <span>
-                          <FileSpreadsheet className="mr-2 h-5 w-5" />
-                          Seleccionar Archivo
-                        </span>
-                      </Button>
-                    </label>
-
-                    <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 max-w-md">
-                      <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                        <strong>Nota:</strong> El sistema procesará automáticamente los datos y generará alertas. 
-                        Asegúrate de que el archivo tenga columnas: Cliente, Producto, Cantidad, Fecha.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="shadow-lg">
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
-                          <FileSpreadsheet className="h-6 w-6 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            {selectedFile.name}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRemoveFile}
-                        disabled={uploadMutation.isPending}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handleUpload}
-                        disabled={uploadMutation.isPending}
-                        className="flex-1 bg-primary hover:bg-primary/90 text-white"
-                        size="lg"
-                      >
-                        {uploadMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Procesando...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Subir y Procesar
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleRemoveFile}
-                        disabled={uploadMutation.isPending}
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-
-                    {uploadMutation.isError && (
-                      <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-                        <p className="text-sm text-red-800 dark:text-red-200">
-                          <strong>Error:</strong> {uploadMutation.error?.message || 'Error desconocido'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         )}
 
