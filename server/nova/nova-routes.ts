@@ -283,73 +283,18 @@ novaRouter.post(
       console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}, novaAI: ${novaAIClient.isConfigured()}`);
 
       // ================================================================
-      // INVOICE PROCESSING — Intercept PDFs on tesorería page
-      // ================================================================
-      const pdfFiles = validFiles.filter(f => f.mimetype === 'application/pdf' || f.mimetype.includes('xml'));
-      const isTreasuryWithInvoices = pageContext === 'treasury' && pdfFiles.length > 0 && user?.id && user?.companyId;
-      let additionalContext = '';
-      let invoiceToolUsed = false;
-
-      if (isTreasuryWithInvoices) {
-        safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool: 'process_invoice' })}\n\n`);
-
-        try {
-          const { processInvoicesFromChat } = await import('./invoice-processor');
-
-          const filesToProcess = pdfFiles.map(f => ({
-            buffer: f.buffer,
-            originalname: f.originalname,
-            mimetype: f.mimetype,
-          }));
-
-          const summary = await processInvoicesFromChat(filesToProcess, user.companyId!, user.id, message);
-          additionalContext = summary.contextSummary;
-          invoiceToolUsed = true;
-
-          safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool: 'process_invoice', success: summary.succeeded > 0 })}\n\n`);
-          console.log(`[Nova Route] Invoice processing: ${summary.succeeded}/${summary.processed} succeeded`);
-        } catch (error) {
-          console.error('[Nova Route] Invoice processing error:', error);
-          safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool: 'process_invoice', success: false })}\n\n`);
-          additionalContext = `Error al procesar las facturas: ${error instanceof Error ? error.message : 'Error desconocido'}`;
-          invoiceToolUsed = true;
-        }
-      }
-
-      // ================================================================
       // PROXY to Nova AI 2.0 external service
+      // All files (including PDFs) are sent directly to Nova 2.0
       // ================================================================
       if (!novaAIClient.isConfigured()) {
-        // If Nova is not configured but we processed invoices, send a synthetic response
-        if (invoiceToolUsed && additionalContext) {
-          safeWrite(`event: done\ndata: ${JSON.stringify({
-            answer: additionalContext,
-            toolsUsed: ['process_invoice'],
-            source: 'local-invoice-processor',
-          })}\n\n`);
-          safeEnd();
-          return;
-        }
         safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Nova AI no esta configurado' })}\n\n`);
         safeEnd();
         return;
       }
 
-      // When invoices were processed locally, don't forward those PDFs/XMLs to Nova AI.
-      // Otherwise Nova AI re-analyzes them and gives generic instructions instead of
-      // acknowledging the processing results from additionalContext.
-      const filesToForward = invoiceToolUsed
-        ? validFiles
-            .filter(f => !f.mimetype.includes('pdf') && !f.mimetype.includes('xml'))
-            .map(f => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype }))
-        : validFiles.map(f => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype }));
-
-      // When invoices were processed, wrap the context as a system instruction
-      // so Nova AI confirms the results instead of asking for manual data.
-      let finalContext = additionalContext || undefined;
-      if (invoiceToolUsed && additionalContext) {
-        finalContext = `[SISTEMA] El servidor ya procesó automáticamente los archivos adjuntos. Resultados:\n${additionalContext}\nResponde al usuario confirmando estos resultados. NO pidas datos de la factura — ya fue procesada.`;
-      }
+      const filesToForward = validFiles.map(f => ({
+        buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype
+      }));
 
       await novaAIClient.streamChat(
         message,
@@ -359,7 +304,6 @@ novaRouter.post(
           pageContext,
           userId,
           companyId: user?.companyId || undefined,
-          additionalContext: finalContext,
         },
         {
           onToken(text) {
@@ -372,12 +316,7 @@ novaRouter.post(
             safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
           },
           onDone(response) {
-            // Merge process_invoice into toolsUsed if we processed invoices
-            const toolsUsed = [...(response.toolsUsed || [])];
-            if (invoiceToolUsed && !toolsUsed.includes('process_invoice')) {
-              toolsUsed.push('process_invoice');
-            }
-            safeWrite(`event: done\ndata: ${JSON.stringify({ ...response, toolsUsed })}\n\n`);
+            safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
             safeEnd();
           },
           onError(error) {

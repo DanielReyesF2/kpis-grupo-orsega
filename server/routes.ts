@@ -22,7 +22,6 @@ import analyticsRouter from "./routes/analytics";
 import catalogDataRouter from "./routes/catalog";
 import onboardingRouter from "./routes/onboarding";
 import treasuryPaymentsRouter from "./routes/treasury-payments";
-import treasuryIdrallRouter from "./routes/treasury-idrall";
 import treasuryFxRouter from "./routes/treasury-fx";
 import treasuryDocumentsRouter from "./routes/treasury-documents";
 import treasuryAccountingRouter from "./routes/treasury-accounting";
@@ -67,7 +66,6 @@ export function registerRoutes(app: express.Application) {
   app.use(analyticsRouter);
   app.use(catalogDataRouter);
   app.use(treasuryPaymentsRouter);
-  app.use(treasuryIdrallRouter);
   app.use(treasuryFxRouter);
   app.use(treasuryDocumentsRouter);
   app.use(treasuryAccountingRouter);

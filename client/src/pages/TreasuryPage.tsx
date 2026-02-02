@@ -15,8 +15,6 @@ import { es } from "date-fns/locale";
 import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
-import { InvoiceVerificationModal } from "@/components/treasury/modals/InvoiceVerificationModal";
-import { InvoiceUploadFlow } from "@/components/treasury/InvoiceUploadFlow";
 import { ExchangeRateDashboard } from "@/components/treasury/ExchangeRateDashboard";
 
 type ViewMode = "main" | "suppliers" | "history" | "exchange-rates";
@@ -38,8 +36,6 @@ export default function TreasuryPage() {
   useEffect(() => {
     setViewMode(getInitialView());
   }, [location]);
-  const [showInvoiceVerificationModal, setShowInvoiceVerificationModal] = useState(false);
-  const [invoiceVerificationData, setInvoiceVerificationData] = useState<any>(null);
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
 
   // Función para actualizar tipos de cambio
@@ -222,16 +218,6 @@ export default function TreasuryPage() {
             </Button>
         </div>
 
-        {/* Flujo de Subida de Facturas */}
-        <InvoiceUploadFlow
-          onUploadComplete={(data) => {
-            if (data?.requiresVerification) {
-              setInvoiceVerificationData(data);
-              setShowInvoiceVerificationModal(true);
-            }
-          }}
-        />
-
         {/* Resumen Semanal con lista de pagos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Semana Actual */}
@@ -361,20 +347,6 @@ export default function TreasuryPage() {
           />
         </div>
       </div>
-
-
-
-      {/* Modal de Verificación de Factura */}
-      {showInvoiceVerificationModal && invoiceVerificationData && (
-        <InvoiceVerificationModal
-          isOpen={showInvoiceVerificationModal}
-          onClose={() => {
-            setShowInvoiceVerificationModal(false);
-            setInvoiceVerificationData(null);
-          }}
-          invoiceData={invoiceVerificationData}
-        />
-      )}
 
     </AppLayout>
   );
