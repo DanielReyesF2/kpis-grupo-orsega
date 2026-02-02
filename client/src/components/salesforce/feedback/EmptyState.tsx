@@ -1,7 +1,7 @@
 import { isValidElement } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/types/lucide";
 
 export interface EmptyStateProps {
   icon?: LucideIcon | React.ReactNode;

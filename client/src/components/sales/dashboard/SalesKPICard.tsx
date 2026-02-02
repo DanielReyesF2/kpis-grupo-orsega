@@ -3,7 +3,7 @@
  */
 
 import { Card, CardContent } from "@/components/ui/card";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/types/lucide";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/sales-utils";

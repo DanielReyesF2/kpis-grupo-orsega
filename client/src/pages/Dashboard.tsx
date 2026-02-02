@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { BarChart3 } from 'lucide-react';
-
-// Salesforce components
-import { PageHeader } from '@/components/salesforce/layout/PageHeader';
 
 // Dashboard components
 import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
@@ -43,17 +39,6 @@ export default function Dashboard() {
   return (
     <AppLayout title="Dashboard Ejecutivo">
       <div id="dashboard-container" ref={dashboardRef} className="min-h-screen space-y-6">
-        {/* Page Header */}
-        <PageHeader
-          objectIcon={BarChart3}
-          title="Dashboard Ejecutivo"
-          subtitle={`Vista general de KPIs y métricas de ventas${user ? ` - ${user.name}` : ''}`}
-          breadcrumbs={[
-            { label: 'Inicio', href: '/' },
-            { label: 'Dashboard' },
-          ]}
-        />
-
         {/* SECCIÓN PRINCIPAL - Vista ejecutiva */}
         <div className="grid grid-cols-12 gap-4">
           {/* Resumen de Ventas - Ocupa más espacio */}

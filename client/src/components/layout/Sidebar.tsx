@@ -76,7 +76,7 @@ const NavItem = ({
 };
 
 function Sidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isAdmin, hasLogisticsAccess, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<number>(() => {
@@ -169,19 +169,25 @@ function Sidebar() {
           </p>
         </div>
 
-        {/* Company Selector compacto */}
-        <div className="px-3 py-3 border-b border-border">
-          <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-1">
-              Empresa
-            </p>
-            <div className="flex gap-1.5 p-1 rounded-lg bg-muted/30 border border-border/60">
+        {/* Dashboard + Selector de empresa (mismo bloque) */}
+        <div className="px-3 py-3 border-b border-border space-y-2">
+          <NavItem
+            href="/"
+            icon={<LayoutDashboard className="h-4 w-4" />}
+            active={location === "/"}
+            onClick={closeMenu}
+          >
+            Dashboard
+          </NavItem>
+          <div className="flex gap-1.5 p-1 rounded-lg bg-muted/30 border border-border/60">
               <button
                 onClick={() => {
                   const companyId = 1;
                   localStorage.setItem('selectedCompanyId', String(companyId));
                   setSelectedCompany(companyId);
                   window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+                  setLocation('/');
+                  closeMenu();
                 }}
                 className={cn(
                   "flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all",
@@ -198,6 +204,8 @@ function Sidebar() {
                   localStorage.setItem('selectedCompanyId', String(companyId));
                   setSelectedCompany(companyId);
                   window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
+                  setLocation('/');
+                  closeMenu();
                 }}
                 className={cn(
                   "flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all",
@@ -209,24 +217,13 @@ function Sidebar() {
                 ORSEGA
               </button>
             </div>
-          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
-          {/* Main Section */}
           <p className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
             Principal
           </p>
-
-          <NavItem
-            href="/"
-            icon={<LayoutDashboard className="h-4 w-4" />}
-            active={location === "/"}
-            onClick={closeMenu}
-          >
-            Dashboard
-          </NavItem>
 
           {/* Ventas */}
           <Collapsible open={isSalesOpen} onOpenChange={setIsSalesOpen}>
@@ -354,14 +351,6 @@ function Sidebar() {
                 onClick={closeMenu}
               >
                 Análisis de Tendencias
-              </NavItem>
-              <NavItem
-                href="/team-management"
-                icon={<Users className="h-4 w-4" />}
-                active={location === "/team-management"}
-                onClick={closeMenu}
-              >
-                Gestión del Equipo
               </NavItem>
 
               <div className="my-3 border-t border-border" />

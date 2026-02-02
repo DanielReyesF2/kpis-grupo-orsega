@@ -172,25 +172,6 @@ export default function SystemAdminPage() {
     },
   });
 
-  const seedFxRatesMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/seed-fx-rates', {}),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/treasury/exchange-rates'] });
-      toast({ 
-        title: '✅ Importación exitosa', 
-        description: `${data.imported} tipos de cambio nuevos importados de Banxico (${data.skipped} ya existían)`
-      });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: '❌ Error al importar datos', 
-        description: error.message, 
-        variant: 'destructive' 
-      });
-    },
-  });
-
-
   // Event handlers
   const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,83 +275,17 @@ export default function SystemAdminPage() {
   return (
     <AppLayout title="Administración del Sistema">
       <div className="container mx-auto p-6 max-w-7xl">
-        <div className="flex items-center gap-3 mb-6">
-          <Users className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Gestión del Equipo</h1>
-        </div>
-
-        {/* Herramientas de Administración */}
-        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <Settings className="h-5 w-5" />
-              Herramientas de Administración
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="border-blue-300 hover:bg-blue-100"
-                    disabled={seedFxRatesMutation.isPending}
-                    data-testid="button-seed-fx-rates"
-                  >
-                    {seedFxRatesMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                        Importando...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="h-4 w-4 mr-2" />
-                        Importar Tipos de Cambio (Banxico)
-                      </>
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Importar Tipos de Cambio de Banxico</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción importará los tipos de cambio históricos (Sept-Oct 2025) desde la API de Banxico a la base de datos de producción.
-                      <br /><br />
-                      • Los registros que ya existan no se duplicarán<br />
-                      • El proceso puede tardar ~30 segundos<br />
-                      • Solo se importan datos que no están en la base de datos
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => seedFxRatesMutation.mutate()}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      Confirmar Importación
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              
-              <p className="text-sm text-gray-600">
-                Importa datos históricos de tipos de cambio desde Banco de México
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="w-full">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Gestión del Equipo
+                    <Settings className="h-5 w-5" />
+                    Administración
                   </CardTitle>
                   <p className="text-sm text-gray-500 mt-1">
-                    Administra usuarios, roles y permisos del sistema
+                    Usuarios, roles y permisos del sistema
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

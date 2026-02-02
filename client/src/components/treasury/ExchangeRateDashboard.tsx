@@ -315,7 +315,9 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Historial de Hoy</h2>
-          <Badge variant="secondary">{todayRates.length} registros</Badge>
+          <Badge variant="secondary" className="font-normal">
+            {todayRates.length} {todayRates.length === 1 ? 'registro' : 'registros'}
+          </Badge>
         </div>
         {todayRates.length === 0 ? (
           <Card>
@@ -324,42 +326,41 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {todayRates.slice(1).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
               const isSingle = isSingleValueSource(rate.source);
+              const borderAccent = rate.source === 'Santander' ? 'border-l-green-500' : rate.source === 'MONEX' ? 'border-l-blue-500' : 'border-l-orange-500';
               return (
-                <Card key={rate.id} className={`${colors.bg} border ${colors.border}`}>
-                  <CardContent className="p-2.5 px-4">
+                <Card key={rate.id} className={`overflow-hidden border ${colors.border} bg-card shadow-sm hover:shadow transition-shadow rounded-lg border-l-4 ${borderAccent}`}>
+                  <CardContent className="p-3 px-4">
                     <div className="flex items-center gap-4">
                       <Badge
-                        className={`${colors.bg} ${colors.text} border ${colors.border} min-w-[85px] justify-center font-semibold`}
+                        className={`${colors.bg} ${colors.text} border-0 min-w-[72px] justify-center text-xs font-semibold rounded-full px-3 py-0.5`}
                       >
                         {rate.source}
                       </Badge>
-                      <div className="flex items-center gap-1.5 text-foreground/80">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="font-medium text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span className="text-sm font-medium tabular-nums">
                           {formatMexicoTime(rate.date, "HH:mm:ss")}
                         </span>
                       </div>
-                      <div className="flex-1" />
+                      <div className="flex-1 min-w-2" />
                       {isSingle ? (
-                        /* DOF - Solo un valor */
-                        <div className="text-center min-w-[90px]">
-                          <span className="text-[10px] text-muted-foreground block">TC</span>
-                          <span className="font-bold text-sm">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        <div className="text-right min-w-[100px]">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">Tipo de cambio</span>
+                          <span className="font-semibold text-base tabular-nums text-foreground">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                         </div>
                       ) : (
-                        /* Santander/MONEX - Compra y Venta */
                         <div className="flex gap-6">
-                          <div className="text-center min-w-[90px]">
-                            <span className="text-[10px] text-muted-foreground block">Compra</span>
-                            <span className="font-bold text-sm">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                          <div className="text-right min-w-[90px]">
+                            <span className="text-[10px] text-muted-foreground block mb-0.5">Compra</span>
+                            <span className="font-semibold text-sm tabular-nums">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                           </div>
-                          <div className="text-center min-w-[90px]">
-                            <span className="text-[10px] text-muted-foreground block">Venta</span>
-                            <span className="font-bold text-sm">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                          <div className="text-right min-w-[90px]">
+                            <span className="text-[10px] text-muted-foreground block mb-0.5">Venta</span>
+                            <span className="font-semibold text-sm tabular-nums">${(rate.sell_rate ?? 0).toFixed(4)}</span>
                           </div>
                         </div>
                       )}
@@ -377,53 +378,57 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Historial Completo</h2>
-            {allRates.length > 10 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowFullHistory(!showFullHistory)}
-              >
-                {showFullHistory ? (
-                  <>
-                    <ChevronUp className="h-4 w-4 mr-1" />
-                    Ver menos
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4 mr-1" />
-                    Ver más ({allRates.length - 10})
-                  </>
-                )}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="font-normal">
+                {allRates.length} {allRates.length === 1 ? 'registro' : 'registros'}
+              </Badge>
+              {allRates.length > 10 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFullHistory(!showFullHistory)}
+                >
+                  {showFullHistory ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                      Ver menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Ver más ({allRates.length - 10})
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className={`space-y-1.5 ${showFullHistory ? "max-h-[400px] overflow-y-auto pr-2" : ""}`}>
+          <div className={`space-y-2 ${showFullHistory ? "max-h-[400px] overflow-y-auto pr-2" : ""}`}>
             {allRates.slice(0, showFullHistory ? 50 : 10).map((rate) => {
               const colors = sourceColors[rate.source] || sourceColors.DOF;
               const isToday = new Date(rate.date).toDateString() === new Date().toDateString();
               const isSingle = isSingleValueSource(rate.source);
+              const borderAccent = rate.source === 'Santander' ? 'border-l-green-500' : rate.source === 'MONEX' ? 'border-l-blue-500' : 'border-l-orange-500';
               return (
-                <Card key={rate.id} className={`border ${colors.border} ${isToday ? `${colors.bg}` : "bg-muted/30"}`}>
-                  <CardContent className="p-2 px-4">
-                    <div className="flex items-center gap-3">
+                <Card key={rate.id} className={`border ${colors.border} border-l-4 ${borderAccent} ${isToday ? colors.bg : "bg-card"} shadow-sm hover:shadow transition-shadow rounded-lg`}>
+                  <CardContent className="p-3 px-4">
+                    <div className="flex items-center gap-4">
                       <Badge
-                        className={`${colors.bg} ${colors.text} border ${colors.border} min-w-[75px] justify-center text-xs font-semibold`}
+                        className={`${colors.bg} ${colors.text} border-0 min-w-[72px] justify-center text-xs font-semibold rounded-full px-3 py-0.5`}
                       >
                         {rate.source}
                       </Badge>
-                      <span className="text-foreground/80 text-sm font-medium min-w-[110px]">
+                      <span className="text-foreground text-sm font-medium min-w-[120px] tabular-nums">
                         {formatMexicoTime(rate.date, "dd MMM HH:mm")}
                       </span>
-                      <div className="flex-1" />
+                      <div className="flex-1 min-w-2" />
                       {isSingle ? (
-                        /* DOF - Solo un valor */
-                        <span className="font-mono text-sm font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                        <span className="font-semibold text-sm tabular-nums text-foreground">${(rate.buy_rate ?? 0).toFixed(4)}</span>
                       ) : (
-                        /* Santander/MONEX - Compra y Venta */
-                        <div className="flex items-center gap-3 font-mono text-sm">
-                          <span className="font-semibold">${(rate.buy_rate ?? 0).toFixed(4)}</span>
-                          <span className="text-muted-foreground/40">/</span>
-                          <span className="font-semibold">${(rate.sell_rate ?? 0).toFixed(4)}</span>
+                        <div className="flex items-center gap-4 font-mono text-sm tabular-nums">
+                          <span className="font-semibold text-foreground">${(rate.buy_rate ?? 0).toFixed(4)}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="font-semibold text-foreground">${(rate.sell_rate ?? 0).toFixed(4)}</span>
                         </div>
                       )}
                     </div>

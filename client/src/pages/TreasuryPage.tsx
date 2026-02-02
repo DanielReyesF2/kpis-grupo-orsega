@@ -210,24 +210,16 @@ export default function TreasuryPage() {
   return (
     <AppLayout title="Tesorería">
       <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Tesorería</h1>
-            <p className="text-sm text-muted-foreground">
-              Gestión de pagos y comprobantes
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setViewMode("suppliers")}>
+        {/* Acciones de página */}
+        <div className="flex justify-end gap-2">
+            <Button variant="default" size="sm" onClick={() => setViewMode("suppliers")}>
               <Users className="h-4 w-4 mr-2" />
               Proveedores
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setViewMode("history")}>
+            <Button variant="default" size="sm" onClick={() => setViewMode("history")}>
               <History className="h-4 w-4 mr-2" />
               Historial
             </Button>
-          </div>
         </div>
 
         {/* Flujo de Subida de Facturas */}

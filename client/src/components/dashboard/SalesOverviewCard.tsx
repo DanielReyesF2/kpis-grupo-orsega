@@ -114,21 +114,29 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
 
   const filteredTrends = getFilteredData();
 
+  // Orden cronológico: más antiguo primero (izquierda) → más reciente al final (derecha)
+  const sortedTrends = [...filteredTrends].sort((a: { year?: number; monthNum?: number }, b: { year?: number; monthNum?: number }) => {
+    const yearA = a.year ?? 0;
+    const yearB = b.year ?? 0;
+    if (yearA !== yearB) return yearA - yearB;
+    return (a.monthNum ?? 0) - (b.monthNum ?? 0);
+  });
+
   // Calcular revenue total según periodo
-  const totalRevenue = filteredTrends.reduce((sum: number, month: any) => sum + (month.amount || 0), 0);
+  const totalRevenue = sortedTrends.reduce((sum: number, month: any) => sum + (month.amount || 0), 0);
   const profitability = profitabilityData?.overallProfitability || salesMetrics?.profitability || 18;
   const netProfit = totalRevenue * (profitability / 100);
   const netRevenue = totalRevenue;
 
   // Obtener fecha range según periodo
   const getDateRange = () => {
-    if (filteredTrends.length === 0) {
+    if (sortedTrends.length === 0) {
       const currentDate = new Date();
       return `Año ${currentDate.getFullYear()}`;
     }
     
-    const firstMonth = filteredTrends[0];
-    const lastMonth = filteredTrends[filteredTrends.length - 1];
+    const firstMonth = sortedTrends[0];
+    const lastMonth = sortedTrends[sortedTrends.length - 1];
     
     if (period === 'quarter') {
       return `Último trimestre: ${firstMonth.monthFull} - ${lastMonth.monthFull}`;
@@ -145,8 +153,8 @@ export function SalesOverviewCard({ companyId }: SalesOverviewCardProps) {
   const previousPeriodRevenue = totalRevenue * 0.84; // Estimado
   const growth = previousPeriodRevenue > 0 ? ((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 : 0;
 
-  // Preparar datos para gráficos
-  const chartData = filteredTrends.map((month: any) => ({
+  // Preparar datos para gráficos (orden cronológico garantizado)
+  const chartData = sortedTrends.map((month: any) => ({
     month: month.month,
     revenue: month.amount || 0,
     volume: month.volume || 0,

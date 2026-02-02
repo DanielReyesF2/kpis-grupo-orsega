@@ -338,7 +338,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
       }
     }
 
-    // Formatear datos para el gráfico
+    // Formatear datos para el gráfico (orden cronológico: más antiguo primero, más reciente al final = izquierda a derecha)
     const formattedData = monthlyData.map((row: any) => {
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const saleMonth = parseInt(row.sale_month);
@@ -353,11 +353,6 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
         monthNum: saleMonth
       };
     });
-
-    // Solo invertir si es modo legacy (months)
-    if (!year) {
-      formattedData.reverse();
-    }
 
     res.json(formattedData);
   } catch (error) {

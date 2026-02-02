@@ -1,5 +1,5 @@
 import { ReactNode, isValidElement } from "react";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/types/lucide";
 import { Button } from "@/components/ui/button";
 import { 
   Breadcrumb, 
