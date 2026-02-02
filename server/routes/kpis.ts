@@ -5,7 +5,8 @@ import { sql, getAuthUser, type AuthRequest, createKPIStatusChangeNotification, 
 import { jwtAuthMiddleware, jwtAdminMiddleware } from "../auth";
 import { insertKpiSchema, updateKpiSchema } from "@shared/schema";
 import { calculateKpiStatus, calculateCompliance, parseNumericValue, isLowerBetterKPI } from "@shared/kpi-utils";
-import { calculateSalesKpiValue } from "../sales-kpi-calculator";
+import { salesKpiTypeToCardType } from "@shared/kpi-card-types";
+import { calculateSalesKpiValue, identifySalesKpiType } from "../sales-kpi-calculator";
 import { db } from "../db";
 import { eq, sql as drizzleSql } from "drizzle-orm";
 import { validateTenantAccess } from "../middleware/tenant-validation";
@@ -23,16 +24,22 @@ router.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
     console.log("🔵 [GET /api/kpis] Endpoint llamado");
     console.log(`📊 Usuario: ${user.name}, Company ID: ${rawCompanyId ?? "ALL"}`);
 
+    const addKpiType = (list: any[]) =>
+      list.map((kpi) => ({
+        ...kpi,
+        kpiType: salesKpiTypeToCardType(identifySalesKpiType(kpi.name || kpi.kpiName || ''))
+      }));
+
     if (rawCompanyId !== undefined) {
       if (rawCompanyId !== 1 && rawCompanyId !== 2) {
         return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
       }
       const result = await storage.getKpis(rawCompanyId);
-      return res.json(result);
+      return res.json(addKpiType(result));
     }
 
     const result = await storage.getKpis();
-    res.json(result);
+    res.json(addKpiType(result));
   } catch (error: any) {
     console.error("❌ Error fetching KPIs:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });

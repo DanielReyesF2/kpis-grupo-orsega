@@ -4,7 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { EnhancedKpiCard } from './EnhancedKpiCard';
+import type { KpiCardType } from '@shared/kpi-card-types';
+import { KpiCardByType } from './KpiCardByType';
 import type { CollaboratorScore } from './CollaboratorCard';
 
 interface CollaboratorKPIsModalProps {
@@ -86,8 +87,10 @@ export function CollaboratorKPIsModal({
         status: visualStatus,
         areaName: kpi.area || undefined,
         responsible: kpi.responsible || collaborator.name,
-        companyId: companyId, // Pasar companyId para cargar historial correctamente
+        companyId: companyId,
         company: companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined,
+        kpiType: ((kpi as { kpiType?: KpiCardType }).kpiType ?? 'default') as KpiCardType,
+        monthlyAchievement: (kpi as { monthlyAchievement?: { achieved: number; total: number; byMonth?: Array<{ period: string; achieved: boolean }> } }).monthlyAchievement,
       };
     });
   }, [sortedKpis, collaborator]);
@@ -136,7 +139,7 @@ export function CollaboratorKPIsModal({
             </div>
           ) : (
             mappedKpis.map((kpi, index) => (
-              <EnhancedKpiCard
+              <KpiCardByType
                 key={kpi.id}
                 kpi={kpi}
                 onClick={() => {

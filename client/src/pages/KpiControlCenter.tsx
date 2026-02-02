@@ -12,8 +12,9 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { EnhancedKpiDashboard } from '@/components/kpis/EnhancedKpiDashboard';
-import { EnhancedKpiCard } from '@/components/kpis/EnhancedKpiCard';
+import { KpiCardByType } from '@/components/kpis/KpiCardByType';
 import { type CollaboratorScore } from '@/components/kpis/CollaboratorCard';
+import type { KpiCardType } from '@shared/kpi-card-types';
 import { TremorKpiDashboard, TremorKpiUpdateModal, type TremorCollaboratorData } from '@/components/tremor';
 import { KpiAdminPanel } from '@/components/kpis/KpiAdminPanel';
 import { useAuth } from '@/hooks/use-auth';
@@ -65,6 +66,15 @@ import {
   LineChart,
   Line
 } from 'recharts';
+
+/** Fallback: inferir tipo de tarjeta por nombre cuando la API no envía kpiType (misma lógica que backend). */
+function inferKpiCardTypeFromName(name: string): KpiCardType {
+  const n = (name || '').toLowerCase();
+  if (n.includes('retención') || n.includes('retencion') || n.includes('retention')) return 'retention';
+  if ((n.includes('volumen') && (n.includes('ventas') || n.includes('venta'))) || (n.includes('sales') && n.includes('volume'))) return 'volume';
+  if ((n.includes('nuevos') && n.includes('clientes')) || (n.includes('new') && n.includes('clients'))) return 'new_clients';
+  return 'default';
+}
 
 // Componente para mostrar el historial de KPIs de un usuario
 function UserHistoryView({ userId, months, users }: { userId: number; months: number; users: UserType[] }) {
@@ -479,7 +489,7 @@ export default function KpiControlCenter() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
-  const [viewType, setViewType] = useState<'dashboard' | 'kpis'>('dashboard'); // Toggle entre Dashboard y vista por KPI
+  const [viewType, setViewType] = useState<'dashboard' | 'kpis'>('kpis'); // Por defecto vista por KPI (tarjetas diferenciadas por tipo)
   
   // Estados para vistas históricas (nueva funcionalidad)
   const [selectedUserIdForHistory, setSelectedUserIdForHistory] = useState<number | null>(null);
@@ -616,15 +626,22 @@ export default function KpiControlCenter() {
       const values = kpiValues.filter((value: KpiValue) => value.kpiId === kpiId);
       
       if (!values || values.length === 0) {
+        const kpiTypeResolved: KpiCardType = (kpi as { kpiType?: KpiCardType }).kpiType ?? inferKpiCardTypeFromName(kpiName);
         return {
           ...kpi,
+          id: kpiId,
+          name: kpiName,
           value: null,
           status: 'not_compliant' as const,
           visualStatus: 'critical' as const,
           compliancePercentage: 0,
           date: null,
           comments: 'No hay valores registrados',
-          historicalData: []
+          historicalData: [],
+          kpiType: kpiTypeResolved,
+          areaName: kpi.area || 'Sin área',
+          companyId: kpi.companyId ?? selectedCompanyId ?? undefined,
+          company: kpi.company || (kpi.companyId === 1 ? 'Dura' : kpi.companyId === 2 ? 'Orsega' : undefined),
         };
       }
 
@@ -675,7 +692,8 @@ export default function KpiControlCenter() {
         areaName: areaName,
         responsible: kpi.responsible,
         companyId,
-        company: kpi.company || (companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined)
+        company: kpi.company || (companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined),
+        kpiType: (kpi as { kpiType?: KpiCardType }).kpiType ?? inferKpiCardTypeFromName(kpiName),
       };
     });
   }, [kpis, kpiValues, areas, selectedCompanyId]);
@@ -1068,27 +1086,43 @@ export default function KpiControlCenter() {
                     )}
                     {!kpisLoading && displayedKpis.length > 0 && (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {displayedKpis.map((kpi: any, index: number) => (
-                          <EnhancedKpiCard
-                            key={kpi.id}
-                            kpi={{
-                              id: kpi.id,
-                              name: kpi.name,
-                              value: kpi.value,
-                              target: kpi.target,
-                              unit: kpi.unit,
-                              compliancePercentage: kpi.compliancePercentage,
-                              status: kpi.visualStatus || 'warning',
-                              areaName: kpi.areaName,
-                              responsible: kpi.responsible,
-                              historicalData: kpi.historicalData,
-                              companyId: kpi.companyId,
-                              company: kpi.company || (kpi.companyId === 1 ? 'Dura' : kpi.companyId === 2 ? 'Orsega' : undefined)
-                            }}
-                            onClick={() => handleUpdateKpi(kpi.id)}
-                            delay={index * 0.05}
-                          />
-                        ))}
+                        {displayedKpis.map((kpi: any, index: number) => {
+                          // Enriquecer monthlyAchievement desde collaborators-performance cuando aplique (tarjetas volumen)
+                          const monthlyAchievement =
+                            kpi.monthlyAchievement ??
+                            (() => {
+                              for (const c of collaborators) {
+                                const match = (c as { kpis?: Array<{ id: number; monthlyAchievement?: unknown }> }).kpis?.find(
+                                  (kp: { id: number }) => kp.id === kpi.id
+                                );
+                                if (match && 'monthlyAchievement' in match && match.monthlyAchievement) return match.monthlyAchievement;
+                              }
+                              return undefined;
+                            })();
+                          return (
+                            <KpiCardByType
+                              key={kpi.id}
+                              kpi={{
+                                id: kpi.id,
+                                name: kpi.name,
+                                value: kpi.value,
+                                target: kpi.target,
+                                unit: kpi.unit,
+                                compliancePercentage: kpi.compliancePercentage,
+                                status: kpi.visualStatus || 'warning',
+                                areaName: kpi.areaName,
+                                responsible: kpi.responsible,
+                                historicalData: kpi.historicalData,
+                                companyId: kpi.companyId,
+                                company: kpi.company || (kpi.companyId === 1 ? 'Dura' : kpi.companyId === 2 ? 'Orsega' : undefined),
+                                kpiType: kpi.kpiType ?? 'default',
+                                monthlyAchievement,
+                              }}
+                              onClick={() => handleUpdateKpi(kpi.id)}
+                              delay={index * 0.05}
+                            />
+                          );
+                        })}
                       </div>
                     )}
                   </>

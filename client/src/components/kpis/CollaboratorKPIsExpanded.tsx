@@ -9,7 +9,8 @@ import { ArrowUpDown, ArrowDown, ArrowUp, ChevronDown, ChevronUp, TrendingUp, Tr
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Building } from 'lucide-react';
-import { EnhancedKpiCard } from './EnhancedKpiCard';
+import type { KpiCardType } from '@shared/kpi-card-types';
+import { KpiCardByType } from './KpiCardByType';
 import type { CollaboratorScore } from './CollaboratorCard';
 
 interface CollaboratorKPIsExpandedProps {
@@ -90,6 +91,8 @@ export function CollaboratorKPIsExpanded({
         responsible: kpi.responsible || collaborator.name,
         companyId: companyId,
         company: companyId === 1 ? 'Dura' : companyId === 2 ? 'Orsega' : undefined,
+        kpiType: ((kpi as { kpiType?: KpiCardType }).kpiType ?? 'default') as KpiCardType,
+        monthlyAchievement: (kpi as { monthlyAchievement?: { achieved: number; total: number; byMonth?: Array<{ period: string; achieved: boolean }> } }).monthlyAchievement,
       };
     });
   }, [sortedKpis, collaborator]);
@@ -319,7 +322,7 @@ export function CollaboratorKPIsExpanded({
                       {/* Contenido expandible con gráfica histórica */}
                       <CollapsibleContent>
                         <div className="border-t-2 border-gray-200 bg-gray-50/30 p-6">
-                          <EnhancedKpiCard
+                          <KpiCardByType
                             kpi={kpi}
                             onClick={() => onUpdateKpi(kpi.id)}
                             delay={0}

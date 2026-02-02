@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine } from 'recharts';
 import { apiRequest } from '@/lib/queryClient';
+import { formatKpiValue } from '@/lib/formatKpiValue';
 
 interface KpiValue {
   value: number;
@@ -190,8 +191,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
     return { change, isPositive: change >= 0 };
   }, [kpi.historicalData]);
 
-  const hasData = kpi.value !== null && kpi.value !== undefined;
-  const displayValue = hasData ? `${kpi.value} ${kpi.unit}` : 'Sin datos';
+  const displayValue = formatKpiValue(kpi.value, kpi.unit);
   const complianceDisplay = kpi.compliancePercentage > 0 ? `${kpi.compliancePercentage}%` : 'N/A';
 
   // Si está en expandedLayout y hay datos históricos, mostrar solo la gráfica
@@ -469,7 +469,7 @@ export function EnhancedKpiCard({ kpi, onClick, onViewDetails, delay = 0, expand
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Meta: {kpi.target} {kpi.unit}</span>
+                <span>Meta: {formatKpiValue(kpi.target, kpi.unit)}</span>
               </div>
             </div>
 

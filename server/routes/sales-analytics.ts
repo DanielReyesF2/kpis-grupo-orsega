@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { CHURN_AT_RISK_DAYS_MIN, CHURN_CRITICAL_DAYS_MIN } from '@shared/kpi-card-types';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware, jwtAdminMiddleware } from '../auth';
 import { getSalesMetrics } from '../sales-metrics';
@@ -722,15 +723,17 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
       ORDER BY last_purchase DESC
     `, [resolvedCompanyId, currentYear, lastYear]);
 
-    // Categorizar clientes por riesgo
+    // Categorizar clientes por riesgo (umbrales: shared/kpi-card-types)
+    // atRisk = 90–179 días sin compra; critical = 180+ días
     const categorized = {
-      critical: [] as any[],    // Sin compras 60+ días
-      warning: [] as any[],     // Caída >30% YoY
-      declining: [] as any[],   // Caída 10-30% YoY
-      stable: [] as any[],      // Mantiene ±10%
-      growing: [] as any[],     // Creciendo >10%
-      new: [] as any[],         // Solo tiene datos del año actual
-      lost: [] as any[]         // Compraba antes, no este año
+      atRisk: [] as any[],
+      critical: [] as any[],
+      warning: [] as any[],
+      declining: [] as any[],
+      stable: [] as any[],
+      growing: [] as any[],
+      new: [] as any[],
+      lost: [] as any[]
     };
 
     clientAnalysis.forEach((client: any) => {
@@ -752,8 +755,10 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
 
       if (qtyLastYear > 0 && qtyCurrentYear === 0) {
         categorized.lost.push(clientData);
-      } else if (daysSince > 60) {
+      } else if (daysSince >= CHURN_CRITICAL_DAYS_MIN) {
         categorized.critical.push(clientData);
+      } else if (daysSince >= CHURN_AT_RISK_DAYS_MIN) {
+        categorized.atRisk.push(clientData);
       } else if (yoyChange < -30) {
         categorized.warning.push(clientData);
       } else if (yoyChange < -10) {
@@ -767,21 +772,21 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
       }
     });
 
-    // Ordenar cada categoría por impacto (volumen perdido)
     categorized.critical.sort((a, b) => b.qtyLastYear - a.qtyLastYear);
+    categorized.atRisk.sort((a, b) => b.qtyLastYear - a.qtyLastYear);
     categorized.warning.sort((a, b) => (b.qtyLastYear - b.qtyCurrentYear) - (a.qtyLastYear - a.qtyCurrentYear));
     categorized.lost.sort((a, b) => b.qtyLastYear - a.qtyLastYear);
 
-    // Resumen
     const summary = {
       totalClients: clientAnalysis.length,
+      atRiskCount: categorized.atRisk.length,
       criticalCount: categorized.critical.length,
       warningCount: categorized.warning.length,
       lostCount: categorized.lost.length,
       newCount: categorized.new.length,
       growingCount: categorized.growing.length,
       lostVolume: categorized.lost.reduce((sum, c) => sum + c.qtyLastYear, 0),
-      atRiskVolume: [...categorized.critical, ...categorized.warning].reduce((sum, c) => sum + c.qtyLastYear, 0)
+      atRiskVolume: [...categorized.atRisk, ...categorized.critical].reduce((sum, c) => sum + c.qtyLastYear, 0)
     };
 
     res.json({

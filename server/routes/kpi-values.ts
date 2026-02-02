@@ -5,7 +5,9 @@ import { sql, collaboratorPerformanceCache, getAuthUser, type AuthRequest, creat
 import { jwtAuthMiddleware } from "../auth";
 import { insertKpiValueSchema, type Kpi } from "@shared/schema";
 import { calculateKpiStatus, calculateCompliance, parseNumericValue, isLowerBetterKPI } from "@shared/kpi-utils";
-import { calculateSalesKpiValue, calculateSalesKpiHistory } from "../sales-kpi-calculator";
+import { salesKpiTypeToCardType } from "@shared/kpi-card-types";
+import { calculateSalesKpiValue, calculateSalesKpiHistory, identifySalesKpiType } from "../sales-kpi-calculator";
+import type { MonthlyAchievement } from "@shared/kpi-card-types";
 import { logger } from "../logger";
 
 const router = Router();
@@ -299,6 +301,45 @@ const calculateAdvancedTrend = (data: Array<{ month: string; compliance: number 
 };
 
 // ==============================
+// GET /api/kpi-monthly-achievement - Cumplimiento mensual para KPI de volumen (tarjeta no depende de collaborators)
+// ==============================
+router.get("/api/kpi-monthly-achievement", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const kpiId = req.query.kpiId ? parseInt(req.query.kpiId as string, 10) : undefined;
+    const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    if (kpiId === undefined || isNaN(kpiId) || companyIdParam !== 1 && companyIdParam !== 2) {
+      return res.status(400).json({ error: "kpiId y companyId (1 o 2) requeridos" });
+    }
+    const kpi = await storage.getKpi(kpiId, companyIdParam);
+    if (!kpi) return res.status(404).json({ message: "KPI no encontrado" });
+    const kpiName = kpi.name || (kpi as { kpiName?: string }).kpiName || '';
+    if (identifySalesKpiType(kpiName) !== 'volume') {
+      return res.status(400).json({ error: "Solo aplica a KPIs de volumen de ventas" });
+    }
+    const targetNum = parseNumericValue(kpi.target || (kpi as { goal?: string }).goal);
+    if (isNaN(targetNum) || targetNum <= 0) {
+      return res.json({ achieved: 0, total: 0, byMonth: [] });
+    }
+    const historyResult = await calculateSalesKpiHistory(kpiName, companyIdParam, 12);
+    if (!historyResult.supported || !historyResult.data.length) {
+      return res.json({ achieved: 0, total: 0, byMonth: [] });
+    }
+    const monthlyTarget = targetNum;
+    const byMonth = historyResult.data.map((m) => ({
+      period: m.period,
+      achieved: m.value >= monthlyTarget,
+      value: m.value,
+      target: monthlyTarget
+    }));
+    const achieved = byMonth.filter((m) => m.achieved).length;
+    res.json({ achieved, total: byMonth.length, byMonth });
+  } catch (err: any) {
+    logger.error(err, "GET /api/kpi-monthly-achievement");
+    res.status(500).json({ message: "Error al calcular cumplimiento mensual" });
+  }
+});
+
+// ==============================
 // GET /api/collaborators-performance - Obtener rendimiento agrupado por colaborador
 // ==============================
 router.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res) => {
@@ -470,10 +511,39 @@ router.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res)
           else trendDirection = 'stable';
         }
 
+        // Tipo de tarjeta KPI (una sola fuente de verdad: backend)
+        const salesKpiType = identifySalesKpiType(kpi.name || kpi.kpiName || '');
+        const kpiType = salesKpiTypeToCardType(salesKpiType);
+
+        // Cumplimiento mensual (monthly achievement) para KPIs de volumen
+        let monthlyAchievement: MonthlyAchievement | undefined;
+        if (salesKpiType === 'volume' && kpi.companyId && (kpi.target || kpi.goal)) {
+          try {
+            const historyResult = await calculateSalesKpiHistory(kpi.name || kpi.kpiName || '', kpi.companyId, 12);
+            const targetNum = parseNumericValue(kpi.target || kpi.goal);
+            if (historyResult.supported && historyResult.data.length > 0 && !isNaN(targetNum) && targetNum > 0) {
+              // La meta de volumen en BD es mensual (ej. 53480 KG/mes), no anual
+              const monthlyTarget = targetNum;
+              const byMonth = historyResult.data.map((m) => ({
+                period: m.period,
+                achieved: m.value >= monthlyTarget,
+                value: m.value,
+                target: monthlyTarget
+              }));
+              const achieved = byMonth.filter((m) => m.achieved).length;
+              monthlyAchievement = { achieved, total: byMonth.length, byMonth };
+            }
+          } catch (_) {
+            // Si falla el historial, no exponer monthlyAchievement
+          }
+        }
+
         return {
           ...kpi,
           id: kpi.id,
           companyId: kpi.companyId, // Asegurar que companyId se incluya explícitamente
+          kpiType,
+          monthlyAchievement,
           latestValue,
           previousValue,
           compliance,

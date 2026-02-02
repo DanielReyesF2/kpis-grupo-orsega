@@ -44,6 +44,7 @@ interface ChurnData {
   lastYear: number;
   summary: {
     totalClients: number;
+    atRiskCount?: number;
     criticalCount: number;
     warningCount: number;
     lostCount: number;
@@ -53,6 +54,7 @@ interface ChurnData {
     atRiskVolume: number;
   };
   clients: {
+    atRisk?: ClientRisk[];
     critical: ClientRisk[];
     warning: ClientRisk[];
     declining: ClientRisk[];
@@ -115,6 +117,18 @@ export function ChurnRiskScorecard({ companyId }: ChurnRiskScorecardProps) {
   const { summary, clients, unit, currentYear, lastYear } = data;
 
   const categories = [
+    ...(summary.atRiskCount !== undefined && summary.atRiskCount > 0
+      ? [{
+          key: "atRisk" as const,
+          label: "En riesgo",
+          icon: AlertTriangle,
+          color: "text-amber-600",
+          bgColor: "bg-amber-50 dark:bg-amber-950/30",
+          borderColor: "border-amber-200",
+          count: summary.atRiskCount,
+          description: "Sin compras 3–6 meses"
+        }]
+      : []),
     {
       key: "critical",
       label: "Crítico",
@@ -123,7 +137,7 @@ export function ChurnRiskScorecard({ companyId }: ChurnRiskScorecardProps) {
       bgColor: "bg-red-50 dark:bg-red-950/30",
       borderColor: "border-red-200",
       count: summary.criticalCount,
-      description: "Sin compras 60+ días"
+      description: "Sin compras 6+ meses"
     },
     {
       key: "lost",
@@ -303,7 +317,7 @@ export function ChurnRiskScorecard({ companyId }: ChurnRiskScorecardProps) {
               <div className="mb-3">
                 <p className="text-sm text-muted-foreground">{cat.description}</p>
               </div>
-              {renderClientList(clients[cat.key as keyof typeof clients], cat)}
+              {renderClientList((clients[cat.key as keyof typeof clients] ?? []) as ClientRisk[], cat)}
             </TabsContent>
           ))}
         </Tabs>
