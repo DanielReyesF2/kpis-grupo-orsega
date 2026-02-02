@@ -76,6 +76,13 @@ router.post("/api/users", jwtAuthMiddleware, async (req, res) => {
 router.put("/api/users/:id", jwtAuthMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const tokenUser = (req as any).user;
+
+    // Authorization: only admins can modify other users
+    if (tokenUser.id !== id && tokenUser.role !== 'admin') {
+      return res.status(403).json({ message: "No autorizado para modificar este usuario" });
+    }
+
     console.log("[PUT /api/users/:id] Datos recibidos:", redactSensitiveData(req.body));
 
     // Validar datos con Zod (usando partial para permitir actualizaciones parciales)
@@ -110,7 +117,7 @@ router.put("/api/users/:id", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-router.delete("/api/users/:id", jwtAuthMiddleware, async (req, res) => {
+router.delete("/api/users/:id", jwtAdminMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const success = await storage.deleteUser(id);

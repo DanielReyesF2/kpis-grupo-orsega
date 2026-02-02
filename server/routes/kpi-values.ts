@@ -637,9 +637,13 @@ router.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res)
         twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
         const minYear = twelveMonthsAgo.getFullYear();
 
-        // Determinar tabla correcta basada en el companyId del KPI
+        // Determinar tabla correcta basada en el companyId del KPI (whitelist)
+        const KPI_TABLE_MAP: Record<number, string> = { 1: 'kpi_values_dura', 2: 'kpi_values_orsega' };
         const kpiCompanyId = collaborator.kpis[0]?.companyId;
-        const tableName = kpiCompanyId === 1 ? 'kpi_values_dura' : 'kpi_values_orsega';
+        const tableName = KPI_TABLE_MAP[kpiCompanyId as number];
+        if (!tableName) {
+          throw new Error(`Invalid companyId for KPI table: ${kpiCompanyId}`);
+        }
 
         // Construir query con placeholders seguros
         const placeholders = kpiIds.map((_: number, idx: number) => `$${idx + 2}`).join(', ');

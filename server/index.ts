@@ -221,55 +221,6 @@ app.get("/api/version", (req, res) => {
   }
 });
 
-// DEBUG ENDPOINT - Para diagnosticar variables de entorno
-// Lista SOLO los nombres de variables (no valores) para debugging
-app.get("/api/debug/env-keys", (req, res) => {
-  try {
-    // Obtener todos los nombres de variables de entorno
-    const allEnvKeys = Object.keys(process.env).sort();
-
-    // Filtrar las que contienen ciertos patrones (para encontrar variantes)
-    const anthropicKeys = allEnvKeys.filter(k =>
-      k.toLowerCase().includes('anthropic') ||
-      k.toLowerCase().includes('claude')
-    );
-
-    const aiKeys = allEnvKeys.filter(k =>
-      k.toLowerCase().includes('api_key') ||
-      k.toLowerCase().includes('apikey') ||
-      k.toLowerCase().includes('openai') ||
-      k.toLowerCase().includes('anthropic')
-    );
-
-    // Verificar si ANTHROPIC_API_KEY existe exactamente
-    const exactMatch = process.env.ANTHROPIC_API_KEY;
-    const exactMatchLength = exactMatch?.length || 0;
-
-    res.json({
-      timestamp: new Date().toISOString(),
-      totalEnvVars: allEnvKeys.length,
-      anthropicRelatedKeys: anthropicKeys,
-      aiRelatedKeys: aiKeys,
-      exactAnthropicKeyCheck: {
-        exists: !!exactMatch,
-        length: exactMatchLength,
-        firstChars: exactMatch ? `${exactMatch.substring(0, 4)}...` : null
-      },
-      // Lista de todas las variables que empiezan con A
-      keysStartingWithA: allEnvKeys.filter(k => k.startsWith('A')),
-      // Lista de variables críticas
-      criticalVarsStatus: {
-        DATABASE_URL: !!process.env.DATABASE_URL,
-        JWT_SECRET: !!process.env.JWT_SECRET,
-        OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-        ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
-        SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to get env debug info" });
-  }
-});
 
 // Compression middleware - reduce tamaño de respuestas
 // Skip compression for SSE streams (text/event-stream) to prevent buffering

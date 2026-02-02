@@ -404,7 +404,8 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
       fs.mkdirSync(voucherDir, { recursive: true });
     }
 
-    const voucherFileName = `${Date.now()}-pago-${file.originalname}`;
+    const safeOriginalName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const voucherFileName = `${Date.now()}-pago-${safeOriginalName}`;
     const finalPath = path.join(voucherDir, voucherFileName);
     // Escribir el buffer al archivo (memoryStorage no tiene file.path)
     fs.writeFileSync(finalPath, fileBuffer);
