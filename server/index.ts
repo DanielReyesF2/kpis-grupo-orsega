@@ -7,6 +7,7 @@ import { registerRoutes } from "./routes";
 // Vite imports will be loaded dynamically in development only
 import { monthlyScheduler } from "./scheduler";
 import { initializeDOFScheduler } from "./dof-scheduler";
+import { initializeComplementReminderScheduler } from "./complement-reminder-scheduler";
 import { securityMonitorMiddleware, loginMonitorMiddleware, uploadMonitorMiddleware, apiAccessMonitorMiddleware } from "./security-monitor";
 import { healthCheck, readinessCheck, livenessCheck } from "./health-check";
 import path from "path";
@@ -690,6 +691,14 @@ process.on('uncaughtException', (error: Error) => {
       console.log("✅ DOF scheduler initialized");
     } catch (error) {
       console.error("⚠️ Warning: Failed to initialize DOF scheduler (non-critical):", error);
+    }
+
+    // Inicializar el scheduler de recordatorios de complemento de pago
+    try {
+      initializeComplementReminderScheduler();
+      console.log("✅ Complement reminder scheduler initialized");
+    } catch (error) {
+      console.error("⚠️ Warning: Failed to initialize complement reminder scheduler (non-critical):", error);
     }
     
     // Add 404 handler for API routes AFTER all routes are registered

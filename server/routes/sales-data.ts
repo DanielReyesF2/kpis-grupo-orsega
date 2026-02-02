@@ -1,0 +1,213 @@
+import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import rateLimit from 'express-rate-limit';
+import { sql, getAuthUser, type AuthRequest } from './_helpers';
+import { jwtAuthMiddleware } from '../auth';
+import { handleSalesUpload } from '../sales-upload-handler-NEW';
+import { handleIDRALLUpload, detectExcelFormat } from '../sales-idrall-handler';
+import { autoAnalyzeSalesUpload } from '../nova/nova-auto-analyze';
+
+const router = Router();
+
+// Rate limiter para uploads - Controla uso de OpenAI API
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 20, // 20 archivos por hora por IP
+  message: 'Límite de uploads alcanzado. Por favor, intenta en 1 hora.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// GET /api/sales-data
+router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, clientId, productId, year, month, startDate, endDate, limit = '1000' } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    let query = `
+      SELECT
+        id, company_id, client_id, product_id, client_name, product_name,
+        quantity, unit, unit_price, total_amount,
+        sale_date, sale_month, sale_year, invoice_number, folio, notes
+      FROM sales_data
+      WHERE company_id = $1
+    `;
+
+    const params: any[] = [resolvedCompanyId];
+    let paramIndex = 2;
+
+    if (clientId) {
+      query += ` AND client_id = $${paramIndex}`;
+      params.push(parseInt(clientId as string));
+      paramIndex++;
+    }
+
+    if (productId) {
+      query += ` AND product_id = $${paramIndex}`;
+      params.push(parseInt(productId as string));
+      paramIndex++;
+    }
+
+    if (year) {
+      query += ` AND sale_year = $${paramIndex}`;
+      params.push(parseInt(year as string));
+      paramIndex++;
+    }
+
+    if (month) {
+      query += ` AND sale_month = $${paramIndex}`;
+      params.push(parseInt(month as string));
+      paramIndex++;
+    }
+
+    if (startDate) {
+      query += ` AND sale_date >= $${paramIndex}`;
+      params.push(startDate as string);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      query += ` AND sale_date <= $${paramIndex}`;
+      params.push(endDate as string);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY sale_date DESC LIMIT $${paramIndex}`;
+    params.push(parseInt(limit as string));
+
+    const salesData = await sql(query, params);
+
+    res.json(salesData);
+  } catch (error) {
+    console.error('[GET /api/sales-data] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch sales data' });
+  }
+});
+
+// Configurar multer para archivos Excel de ventas
+const salesUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), 'uploads', 'sales');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `sales-${uniqueSuffix}-${file.originalname}`);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'application/excel'
+    ];
+    const allowedExtensions = ['.xlsx', '.xls'];
+    const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'));
+    }
+  },
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB
+});
+
+// POST /api/sales/upload - Subir archivo Excel de ventas
+router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+  console.log('📤 [Sales Upload] ========== INICIO DE UPLOAD ==========');
+  console.log('📤 [Sales Upload] Petición recibida en /api/sales/upload');
+  console.log('📤 [Sales Upload] Content-Type:', req.headers['content-type']);
+
+  salesUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('❌ [Sales Upload] Multer error:', err.message);
+      return res.status(400).json({
+        error: 'Error al procesar archivo',
+        details: err.message
+      });
+    }
+    console.log('✅ [Sales Upload] Archivo procesado por multer');
+    next();
+  });
+}, async (req, res) => {
+  // Detectar formato del archivo y usar el handler apropiado
+  const ExcelJS = await import('exceljs');
+  const file = (req as any).file;
+
+  if (!file) {
+    return res.status(400).json({
+      error: 'No se subió ningún archivo',
+      details: 'Asegúrate de seleccionar un archivo Excel antes de subirlo'
+    });
+  }
+
+  try {
+    // Leer archivo para detectar formato
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.path);
+
+    const format = await detectExcelFormat(workbook);
+    console.log(`📋 [Sales Upload] Formato detectado: ${format}`);
+
+    // Capture response to trigger auto-analysis
+    const origJson = res.json.bind(res);
+    let uploadSuccess = false;
+    res.json = function(body: any) {
+      if (!res.headersSent && body && !body.error) {
+        uploadSuccess = true;
+      }
+      const result = origJson(body);
+      // Fire-and-forget auto-analysis after successful upload
+      if (uploadSuccess) {
+        const user = (req as any).user;
+        const sheetNames = workbook.worksheets.map((s: any) => s.name);
+        autoAnalyzeSalesUpload(
+          { summary: `Archivo Excel subido con hojas: ${sheetNames.join(', ')}. Formato: ${format}`, rowCount: workbook.worksheets.reduce((acc: number, s: any) => acc + s.rowCount, 0), companies: sheetNames },
+          user?.companyId,
+          user?.id?.toString()
+        ).then(({ analysisId }) => {
+          console.log(`[Nova] Sales auto-analysis started: ${analysisId}`);
+        }).catch(err => {
+          console.error('[Nova] Sales auto-analysis error:', err);
+        });
+      }
+      return result;
+    } as any;
+
+    if (format === 'IDRALL') {
+      // Usar handler de IDRALL para formato nuevo
+      console.log('🔄 [Sales Upload] Usando handler IDRALL...');
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    } else if (format === 'LEGACY') {
+      // Usar handler legacy para formato antiguo de 4 hojas
+      console.log('🔄 [Sales Upload] Usando handler LEGACY...');
+      await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+    } else {
+      // Intentar con IDRALL por default (formato más común ahora)
+      console.log('🔄 [Sales Upload] Formato desconocido, intentando con IDRALL...');
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    }
+  } catch (error: any) {
+    console.error('❌ [Sales Upload] Error detectando formato:', error.message);
+    // Fallback: intentar con IDRALL
+    await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+  }
+});
+
+export default router;

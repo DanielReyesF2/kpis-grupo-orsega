@@ -1,10 +1,7 @@
 import { db } from './db';
 import { eq } from 'drizzle-orm';
 import { paymentVouchers, clients } from '@shared/schema';
-import sgMail from '@sendgrid/mail';
-
-// Configurar SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+import { emailService } from './email-service';
 
 interface PaymentVoucher {
   id: number;
@@ -68,7 +65,7 @@ export class TreasuryAutomation {
       // Plantilla de email personalizada
       const emailTemplate = {
         to: client.email,
-        from: 'noreply@econova.com.mx',
+
         subject: `✅ Comprobante de Pago - ${client.name}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -135,8 +132,12 @@ export class TreasuryAutomation {
         `
       };
 
-      // Enviar email
-      await sgMail.send(emailTemplate);
+      // Enviar email via Resend
+      await emailService.sendEmail({
+        to: emailTemplate.to,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+      }, 'treasury');
 
       // Actualizar estado del comprobante
       await db.update(paymentVouchers)
@@ -164,20 +165,27 @@ export class TreasuryAutomation {
 
   /**
    * ⏰ Programar recordatorio de complemento
+   * Inserta una notificación in-app para visibilidad del equipo.
+   * Los recordatorios por email los maneja complement-reminder-scheduler.ts (cron diario).
    */
   static async scheduleComplementReminder(voucherId: number, clientId: number): Promise<void> {
     try {
-      // Programar recordatorios cada 3, 7 y 14 días
-      const reminderDays = [3, 7, 14];
-      
-      for (const days of reminderDays) {
-        const reminderDate = new Date();
-        reminderDate.setDate(reminderDate.getDate() + days);
-        
-        // Aquí podrías integrar con un sistema de jobs como Bull, Agenda, etc.
-        // Por ahora, lo registramos en la base de datos para procesamiento posterior
-        console.log(`[Treasury Automation] Recordatorio programado para ${reminderDate.toISOString()}`);
-      }
+      const client = await db.query.clients.findFirst({
+        where: eq(clients.id, clientId)
+      });
+
+      const { notifications } = await import('@shared/schema');
+      await db.insert(notifications).values({
+        title: 'Complemento de pago pendiente',
+        message: `El voucher #${voucherId} para ${client?.name || 'cliente'} requiere complemento de pago. Se enviarán recordatorios automáticos a los 3, 7 y 14 días.`,
+        type: 'warning',
+        fromUserId: 23, // System user
+        toUserId: null, // Broadcast to treasury team
+        companyId: client?.companyId || null,
+        priority: 'high',
+      });
+
+      console.log(`[Treasury Automation] Notificación de complemento creada para voucher ${voucherId}`);
     } catch (error) {
       console.error('[Treasury Automation] Error scheduling reminder:', error);
     }
@@ -211,7 +219,7 @@ export class TreasuryAutomation {
 
       const emailTemplate = {
         to: client.email,
-        from: 'noreply@econova.com.mx',
+
         subject: `⏰ Recordatorio: Complemento de Pago Pendiente - ${client.name}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -249,11 +257,15 @@ export class TreasuryAutomation {
         `
       };
 
-      await sgMail.send(emailTemplate);
+      await emailService.sendEmail({
+        to: emailTemplate.to,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+      }, 'treasury');
 
-      return { 
-        success: true, 
-        message: `Recordatorio enviado a ${client.email}` 
+      return {
+        success: true,
+        message: `Recordatorio enviado a ${client.email}`
       };
 
     } catch (error) {

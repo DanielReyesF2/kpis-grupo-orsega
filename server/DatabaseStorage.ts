@@ -51,7 +51,7 @@ import type {
   ScheduledPayment, InsertScheduledPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray, isNull } from "drizzle-orm";
 import type { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
@@ -1359,7 +1359,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(notifications)
         .leftJoin(users, eq(notifications.fromUserId, users.id))
-        .where(eq(notifications.toUserId, userId))
+        .where(or(eq(notifications.toUserId, userId), isNull(notifications.toUserId)))
         .orderBy(desc(notifications.createdAt));
     } catch (error) {
       console.error("Error getting notifications for user:", error);
@@ -1381,13 +1381,13 @@ export class DatabaseStorage implements IStorage {
     try {
       const [updatedNotification] = await db
         .update(notifications)
-        .set({ 
-          read: true, 
-          readAt: new Date() 
+        .set({
+          read: true,
+          readAt: new Date()
         })
         .where(and(
           eq(notifications.id, id),
-          eq(notifications.toUserId, userId)
+          or(eq(notifications.toUserId, userId), isNull(notifications.toUserId))
         ))
         .returning();
       return updatedNotification;

@@ -9,12 +9,8 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
-import { novaChatStream } from './nova-agent';
-import type { NovaContext } from './nova-agent';
 import { novaAIClient } from './nova-client';
 import { jwtAuthMiddleware } from '../auth';
-import { isCFDI, parseCFDI, cfdiToInvoiceData } from '../cfdi-parser';
-import { storeFile } from './nova-file-store';
 
 // In-memory store for auto-analysis results (with userId for ownership)
 const MAX_ANALYSIS_STORE_SIZE = 1000;
@@ -150,124 +146,6 @@ interface AuthRequest extends Request {
   };
 }
 
-/**
- * Parse uploaded files and return additional context string for the AI.
- */
-async function parseUploadedFiles(files: Express.Multer.File[]): Promise<string> {
-  if (!files || files.length === 0) return '';
-
-  const parts: string[] = [];
-
-  for (const file of files) {
-    const mime = file.mimetype;
-
-    try {
-      // XML / CFDI
-      if (mime.includes('xml')) {
-        if (isCFDI(file.buffer)) {
-          const cfdi = parseCFDI(file.buffer);
-          if (cfdi.parseSuccess) {
-            const inv = cfdiToInvoiceData(cfdi);
-            parts.push(
-              `[Archivo: ${file.originalname}] CFDI XML parseado:\n` +
-              `  UUID: ${cfdi.uuid}\n` +
-              `  Emisor: ${cfdi.emisor.nombre} (RFC: ${cfdi.emisor.rfc})\n` +
-              `  Total: $${cfdi.total} ${cfdi.moneda}\n` +
-              `  Fecha: ${cfdi.fecha}\n` +
-              `  Tipo: ${inv.documentType}`
-            );
-            continue;
-          }
-        }
-        // Non-CFDI XML
-        const xmlText = file.buffer.toString('utf-8').slice(0, 5000);
-        parts.push(`[Archivo: ${file.originalname}] XML:\n${xmlText}`);
-        continue;
-      }
-
-      // Excel
-      if (mime.includes('spreadsheet') || mime.includes('excel')) {
-        const ExcelJS = await import('exceljs');
-        const workbook = new ExcelJS.default.Workbook();
-        await workbook.xlsx.load(file.buffer);
-
-        let excelSummary = `[Archivo: ${file.originalname}] Excel con ${workbook.worksheets.length} hojas:\n`;
-        for (const sheet of workbook.worksheets) {
-          const rowCount = sheet.rowCount;
-          excelSummary += `  Hoja "${sheet.name}": ${rowCount} filas\n`;
-
-          // Extract header and first 20 data rows
-          const rows: string[] = [];
-          sheet.eachRow((row, rowNumber) => {
-            if (rowNumber <= 21) {
-              const values = row.values as any[];
-              rows.push(values.slice(1).map((v: any) => v?.toString() || '').join(' | '));
-            }
-          });
-          if (rows.length > 0) {
-            excelSummary += `  Encabezado: ${rows[0]}\n`;
-            excelSummary += `  Datos (primeras ${Math.min(rows.length - 1, 20)} filas):\n`;
-            for (let i = 1; i < rows.length; i++) {
-              excelSummary += `    ${rows[i]}\n`;
-            }
-          }
-        }
-        parts.push(excelSummary);
-        continue;
-      }
-
-      // PDF — extract text
-      if (mime === 'application/pdf') {
-        try {
-          const pdfParse = await import('pdf-parse');
-          const pdfData = await pdfParse.default(file.buffer);
-          const text = pdfData.text.trim().slice(0, 8000);
-          parts.push(
-            `[Archivo: ${file.originalname}] PDF (${pdfData.numpages} paginas):\n${text}`
-          );
-        } catch {
-          parts.push(`[Archivo: ${file.originalname}] PDF (no se pudo extraer texto)`);
-        }
-        continue;
-      }
-
-      // Images — will be handled as multimodal content blocks
-      if (mime.startsWith('image/')) {
-        // We'll handle images below — just note the file
-        parts.push(`[Archivo: ${file.originalname}] Imagen ${mime} (${(file.size / 1024).toFixed(0)} KB) — analisis visual incluido`);
-        continue;
-      }
-
-      parts.push(`[Archivo: ${file.originalname}] Tipo no procesable: ${mime}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error';
-      parts.push(`[Archivo: ${file.originalname}] Error procesando: ${msg}`);
-    }
-  }
-
-  return parts.join('\n\n');
-}
-
-/**
- * Get image content blocks for Claude multimodal messages.
- */
-function getImageContentBlocks(files: Express.Multer.File[]): Array<{
-  type: 'image';
-  source: { type: 'base64'; media_type: string; data: string };
-}> {
-  if (!files) return [];
-  return files
-    .filter((f) => f.mimetype.startsWith('image/'))
-    .map((f) => ({
-      type: 'image' as const,
-      source: {
-        type: 'base64' as const,
-        media_type: f.mimetype,
-        data: f.buffer.toString('base64'),
-      },
-    }));
-}
-
 // ============================================================================
 // ROUTER
 // ============================================================================
@@ -400,86 +278,30 @@ novaRouter.post(
       console.log(`[Nova Route] Chat request from user ${user?.id}, page: ${pageContext}, files: ${validFiles.length}, novaAI: ${novaAIClient.isConfigured()}`);
 
       // ================================================================
-      // PROXY PATH: Forward to Nova AI 2.0 when configured
+      // PROXY to Nova AI 2.0 external service
       // ================================================================
-      if (novaAIClient.isConfigured()) {
-        const filesToForward = validFiles.map(f => ({
-          buffer: f.buffer,
-          originalname: f.originalname,
-          mimetype: f.mimetype,
-        }));
+      if (!novaAIClient.isConfigured()) {
+        safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Nova AI no esta configurado' })}\n\n`);
+        safeEnd();
+        return;
+      }
 
-        await novaAIClient.streamChat(
-          message,
-          filesToForward,
-          {
-            conversationHistory: conversationHistory.slice(-10),
-            pageContext,
-            userId,
-            companyId: user?.companyId || undefined,
-          },
-          {
-            onToken(text) {
-              safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
-            },
-            onToolStart(tool) {
-              safeWrite(`event: tool_start\ndata: ${JSON.stringify({ tool })}\n\n`);
-            },
-            onToolResult(tool, success) {
-              safeWrite(`event: tool_result\ndata: ${JSON.stringify({ tool, success })}\n\n`);
-            },
-            onDone(response) {
-              safeWrite(`event: done\ndata: ${JSON.stringify(response)}\n\n`);
-              safeEnd();
-            },
-            onError(error) {
-              safeWrite(`event: error\ndata: ${JSON.stringify({ message: error.message || 'Error procesando solicitud' })}\n\n`);
-              safeEnd();
-            },
-          },
-          abortController.signal
-        );
-      } else {
-        // ================================================================
-        // LOCAL FALLBACK: Use local nova-agent.ts (existing behavior)
-        // ================================================================
+      const filesToForward = validFiles.map(f => ({
+        buffer: f.buffer,
+        originalname: f.originalname,
+        mimetype: f.mimetype,
+      }));
 
-        // Store Excel file buffers for MCP tool access
-        const storedFileIds: Array<{ fileId: string; name: string }> = [];
-        for (const file of validFiles) {
-          if (file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel')) {
-            const fileId = storeFile(file.buffer, file.originalname, file.mimetype, userId);
-            storedFileIds.push({ fileId, name: file.originalname });
-            console.log(`[Nova Route] Stored Excel file "${file.originalname}" as ${fileId}`);
-          }
-        }
-
-        // Parse uploaded files into context text
-        const fileContext = await parseUploadedFiles(validFiles);
-
-        // Add file IDs to context so the agent knows about processable files
-        let fullContext = fileContext || '';
-        if (storedFileIds.length > 0) {
-          const fileInfo = storedFileIds
-            .map(f => `  - file_id: "${f.fileId}" (${f.name})`)
-            .join('\n');
-          fullContext += `\n\n[ARCHIVOS EXCEL DISPONIBLES PARA PROCESAMIENTO]\nEl usuario adjuntó archivos Excel que pueden ser procesados con la herramienta process_sales_excel.\nUsa el file_id correspondiente como parámetro:\n${fileInfo}`;
-        }
-
-        // Get image content blocks for multimodal Claude vision
-        const imageBlocks = getImageContentBlocks(validFiles);
-
-        const ctx: NovaContext = {
-          userId,
-          companyId: user?.companyId || undefined,
+      await novaAIClient.streamChat(
+        message,
+        filesToForward,
+        {
           conversationHistory: conversationHistory.slice(-10),
           pageContext,
-          additionalContext: fullContext || undefined,
-          imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
-        };
-
-        // Stream response with abort signal
-        await novaChatStream(message, ctx, {
+          userId,
+          companyId: user?.companyId || undefined,
+        },
+        {
           onToken(text) {
             safeWrite(`event: token\ndata: ${JSON.stringify({ text })}\n\n`);
           },
@@ -494,11 +316,12 @@ novaRouter.post(
             safeEnd();
           },
           onError(error) {
-            safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Error procesando solicitud' })}\n\n`);
+            safeWrite(`event: error\ndata: ${JSON.stringify({ message: error.message || 'Error procesando solicitud' })}\n\n`);
             safeEnd();
           },
-        }, abortController.signal);
-      }
+        },
+        abortController.signal
+      );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error interno';
       console.error('[Nova Route] Error:', msg);

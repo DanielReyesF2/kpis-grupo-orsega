@@ -104,10 +104,12 @@ function calculatePeriodDates(period: Period): { start: Date; end: Date } {
  * const active = await getActiveClients(1, 'month');
  * const active3Months = await getActiveClients(1, '3months');
  */
+export type DataFreshness = 'current' | 'recent' | 'stale';
+
 export async function getActiveClients(
   companyId: number,
   period: 'month' | '3months'
-): Promise<number> {
+): Promise<{ count: number; freshness: DataFreshness }> {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -116,8 +118,7 @@ export async function getActiveClients(
   let params: any[];
 
   if (period === 'month') {
-    // Buscar en el mes actual, pero si no hay datos, buscar en el último mes con datos disponibles
-    // Usar client_name en lugar de client_id porque client_id puede ser NULL en los datos migrados
+    // Path 1: current month data
     query = `
       SELECT COUNT(DISTINCT client_name) as count
       FROM sales_data
@@ -127,43 +128,43 @@ export async function getActiveClients(
         AND client_name IS NOT NULL AND client_name <> ''
     `;
     params = [companyId, currentYear, currentMonth];
-    
+
     const result = await sql(query, params);
     const count = parseInt(result[0]?.count || '0', 10);
-    
-    // Si no hay datos en el mes actual, buscar en los últimos 30 días históricos
-    if (count === 0) {
-      const last30DaysQuery = `
-        SELECT COUNT(DISTINCT client_name) as count
-        FROM sales_data
-        WHERE company_id = $1
-          AND client_name IS NOT NULL AND client_name <> ''
-          AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
-          AND sale_date <= CURRENT_DATE
-      `;
-      const last30DaysResult = await sql(last30DaysQuery, [companyId]);
-      const last30DaysCount = parseInt(last30DaysResult[0]?.count || '0', 10);
-      
-      // Si aún no hay datos, buscar el último mes con datos disponibles
-      if (last30DaysCount === 0) {
-        const lastMonthWithDataQuery = `
-          SELECT COUNT(DISTINCT client_name) as count
-          FROM sales_data
-          WHERE company_id = $1
-            AND client_name IS NOT NULL AND client_name <> ''
-          ORDER BY sale_date DESC
-          LIMIT 1
-        `;
-        const lastMonthResult = await sql(lastMonthWithDataQuery, [companyId]);
-        return parseInt(lastMonthResult[0]?.count || '0', 10);
-      }
-      
-      return last30DaysCount;
+
+    if (count > 0) {
+      return { count, freshness: 'current' };
     }
-    
-    return count;
+
+    // Path 2: last 30 days fallback
+    const last30DaysQuery = `
+      SELECT COUNT(DISTINCT client_name) as count
+      FROM sales_data
+      WHERE company_id = $1
+        AND client_name IS NOT NULL AND client_name <> ''
+        AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
+        AND sale_date <= CURRENT_DATE
+    `;
+    const last30DaysResult = await sql(last30DaysQuery, [companyId]);
+    const last30DaysCount = parseInt(last30DaysResult[0]?.count || '0', 10);
+
+    if (last30DaysCount > 0) {
+      return { count: last30DaysCount, freshness: 'recent' };
+    }
+
+    // Path 3: historical fallback
+    const lastMonthWithDataQuery = `
+      SELECT COUNT(DISTINCT client_name) as count
+      FROM sales_data
+      WHERE company_id = $1
+        AND client_name IS NOT NULL AND client_name <> ''
+      ORDER BY sale_date DESC
+      LIMIT 1
+    `;
+    const lastMonthResult = await sql(lastMonthWithDataQuery, [companyId]);
+    return { count: parseInt(lastMonthResult[0]?.count || '0', 10), freshness: 'stale' };
   } else {
-    // Últimos 3 meses (90 días) - usar sale_date para datos históricos
+    // Últimos 3 meses (90 días)
     const threeMonthsAgo = new Date(now);
     threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
 
@@ -176,9 +177,9 @@ export async function getActiveClients(
         AND client_name IS NOT NULL AND client_name <> ''
     `;
     params = [companyId, threeMonthsAgo.toISOString().split('T')[0], now.toISOString().split('T')[0]];
-    
+
     const result = await sql(query, params);
-    return parseInt(result[0]?.count || '0', 10);
+    return { count: parseInt(result[0]?.count || '0', 10), freshness: 'current' };
   }
 }
 
@@ -191,12 +192,12 @@ export async function getActiveClients(
 export async function getActiveClientsMetrics(
   companyId: number
 ): Promise<ActiveClientsMetrics> {
-  const thisMonth = await getActiveClients(companyId, 'month');
-  const last3Months = await getActiveClients(companyId, '3months');
+  const thisMonthResult = await getActiveClients(companyId, 'month');
+  const last3MonthsResult = await getActiveClients(companyId, '3months');
 
   return {
-    thisMonth,
-    last3Months
+    thisMonth: thisMonthResult.count,
+    last3Months: last3MonthsResult.count
   };
 }
 

@@ -200,9 +200,9 @@ export async function calculateSalesKpiValue(
       }
       
       case 'active_clients': {
-        const activeClients = await getActiveClients(companyId, 'month');
+        const activeClientsResult = await getActiveClients(companyId, 'month');
         return {
-          value: activeClients,
+          value: activeClientsResult.count,
           unit: 'clientes'
         };
       }
@@ -343,24 +343,30 @@ export async function calculateSalesKpiValue(
  * Calcula el historial de valores de un KPI de ventas por mes
  * Útil para gráficos y análisis de tendencias
  */
+export type SalesKpiHistoryResult = {
+  data: Array<{ period: string; value: number; date: Date }>;
+  supported: boolean;
+  message?: string;
+};
+
 export async function calculateSalesKpiHistory(
   kpiName: string,
   companyId: number,
   months: number = 12
-): Promise<Array<{ period: string; value: number; date: Date }>> {
+): Promise<SalesKpiHistoryResult> {
   const kpiType = identifySalesKpiType(kpiName);
-  
-  if (kpiType === 'unknown' || kpiType !== 'volume') {
-    // Por ahora solo soportamos historial para volumen
-    // Otros KPIs pueden agregarse después
-    return [];
+
+  if (kpiType !== 'volume') {
+    return {
+      data: [],
+      supported: false,
+      message: `Historial no disponible para tipo "${kpiType}"`,
+    };
   }
-  
+
   try {
-    // Obtener los últimos N meses con datos, agrupados por año y mes
-    // Esto asegura que obtengamos todos los meses disponibles, no solo los últimos N desde hoy
     const latestDataQuery = `
-      SELECT 
+      SELECT
         sale_year,
         sale_month,
         COALESCE(SUM(quantity), 0) as total_volume
@@ -371,30 +377,29 @@ export async function calculateSalesKpiHistory(
       LIMIT $2
     `;
     const periods = await sql(latestDataQuery, [companyId, months]);
-    
+
     const history = periods.map((row: any) => {
       const year = parseInt(row.sale_year);
       const month = parseInt(row.sale_month);
       const volume = parseFloat(row.total_volume || '0');
-      
+
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const periodString = `${monthNames[month - 1]} ${year}`;
       const date = new Date(year, month - 1, 1);
-      
+
       return {
         period: periodString,
         value: volume,
         date
       };
     });
-    
-    // Ordenar por fecha ascendente (más antiguo primero)
+
     history.sort((a, b) => a.date.getTime() - b.date.getTime());
-    
-    return history;
+
+    return { data: history, supported: true };
   } catch (error) {
     console.error(`[calculateSalesKpiHistory] Error calculando historial para ${kpiName}:`, error);
-    return [];
+    return { data: [], supported: true };
   }
 }
 

@@ -1,10 +1,4 @@
-import sgMail from '@sendgrid/mail'
-
-if (!process.env.SENDGRID_API_KEY) {
-  console.warn('SENDGRID_API_KEY not found - email functionality disabled')
-} else {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-}
+import { emailService } from './email-service';
 
 interface TransportRequestData {
   to: string
@@ -16,8 +10,8 @@ interface TransportRequestData {
 }
 
 export async function sendTransportRequest(data: TransportRequestData) {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.log('Email would be sent:', data)
+  if (!emailService.isEmailConfigured()) {
+    console.log('[Simulation] Transport request email would be sent:', data)
     return
   }
   
@@ -100,14 +94,13 @@ export async function sendTransportRequest(data: TransportRequestData) {
     </div>
   `
   
-  const msg = {
+  const subject = `Solicitud de Transporte - ${data.shipment.reference}`
+
+  await emailService.sendEmail({
     to: data.to,
-    from: 'logistics@digo.mx', // Verified sender
-    subject: `Solicitud de Transporte - ${data.shipment.reference}`,
-    html: html,
-  }
-  
-  await sgMail.send(msg)
+    subject,
+    html,
+  }, 'logistics')
   console.log(`Transport request email sent to: ${data.to}`)
 }
 
@@ -152,13 +145,13 @@ const STATUS_EMAIL_CONFIG = {
 }
 
 export async function sendShipmentStatusNotification(data: ShipmentStatusNotificationData) {
-  if (!process.env.SENDGRID_API_KEY) {
+  if (!emailService.isEmailConfigured()) {
     console.log('[Simulation] Email notification would be sent:', {
       to: data.to,
       status: data.status,
       trackingCode: data.shipment.tracking_code || data.shipment.trackingCode
     })
-    return { messageId: 'simulated', provider: 'sendgrid' }
+    return { messageId: 'simulated', provider: 'resend' }
   }
   
   const config = STATUS_EMAIL_CONFIG[data.status]
@@ -217,23 +210,22 @@ export async function sendShipmentStatusNotification(data: ShipmentStatusNotific
     </div>
   `
   
-  const msg = {
-    to: data.to,
-    from: 'logistics@digo.mx', // Verified sender
-    subject: `${config.subject} - ${trackingCode}`,
-    html: html,
-  }
-  
+  const subject = `${config.subject} - ${trackingCode}`
+
   try {
-    const response = await sgMail.send(msg)
+    const result = await emailService.sendEmail({
+      to: data.to,
+      subject,
+      html,
+    }, 'logistics')
     console.log(`Shipment status notification sent to: ${data.to} (status: ${data.status})`)
-    
-    return { 
-      messageId: response[0]?.headers?.['x-message-id'] || 'sent',
-      provider: 'sendgrid'
+
+    return {
+      messageId: result.messageId || 'sent',
+      provider: 'resend'
     }
   } catch (error) {
     console.error('[Email Error] Failed to send shipment notification:', error)
-    throw error // Re-throw para que el caller maneje el error
+    throw error
   }
 }
