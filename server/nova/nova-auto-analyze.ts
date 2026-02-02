@@ -1,12 +1,11 @@
 /**
  * Nova Auto-Analyze — Async post-upload analysis
  *
- * Runs novaChat() with a specialized prompt after uploads.
+ * Runs novaAIClient.chat() with a specialized prompt after uploads.
  * Stores results in analysisStore for client polling via GET /api/nova/analysis/:id.
  */
 
 import crypto from 'crypto';
-import { novaChat } from './nova-agent';
 import { novaAIClient } from './nova-client';
 import { analysisStore } from './nova-routes';
 
@@ -115,9 +114,11 @@ Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
         pageContext: 'sales' as const,
       };
 
-      const result = novaAIClient.isConfigured()
-        ? await novaAIClient.chat(prompt, chatContext)
-        : await novaChat(prompt, chatContext);
+      if (!novaAIClient.isConfigured()) {
+        throw new Error('Nova AI no esta configurado');
+      }
+
+      const result = await novaAIClient.chat(prompt, chatContext);
 
       analysisStore.set(analysisId, {
         result: truncateResult({
@@ -130,7 +131,7 @@ Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
         userId: userId?.toString(),
       });
 
-      console.log(`[Nova] Auto-analysis completed (${novaAIClient.isConfigured() ? 'nova-ai' : 'local'}): ${analysisId}`);
+      console.log(`[Nova] Auto-analysis completed: ${analysisId}`);
     } catch (error) {
       console.error(`[Nova] Auto-analysis error for ${analysisId}:`, error instanceof Error ? error.message : error);
 
@@ -151,98 +152,3 @@ Usa tablas Markdown cuando sea apropiado. Se conciso pero completo.`;
   return { analysisId };
 }
 
-/**
- * Auto-analyze an invoice/document after upload.
- * Called fire-and-forget after a successful invoice analysis.
- */
-export async function autoAnalyzeInvoice(
-  analysisResult: {
-    documentType?: string;
-    extractedAmount?: number | null;
-    extractedSupplierName?: string | null;
-    extractedDate?: string | null;
-    extractedCurrency?: string | null;
-    [key: string]: unknown;
-  },
-  fileName: string,
-  userId: string | undefined
-): Promise<{ analysisId: string; error?: string }> {
-  // Concurrency guard
-  if (activeAnalyses >= MAX_CONCURRENT_ANALYSES) {
-    console.warn('[Nova] Max concurrent analyses reached, skipping');
-    return { analysisId: '', error: 'Demasiados analisis en curso. Intenta de nuevo mas tarde.' };
-  }
-
-  const analysisId = generateAnalysisId();
-
-  evictIfNeeded();
-
-  analysisStore.set(analysisId, {
-    result: { status: 'processing', analysisId },
-    timestamp: Date.now(),
-    userId: userId?.toString(),
-  });
-
-  activeAnalyses++;
-  (async () => {
-    try {
-      const fields = Object.entries(analysisResult)
-        .filter(([_, v]) => v != null)
-        .map(([k, v]) => `  ${k}: ${String(v).slice(0, 500)}`)
-        .join('\n');
-
-      // Sanitize fileName
-      const safeFileName = fileName.slice(0, 200);
-
-      const prompt = `Se acaba de subir el archivo "${safeFileName}" y se extrajeron los siguientes datos:
-
-${fields}
-
-Por favor:
-1. Verifica si los datos extraidos son coherentes
-2. Si es una factura, compara el monto y proveedor contra el historial
-3. Sugiere si hay algo inusual o que requiera atencion
-4. Indica que campos podrian estar incompletos
-
-Se conciso.`;
-
-      const chatContext = {
-        userId: userId?.toString(),
-        pageContext: 'invoices' as const,
-      };
-
-      const result = novaAIClient.isConfigured()
-        ? await novaAIClient.chat(prompt, chatContext)
-        : await novaChat(prompt, chatContext);
-
-      analysisStore.set(analysisId, {
-        result: truncateResult({
-          status: 'completed',
-          analysisId,
-          answer: result.answer,
-          toolsUsed: result.toolsUsed,
-        }),
-        timestamp: Date.now(),
-        userId: userId?.toString(),
-      });
-
-      console.log(`[Nova] Invoice analysis completed (${novaAIClient.isConfigured() ? 'nova-ai' : 'local'}): ${analysisId}`);
-    } catch (error) {
-      console.error(`[Nova] Invoice analysis error for ${analysisId}:`, error instanceof Error ? error.message : error);
-
-      analysisStore.set(analysisId, {
-        result: {
-          status: 'error',
-          analysisId,
-          error: 'Error al procesar el analisis de factura',
-        },
-        timestamp: Date.now(),
-        userId: userId?.toString(),
-      });
-    } finally {
-      activeAnalyses--;
-    }
-  })();
-
-  return { analysisId };
-}

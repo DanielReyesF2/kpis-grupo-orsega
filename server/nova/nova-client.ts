@@ -7,8 +7,7 @@
  * - Health check
  * - Feature flag via env vars (NOVA_AI_URL + NOVA_AI_API_KEY)
  *
- * When NOVA_AI_URL is not set, isConfigured() returns false and callers
- * fall back to the local nova-agent.ts implementation.
+ * When NOVA_AI_URL is not set, isConfigured() returns false.
  */
 
 // ============================================================================
@@ -63,7 +62,7 @@ interface NovaAIChatResponse {
 
 /**
  * Check if Nova AI 2.0 is configured via environment variables.
- * When false, callers should use the local nova-agent.ts fallback.
+ * When false, Nova AI features are unavailable.
  */
 function isConfigured(): boolean {
   return !!(process.env.NOVA_AI_URL && process.env.NOVA_AI_API_KEY);
