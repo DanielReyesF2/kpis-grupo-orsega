@@ -54,12 +54,18 @@ export interface InvoiceProcessorSummary {
 /**
  * Process multiple PDF/XML invoices from Nova chat.
  * Called by nova-routes.ts when pageContext === 'treasury' and PDFs are attached.
+ *
+ * @param userMessage — The user's chat message, used as a hint for supplier name
+ *                      and payment date when OCR can't extract them from the PDF.
  */
 export async function processInvoicesFromChat(
   files: Array<{ buffer: Buffer; originalname: string; mimetype: string }>,
   companyId: number,
   userId: number,
+  userMessage?: string,
 ): Promise<InvoiceProcessorSummary> {
+  // Extract hints from the user's chat message
+  const hints = userMessage ? extractHintsFromMessage(userMessage) : {};
   const results: InvoiceProcessResult[] = [];
 
   for (const file of files) {
@@ -74,7 +80,7 @@ export async function processInvoicesFromChat(
     }
 
     try {
-      const result = await processSingleInvoice(file, companyId, userId);
+      const result = await processSingleInvoice(file, companyId, userId, hints);
       results.push(result);
     } catch (error) {
       console.error(`[InvoiceProcessor] Error processing ${file.originalname}:`, error);
@@ -106,8 +112,9 @@ async function processSingleInvoice(
   file: { buffer: Buffer; originalname: string; mimetype: string },
   companyId: number,
   userId: number,
+  hints: MessageHints = {},
 ): Promise<InvoiceProcessResult> {
-  console.log(`[InvoiceProcessor] Processing: ${file.originalname}`);
+  console.log(`[InvoiceProcessor] Processing: ${file.originalname}, hints: ${JSON.stringify(hints)}`);
 
   // 1. Analyze document
   const analysis = await analyzePaymentDocument(file.buffer, file.mimetype);
@@ -137,15 +144,22 @@ async function processSingleInvoice(
     };
   }
 
-  // 2. Find supplier match
+  // 2. Find supplier match — use OCR result first, then user message hint
+  const nameForSearch = analysis.extractedSupplierName && analysis.extractedSupplierName !== 'NO ENCONTRADO'
+    ? analysis.extractedSupplierName
+    : hints.supplierHint || null;
+
   const supplierMatch = await findBestSupplierMatch(
-    analysis.extractedSupplierName || null,
+    nameForSearch,
     analysis.extractedTaxId || null,
     companyId,
   );
 
   const supplierName =
-    supplierMatch?.name || analysis.extractedSupplierName || 'Proveedor desconocido';
+    supplierMatch?.name ||
+    (analysis.extractedSupplierName && analysis.extractedSupplierName !== 'NO ENCONTRADO' ? analysis.extractedSupplierName : null) ||
+    hints.supplierHint ||
+    'Proveedor desconocido';
   const supplierId = supplierMatch?.id || null;
 
   // 3. Upload file to storage
@@ -157,11 +171,12 @@ async function processSingleInvoice(
   );
   console.log(`[InvoiceProcessor] Uploaded to ${uploadResult.storage}: ${uploadResult.url}`);
 
-  // 4. Calculate due date
+  // 4. Calculate due date — use OCR result, then user message hint, then default +30 days
   const now = new Date();
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
   const dueDate =
     analysis.extractedDueDate ||
+    hints.paymentDateHint ||
     (analysis.extractedDate
       ? new Date(new Date(analysis.extractedDate).getTime() + thirtyDaysMs)
       : new Date(now.getTime() + thirtyDaysMs));
@@ -342,6 +357,79 @@ function normalizeName(name: string): string {
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// ============================================================================
+// User message hint extraction
+// ============================================================================
+
+interface MessageHints {
+  supplierHint?: string;
+  paymentDateHint?: Date;
+}
+
+/**
+ * Extract supplier name and payment date from the user's chat message.
+ * Examples:
+ *   "sube esta factura de econova" → supplierHint: "econova"
+ *   "fecha de pago 5 febrero" → paymentDateHint: 2026-02-05
+ */
+function extractHintsFromMessage(message: string): MessageHints {
+  const hints: MessageHints = {};
+  const lower = message.toLowerCase();
+
+  // --- Supplier hint ---
+  // Match patterns: "factura de [NAME]", "de [NAME]", "proveedor [NAME]"
+  const supplierPatterns = [
+    /factura\s+de\s+([a-záéíóúñü][\w\s&.,'-]{1,40}?)(?:\s+con|\s+fecha|\s+por|\s+para|$)/i,
+    /proveedor\s+(?:es\s+)?([a-záéíóúñü][\w\s&.,'-]{1,40}?)(?:\s+con|\s+fecha|\s+por|$)/i,
+  ];
+  for (const pattern of supplierPatterns) {
+    const match = message.match(pattern);
+    if (match?.[1]) {
+      const candidate = match[1].trim();
+      // Skip noise words
+      if (candidate.length > 2 && !/^(esta|este|la|el|un|una|del|los|las)$/i.test(candidate)) {
+        hints.supplierHint = candidate;
+        break;
+      }
+    }
+  }
+
+  // --- Payment date hint ---
+  // Match patterns: "fecha de pago [DATE]", "pago [DATE]", "vence [DATE]"
+  const months: Record<string, number> = {
+    enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+    julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
+    ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
+    jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
+  };
+
+  // "5 de febrero", "5 febrero", "febrero 5"
+  const datePattern1 = /(\d{1,2})\s+(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)(?:\s+(?:de\s+)?(\d{4}))?/i;
+  const datePattern2 = /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(\d{1,2})(?:\s+(?:de\s+)?(\d{4}))?/i;
+
+  const m1 = lower.match(datePattern1);
+  if (m1) {
+    const day = parseInt(m1[1]);
+    const month = months[m1[2].toLowerCase()];
+    const year = m1[3] ? parseInt(m1[3]) : new Date().getFullYear();
+    if (month !== undefined && day >= 1 && day <= 31) {
+      hints.paymentDateHint = new Date(year, month, day);
+    }
+  } else {
+    const m2 = lower.match(datePattern2);
+    if (m2) {
+      const month = months[m2[1].toLowerCase()];
+      const day = parseInt(m2[2]);
+      const year = m2[3] ? parseInt(m2[3]) : new Date().getFullYear();
+      if (month !== undefined && day >= 1 && day <= 31) {
+        hints.paymentDateHint = new Date(year, month, day);
+      }
+    }
+  }
+
+  return hints;
 }
 
 // ============================================================================

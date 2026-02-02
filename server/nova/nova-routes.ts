@@ -303,7 +303,7 @@ novaRouter.post(
             mimetype: f.mimetype,
           }));
 
-          const summary = await processInvoicesFromChat(filesToProcess, user.companyId!, user.id);
+          const summary = await processInvoicesFromChat(filesToProcess, user.companyId!, user.id, message);
           additionalContext = summary.contextSummary;
           invoiceToolUsed = true;
 
