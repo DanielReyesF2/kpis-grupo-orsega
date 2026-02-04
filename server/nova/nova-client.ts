@@ -185,10 +185,13 @@ async function streamChat(
 
       let eventType = '';
       for (const line of lines) {
-        if (line.startsWith('event: ')) {
-          eventType = line.slice(7).trim();
-        } else if (line.startsWith('data: ')) {
-          const dataStr = line.slice(6);
+        // Handle \r\n line endings (Windows/HTTP style)
+        const cleanLine = line.replace(/\r$/, '');
+        
+        if (cleanLine.startsWith('event: ')) {
+          eventType = cleanLine.slice(7).trim();
+        } else if (cleanLine.startsWith('data: ')) {
+          const dataStr = cleanLine.slice(6).trim();
           try {
             const data = JSON.parse(dataStr);
 
