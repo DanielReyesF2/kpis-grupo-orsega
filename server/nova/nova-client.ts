@@ -51,8 +51,10 @@ export interface NovaAIChatContext {
   userId?: string;
   companyId?: number;
   additionalContext?: string;
-  /** Mismo valor en toda la conversación; Nova lo usa para Redis e import_sales. */
+  /** OBLIGATORIO en mensajes 2+ para Redis e import_sales. Mismo id en toda la conversación. */
   conversationId?: string;
+  /** tenant_id para Nova (ej. grupo-orsega). Si no se pasa, se usa NOVA_AI_TENANT_ID. */
+  tenantId?: string;
 }
 
 interface NovaAIChatResponse {
@@ -106,13 +108,11 @@ async function streamChat(
 ): Promise<void> {
   const baseUrl = getBaseUrl();
   const apiKey = getApiKey();
-  const tenantId = getTenantId();
+  // OBLIGATORIO: tenant_id en cada request para que Nova cargue contexto y datos extraídos
+  const tenantId = (context.tenantId && context.tenantId.trim()) || getTenantId();
   const url = `${baseUrl}/chat`;
 
   // Always send JSON — files are included as base64-encoded fields.
-  // EcoNova Gateway accepts file_data/file_name/file_media_type in JSON
-  // and forwards them to Brain as-is. This avoids multipart compatibility
-  // issues between Node.js native FormData and Hono's parser.
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${apiKey}`,
     'X-Tenant-ID': tenantId,
@@ -120,6 +120,7 @@ async function streamChat(
     'Accept': 'text/event-stream',
   };
 
+  // OBLIGATORIO: tenant_id y (cuando exista) conversation_id en cada mensaje a Nova
   const payload: Record<string, unknown> = {
     message,
     tenant_id: tenantId,
@@ -129,8 +130,8 @@ async function streamChat(
     company_id: context.companyId !== undefined ? String(context.companyId) : undefined,
     additional_context: context.additionalContext,
   };
-  if (context.conversationId) {
-    payload.conversation_id = context.conversationId;
+  if (context.conversationId && context.conversationId.trim()) {
+    payload.conversation_id = context.conversationId.trim();
   }
 
   // Attach first file as base64 (EcoNova handles one file per request)

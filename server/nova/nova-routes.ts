@@ -319,10 +319,16 @@ novaRouter.post(
       debugLog({ location: 'nova-routes.ts:before-streamChat', message: 'Calling Nova AI', data: { validFilesCount: validFiles.length, novaConfigured: novaAIClient.isConfigured() }, hypothesisId: 'H4' });
       // #endregion
 
+      // OBLIGATORIO para flujo sostenible: reenviar conversation_id y tenant_id a Nova en cada mensaje
       const conversationId = typeof req.body.conversationId === 'string'
         ? req.body.conversationId.trim() || undefined
         : typeof req.body.conversation_id === 'string'
           ? req.body.conversation_id.trim() || undefined
+          : undefined;
+      const tenantId = typeof req.body.tenantId === 'string'
+        ? req.body.tenantId.trim() || undefined
+        : typeof req.body.tenant_id === 'string'
+          ? req.body.tenant_id.trim() || undefined
           : undefined;
 
       await novaAIClient.streamChat(
@@ -334,6 +340,7 @@ novaRouter.post(
           userId,
           companyId: user?.companyId || undefined,
           conversationId,
+          tenantId,
         },
         {
           onToken(text) {

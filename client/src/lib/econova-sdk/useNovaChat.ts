@@ -92,7 +92,7 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
       .slice(-10)
       .map((m) => ({ role: m.role, content: m.content }));
 
-    // Build FormData
+    // Build FormData — OBLIGATORIO: tenant_id y conversation_id (cuando exista) en cada mensaje para flujo Nova Redis/import_sales
     const formData = new FormData();
     formData.append('message', content);
     formData.append('conversationHistory', JSON.stringify(conversationHistory));
