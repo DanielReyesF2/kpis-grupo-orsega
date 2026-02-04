@@ -155,10 +155,15 @@ async function streamChat(
       throw new Error('Nova AI response has no body');
     }
 
+    console.log(`[NovaClient] Response status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
+
     // Parse SSE stream
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let chunkCount = 0;
+    let tokenCount = 0;
+    let gotDoneEvent = false;
 
     while (true) {
       if (abortSignal?.aborted) return;
@@ -166,7 +171,14 @@ async function streamChat(
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+      const chunk = decoder.decode(value, { stream: true });
+      chunkCount++;
+      // Log first 3 chunks and every 50th chunk to see actual EcoNova response format
+      if (chunkCount <= 3 || chunkCount % 50 === 0) {
+        console.log(`[NovaClient] Chunk #${chunkCount} (${chunk.length} bytes): ${chunk.substring(0, 300)}`);
+      }
+
+      buffer += chunk;
 
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
@@ -182,15 +194,20 @@ async function streamChat(
 
             switch (eventType) {
               case 'token':
+                tokenCount++;
                 callbacks.onToken(data.text || '');
                 break;
               case 'tool_start':
+                console.log(`[NovaClient] Tool start: ${data.tool}`);
                 callbacks.onToolStart(data.tool || '');
                 break;
               case 'tool_result':
+                console.log(`[NovaClient] Tool result: ${data.tool}, success: ${data.success}`);
                 callbacks.onToolResult(data.tool || '', data.success ?? true);
                 break;
               case 'done':
+                gotDoneEvent = true;
+                console.log(`[NovaClient] Done event — answer length: ${(data.answer || '').length}, toolsUsed: ${JSON.stringify(data.toolsUsed || data.tools_used || [])}`);
                 callbacks.onDone({
                   answer: data.answer || '',
                   toolsUsed: data.toolsUsed || data.tools_used || [],
@@ -198,19 +215,32 @@ async function streamChat(
                 });
                 return; // Stream complete
               case 'error':
+                console.error(`[NovaClient] Error event: ${data.message}`);
                 callbacks.onError(new Error(data.message || 'Nova AI error'));
                 return;
+              default:
+                // Log unrecognized events to debug format mismatches
+                if (eventType) {
+                  console.warn(`[NovaClient] Unrecognized event type: "${eventType}", data: ${dataStr.substring(0, 200)}`);
+                }
             }
 
             eventType = '';
           } catch {
-            // Ignore malformed JSON lines
+            // Log parse errors to debug
+            console.warn(`[NovaClient] JSON parse failed for line: ${line.substring(0, 200)}`);
+          }
+        } else if (line.trim() && !line.startsWith(':')) {
+          // Log non-empty lines that aren't SSE format (could be raw JSON response)
+          if (chunkCount <= 5) {
+            console.warn(`[NovaClient] Non-SSE line: ${line.substring(0, 300)}`);
           }
         }
       }
     }
 
-    // Stream ended without a done event — synthesize one
+    // Stream ended without a done event
+    console.warn(`[NovaClient] Stream ended without done event. Chunks: ${chunkCount}, tokens: ${tokenCount}, remaining buffer: ${buffer.substring(0, 300)}`);
     callbacks.onDone({
       answer: '',
       toolsUsed: [],

@@ -465,7 +465,7 @@ if (!port || isNaN(port)) {
 // Wrap in try-catch to prevent crashes during startup
 try {
   server.listen(port, "0.0.0.0", () => {
-    console.log(`✅ Server listening on port ${port} [BUILD=nova-excel-bypass-v2]`);
+    console.log(`✅ Server listening on port ${port} [BUILD=nova-debug-sse-v3]`);
     console.log(`🌐 Accessible on:`);
     console.log(`   - http://localhost:${port}`);
     console.log(`   - http://127.0.0.1:${port}`);
