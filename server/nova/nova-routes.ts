@@ -114,8 +114,14 @@ async function validateFileContent(file: Express.Multer.File): Promise<boolean> 
   }
   if (mime.includes('spreadsheet') || mime.includes('excel')) {
     // XLSX (ZIP format): PK (50 4B) or old XLS: D0 CF 11 E0
-    return (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) ||
-           (buf.length >= 4 && buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0);
+    // Some Excel files (encrypted, macro-enabled, or tool-specific) may have
+    // different headers. Allow them through — openpyxl in Brain will validate.
+    const isPK = buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b;
+    const isOLE2 = buf.length >= 4 && buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0;
+    if (!isPK && !isOLE2) {
+      console.warn(`[Nova Route] Excel magic bytes unrecognized (first 4: ${buf.slice(0, 4).toString('hex')}), allowing through`);
+    }
+    return true;
   }
   return true; // Unknown types pass through (already filtered by MIME)
 }
