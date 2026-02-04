@@ -217,7 +217,7 @@ export function EcoNovaAssistant() {
     isStreaming,
     activeTools,
     clearMessages
-  } = useNovaChat({ pageContext: page, tenantId: 'grupo-orsega' });
+  } = useNovaChat({ pageContext: page });
 
   const firstName = user?.name?.split(' ')[0] || 'Usuario';
 

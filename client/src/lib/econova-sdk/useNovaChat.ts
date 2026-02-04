@@ -25,7 +25,11 @@ const NOVA_CONVERSATION_ID_KEY = 'novaConversationId';
 
 export interface UseNovaChatOptions {
   pageContext?: string;
-  /** tenant_id para Nova (ej. grupo-orsega). Si no se pasa, el backend usa NOVA_AI_TENANT_ID. */
+  /**
+   * tenant_id para Nova (ej. grupo-orsega, dura-international).
+   * SOLO pasar si se conoce explícitamente la empresa del contexto.
+   * Si no se pasa, Nova AI infiere automáticamente del contenido/archivos.
+   */
   tenantId?: string;
 }
 
@@ -92,17 +96,20 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
       .slice(-10)
       .map((m) => ({ role: m.role, content: m.content }));
 
-    // Build FormData — OBLIGATORIO: tenant_id y conversation_id (cuando exista) en cada mensaje para flujo Nova Redis/import_sales
+    // Build FormData — OBLIGATORIO: conversation_id (cuando exista) para flujo Nova Redis/import_sales
     const formData = new FormData();
     formData.append('message', content);
     formData.append('conversationHistory', JSON.stringify(conversationHistory));
     if (options.pageContext) {
       formData.append('pageContext', options.pageContext);
     }
-    // IMPORTANTE: Enviar tenantId en AMBOS formatos (snake_case y camelCase) para máxima compatibilidad
-    const effectiveTenantId = options.tenantId || 'grupo-orsega';
-    formData.append('tenantId', effectiveTenantId);
-    formData.append('tenant_id', effectiveTenantId);
+
+    // IMPORTANTE: Solo enviar tenant_id si se especifica explícitamente - dejar que Nova infiera del contexto
+    // Nova AI debe identificar automáticamente de qué empresa se habla (Dura vs Orsega) según contenido/archivos
+    if (options.tenantId) {
+      formData.append('tenantId', options.tenantId);
+      formData.append('tenant_id', options.tenantId);
+    }
 
     // IMPORTANTE: Enviar conversationId en AMBOS formatos si existe, para que Nova reconozca archivos en follow-ups
     if (conversationId) {
@@ -117,7 +124,7 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
 
     // Debug: log what we're sending so we can verify files are included
     if (process.env.NODE_ENV === 'development' || files?.length) {
-      console.log(`[Nova SDK] Sending: message=${content.length}chars, files=${files?.length ?? 0}, tenant_id=${effectiveTenantId}, conversation_id=${conversationId || '(new)'}, pageContext=${options.pageContext}`);
+      console.log(`[Nova SDK] Sending: message=${content.length}chars, files=${files?.length ?? 0}, tenant_id=${options.tenantId || '(auto-detect)'}, conversation_id=${conversationId || '(new)'}, pageContext=${options.pageContext}`);
       files?.forEach((f, i) => console.log(`[Nova SDK] File[${i}]: ${f.name} (${f.type}, ${f.size} bytes)`));
     }
 
