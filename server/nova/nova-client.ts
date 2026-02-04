@@ -2,10 +2,13 @@
  * Nova AI Client — HTTP proxy client for communicating with Nova AI 2.0 service.
  *
  * Handles:
- * - SSE streaming chat via POST /chat (multipart/form-data or JSON)
+ * - SSE streaming chat via POST /chat (JSON with base64 file attachment)
  * - Non-streaming chat for auto-analysis
  * - Health check
  * - Feature flag via env vars (NOVA_AI_URL + NOVA_AI_API_KEY)
+ *
+ * Files are sent as base64-encoded JSON fields (file_data, file_name,
+ * file_media_type) — the EcoNova Gateway accepts this and forwards to Brain.
  *
  * When NOVA_AI_URL is not set, isConfigured() returns false.
  */
@@ -88,9 +91,9 @@ async function healthCheck(): Promise<boolean> {
 /**
  * Send a streaming chat request to Nova AI 2.0.
  *
- * Constructs a POST request (multipart if files present, JSON otherwise),
- * reads the SSE response stream, and invokes callbacks for each event.
- * The callback interface matches novaChatStream() for drop-in replacement.
+ * Always sends JSON. Files are base64-encoded in the payload as
+ * file_data / file_name / file_media_type (one file per request).
+ * Reads the SSE response stream and invokes callbacks for each event.
  */
 async function streamChat(
   message: string,
@@ -104,54 +107,36 @@ async function streamChat(
   const tenantId = getTenantId();
   const url = `${baseUrl}/chat`;
 
-  // Build request — use FormData when files are present, JSON otherwise
-  let body: BodyInit;
-  let headers: Record<string, string> = {
+  // Always send JSON — files are included as base64-encoded fields.
+  // EcoNova Gateway accepts file_data/file_name/file_media_type in JSON
+  // and forwards them to Brain as-is. This avoids multipart compatibility
+  // issues between Node.js native FormData and Hono's parser.
+  const headers: Record<string, string> = {
     'Authorization': `Bearer ${apiKey}`,
     'X-Tenant-ID': tenantId,
+    'Content-Type': 'application/json',
     'Accept': 'text/event-stream',
   };
 
+  const payload: Record<string, unknown> = {
+    message,
+    tenant_id: tenantId,
+    conversation_history: context.conversationHistory,
+    page_context: context.pageContext,
+    user_id: context.userId,
+    company_id: context.companyId !== undefined ? String(context.companyId) : undefined,
+    additional_context: context.additionalContext,
+  };
+
+  // Attach first file as base64 (EcoNova handles one file per request)
   if (files.length > 0) {
-    const formData = new FormData();
-    formData.append('message', message);
-    formData.append('tenant_id', tenantId);
-
-    if (context.conversationHistory) {
-      formData.append('conversation_history', JSON.stringify(context.conversationHistory));
-    }
-    if (context.pageContext) {
-      formData.append('page_context', context.pageContext);
-    }
-    if (context.userId) {
-      formData.append('user_id', context.userId);
-    }
-    if (context.companyId !== undefined) {
-      formData.append('company_id', String(context.companyId));
-    }
-    if (context.additionalContext) {
-      formData.append('additional_context', context.additionalContext);
-    }
-
-    for (const file of files) {
-      const blob = new Blob([file.buffer], { type: file.mimetype });
-      formData.append('files', blob, file.originalname);
-    }
-
-    body = formData;
-    // Don't set Content-Type — fetch sets it with boundary for multipart
-  } else {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify({
-      message,
-      tenant_id: tenantId,
-      conversation_history: context.conversationHistory,
-      page_context: context.pageContext,
-      user_id: context.userId,
-      company_id: context.companyId !== undefined ? String(context.companyId) : undefined,
-      additional_context: context.additionalContext,
-    });
+    const file = files[0];
+    payload.file_data = file.buffer.toString('base64');
+    payload.file_name = file.originalname;
+    payload.file_media_type = file.mimetype;
   }
+
+  const body = JSON.stringify(payload);
 
   try {
     const response = await fetch(url, {
