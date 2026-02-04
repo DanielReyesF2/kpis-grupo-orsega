@@ -201,7 +201,6 @@ export function EcoNovaAssistant() {
   );
   const [dataModePassword, setDataModePassword] = useState("");
   const [dataModeChecking, setDataModeChecking] = useState(false);
-  const [lastExcelPending, setLastExcelPending] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ ok: true; data?: unknown } | { ok: false; error: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -227,7 +226,6 @@ export function EcoNovaAssistant() {
     clearMessages();
     prevMessagesLengthRef.current = 0;
     lastExcelForImportRef.current = null;
-    setLastExcelPending(false);
     setImportResult(null);
   }, [clearMessages]);
 
@@ -299,12 +297,42 @@ export function EcoNovaAssistant() {
     if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
     const message = input.trim();
     const files = [...attachedFiles];
+    // En modo datos, guardar último Excel enviado para poder importar con "actualiza" después
     if (dataModeUnlocked && files.length > 0) {
       const excelFile = files.find(isExcelFile);
       if (excelFile) {
         lastExcelForImportRef.current = excelFile;
-        setLastExcelPending(true);
         setImportResult(null);
+      }
+    }
+    const excelFromCurrent = files.find(isExcelFile);
+    const fileToImport = excelFromCurrent ?? lastExcelForImportRef.current;
+    // Si el usuario pide actualizar (palabras clave) y hay Excel disponible, importar antes de enviar a Nova
+    if (dataModeUnlocked && messageMatchesUpdateIntent(message) && fileToImport && !isImporting) {
+      setIsImporting(true);
+      setImportResult(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', fileToImport);
+        const token = getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const url = `${window.location.origin}/api/sales-data/import-from-nova`;
+        const res = await fetch(url, { method: 'POST', body: formData, headers, credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setImportResult({ ok: false, error: data.details ?? data.error ?? res.statusText });
+        } else {
+          setImportResult({ ok: true, data });
+          lastExcelForImportRef.current = null;
+          queryClient.invalidateQueries({ queryKey: ['/api/sales-data'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+        }
+      } catch (err: unknown) {
+        setImportResult({ ok: false, error: err instanceof Error ? err.message : 'Error al importar' });
+      } finally {
+        setIsImporting(false);
       }
     }
     setInput("");
@@ -342,38 +370,6 @@ export function EcoNovaAssistant() {
     setDataModeUnlocked(false);
     sessionStorage.removeItem(NOVA_DATA_MODE_KEY);
   }, []);
-
-  // Confirmar importación: enviar último Excel a POST /api/sales-data/import-from-nova
-  const handleConfirmImport = useCallback(async () => {
-    const file = lastExcelForImportRef.current;
-    if (!file || isImporting) return;
-    setIsImporting(true);
-    setImportResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const url = `${window.location.origin}/api/sales-data/import-from-nova`;
-      const res = await fetch(url, { method: 'POST', body: formData, headers, credentials: 'include' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setImportResult({ ok: false, error: data.details || data.error || res.statusText });
-        return;
-      }
-      setImportResult({ ok: true, data });
-      lastExcelForImportRef.current = null;
-      setLastExcelPending(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-data'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
-    } catch (err: unknown) {
-      setImportResult({ ok: false, error: err instanceof Error ? err.message : 'Error al importar' });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [isImporting]);
 
   // File handling
   const addFiles = useCallback((files: FileList | File[]) => {
@@ -684,58 +680,27 @@ export function EcoNovaAssistant() {
                       </motion.div>
                     )}
 
-                    {/* Confirmar importación (modo datos + último Excel enviado) */}
-                    {dataModeUnlocked && lastExcelPending && (
+                    {/* Feedback breve tras importación por palabras clave (actualiza, sube, etc.) */}
+                    {importResult && (
                       <motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="rounded-xl p-4 space-y-2"
-                        style={{ backgroundColor: COLORS.darkLight, border: `1px solid ${COLORS.darkLighter}` }}
+                        className="rounded-lg px-3 py-2 text-xs flex items-center gap-2"
+                        style={{
+                          backgroundColor: importResult.ok ? 'rgba(185, 233, 81, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                          color: importResult.ok ? COLORS.lime : 'rgb(252, 165, 165)',
+                        }}
                       >
-                        <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                          Nova analizó el Excel. ¿Confirmar importación a ventas?
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={handleConfirmImport}
-                            disabled={isImporting}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                            style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
-                          >
-                            {isImporting ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Importando...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-4 w-4" />
-                                Confirmar importación
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        {importResult && (
-                          <div
-                            className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
-                            style={{
-                              backgroundColor: importResult.ok ? 'rgba(185, 233, 81, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: importResult.ok ? COLORS.lime : 'rgb(252, 165, 165)',
-                            }}
-                          >
-                            {importResult.ok ? (
-                              <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                            )}
-                            <span>
-                              {importResult.ok
-                                ? 'Ventas importadas correctamente. Los KPIs se actualizarán.'
-                                : importResult.error}
-                            </span>
-                          </div>
+                        {importResult.ok ? (
+                          <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
                         )}
+                        <span>
+                          {importResult.ok
+                            ? 'Ventas actualizadas. Los KPIs se actualizarán.'
+                            : importResult.error}
+                        </span>
                       </motion.div>
                     )}
 

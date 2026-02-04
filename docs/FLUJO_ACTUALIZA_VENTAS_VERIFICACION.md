@@ -88,7 +88,7 @@ Flujo de inicio a fin cuando el usuario escribe ese mensaje y sube un Excel en e
 2. Al recibir **event: done**:
    - Se toma `data.conversationId` o `data.conversation_id` y se guarda en state y en `sessionStorage` (`novaConversationId`). **A partir de aquí, los siguientes mensajes de esta conversación enviarán ese `conversationId`.**
    - Si `data.toolsUsed` incluye `process_sales_excel`, `import_sales`, etc., se invalidan las queries de React Query (kpis, kpi-values, sales, sales-data, etc.) para que el dashboard muestre datos nuevos.
-3. Si **modo datos estaba desbloqueado** y se había guardado un Excel en `lastExcelForImportRef`, se muestra el bloque **"Confirmar importación"**.
+3. Si se ejecutó la importación por palabras clave en el paso 1, se muestra un mensaje breve de éxito o error (sin botón).
 
 ---
 
@@ -100,12 +100,11 @@ Flujo de inicio a fin cuando el usuario escribe ese mensaje y sube un Excel en e
 - En ese caso, la invalidación de queries en el paso 5 hace que, al ir al dashboard, se pidan de nuevo los datos y se vean las ventas actualizadas.
 - **Condición:** Que Nova devuelva en `toolsUsed` el nombre de esa herramienta (ej. `import_sales`) para que el frontend invalide.
 
-#### B) Usuario pulsa "Confirmar importación" (flujo en este repo)
+#### B) Importación por palabras clave (flujo en este repo)
 
-- Solo aparece si **modo datos está desbloqueado** (GODINTAL) y se había adjuntado un Excel en ese envío.
-- Al pulsar "Confirmar importación", el frontend hace **POST `/api/sales-data/import-from-nova`** con el archivo guardado en `lastExcelForImportRef` (mismo Excel que se envió a Nova).
+- Si **modo datos está desbloqueado** (GODINTAL) y el usuario escribe algo como "actualiza", "actualiza ventas", "sube los datos", "importa" (o variantes/typos; ver `intentUpdateVentas.ts`), y hay un Excel en el mensaje actual o en el anterior, el frontend **automáticamente** hace **POST `/api/sales-data/import-from-nova`** con ese Excel antes de enviar el mensaje a Nova.
 - **Archivo:** `server/routes/sales-data.ts` → detecta formato (IDRALL / LEGACY / ACUM_GO_2026) y llama al handler correspondiente. Se usa `user.companyId` para el handler (ej. Dura = 1). Se escribe en `sales_data`; los KPIs se recalculan con la lógica existente.
-- Tras éxito, el frontend invalida `sales-data`, `kpi-values`, `kpis`. El dashboard muestra los datos nuevos al refetch.
+- Tras éxito, el frontend invalida `sales-data`, `kpi-values`, `kpis` y muestra un mensaje breve. No hay botón "Confirmar importación".
 
 ---
 
@@ -117,8 +116,8 @@ Flujo de inicio a fin cuando el usuario escribe ese mensaje y sube un Excel en e
 | 2 | Backend recibe el multipart, lee conversationId y tenantId, valida el Excel. |
 | 3 | Backend llama a Nova con message, tenant_id, (conversation_id si hay), y el primer archivo en base64. |
 | 4 | Nova responde por SSE; en `done` puede devolver conversationId. Backend reenvía el SSE al navegador. |
-| 5 | Frontend guarda conversationId para los siguientes mensajes, invalida queries si Nova usó herramientas de datos, y muestra "Confirmar importación" si aplica. |
-| 6 | Las ventas se actualizan o bien porque Nova ejecutó import (A), o porque el usuario pulsó "Confirmar importación" (B). En ambos casos el dashboard se actualiza por la invalidación de queries. |
+| 5 | Frontend guarda conversationId para los siguientes mensajes, invalida queries si Nova usó herramientas de datos o si se ejecutó import por palabras clave. |
+| 6 | Las ventas se actualizan o bien porque Nova ejecutó import (A), o porque el frontend detectó palabras clave y ejecutó import-from-nova (B). En ambos casos el dashboard se actualiza por la invalidación de queries. |
 
 ---
 
@@ -127,5 +126,5 @@ Flujo de inicio a fin cuando el usuario escribe ese mensaje y sube un Excel en e
 1. **Primer mensaje sin conversation_id:** Es correcto. Nova asigna la conversación y debe devolver `conversationId` en el primer `done`. Nosotros lo guardamos y lo enviamos en todos los mensajes siguientes.
 2. **Solo un archivo a Nova:** El cliente Nova envía `files[0]`. Varios adjuntos en el chat: solo el primero llega al Gateway.
 3. **tenant_id siempre "grupo-orsega":** En EcoNovaAssistant está fijo. Si en el futuro hubiera que distinguir por empresa (Dura vs Orsega) en el tenant de Nova, habría que derivar `tenantId` según `user.companyId` o contexto.
-4. **"Confirmar importación" solo con modo datos:** Si el usuario no desbloquea con GODINTAL, no se guarda el Excel para import local ni se muestra el botón; la única vía de import sería la herramienta de Nova (A).
-5. **Company en import-from-nova:** Al importar por "Confirmar importación", se usa `user.companyId` (Dura = 1, Orsega = 2). Para "ventas Dura" el usuario debe estar en la empresa Dura o el handler debe recibir de alguna forma que el archivo es de Dura; actualmente se usa la company del usuario logueado.
+4. **Import por palabras clave solo con modo datos:** Si el usuario no desbloquea con GODINTAL, no se guarda el Excel ni se ejecuta la detección de intención; la única vía de import sería la herramienta de Nova (A).
+5. **Company en import-from-nova:** Al importar (por palabras clave), se usa `user.companyId` (Dura = 1, Orsega = 2). Para "ventas Dura" el usuario debe estar en la empresa Dura o el handler debe recibir de alguna forma que el archivo es de Dura; actualmente se usa la company del usuario logueado.
