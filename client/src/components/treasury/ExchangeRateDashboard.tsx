@@ -34,11 +34,11 @@ interface ExchangeRate {
 }
 
 interface ExchangeRateDashboardProps {
-  onRefreshDOF: () => void;
-  isRefreshingDOF: boolean;
+  onRefreshDOF?: () => void;
+  isRefreshingDOF?: boolean;
 }
 
-export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: ExchangeRateDashboardProps) {
+export function ExchangeRateDashboard(_props: ExchangeRateDashboardProps) {
   const { toast } = useToast();
   const [selectedSource, setSelectedSource] = useState<"Santander" | "MONEX">("Santander");
   const [buyRate, setBuyRate] = useState("");
@@ -237,14 +237,6 @@ export function ExchangeRateDashboard({ onRefreshDOF, isRefreshingDOF }: Exchang
                   <Plus className="h-4 w-4 mr-2" />
                 )}
                 Agregar {selectedSource}
-              </Button>
-              <Button type="button" variant="outline" onClick={onRefreshDOF} disabled={isRefreshingDOF}>
-                {isRefreshingDOF ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                )}
-                Actualizar DOF
               </Button>
             </div>
           </form>

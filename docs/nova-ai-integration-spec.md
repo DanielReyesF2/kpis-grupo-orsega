@@ -335,6 +335,18 @@ The sales Excel upload is a critical feature. The Excel has a very specific 4-sh
 - Accept: Date objects, Excel serial numbers, `DD/MM/YY(YY)` strings
 - 2-digit years: <50 -> 20xx, >=50 -> 19xx
 
+### Import from Nova Chat
+
+Cuando el usuario adjunta un Excel de ventas en el chat y pide análisis, Nova debe analizar el archivo y responder en español. **No es obligatorio** que Nova llame a un endpoint de kpis-grupo-orsega para importar: la importación la hace el cliente cuando el usuario pulsa "Confirmar importación" y el frontend reenvía el mismo Excel a:
+
+- **Endpoint (kpis-grupo-orsega):** `POST /api/sales-data/import-from-nova`
+- **Body:** `multipart/form-data`, campo `file` = mismo Excel subido al chat
+- **Auth:** JWT (mismo que el chat)
+
+**Convención "listo para importar":** Cuando Nova haya analizado el Excel y el usuario pueda confirmar la importación, Nova puede indicar en su respuesta algo como: *"Listo para importar cuando confirmes"* o *"Puedes confirmar la importación en el botón del chat."* Así el usuario sabe que puede usar el botón "Confirmar importación" (visible con modo datos GODINTAL activo).
+
+Formatos soportados por el endpoint hoy: **IDRALL**, **LEGACY** (4 hojas). El formato **ACUMULADO 2026** (hoja "ACUMULADO 2026") se soportará en kpis-grupo-orsega una vez documentada la estructura; ver `docs/NOVA_CHAT_VENTAS_ENERO.md` y docs de formato ACUMULADO 2026.
+
 ---
 
 ## 7. Environment Variables (kpis-grupo-orsega side)

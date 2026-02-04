@@ -21,8 +21,12 @@ export interface NovaChatMessage {
   files?: { name: string; size: number }[];
 }
 
+const NOVA_CONVERSATION_ID_KEY = 'novaConversationId';
+
 export interface UseNovaChatOptions {
   pageContext?: string;
+  /** tenant_id para Nova (ej. grupo-orsega). Si no se pasa, el backend usa NOVA_AI_TENANT_ID. */
+  tenantId?: string;
 }
 
 export interface UseNovaChatReturn {
@@ -33,6 +37,7 @@ export interface UseNovaChatReturn {
   activeTools: string[];
   error: Error | null;
   clearMessages: () => void;
+  conversationId: string | null;
 }
 
 // ============================================================================
@@ -45,6 +50,10 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeTools, setActiveTools] = useState<string[]>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (typeof sessionStorage === 'undefined') return null;
+    return sessionStorage.getItem(NOVA_CONVERSATION_ID_KEY);
+  });
   const abortRef = useRef<AbortController | null>(null);
 
   // Abort in-flight stream on unmount to prevent state updates on unmounted component
@@ -90,6 +99,12 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
     if (options.pageContext) {
       formData.append('pageContext', options.pageContext);
     }
+    if (options.tenantId) {
+      formData.append('tenantId', options.tenantId);
+    }
+    if (conversationId) {
+      formData.append('conversationId', conversationId);
+    }
     if (files) {
       for (const file of files) {
         formData.append('files', file);
@@ -107,6 +122,13 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
     // Prepare assistant message placeholder
     const assistantId = crypto.randomUUID();
 
+    // #region agent log
+    const ingest = (d: Record<string, unknown>) => {
+      fetch('http://127.0.0.1:7243/ingest/a1419591-3041-41ae-9b53-deead36cb6b5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...d, timestamp: Date.now(), sessionId: 'nova-chat-debug', runId: 'client' }) }).catch(() => {});
+    };
+    ingest({ location: 'useNovaChat.ts:before-fetch', message: 'Sending chat request', data: { url: '/api/nova/chat', hasFiles: !!(files && files.length), fileCount: files?.length ?? 0, bodyType: 'FormData' }, hypothesisId: 'H2,H5' });
+    // #endregion
+
     try {
       abortRef.current = new AbortController();
 
@@ -120,6 +142,9 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
 
       if (!response.ok) {
         const text = await response.text();
+        // #region agent log
+        ingest({ location: 'useNovaChat.ts:response-not-ok', message: 'Fetch failed', data: { status: response.status, statusText: response.statusText, bodyPreview: text.slice(0, 300) }, hypothesisId: 'H5' });
+        // #endregion
         throw new Error(`Error ${response.status}: ${text}`);
       }
 
@@ -153,10 +178,11 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
 
         let eventType = '';
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
+          const cleanLine = line.replace(/\r$/, '');
+          if (cleanLine.startsWith('event: ')) {
+            eventType = cleanLine.slice(7).trim();
+          } else if (cleanLine.startsWith('data: ')) {
+            const dataStr = cleanLine.slice(6).trim();
             try {
               const data = JSON.parse(dataStr);
 
@@ -179,6 +205,16 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
                   break;
 
                 case 'done':
+                  // Persistir conversationId para los siguientes mensajes (Nova Redis / import_sales)
+                  const newConversationId = data.conversationId ?? data.conversation_id;
+                  if (typeof newConversationId === 'string' && newConversationId.trim()) {
+                    setConversationId(newConversationId);
+                    try {
+                      sessionStorage.setItem(NOVA_CONVERSATION_ID_KEY, newConversationId);
+                    } catch {
+                      // ignore
+                    }
+                  }
                   // Final update with complete answer
                   if (data.answer) {
                     setMessages((prev) =>
@@ -189,13 +225,14 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
                   }
                   // Invalidate React Query caches when data-modifying tools were used
                   if (data.toolsUsed && Array.isArray(data.toolsUsed)) {
-                    const dataTools = ['process_sales_excel', 'process_invoice', 'schedule_payment'];
+                    const dataTools = ['process_sales_excel', 'process_invoice', 'schedule_payment', 'import_sales'];
                     const usedDataTool = data.toolsUsed.some((t: string) => dataTools.includes(t));
                     if (usedDataTool) {
                       setTimeout(() => {
                         queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/sales'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/sales-data'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/top-performers'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/collaborators-performance'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/payment-vouchers'] });
@@ -259,7 +296,7 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
       setActiveTools([]);
       abortRef.current = null;
     }
-  }, [options.pageContext]);
+  }, [options.pageContext, options.tenantId, conversationId]);
 
   const clearMessages = useCallback(() => {
     // Abort any in-flight request
@@ -269,6 +306,12 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
     setIsLoading(false);
     setIsStreaming(false);
     setActiveTools([]);
+    setConversationId(null);
+    try {
+      sessionStorage.removeItem(NOVA_CONVERSATION_ID_KEY);
+    } catch {
+      // ignore
+    }
   }, []);
 
   return {
@@ -279,5 +322,6 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
     activeTools,
     error,
     clearMessages,
+    conversationId,
   };
 }

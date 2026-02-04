@@ -23,11 +23,14 @@ import {
   Image as ImageIcon,
   XCircle,
   Wrench,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 import { useNovaChat } from "@/lib/econova-sdk/useNovaChat";
 import { usePageContext } from "@/hooks/usePageContext";
 import { useAuth } from "@/hooks/use-auth";
+import { apiRequest, getAuthToken, queryClient } from "@/lib/queryClient";
 
 // EcoNova brand colors
 const COLORS = {
@@ -180,6 +183,12 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const NOVA_DATA_MODE_KEY = 'novaDataModeUnlocked';
+
+function isExcelFile(file: File): boolean {
+  return /\.(xlsx|xls)$/i.test(file.name);
+}
+
 export function EcoNovaAssistant() {
   const { user } = useAuth();
   const { page } = usePageContext();
@@ -187,11 +196,20 @@ export function EcoNovaAssistant() {
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [dataModeUnlocked, setDataModeUnlocked] = useState(() =>
+    typeof sessionStorage !== 'undefined' && sessionStorage.getItem(NOVA_DATA_MODE_KEY) === 'true'
+  );
+  const [dataModePassword, setDataModePassword] = useState("");
+  const [dataModeChecking, setDataModeChecking] = useState(false);
+  const [lastExcelPending, setLastExcelPending] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ ok: true; data?: unknown } | { ok: false; error: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
+  const lastExcelForImportRef = useRef<File | null>(null);
 
   const {
     messages,
@@ -200,14 +218,17 @@ export function EcoNovaAssistant() {
     isStreaming,
     activeTools,
     clearMessages
-  } = useNovaChat({ pageContext: page });
+  } = useNovaChat({ pageContext: page, tenantId: 'grupo-orsega' });
 
   const firstName = user?.name?.split(' ')[0] || 'Usuario';
 
-  // Wrap clearMessages to also reset the scroll ref
+  // Wrap clearMessages to also reset the scroll ref y el Excel pendiente de importar
   const handleClear = useCallback(() => {
     clearMessages();
     prevMessagesLengthRef.current = 0;
+    lastExcelForImportRef.current = null;
+    setLastExcelPending(false);
+    setImportResult(null);
   }, [clearMessages]);
 
   // Keyboard shortcuts
@@ -278,11 +299,19 @@ export function EcoNovaAssistant() {
     if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
     const message = input.trim();
     const files = [...attachedFiles];
+    if (dataModeUnlocked && files.length > 0) {
+      const excelFile = files.find(isExcelFile);
+      if (excelFile) {
+        lastExcelForImportRef.current = excelFile;
+        setLastExcelPending(true);
+        setImportResult(null);
+      }
+    }
     setInput("");
     setAttachedFiles([]);
     if (inputRef.current) inputRef.current.style.height = "auto";
     await sendMessage(message || '(archivos adjuntos)', files.length > 0 ? files : undefined);
-  }, [input, attachedFiles, isLoading, sendMessage]);
+  }, [input, attachedFiles, isLoading, sendMessage, dataModeUnlocked]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -290,6 +319,61 @@ export function EcoNovaAssistant() {
       handleSubmit();
     }
   };
+
+  const handleUnlockDataMode = useCallback(async () => {
+    if (!dataModePassword.trim() || dataModeChecking) return;
+    setDataModeChecking(true);
+    try {
+      const res = await apiRequest('POST', '/api/nova/check-data-mode', { password: dataModePassword.trim() });
+      const data = await res.json();
+      if (data.unlocked) {
+        setDataModeUnlocked(true);
+        sessionStorage.setItem(NOVA_DATA_MODE_KEY, 'true');
+        setDataModePassword("");
+      }
+    } catch {
+      // Mantener bloqueado
+    } finally {
+      setDataModeChecking(false);
+    }
+  }, [dataModePassword, dataModeChecking]);
+
+  const handleLockDataMode = useCallback(() => {
+    setDataModeUnlocked(false);
+    sessionStorage.removeItem(NOVA_DATA_MODE_KEY);
+  }, []);
+
+  // Confirmar importación: enviar último Excel a POST /api/sales-data/import-from-nova
+  const handleConfirmImport = useCallback(async () => {
+    const file = lastExcelForImportRef.current;
+    if (!file || isImporting) return;
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const url = `${window.location.origin}/api/sales-data/import-from-nova`;
+      const res = await fetch(url, { method: 'POST', body: formData, headers, credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setImportResult({ ok: false, error: data.details || data.error || res.statusText });
+        return;
+      }
+      setImportResult({ ok: true, data });
+      lastExcelForImportRef.current = null;
+      setLastExcelPending(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/sales-data'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/kpi-values'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/kpis'] });
+    } catch (err: unknown) {
+      setImportResult({ ok: false, error: err instanceof Error ? err.message : 'Error al importar' });
+    } finally {
+      setIsImporting(false);
+    }
+  }, [isImporting]);
 
   // File handling
   const addFiles = useCallback((files: FileList | File[]) => {
@@ -460,6 +544,50 @@ export function EcoNovaAssistant() {
                 </div>
               </div>
 
+              {/* Modo datos (GODINTAL): desbloquear para confirmar importaciones */}
+              <div
+                className="px-5 py-2 flex items-center justify-between gap-2"
+                style={{ borderBottom: `1px solid ${COLORS.darkLight}`, backgroundColor: 'rgba(0,0,0,0.15)' }}
+              >
+                {dataModeUnlocked ? (
+                  <>
+                    <span className="text-xs font-medium flex items-center gap-1.5" style={{ color: COLORS.lime }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                      Modo datos activo — puedes confirmar importaciones
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleLockDataMode}
+                      className="text-[11px] px-2 py-1 rounded"
+                      style={{ color: 'rgba(255,255,255,0.5)' }}
+                    >
+                      Cerrar modo
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="password"
+                      placeholder="Contraseña modo datos (ej. GODINTAL)"
+                      value={dataModePassword}
+                      onChange={(e) => setDataModePassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleUnlockDataMode()}
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded text-xs bg-black/20 border"
+                      style={{ color: '#fff', borderColor: COLORS.darkLight }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUnlockDataMode}
+                      disabled={!dataModePassword.trim() || dataModeChecking}
+                      className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                      style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
+                    >
+                      {dataModeChecking ? '...' : 'Desbloquear'}
+                    </button>
+                  </>
+                )}
+              </div>
+
               {/* Content */}
               <div
                 ref={scrollRef}
@@ -553,6 +681,61 @@ export function EcoNovaAssistant() {
                         <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
                           {getToolLabel(activeTools[activeTools.length - 1])}
                         </span>
+                      </motion.div>
+                    )}
+
+                    {/* Confirmar importación (modo datos + último Excel enviado) */}
+                    {dataModeUnlocked && lastExcelPending && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-xl p-4 space-y-2"
+                        style={{ backgroundColor: COLORS.darkLight, border: `1px solid ${COLORS.darkLighter}` }}
+                      >
+                        <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                          Nova analizó el Excel. ¿Confirmar importación a ventas?
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={handleConfirmImport}
+                            disabled={isImporting}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                            style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
+                          >
+                            {isImporting ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Importando...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4" />
+                                Confirmar importación
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        {importResult && (
+                          <div
+                            className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
+                            style={{
+                              backgroundColor: importResult.ok ? 'rgba(185, 233, 81, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: importResult.ok ? COLORS.lime : 'rgb(252, 165, 165)',
+                            }}
+                          >
+                            {importResult.ok ? (
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                            )}
+                            <span>
+                              {importResult.ok
+                                ? 'Ventas importadas correctamente. Los KPIs se actualizarán.'
+                                : importResult.error}
+                            </span>
+                          </div>
+                        )}
                       </motion.div>
                     )}
 

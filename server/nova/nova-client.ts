@@ -41,7 +41,7 @@ export interface NovaAIStreamCallbacks {
   onToken: (text: string) => void;
   onToolStart: (toolName: string) => void;
   onToolResult: (toolName: string, success: boolean) => void;
-  onDone: (response: { answer: string; toolsUsed: string[]; source: string }) => void;
+  onDone: (response: { answer: string; toolsUsed: string[]; source: string; conversationId?: string }) => void;
   onError: (error: Error) => void;
 }
 
@@ -51,6 +51,8 @@ export interface NovaAIChatContext {
   userId?: string;
   companyId?: number;
   additionalContext?: string;
+  /** Mismo valor en toda la conversación; Nova lo usa para Redis e import_sales. */
+  conversationId?: string;
 }
 
 interface NovaAIChatResponse {
@@ -127,6 +129,9 @@ async function streamChat(
     company_id: context.companyId !== undefined ? String(context.companyId) : undefined,
     additional_context: context.additionalContext,
   };
+  if (context.conversationId) {
+    payload.conversation_id = context.conversationId;
+  }
 
   // Attach first file as base64 (EcoNova handles one file per request)
   if (files.length > 0) {
@@ -210,11 +215,13 @@ async function streamChat(
                 break;
               case 'done':
                 gotDoneEvent = true;
-                console.log(`[NovaClient] Done event — answer length: ${(data.answer || '').length}, toolsUsed: ${JSON.stringify(data.toolsUsed || data.tools_used || [])}`);
+                const conversationId = data.conversationId ?? data.conversation_id;
+                console.log(`[NovaClient] Done event — answer length: ${(data.answer || '').length}, toolsUsed: ${JSON.stringify(data.toolsUsed || data.tools_used || [])}, conversationId: ${conversationId ?? '—'}`);
                 callbacks.onDone({
                   answer: data.answer || '',
                   toolsUsed: data.toolsUsed || data.tools_used || [],
                   source: data.source || 'nova-ai-2.0',
+                  conversationId: typeof conversationId === 'string' ? conversationId : undefined,
                 });
                 return; // Stream complete
               case 'error':

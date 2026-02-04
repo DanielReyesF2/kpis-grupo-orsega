@@ -373,11 +373,20 @@ export async function handleIDRALLUpload(
  * Detecta automáticamente el formato del archivo Excel
  * y decide qué parser usar
  */
-export async function detectExcelFormat(workbook: any): Promise<'IDRALL' | 'LEGACY' | 'UNKNOWN'> {
+export async function detectExcelFormat(workbook: any): Promise<'IDRALL' | 'LEGACY' | 'ACUM_GO_2026' | 'UNKNOWN'> {
   const worksheets = workbook.worksheets;
 
   if (!worksheets || worksheets.length === 0) {
     return 'UNKNOWN';
+  }
+
+  // Buscar hoja ACUMULADO 2026 (GO - VENTAS 2026.xlsx)
+  const acumSheet = worksheets.find((ws: any) => {
+    const name = (ws.name || '').toUpperCase();
+    return name.includes('ACUMULADO') && name.includes('2026');
+  });
+  if (acumSheet) {
+    return 'ACUM_GO_2026';
   }
 
   // Buscar hojas del formato legacy (VENTAS DI, RESUMEN DI, etc.)

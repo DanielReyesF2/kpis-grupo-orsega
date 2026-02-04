@@ -167,7 +167,7 @@ export default function TreasuryPage() {
                 Consulta todos los pagos completados y sus documentos
               </p>
             </div>
-            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
+            <Button variant="default" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
               ← Volver
             </Button>
           </div>
@@ -182,14 +182,8 @@ export default function TreasuryPage() {
     return (
       <AppLayout title="Tesorería - Tipos de Cambio">
         <div className="p-6 max-w-[1400px] mx-auto space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Tipos de Cambio</h1>
-              <p className="text-sm text-muted-foreground">
-                USD/MXN - Actualización diaria
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
+          <div className="flex justify-end mb-4">
+            <Button variant="default" onClick={() => { setViewMode("main"); setLocation("/treasury"); }}>
               ← Volver
             </Button>
           </div>

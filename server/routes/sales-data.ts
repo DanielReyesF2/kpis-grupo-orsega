@@ -7,6 +7,7 @@ import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import { handleSalesUpload } from '../sales-upload-handler-NEW';
 import { handleIDRALLUpload, detectExcelFormat } from '../sales-idrall-handler';
+import { handleACUMGO2026Upload } from '../sales-acum-go-handler';
 import { autoAnalyzeSalesUpload } from '../nova/nova-auto-analyze';
 
 const router = Router();
@@ -191,15 +192,15 @@ router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, ne
     } as any;
 
     if (format === 'IDRALL') {
-      // Usar handler de IDRALL para formato nuevo
       console.log('🔄 [Sales Upload] Usando handler IDRALL...');
       await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
     } else if (format === 'LEGACY') {
-      // Usar handler legacy para formato antiguo de 4 hojas
       console.log('🔄 [Sales Upload] Usando handler LEGACY...');
       await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+    } else if (format === 'ACUM_GO_2026') {
+      console.log('🔄 [Sales Upload] Usando handler ACUM GO 2026...');
+      await handleACUMGO2026Upload(req, res, { getAuthUser, ExcelJS });
     } else {
-      // Intentar con IDRALL por default (formato más común ahora)
       console.log('🔄 [Sales Upload] Formato desconocido, intentando con IDRALL...');
       await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
     }
@@ -207,6 +208,62 @@ router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, ne
     console.error('❌ [Sales Upload] Error detectando formato:', error.message);
     // Fallback: intentar con IDRALL
     await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+  }
+});
+
+// POST /api/sales-data/import-from-nova — Importar Excel desde el chat de Nova (Confirmar importación)
+// Reutiliza la misma lógica que /api/sales/upload; no dispara auto-análisis Nova.
+router.post("/api/sales-data/import-from-nova", jwtAuthMiddleware, uploadLimiter, (req, res, next) => {
+  salesUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('❌ [Import from Nova] Multer error:', err.message);
+      return res.status(400).json({
+        error: 'Error al procesar archivo',
+        details: err.message
+      });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const ExcelJS = await import('exceljs');
+  const file = (req as any).file;
+  const user = (req as any).user;
+
+  if (!file) {
+    return res.status(400).json({
+      error: 'No se subió ningún archivo',
+      details: 'Envía el mismo Excel que compartiste en el chat para importar.'
+    });
+  }
+
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(file.path);
+
+    const format = await detectExcelFormat(workbook);
+    console.log(`📋 [Import from Nova] Formato detectado: ${format}`);
+
+    // Asegurar company_id del usuario para el handler (multer deja body en req.body)
+    const body = (req as any).body ?? {};
+    if (user?.companyId != null && body.companyId == null) {
+      (req as any).body = { ...body, companyId: String(user.companyId) };
+    }
+
+    if (format === 'IDRALL') {
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    } else if (format === 'LEGACY') {
+      await handleSalesUpload(req, res, { getAuthUser, ExcelJS });
+    } else if (format === 'ACUM_GO_2026') {
+      await handleACUMGO2026Upload(req, res, { getAuthUser, ExcelJS });
+    } else {
+      await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+    }
+  } catch (error: any) {
+    console.error('❌ [Import from Nova] Error:', error.message);
+    res.status(500).json({
+      error: 'Error al importar ventas',
+      details: error.message || 'Revisa que el archivo sea un Excel de ventas válido (IDRALL o 4 hojas).'
+    });
   }
 });
 

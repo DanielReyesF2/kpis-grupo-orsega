@@ -1,12 +1,13 @@
 /**
  * Nova AI — Express Routes
  *
- * POST /api/nova/chat     — SSE streaming chat with file upload support
- * GET  /api/nova/analysis/:id — Poll auto-analysis results
+ * POST /api/nova/chat           — SSE streaming chat with file upload support
+ * POST /api/nova/check-data-mode — Desbloquear modo datos (importar ventas) con contraseña GODINTAL
+ * GET  /api/nova/analysis/:id   — Poll auto-analysis results
  */
 
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { novaAIClient } from './nova-client';
@@ -162,11 +163,32 @@ export const novaRouter = Router();
  *   event: done    — { answer: "...", toolsUsed: [...] }
  *   event: error   — { message: "..." }
  */
+// #region agent log
+function debugLog(meta: { location: string; message: string; data?: Record<string, unknown>; hypothesisId?: string }) {
+  const payload = { ...meta, timestamp: Date.now(), sessionId: 'nova-chat-debug', runId: 'server' };
+  fetch('http://127.0.0.1:7243/ingest/a1419591-3041-41ae-9b53-deead36cb6b5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+}
+// #endregion
+
 novaRouter.post(
   '/api/nova/chat',
   jwtAuthMiddleware,
   novaChatLimiter,
-  novaUpload.array('files', 5),
+  (req: AuthRequest, res: Response, next: NextFunction) => {
+    novaUpload.array('files', 5)(req, res, (err: any) => {
+      if (err) {
+        // #region agent log
+        debugLog({ location: 'nova-routes.ts:multer', message: 'Multer error', data: { message: err?.message, code: err?.code }, hypothesisId: 'H1' });
+        // #endregion
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.write(`event: error\ndata: ${JSON.stringify({ message: err?.message || 'Error al subir archivo' })}\n\n`);
+        res.end();
+        return;
+      }
+      next();
+    });
+  },
   async (req: AuthRequest, res: Response) => {
     // SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -249,6 +271,10 @@ novaRouter.post(
 
       const files = (req.files as Express.Multer.File[]) || [];
 
+      // #region agent log
+      debugLog({ location: 'nova-routes.ts:handler-start', message: 'Handler entered', data: { filesCount: files.length, bodyKeys: Object.keys(req.body || {}), contentType: (req.headers['content-type'] || '').slice(0, 80) }, hypothesisId: 'H2,H3' });
+      // #endregion
+
       // Diagnostic logging for file upload debugging
       console.log(`[Nova Route] Raw multer files: ${files.length}, content-type: ${req.headers['content-type']?.substring(0, 60)}, body keys: ${Object.keys(req.body || {}).join(',')}`);
       if (files.length > 0) {
@@ -289,6 +315,16 @@ novaRouter.post(
         buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype
       }));
 
+      // #region agent log
+      debugLog({ location: 'nova-routes.ts:before-streamChat', message: 'Calling Nova AI', data: { validFilesCount: validFiles.length, novaConfigured: novaAIClient.isConfigured() }, hypothesisId: 'H4' });
+      // #endregion
+
+      const conversationId = typeof req.body.conversationId === 'string'
+        ? req.body.conversationId.trim() || undefined
+        : typeof req.body.conversation_id === 'string'
+          ? req.body.conversation_id.trim() || undefined
+          : undefined;
+
       await novaAIClient.streamChat(
         message,
         filesToForward,
@@ -297,6 +333,7 @@ novaRouter.post(
           pageContext,
           userId,
           companyId: user?.companyId || undefined,
+          conversationId,
         },
         {
           onToken(text) {
@@ -315,13 +352,16 @@ novaRouter.post(
             }
           },
           onDone(response) {
-            const safe = {
+            const safe: Record<string, unknown> = {
               answer: sanitizeSSE(response.answer),
               toolsUsed: Array.isArray(response.toolsUsed)
                 ? response.toolsUsed.filter((t): t is string => typeof t === 'string').slice(0, 50)
                 : [],
               source: sanitizeSSE(response.source, 100),
             };
+            if (response.conversationId) {
+              safe.conversationId = response.conversationId;
+            }
             safeWrite(`event: done\ndata: ${JSON.stringify(safe)}\n\n`);
             safeEnd();
           },
@@ -334,9 +374,31 @@ novaRouter.post(
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error interno';
+      // #region agent log
+      debugLog({ location: 'nova-routes.ts:catch', message: 'Handler catch', data: { errorMessage: msg, name: (error as Error)?.name }, hypothesisId: 'H3,H4' });
+      // #endregion
       console.error('[Nova Route] Error:', msg);
       safeWrite(`event: error\ndata: ${JSON.stringify({ message: 'Error interno del servidor' })}\n\n`);
       safeEnd();
+    }
+  }
+);
+
+/**
+ * POST /api/nova/check-data-mode — Desbloquear modo datos (contraseña GODINTAL) para confirmar importaciones desde el chat
+ */
+const NOVA_DATA_PASSWORD = process.env.NOVA_DATA_PASSWORD || 'GODINTAL';
+
+novaRouter.post(
+  '/api/nova/check-data-mode',
+  jwtAuthMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { password } = req.body || {};
+      const unlocked = typeof password === 'string' && password.trim() === NOVA_DATA_PASSWORD;
+      res.json({ unlocked });
+    } catch {
+      res.status(500).json({ unlocked: false });
     }
   }
 );
