@@ -18,7 +18,8 @@ RUN npm install -g npm@10
 # CRITICAL: Force cache invalidation BEFORE npm install by using BUILD_DATE
 # This ensures Railway ALWAYS reinstalls packages (no cached node_modules with wrong packages)
 # The timestamp changes on every build, invalidating ALL subsequent layers
-RUN echo "🔄 CACHE BUSTER - Build date: ${BUILD_DATE}, Version: ${BUILD_VERSION}" > /tmp/build-info.txt && \
+# Cache bust v2 — 2026-02-03: force rebuild for nova-routes Excel validation fix
+RUN echo "CACHE_BUST=v2-20260203 BUILD_DATE=${BUILD_DATE} VERSION=${BUILD_VERSION}" > /tmp/build-info.txt && \
     cat /tmp/build-info.txt
 
 # Copy package files first for better caching
