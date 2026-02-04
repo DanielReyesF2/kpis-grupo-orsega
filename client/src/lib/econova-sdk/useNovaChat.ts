@@ -99,11 +99,15 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
     if (options.pageContext) {
       formData.append('pageContext', options.pageContext);
     }
-    if (options.tenantId) {
-      formData.append('tenantId', options.tenantId);
-    }
+    // IMPORTANTE: Enviar tenantId en AMBOS formatos (snake_case y camelCase) para máxima compatibilidad
+    const effectiveTenantId = options.tenantId || 'grupo-orsega';
+    formData.append('tenantId', effectiveTenantId);
+    formData.append('tenant_id', effectiveTenantId);
+
+    // IMPORTANTE: Enviar conversationId en AMBOS formatos si existe, para que Nova reconozca archivos en follow-ups
     if (conversationId) {
       formData.append('conversationId', conversationId);
+      formData.append('conversation_id', conversationId);
     }
     if (files) {
       for (const file of files) {
@@ -113,7 +117,7 @@ export function useNovaChat(options: UseNovaChatOptions = {}): UseNovaChatReturn
 
     // Debug: log what we're sending so we can verify files are included
     if (process.env.NODE_ENV === 'development' || files?.length) {
-      console.log(`[Nova SDK] Sending: message=${content.length}chars, files=${files?.length ?? 0}, pageContext=${options.pageContext}`);
+      console.log(`[Nova SDK] Sending: message=${content.length}chars, files=${files?.length ?? 0}, tenant_id=${effectiveTenantId}, conversation_id=${conversationId || '(new)'}, pageContext=${options.pageContext}`);
       files?.forEach((f, i) => console.log(`[Nova SDK] File[${i}]: ${f.name} (${f.type}, ${f.size} bytes)`));
     }
 
