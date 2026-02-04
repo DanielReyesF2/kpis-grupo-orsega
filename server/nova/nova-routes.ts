@@ -256,9 +256,14 @@ novaRouter.post(
       }
 
       // Validate file content via magic bytes
+      // Excel files bypass validation — multer already checks MIME, Brain's openpyxl validates content
       const validFiles: Express.Multer.File[] = [];
       for (const file of files) {
-        if (await validateFileContent(file)) {
+        const isExcel = file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel');
+        if (isExcel) {
+          console.log(`[Nova Route] Excel file accepted (MIME: ${file.mimetype}, size: ${file.size})`);
+          validFiles.push(file);
+        } else if (await validateFileContent(file)) {
           validFiles.push(file);
         } else {
           console.warn(`[Nova Route] File ${file.originalname} failed magic-byte validation (claimed ${file.mimetype})`);
