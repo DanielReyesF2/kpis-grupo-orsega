@@ -266,7 +266,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
           EXTRACT(YEAR FROM fecha)::int as sale_year,
           EXTRACT(MONTH FROM fecha)::int as sale_month,
           COALESCE(SUM(cantidad), 0) as total_volume,
-          COALESCE(SUM(importe), 0) as total_amount,
+          COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
           COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -298,7 +298,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
           EXTRACT(YEAR FROM fecha)::int as sale_year,
           EXTRACT(MONTH FROM fecha)::int as sale_month,
           COALESCE(SUM(cantidad), 0) as total_volume,
-          COALESCE(SUM(importe), 0) as total_amount,
+          COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
           COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -319,7 +319,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
             EXTRACT(YEAR FROM fecha)::int as sale_year,
             EXTRACT(MONTH FROM fecha)::int as sale_month,
             COALESCE(SUM(cantidad), 0) as total_volume,
-            COALESCE(SUM(importe), 0) as total_amount,
+            COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
             COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
             MAX(unidad) as unit
           FROM ventas
@@ -619,7 +619,7 @@ router.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) =>
         anio as sale_year,
         mes as sale_month,
         COALESCE(SUM(cantidad), 0) as total_quantity,
-        COALESCE(SUM(importe), 0) as total_amount,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
         COUNT(DISTINCT cliente) as unique_clients,
         MAX(unidad) as unit
       FROM ventas
@@ -912,7 +912,7 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
       SELECT
         cliente as client_name,
         COALESCE(SUM(cantidad), 0) as total_volume,
-        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
         COUNT(*) as transactions,
         MAX(unidad) as unit
       FROM ventas
@@ -930,7 +930,7 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
         SELECT
           cliente as client_name,
           COALESCE(SUM(cantidad), 0) as total_volume,
-          COALESCE(SUM(importe), 0) as total_revenue,
+          COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
           COUNT(*) as transactions,
           MAX(unidad) as unit
         FROM ventas
@@ -1009,7 +1009,7 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
       SELECT
         producto as product_name,
         COALESCE(SUM(cantidad), 0) as total_volume,
-        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
         COUNT(DISTINCT cliente) as unique_clients,
         COUNT(*) as transactions,
         MAX(unidad) as unit
@@ -1028,7 +1028,7 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
         SELECT
           producto as product_name,
           COALESCE(SUM(cantidad), 0) as total_volume,
-          COALESCE(SUM(importe), 0) as total_revenue,
+          COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
           COUNT(DISTINCT cliente) as unique_clients,
           COUNT(*) as transactions,
           MAX(unidad) as unit
@@ -1237,11 +1237,11 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     // Use (importe - utilidad_bruta) as cost proxy, calculate margin from utilidad_bruta/importe
     const financialQuery = `
       SELECT
-        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
         COALESCE(SUM(importe - COALESCE(utilidad_bruta, 0)), 0) as total_cost,
         COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
-        CASE WHEN SUM(importe) > 0
-          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+        CASE WHEN COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0)) * 100
           ELSE 0 END as avg_margin_pct,
         COUNT(DISTINCT COALESCE(factura, folio)) as total_transactions,
         COUNT(*) as total_items,
@@ -1290,7 +1290,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
 
     // 2. Cancelled transactions
     const cancelledQuery = `
-      SELECT COUNT(*) as cnt, COALESCE(SUM(importe), 0) as amount
+      SELECT COUNT(*) as cnt, COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as amount
       FROM ventas
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
@@ -1305,7 +1305,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       SELECT
         EXTRACT(WEEK FROM fecha::date) as week_num,
         COUNT(DISTINCT COALESCE(factura, folio)) as transactions,
-        COALESCE(SUM(importe), 0) as revenue,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as revenue,
         COALESCE(SUM(cantidad), 0) as volume
       FROM ventas
       WHERE company_id = $1
@@ -1334,9 +1334,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COALESCE(familia_producto, 'Sin Familia') as family,
         COUNT(*) as transactions,
         COALESCE(SUM(cantidad), 0) as quantity,
-        COALESCE(SUM(importe), 0) as revenue,
-        CASE WHEN SUM(importe) > 0
-          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as revenue,
+        CASE WHEN COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0)) * 100
           ELSE 0 END as avg_margin
       FROM ventas
       WHERE company_id = $1
@@ -1365,11 +1365,11 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         cliente as name,
         AVG(importe) as avg_sale_value,
         AVG(cantidad) as avg_volume,
-        CASE WHEN SUM(importe) > 0
-          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+        CASE WHEN COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0)) * 100
           ELSE 0 END as avg_margin,
         COUNT(DISTINCT COALESCE(factura, folio)) as transactions,
-        COALESCE(SUM(importe), 0) as total_revenue
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue
       FROM ventas
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
@@ -1413,7 +1413,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
 
     const prevQuery = `
       SELECT
-        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
         COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
         COUNT(DISTINCT factura) as total_transactions
       FROM ventas
