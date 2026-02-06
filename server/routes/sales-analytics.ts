@@ -1280,8 +1280,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     // USD/MXN handling
     const totalUSD = parseFloat(f.total_usd || '0');
     const totalMN = parseFloat(f.total_mn || '0');
-    // For company 1 (Dura), revenue might be in USD - use importe as MXN equivalent
-    const totalRevenueMXN = totalMN > 0 ? totalMN : totalRevenue;
+    // importe is always the primary revenue source (MXN equivalent)
+    // totalMN is only a fallback when importe has no data at all
+    const totalRevenueMXN = totalRevenue > 0 ? totalRevenue : totalMN;
     const totalRevenueUSD = totalUSD > 0 ? totalUSD : (resolvedCompanyId === 1 && parseFloat(f.avg_exchange_rate || '0') > 0
       ? totalRevenue / parseFloat(f.avg_exchange_rate)
       : 0);
