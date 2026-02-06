@@ -20,10 +20,10 @@ interface ClientAnalysisCardProps {
 
 export function ClientAnalysisCard({ companyId, year, month }: ClientAnalysisCardProps) {
   const { data: topClients, isLoading } = useQuery({
-    queryKey: ["/api/sales-top-clients", companyId, "month", 10],
+    queryKey: ["/api/sales-top-clients", companyId, "month", 10, year, month],
     queryFn: async () => {
       const res = await apiRequest("GET",
-        `/api/sales-top-clients?companyId=${companyId}&period=month&limit=10&sortBy=revenue`);
+        `/api/sales-top-clients?companyId=${companyId}&period=month&limit=10&sortBy=revenue&year=${year}&month=${month}`);
       return await res.json();
     },
     staleTime: 60000,

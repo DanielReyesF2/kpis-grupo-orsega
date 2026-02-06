@@ -892,13 +892,14 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
 
     // Determinar filtro de fecha según el período
     if (period === 'month') {
-      // Último mes con datos disponibles
-      dateFilter = `AND anio = $2 AND mes = $3`;
-      params.push(currentYear, currentMonth);
+      const yr = req.query.year ? parseInt(req.query.year as string) : currentYear;
+      const mo = req.query.month ? parseInt(req.query.month as string) : currentMonth;
+      dateFilter = `AND fecha >= make_date($2, $3, 1) AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')`;
+      params.push(yr, mo);
     } else if (period === 'year') {
-      // Año actual completo
-      dateFilter = `AND anio = $2`;
-      params.push(currentYear);
+      const yr = req.query.year ? parseInt(req.query.year as string) : currentYear;
+      dateFilter = `AND EXTRACT(YEAR FROM fecha) = $2`;
+      params.push(yr);
     } else {
       // Default: últimos 3 meses (backward compatibility)
       dateFilter = `AND fecha >= CURRENT_DATE - INTERVAL '3 months' AND fecha <= CURRENT_DATE`;
@@ -988,13 +989,14 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
 
     // Determinar filtro de fecha según el período
     if (period === 'month') {
-      // Último mes con datos disponibles
-      dateFilter = `AND anio = $2 AND mes = $3`;
-      params.push(currentYear, currentMonth);
+      const yr = req.query.year ? parseInt(req.query.year as string) : currentYear;
+      const mo = req.query.month ? parseInt(req.query.month as string) : currentMonth;
+      dateFilter = `AND fecha >= make_date($2, $3, 1) AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')`;
+      params.push(yr, mo);
     } else if (period === 'year') {
-      // Año actual completo
-      dateFilter = `AND anio = $2`;
-      params.push(currentYear);
+      const yr = req.query.year ? parseInt(req.query.year as string) : currentYear;
+      dateFilter = `AND EXTRACT(YEAR FROM fecha) = $2`;
+      params.push(yr);
     } else {
       // Default: últimos 3 meses (backward compatibility)
       dateFilter = `AND fecha >= CURRENT_DATE - INTERVAL '3 months' AND fecha <= CURRENT_DATE`;
@@ -1239,10 +1241,13 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COALESCE(SUM(CASE WHEN mn IS NOT NULL THEN mn ELSE 0 END), 0) as total_mn,
         MAX(unidad) as unit
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
     `;
     const financialData = await sql(financialQuery, [resolvedCompanyId, targetYear, targetMonth]);
+    console.log(`[monthly-financial-summary] company=${resolvedCompanyId} year=${targetYear} month=${targetMonth} rows=${financialData.length} revenue=${financialData[0]?.total_revenue}`);
     const f = financialData[0] || {};
 
     const totalRevenue = parseFloat(f.total_revenue || '0');
@@ -1274,7 +1279,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const cancelledQuery = `
       SELECT COUNT(*) as cnt, COALESCE(SUM(importe), 0) as amount
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND UPPER(status) = 'CANCELADA'
     `;
     const cancelledData = await sql(cancelledQuery, [resolvedCompanyId, targetYear, targetMonth]);
@@ -1288,9 +1295,10 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COALESCE(SUM(importe), 0) as revenue,
         COALESCE(SUM(cantidad), 0) as volume
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
-        AND fecha IS NOT NULL
       GROUP BY EXTRACT(WEEK FROM fecha::date)
       ORDER BY week_num
     `;
@@ -1316,7 +1324,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COALESCE(SUM(importe), 0) as revenue,
         AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
       GROUP BY familia_producto
       ORDER BY revenue DESC
@@ -1344,7 +1354,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COUNT(DISTINCT factura) as transactions,
         COALESCE(SUM(importe), 0) as total_revenue
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
         AND cliente IS NOT NULL AND cliente <> ''
       GROUP BY cliente
@@ -1388,7 +1400,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
         COUNT(DISTINCT factura) as total_transactions
       FROM ventas
-      WHERE company_id = $1 AND anio = $2 AND mes = $3
+      WHERE company_id = $1
+        AND fecha >= make_date($2, $3, 1)
+        AND fecha < (make_date($2, $3, 1) + INTERVAL '1 month')
         AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
     `;
     const prevData = await sql(prevQuery, [resolvedCompanyId, prevYear, prevMonth]);

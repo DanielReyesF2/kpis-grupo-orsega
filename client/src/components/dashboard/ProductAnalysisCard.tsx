@@ -24,10 +24,10 @@ export function ProductAnalysisCard({ companyId, year, month }: ProductAnalysisC
   const [activeTab, setActiveTab] = useState<'product' | 'family'>('product');
 
   const { data: topProducts, isLoading: isLoadingProducts } = useQuery({
-    queryKey: ["/api/sales-top-products", companyId, "month", 10],
+    queryKey: ["/api/sales-top-products", companyId, "month", 10, year, month],
     queryFn: async () => {
       const res = await apiRequest("GET",
-        `/api/sales-top-products?companyId=${companyId}&period=month&limit=10`);
+        `/api/sales-top-products?companyId=${companyId}&period=month&limit=10&year=${year}&month=${month}`);
       return await res.json();
     },
     staleTime: 60000,
