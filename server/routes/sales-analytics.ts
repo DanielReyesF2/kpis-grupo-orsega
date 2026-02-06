@@ -424,13 +424,15 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
     // Obtener datos mensuales para los años a comparar (2 o 3 años)
     // Usar parámetros dinámicos según la cantidad de años
     let monthlyData;
+    // Use COALESCE to handle companies where importe=0 but importe_mn has data (Orsega historical)
+    const amountExpr = `COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0)`;
     if (yearsToCompare.length === 3) {
       monthlyData = await sql(`
         SELECT
           mes as sale_month,
           anio as sale_year,
           COALESCE(SUM(cantidad), 0) as total_quantity,
-          COALESCE(SUM(importe), 0) as total_amount,
+          ${amountExpr} as total_amount,
           COUNT(DISTINCT cliente) as unique_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -440,13 +442,12 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
         ORDER BY anio, mes
       `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
     } else {
-      // Query simplificada - igual que annual-summary que SÍ funciona
       monthlyData = await sql(`
         SELECT
           mes as sale_month,
           anio as sale_year,
           COALESCE(SUM(cantidad), 0) as total_quantity,
-          COALESCE(SUM(importe), 0) as total_amount,
+          ${amountExpr} as total_amount,
           COUNT(DISTINCT cliente) as unique_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -1242,7 +1243,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         CASE WHEN SUM(importe) > 0
           THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
           ELSE 0 END as avg_margin_pct,
-        COUNT(DISTINCT factura) as total_transactions,
+        COUNT(DISTINCT COALESCE(factura, folio)) as total_transactions,
         COUNT(*) as total_items,
         COALESCE(SUM(cantidad), 0) as total_quantity,
         AVG(NULLIF(tipo_cambio, 0)) as avg_exchange_rate,
@@ -1303,7 +1304,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const weeklyQuery = `
       SELECT
         EXTRACT(WEEK FROM fecha::date) as week_num,
-        COUNT(DISTINCT factura) as transactions,
+        COUNT(DISTINCT COALESCE(factura, folio)) as transactions,
         COALESCE(SUM(importe), 0) as revenue,
         COALESCE(SUM(cantidad), 0) as volume
       FROM ventas
@@ -1367,7 +1368,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         CASE WHEN SUM(importe) > 0
           THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
           ELSE 0 END as avg_margin,
-        COUNT(DISTINCT factura) as transactions,
+        COUNT(DISTINCT COALESCE(factura, folio)) as transactions,
         COALESCE(SUM(importe), 0) as total_revenue
       FROM ventas
       WHERE company_id = $1
