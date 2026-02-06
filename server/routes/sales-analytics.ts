@@ -1232,13 +1232,16 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const onlyCancelled = hasStatusCol ? `AND UPPER(status) = 'CANCELADA'` : 'AND FALSE';
 
     // 1. Financial metrics (excluding cancelled)
+    // Note: costo_unitario and utilidad_porcentaje don't exist in DB
+    // Use (importe - utilidad_bruta) as cost proxy, calculate margin from utilidad_bruta/importe
     const financialQuery = `
       SELECT
         COALESCE(SUM(importe), 0) as total_revenue,
-        COALESCE(SUM(CASE WHEN costo_unitario IS NOT NULL AND costo_unitario > 0
-          THEN cantidad * costo_unitario ELSE 0 END), 0) as total_cost,
+        COALESCE(SUM(importe - COALESCE(utilidad_bruta, 0)), 0) as total_cost,
         COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
-        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin_pct,
+        CASE WHEN SUM(importe) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+          ELSE 0 END as avg_margin_pct,
         COUNT(DISTINCT factura) as total_transactions,
         COUNT(*) as total_items,
         COALESCE(SUM(cantidad), 0) as total_quantity,
@@ -1330,7 +1333,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         COUNT(*) as transactions,
         COALESCE(SUM(cantidad), 0) as quantity,
         COALESCE(SUM(importe), 0) as revenue,
-        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin
+        CASE WHEN SUM(importe) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+          ELSE 0 END as avg_margin
       FROM ventas
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
@@ -1358,7 +1363,9 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
         cliente as name,
         AVG(importe) as avg_sale_value,
         AVG(cantidad) as avg_volume,
-        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin,
+        CASE WHEN SUM(importe) > 0
+          THEN (SUM(COALESCE(utilidad_bruta, 0)) / SUM(importe)) * 100
+          ELSE 0 END as avg_margin,
         COUNT(DISTINCT factura) as transactions,
         COALESCE(SUM(importe), 0) as total_revenue
       FROM ventas
