@@ -1198,4 +1198,251 @@ router.get("/api/annual-summary/years", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/monthly-financial-summary - Resumen financiero mensual profundo (estilo Nova)
+router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, year, month } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    // Default to current year/month if not specified
+    const now = new Date();
+    const targetYear = year ? parseInt(year as string) : now.getFullYear();
+    const targetMonth = month ? parseInt(month as string) : (now.getMonth() + 1);
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // 1. Financial metrics (excluding cancelled)
+    const financialQuery = `
+      SELECT
+        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN costo_unitario IS NOT NULL AND costo_unitario > 0
+          THEN cantidad * costo_unitario ELSE 0 END), 0) as total_cost,
+        COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
+        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin_pct,
+        COUNT(DISTINCT factura) as total_transactions,
+        COUNT(*) as total_items,
+        COALESCE(SUM(cantidad), 0) as total_quantity,
+        AVG(NULLIF(tipo_cambio, 0)) as avg_exchange_rate,
+        MIN(NULLIF(tipo_cambio, 0)) as min_exchange_rate,
+        MAX(NULLIF(tipo_cambio, 0)) as max_exchange_rate,
+        COALESCE(SUM(CASE WHEN usd IS NOT NULL THEN usd ELSE 0 END), 0) as total_usd,
+        COALESCE(SUM(CASE WHEN mn IS NOT NULL THEN mn ELSE 0 END), 0) as total_mn,
+        MAX(unidad) as unit
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+    `;
+    const financialData = await sql(financialQuery, [resolvedCompanyId, targetYear, targetMonth]);
+    const f = financialData[0] || {};
+
+    const totalRevenue = parseFloat(f.total_revenue || '0');
+    const totalCost = parseFloat(f.total_cost || '0');
+    const grossProfit = parseFloat(f.gross_profit || '0');
+    const avgMarginPct = f.avg_margin_pct ? parseFloat(f.avg_margin_pct) : 0;
+    const totalTransactions = parseInt(f.total_transactions || '0');
+    const totalItems = parseInt(f.total_items || '0');
+    const totalQuantity = parseFloat(f.total_quantity || '0');
+    const unit = f.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades');
+
+    // Gross margin: use direct column if available, otherwise calculate
+    const grossMarginPercent = totalRevenue > 0
+      ? (grossProfit > 0 ? (grossProfit / totalRevenue) * 100 : avgMarginPct)
+      : 0;
+
+    const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
+    // USD/MXN handling
+    const totalUSD = parseFloat(f.total_usd || '0');
+    const totalMN = parseFloat(f.total_mn || '0');
+    // For company 1 (Dura), revenue might be in USD - use importe as MXN equivalent
+    const totalRevenueMXN = totalMN > 0 ? totalMN : totalRevenue;
+    const totalRevenueUSD = totalUSD > 0 ? totalUSD : (resolvedCompanyId === 1 && parseFloat(f.avg_exchange_rate || '0') > 0
+      ? totalRevenue / parseFloat(f.avg_exchange_rate)
+      : 0);
+
+    // 2. Cancelled transactions
+    const cancelledQuery = `
+      SELECT COUNT(*) as cnt, COALESCE(SUM(importe), 0) as amount
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND UPPER(status) = 'CANCELADA'
+    `;
+    const cancelledData = await sql(cancelledQuery, [resolvedCompanyId, targetYear, targetMonth]);
+    const cancelled = cancelledData[0] || {};
+
+    // 3. Weekly distribution
+    const weeklyQuery = `
+      SELECT
+        EXTRACT(WEEK FROM fecha::date) as week_num,
+        COUNT(DISTINCT factura) as transactions,
+        COALESCE(SUM(importe), 0) as revenue,
+        COALESCE(SUM(cantidad), 0) as volume
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        AND fecha IS NOT NULL
+      GROUP BY EXTRACT(WEEK FROM fecha::date)
+      ORDER BY week_num
+    `;
+    const weeklyData = await sql(weeklyQuery, [resolvedCompanyId, targetYear, targetMonth]);
+    const totalWeeklyRevenue = weeklyData.reduce((s: number, w: any) => s + parseFloat(w.revenue || '0'), 0);
+
+    const weeklyDistribution = weeklyData.map((w: any, idx: number) => ({
+      weekLabel: `Semana ${idx + 1}`,
+      transactions: parseInt(w.transactions || '0'),
+      revenue: parseFloat(w.revenue || '0'),
+      volume: parseFloat(w.volume || '0'),
+      percentOfTotal: totalWeeklyRevenue > 0
+        ? (parseFloat(w.revenue || '0') / totalWeeklyRevenue) * 100
+        : 0,
+    }));
+
+    // 4. Products by family
+    const familyQuery = `
+      SELECT
+        COALESCE(familia_producto, 'Sin Familia') as family,
+        COUNT(*) as transactions,
+        COALESCE(SUM(cantidad), 0) as quantity,
+        COALESCE(SUM(importe), 0) as revenue,
+        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+      GROUP BY familia_producto
+      ORDER BY revenue DESC
+    `;
+    const familyData = await sql(familyQuery, [resolvedCompanyId, targetYear, targetMonth]);
+
+    const productsByFamily = familyData.map((row: any) => ({
+      family: row.family,
+      transactions: parseInt(row.transactions || '0'),
+      quantity: parseFloat(row.quantity || '0'),
+      revenue: parseFloat(row.revenue || '0'),
+      percentOfSales: totalRevenue > 0
+        ? (parseFloat(row.revenue || '0') / totalRevenue) * 100
+        : 0,
+      avgMargin: row.avg_margin ? parseFloat(row.avg_margin) : 0,
+    }));
+
+    // 5. Client efficiency (top 15)
+    const clientQuery = `
+      SELECT
+        cliente as name,
+        AVG(importe) as avg_sale_value,
+        AVG(cantidad) as avg_volume,
+        AVG(NULLIF(utilidad_porcentaje, 0)) as avg_margin,
+        COUNT(DISTINCT factura) as transactions,
+        COALESCE(SUM(importe), 0) as total_revenue
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        AND cliente IS NOT NULL AND cliente <> ''
+      GROUP BY cliente
+      ORDER BY total_revenue DESC
+      LIMIT 15
+    `;
+    const clientData = await sql(clientQuery, [resolvedCompanyId, targetYear, targetMonth]);
+
+    // Calculate efficiency rating based on margin percentiles
+    const margins = clientData
+      .map((c: any) => parseFloat(c.avg_margin || '0'))
+      .filter((m: number) => m > 0)
+      .sort((a: number, b: number) => b - a);
+    const highThreshold = margins.length > 0 ? margins[Math.floor(margins.length * 0.33)] : 15;
+    const lowThreshold = margins.length > 0 ? margins[Math.floor(margins.length * 0.67)] : 8;
+
+    const clientEfficiency = clientData.map((row: any) => {
+      const margin = row.avg_margin ? parseFloat(row.avg_margin) : 0;
+      let efficiencyRating: 'high' | 'medium' | 'low' = 'medium';
+      if (margin >= highThreshold) efficiencyRating = 'high';
+      else if (margin <= lowThreshold) efficiencyRating = 'low';
+
+      return {
+        name: row.name,
+        avgSaleValue: parseFloat(row.avg_sale_value || '0'),
+        avgVolume: parseFloat(row.avg_volume || '0'),
+        avgMargin: margin,
+        transactions: parseInt(row.transactions || '0'),
+        totalRevenue: parseFloat(row.total_revenue || '0'),
+        efficiencyRating,
+      };
+    });
+
+    // 6. Previous month for MoM comparison
+    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+    const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+
+    const prevQuery = `
+      SELECT
+        COALESCE(SUM(importe), 0) as total_revenue,
+        COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
+        COUNT(DISTINCT factura) as total_transactions
+      FROM ventas
+      WHERE company_id = $1 AND anio = $2 AND mes = $3
+        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+    `;
+    const prevData = await sql(prevQuery, [resolvedCompanyId, prevYear, prevMonth]);
+    const p = prevData[0] || {};
+    const prevRevenue = parseFloat(p.total_revenue || '0');
+    const prevProfit = parseFloat(p.gross_profit || '0');
+
+    const previousMonth = prevRevenue > 0 ? {
+      totalRevenue: prevRevenue,
+      grossProfit: prevProfit,
+      grossMarginPercent: prevRevenue > 0 && prevProfit > 0 ? (prevProfit / prevRevenue) * 100 : 0,
+      totalTransactions: parseInt(p.total_transactions || '0'),
+    } : undefined;
+
+    res.json({
+      companyId: resolvedCompanyId,
+      year: targetYear,
+      month: targetMonth,
+      monthName: monthNames[targetMonth - 1] || `Mes ${targetMonth}`,
+
+      financialMetrics: {
+        totalRevenueMXN: totalRevenueMXN,
+        totalRevenueUSD: totalRevenueUSD,
+        totalCostMXN: totalCost,
+        grossProfitMXN: grossProfit,
+        grossMarginPercent: Math.round(grossMarginPercent * 100) / 100,
+        avgTransactionValue: Math.round(avgTransactionValue * 100) / 100,
+        totalTransactions,
+        totalItems,
+        totalQuantity,
+        unit,
+      },
+
+      anomalies: {
+        cancelledTransactions: parseInt(cancelled.cnt || '0'),
+        cancelledAmount: parseFloat(cancelled.amount || '0'),
+      },
+
+      exchangeRate: {
+        avgRate: parseFloat(f.avg_exchange_rate || '0'),
+        minRate: parseFloat(f.min_exchange_rate || '0'),
+        maxRate: parseFloat(f.max_exchange_rate || '0'),
+      },
+
+      weeklyDistribution,
+      productsByFamily,
+      clientEfficiency,
+      previousMonth,
+    });
+
+  } catch (error) {
+    console.error('[GET /api/monthly-financial-summary] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly financial summary' });
+  }
+});
+
 export default router;

@@ -236,3 +236,72 @@ export interface AnnualSummary {
   };
 }
 
+/**
+ * Resumen financiero mensual profundo
+ * Endpoint: GET /api/monthly-financial-summary
+ */
+export interface MonthlyFinancialSummary {
+  companyId: number;
+  year: number;
+  month: number;
+  monthName: string;
+
+  financialMetrics: {
+    totalRevenueMXN: number;
+    totalRevenueUSD: number;
+    totalCostMXN: number;
+    grossProfitMXN: number;
+    grossMarginPercent: number;
+    avgTransactionValue: number;
+    totalTransactions: number;
+    totalItems: number;
+    totalQuantity: number;
+    unit: string;
+  };
+
+  anomalies: {
+    cancelledTransactions: number;
+    cancelledAmount: number;
+  };
+
+  exchangeRate: {
+    avgRate: number;
+    minRate: number;
+    maxRate: number;
+  };
+
+  weeklyDistribution: Array<{
+    weekLabel: string;
+    transactions: number;
+    revenue: number;
+    volume: number;
+    percentOfTotal: number;
+  }>;
+
+  productsByFamily: Array<{
+    family: string;
+    transactions: number;
+    quantity: number;
+    revenue: number;
+    percentOfSales: number;
+    avgMargin: number;
+  }>;
+
+  clientEfficiency: Array<{
+    name: string;
+    avgSaleValue: number;
+    avgVolume: number;
+    avgMargin: number;
+    transactions: number;
+    totalRevenue: number;
+    efficiencyRating: 'high' | 'medium' | 'low';
+  }>;
+
+  previousMonth?: {
+    totalRevenue: number;
+    grossProfit: number;
+    grossMarginPercent: number;
+    totalTransactions: number;
+  };
+}
+

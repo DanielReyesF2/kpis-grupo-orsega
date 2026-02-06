@@ -1,95 +1,130 @@
 /**
- * Monthly KPI Cards - 4 tarjetas con métricas del mes actual
+ * Monthly Financial KPI Cards - 7 tarjetas con métricas financieras del mes
+ * Replica la sección "Desempeño Financiero - Métricas Principales" del análisis Nova
  */
 
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useMonthlyFinancial } from "@/hooks/useMonthlyFinancial";
 import { SalesKPICard } from "@/components/sales/dashboard/SalesKPICard";
 import { formatCurrency, formatNumber } from "@/lib/sales-utils";
-import { DollarSign, Package, Users, TrendingUp } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp, Percent, Calculator, Hash, Package } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface MonthlyKPICardsProps {
   companyId: number;
+  year: number;
+  month: number;
 }
 
-export function MonthlyKPICards({ companyId }: MonthlyKPICardsProps) {
-  const { data: salesStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["/api/sales-stats", companyId],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/sales-stats?companyId=${companyId}`);
-      return await res.json();
-    },
-    staleTime: 30000,
-  });
+export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps) {
+  const { data, isLoading } = useMonthlyFinancial(companyId, year, month);
 
-  const { data: monthlyTrends, isLoading: isLoadingTrends } = useQuery({
-    queryKey: ["/api/sales-monthly-trends", companyId],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/sales-monthly-trends?companyId=${companyId}`);
-      return await res.json();
-    },
-    staleTime: 60000,
-  });
-
-  if (isLoadingStats || isLoadingTrends) {
+  if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
           <Skeleton key={i} className="h-32 rounded-lg" />
         ))}
       </div>
     );
   }
 
-  // Get current month's data from trends
-  const sorted = [...(monthlyTrends || [])].sort(
-    (a: any, b: any) => (a.year ?? 0) - (b.year ?? 0) || (a.monthNum ?? 0) - (b.monthNum ?? 0)
-  );
-  const currentMonth = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-  const previousMonth = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+  const d = data as any;
+  const fm = d?.financialMetrics as { totalRevenueMXN: number; totalRevenueUSD: number; totalCostMXN: number; grossProfitMXN: number; grossMarginPercent: number; avgTransactionValue: number; totalTransactions: number; totalItems: number; totalQuantity: number; unit: string } | undefined;
+  const prev = d?.previousMonth as { totalRevenue: number; grossProfit: number; grossMarginPercent: number; totalTransactions: number } | undefined;
+  const exchangeRate = d?.exchangeRate as { avgRate: number; minRate: number; maxRate: number } | undefined;
+  const monthName: string = d?.monthName || 'este mes';
 
-  const monthRevenue = currentMonth?.amount || 0;
-  const monthVolume = currentMonth?.volume || 0;
-  const prevRevenue = previousMonth?.amount || 0;
-  const revenueMoM = prevRevenue > 0 ? ((monthRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+  if (!fm) {
+    return (
+      <div className="text-center py-8 text-muted-foreground text-sm">
+        Sin datos financieros para {monthName}
+      </div>
+    );
+  }
 
-  const unit = salesStats?.unit || (companyId === 1 ? "KG" : "unidades");
-  const growthPercent = salesStats?.growth || 0;
-  const activeClients = salesStats?.activeClients || 0;
+  // MoM calculations
+  const revenueMoM = prev && prev.totalRevenue > 0
+    ? ((fm.totalRevenueMXN - prev.totalRevenue) / prev.totalRevenue) * 100
+    : undefined;
+  const profitMoM = prev && prev.grossProfit > 0
+    ? ((fm.grossProfitMXN - prev.grossProfit) / prev.grossProfit) * 100
+    : undefined;
+  const txnMoM = prev && prev.totalTransactions > 0
+    ? ((fm.totalTransactions - prev.totalTransactions) / prev.totalTransactions) * 100
+    : undefined;
 
-  const monthName = currentMonth?.monthFull || currentMonth?.month || "Mes actual";
+  const showUSD = companyId === 1 && fm.totalRevenueUSD > 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* 1. Venta Total MXN */}
       <SalesKPICard
-        title={`Revenue ${monthName}`}
-        value={formatCurrency(monthRevenue, companyId)}
-        subtitle={`${prevRevenue > 0 ? formatCurrency(prevRevenue, companyId) + " mes anterior" : ""}`}
+        title={`Venta Total ${monthName}`}
+        value={formatCurrency(fm.totalRevenueMXN, companyId)}
+        subtitle={prev ? `${formatCurrency(prev.totalRevenue, companyId)} mes anterior` : undefined}
         icon={DollarSign}
-        trend={prevRevenue > 0 ? { value: revenueMoM, label: "vs mes anterior" } : undefined}
+        trend={revenueMoM !== undefined ? { value: revenueMoM, label: "MoM" } : undefined}
         variant="success"
       />
+
+      {/* 2. Venta Total USD (solo company 1) */}
+      {showUSD && (
+        <SalesKPICard
+          title="Venta Total USD"
+          value={`$${formatNumber(Math.round(fm.totalRevenueUSD))}`}
+          subtitle={`TC prom: ${exchangeRate?.avgRate?.toFixed(2) || 'N/A'}`}
+          icon={DollarSign}
+          variant="default"
+        />
+      )}
+
+      {/* 3. Costo Total */}
       <SalesKPICard
-        title={`Volumen ${monthName}`}
-        value={formatNumber(monthVolume)}
-        subtitle={`${unit} vendidos`}
-        icon={Package}
-        variant="default"
+        title="Costo Total"
+        value={formatCurrency(fm.totalCostMXN, companyId)}
+        subtitle={fm.totalCostMXN > 0 ? `${((fm.totalCostMXN / fm.totalRevenueMXN) * 100).toFixed(1)}% del ingreso` : 'Sin datos de costo'}
+        icon={Receipt}
+        variant={fm.totalCostMXN > 0 ? "warning" : "default"}
       />
+
+      {/* 4. Utilidad Bruta */}
       <SalesKPICard
-        title="Clientes Activos"
-        value={activeClients}
-        subtitle={`${salesStats?.activeClientsMetrics?.last3Months || 0} últimos 3 meses`}
-        icon={Users}
-        variant="default"
-      />
-      <SalesKPICard
-        title="Crecimiento YoY"
-        value={`${growthPercent >= 0 ? "+" : ""}${growthPercent.toFixed(1)}%`}
-        subtitle="vs mismo período año anterior"
+        title="Utilidad Bruta"
+        value={formatCurrency(fm.grossProfitMXN, companyId)}
+        subtitle={prev ? `${formatCurrency(prev.grossProfit, companyId)} mes anterior` : undefined}
         icon={TrendingUp}
-        variant={growthPercent >= 0 ? "success" : "danger"}
+        trend={profitMoM !== undefined ? { value: profitMoM, label: "MoM" } : undefined}
+        variant={fm.grossProfitMXN > 0 ? "success" : "danger"}
+      />
+
+      {/* 5. Margen Bruto % */}
+      <SalesKPICard
+        title="Margen Bruto"
+        value={`${fm.grossMarginPercent.toFixed(2)}%`}
+        subtitle={prev && prev.grossMarginPercent > 0
+          ? `${prev.grossMarginPercent.toFixed(2)}% mes anterior`
+          : undefined}
+        icon={Percent}
+        variant={fm.grossMarginPercent >= 15 ? "success" : fm.grossMarginPercent >= 8 ? "warning" : "danger"}
+      />
+
+      {/* 6. Promedio por Transacción */}
+      <SalesKPICard
+        title="Promedio/Transacción"
+        value={formatCurrency(fm.avgTransactionValue, companyId)}
+        subtitle={`${formatNumber(fm.totalQuantity)} ${fm.unit} totales`}
+        icon={Calculator}
+        variant="default"
+      />
+
+      {/* 7. Total Transacciones */}
+      <SalesKPICard
+        title="Transacciones"
+        value={formatNumber(fm.totalTransactions)}
+        subtitle={`${formatNumber(fm.totalItems)} líneas de detalle`}
+        icon={Hash}
+        trend={txnMoM !== undefined ? { value: txnMoM, label: "MoM" } : undefined}
+        variant="default"
       />
     </div>
   );
