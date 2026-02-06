@@ -146,29 +146,29 @@ router.get("/api/sales-comparison", jwtAuthMiddleware, async (req, res) => {
     const comparison = await sql(`
       SELECT
         current_year.client_id,
-        current_year.client_name,
-        SUM(current_year.quantity) as current_year_total,
-        COALESCE(SUM(previous_year.quantity), 0) as previous_year_total,
-        SUM(current_year.quantity) - COALESCE(SUM(previous_year.quantity), 0) as differential,
+        current_year.cliente as client_name,
+        SUM(current_year.cantidad) as current_year_total,
+        COALESCE(SUM(previous_year.cantidad), 0) as previous_year_total,
+        SUM(current_year.cantidad) - COALESCE(SUM(previous_year.cantidad), 0) as differential,
         CASE
-          WHEN COALESCE(SUM(previous_year.quantity), 0) > 0
-          THEN ROUND(((SUM(current_year.quantity) - SUM(previous_year.quantity)) / SUM(previous_year.quantity) * 100)::numeric, 2)
+          WHEN COALESCE(SUM(previous_year.cantidad), 0) > 0
+          THEN ROUND(((SUM(current_year.cantidad) - SUM(previous_year.cantidad)) / SUM(previous_year.cantidad) * 100)::numeric, 2)
           ELSE NULL
         END as percent_change,
-        current_year.unit
-      FROM sales_data current_year
-      LEFT JOIN sales_data previous_year
+        current_year.unidad as unit
+      FROM ventas current_year
+      LEFT JOIN ventas previous_year
         ON current_year.client_id = previous_year.client_id
         AND current_year.company_id = previous_year.company_id
-        AND current_year.sale_month = previous_year.sale_month
-        AND current_year.sale_year = previous_year.sale_year + 1
+        AND current_year.mes = previous_year.mes
+        AND current_year.anio = previous_year.anio + 1
       WHERE current_year.company_id = $1
-        AND current_year.sale_year = $2
-        AND current_year.sale_month = $3
+        AND current_year.anio = $2
+        AND current_year.mes = $3
       GROUP BY
         current_year.client_id,
-        current_year.client_name,
-        current_year.unit
+        current_year.cliente,
+        current_year.unidad
       ORDER BY differential ASC
     `, [resolvedCompanyId, targetYear, targetMonth]);
 
@@ -263,17 +263,17 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
       const selectedYear = parseInt(year as string);
       monthlyData = await sql(`
         SELECT
-          sale_year,
-          sale_month,
-          COALESCE(SUM(quantity), 0) as total_volume,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
-          MAX(unit) as unit
-        FROM sales_data
+          anio as sale_year,
+          mes as sale_month,
+          COALESCE(SUM(cantidad), 0) as total_volume,
+          COALESCE(SUM(importe), 0) as total_amount,
+          COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_year = $2
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_month ASC
+          AND anio = $2
+        GROUP BY anio, mes
+        ORDER BY mes ASC
       `, [resolvedCompanyId, selectedYear]);
     } else {
       // Cuando no se especifica year, usar el último año completo con datos disponibles
@@ -282,8 +282,8 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
 
       // Primero obtener el último año con datos
       const latestYearResult = await sql(`
-        SELECT MAX(sale_year) as max_year
-        FROM sales_data
+        SELECT MAX(anio) as max_year
+        FROM ventas
         WHERE company_id = $1
       `, [resolvedCompanyId]);
 
@@ -296,17 +296,17 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
       // Obtener los últimos N meses del último año con datos
       monthlyData = await sql(`
         SELECT
-          sale_year,
-          sale_month,
-          COALESCE(SUM(quantity), 0) as total_volume,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
-          MAX(unit) as unit
-        FROM sales_data
+          anio as sale_year,
+          mes as sale_month,
+          COALESCE(SUM(cantidad), 0) as total_volume,
+          COALESCE(SUM(importe), 0) as total_amount,
+          COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_year = $2
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_month DESC
+          AND anio = $2
+        GROUP BY anio, mes
+        ORDER BY mes DESC
         LIMIT $3
       `, [resolvedCompanyId, latestYear, monthsCount]);
 
@@ -317,17 +317,17 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
 
         const previousYearData = await sql(`
           SELECT
-            sale_year,
-            sale_month,
-            COALESCE(SUM(quantity), 0) as total_volume,
-            COALESCE(SUM(total_amount), 0) as total_amount,
-            COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '') as active_clients,
-            MAX(unit) as unit
-          FROM sales_data
+            anio as sale_year,
+            mes as sale_month,
+            COALESCE(SUM(cantidad), 0) as total_volume,
+            COALESCE(SUM(importe), 0) as total_amount,
+            COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
+            MAX(unidad) as unit
+          FROM ventas
           WHERE company_id = $1
-            AND sale_year = $2
-          GROUP BY sale_year, sale_month
-          ORDER BY sale_month DESC
+            AND anio = $2
+          GROUP BY anio, mes
+          ORDER BY mes DESC
           LIMIT $3
         `, [resolvedCompanyId, previousYear, remainingMonths]);
 
@@ -384,11 +384,11 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
 
     // Verificar qué años realmente existen en la base de datos
     const availableYearsCheck = await sql(`
-      SELECT DISTINCT sale_year, COUNT(*) as count
-      FROM sales_data
+      SELECT DISTINCT anio as sale_year, COUNT(*) as count
+      FROM ventas
       WHERE company_id = $1
-      GROUP BY sale_year
-      ORDER BY sale_year DESC
+      GROUP BY anio
+      ORDER BY anio DESC
     `, [resolvedCompanyId]);
 
     if (process.env.NODE_ENV !== 'production') {
@@ -399,8 +399,8 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
     // Verificar si hay datos de 2026 para incluir automáticamente
     const year2026Check = await sql(`
       SELECT COUNT(*) as count
-      FROM sales_data
-      WHERE company_id = $1 AND sale_year = 2026
+      FROM ventas
+      WHERE company_id = $1 AND anio = 2026
     `, [resolvedCompanyId]);
 
     const has2026Data = parseInt(year2026Check[0]?.count || '0') > 0;
@@ -428,33 +428,33 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
     if (yearsToCompare.length === 3) {
       monthlyData = await sql(`
         SELECT
-          sale_month,
-          sale_year,
-          COALESCE(SUM(quantity), 0) as total_quantity,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) as unique_clients,
-          MAX(unit) as unit
-        FROM sales_data
+          mes as sale_month,
+          anio as sale_year,
+          COALESCE(SUM(cantidad), 0) as total_quantity,
+          COALESCE(SUM(importe), 0) as total_amount,
+          COUNT(DISTINCT cliente) as unique_clients,
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_year = ANY(ARRAY[$2, $3, $4]::integer[])
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_year, sale_month
+          AND anio = ANY(ARRAY[$2, $3, $4]::integer[])
+        GROUP BY anio, mes
+        ORDER BY anio, mes
       `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
     } else {
       // Query simplificada - igual que annual-summary que SÍ funciona
       monthlyData = await sql(`
         SELECT
-          sale_month,
-          sale_year,
-          COALESCE(SUM(quantity), 0) as total_quantity,
-          COALESCE(SUM(total_amount), 0) as total_amount,
-          COUNT(DISTINCT client_name) as unique_clients,
-          MAX(unit) as unit
-        FROM sales_data
+          mes as sale_month,
+          anio as sale_year,
+          COALESCE(SUM(cantidad), 0) as total_quantity,
+          COALESCE(SUM(importe), 0) as total_amount,
+          COUNT(DISTINCT cliente) as unique_clients,
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_year = ANY(ARRAY[$2, $3]::integer[])
-        GROUP BY sale_year, sale_month
-        ORDER BY sale_year, sale_month
+          AND anio = ANY(ARRAY[$2, $3]::integer[])
+        GROUP BY anio, mes
+        ORDER BY anio, mes
       `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
     }
 
@@ -553,10 +553,10 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
 
     // Obtener años disponibles para selector
     const availableYears = await sql(`
-      SELECT DISTINCT sale_year
-      FROM sales_data
+      SELECT DISTINCT anio as sale_year
+      FROM ventas
       WHERE company_id = $1
-      ORDER BY sale_year DESC
+      ORDER BY anio DESC
     `, [resolvedCompanyId]);
 
     // Log para debugging (solo en desarrollo)
@@ -616,16 +616,16 @@ router.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) =>
     // Obtener datos mensuales agrupados por año
     const monthlyData = await sql(`
       SELECT
-        sale_year,
-        sale_month,
-        COALESCE(SUM(quantity), 0) as total_quantity,
-        COALESCE(SUM(total_amount), 0) as total_amount,
-        COUNT(DISTINCT client_name) as unique_clients,
-        MAX(unit) as unit
-      FROM sales_data
+        anio as sale_year,
+        mes as sale_month,
+        COALESCE(SUM(cantidad), 0) as total_quantity,
+        COALESCE(SUM(importe), 0) as total_amount,
+        COUNT(DISTINCT cliente) as unique_clients,
+        MAX(unidad) as unit
+      FROM ventas
       WHERE company_id = $1
-      GROUP BY sale_year, sale_month
-      ORDER BY sale_year, sale_month
+      GROUP BY anio, mes
+      ORDER BY anio, mes
     `, [resolvedCompanyId]);
 
     // Organizar por año para la gráfica overlay
@@ -693,17 +693,17 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
     const clientAnalysis = await sql(`
       WITH client_stats AS (
         SELECT
-          client_name,
-          MAX(sale_date) as last_purchase,
-          SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current_year,
-          SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_last_year,
-          SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current_year,
-          SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_last_year,
-          COUNT(DISTINCT sale_year) as years_active,
-          MAX(unit) as unit
-        FROM sales_data
+          cliente as client_name,
+          MAX(fecha) as last_purchase,
+          SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current_year,
+          SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_last_year,
+          SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current_year,
+          SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_last_year,
+          COUNT(DISTINCT anio) as years_active,
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-        GROUP BY client_name
+        GROUP BY cliente
       )
       SELECT
         client_name,
@@ -824,17 +824,17 @@ router.get("/api/sales-client-trends", jwtAuthMiddleware, async (req, res) => {
 
     const clientTrends = await sql(`
       SELECT
-        client_name,
-        SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current,
-        SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_previous,
-        SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current,
-        SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_previous,
-        MAX(unit) as unit
-      FROM sales_data
+        cliente as client_name,
+        SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current,
+        SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_previous,
+        SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current,
+        SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_previous,
+        MAX(unidad) as unit
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year IN ($2, $3)
-      GROUP BY client_name
-      ORDER BY SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) DESC
+        AND anio IN ($2, $3)
+      GROUP BY cliente
+      ORDER BY SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) DESC
       LIMIT $4
     `, [resolvedCompanyId, currentYear, lastYear, parseInt(limit as string)]);
 
@@ -893,15 +893,15 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     // Determinar filtro de fecha según el período
     if (period === 'month') {
       // Último mes con datos disponibles
-      dateFilter = `AND sale_year = $2 AND sale_month = $3`;
+      dateFilter = `AND anio = $2 AND mes = $3`;
       params.push(currentYear, currentMonth);
     } else if (period === 'year') {
       // Año actual completo
-      dateFilter = `AND sale_year = $2`;
+      dateFilter = `AND anio = $2`;
       params.push(currentYear);
     } else {
       // Default: últimos 3 meses (backward compatibility)
-      dateFilter = `AND sale_date >= CURRENT_DATE - INTERVAL '3 months' AND sale_date <= CURRENT_DATE`;
+      dateFilter = `AND fecha >= CURRENT_DATE - INTERVAL '3 months' AND fecha <= CURRENT_DATE`;
     }
 
     params.push(parseInt(limit as string) || 5);
@@ -909,16 +909,16 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     // Buscar top clientes según el período seleccionado
     let topClients = await sql(`
       SELECT
-        client_name,
-        COALESCE(SUM(quantity), 0) as total_volume,
-        COALESCE(SUM(total_amount), 0) as total_revenue,
+        cliente as client_name,
+        COALESCE(SUM(cantidad), 0) as total_volume,
+        COALESCE(SUM(importe), 0) as total_revenue,
         COUNT(*) as transactions,
-        MAX(unit) as unit
-      FROM sales_data
+        MAX(unidad) as unit
+      FROM ventas
       WHERE company_id = $1
         ${dateFilter}
-        AND client_name IS NOT NULL AND client_name <> ''
-      GROUP BY client_name
+        AND cliente IS NOT NULL AND cliente <> ''
+      GROUP BY cliente
       ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
       LIMIT $${params.length}
     `, params);
@@ -927,17 +927,17 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     if ((!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) && (period === 'month' || period === 'year')) {
       topClients = await sql(`
         SELECT
-          client_name,
-          COALESCE(SUM(quantity), 0) as total_volume,
-          COALESCE(SUM(total_amount), 0) as total_revenue,
+          cliente as client_name,
+          COALESCE(SUM(cantidad), 0) as total_volume,
+          COALESCE(SUM(importe), 0) as total_revenue,
           COUNT(*) as transactions,
-          MAX(unit) as unit
-        FROM sales_data
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
-          AND sale_date <= CURRENT_DATE
-          AND client_name IS NOT NULL AND client_name <> ''
-        GROUP BY client_name
+          AND fecha >= CURRENT_DATE - INTERVAL '12 months'
+          AND fecha <= CURRENT_DATE
+          AND cliente IS NOT NULL AND cliente <> ''
+        GROUP BY cliente
         ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $2
       `, [resolvedCompanyId, parseInt(limit as string) || 5]);
@@ -989,15 +989,15 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
     // Determinar filtro de fecha según el período
     if (period === 'month') {
       // Último mes con datos disponibles
-      dateFilter = `AND sale_year = $2 AND sale_month = $3`;
+      dateFilter = `AND anio = $2 AND mes = $3`;
       params.push(currentYear, currentMonth);
     } else if (period === 'year') {
       // Año actual completo
-      dateFilter = `AND sale_year = $2`;
+      dateFilter = `AND anio = $2`;
       params.push(currentYear);
     } else {
       // Default: últimos 3 meses (backward compatibility)
-      dateFilter = `AND sale_date >= CURRENT_DATE - INTERVAL '3 months' AND sale_date <= CURRENT_DATE`;
+      dateFilter = `AND fecha >= CURRENT_DATE - INTERVAL '3 months' AND fecha <= CURRENT_DATE`;
     }
 
     params.push(parseInt(limit as string) || 5);
@@ -1005,17 +1005,17 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
     // Buscar top productos según el período seleccionado
     let topProducts = await sql(`
       SELECT
-        product_name,
-        COALESCE(SUM(quantity), 0) as total_volume,
-        COALESCE(SUM(total_amount), 0) as total_revenue,
-        COUNT(DISTINCT client_name) as unique_clients,
+        producto as product_name,
+        COALESCE(SUM(cantidad), 0) as total_volume,
+        COALESCE(SUM(importe), 0) as total_revenue,
+        COUNT(DISTINCT cliente) as unique_clients,
         COUNT(*) as transactions,
-        MAX(unit) as unit
-      FROM sales_data
+        MAX(unidad) as unit
+      FROM ventas
       WHERE company_id = $1
         ${dateFilter}
-        AND product_name IS NOT NULL AND product_name <> ''
-      GROUP BY product_name
+        AND producto IS NOT NULL AND producto <> ''
+      GROUP BY producto
       ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
       LIMIT $${params.length}
     `, params);
@@ -1024,18 +1024,18 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
     if ((!topProducts || topProducts.length === 0) && (period === 'month' || period === 'year')) {
       topProducts = await sql(`
         SELECT
-          product_name,
-          COALESCE(SUM(quantity), 0) as total_volume,
-          COALESCE(SUM(total_amount), 0) as total_revenue,
-          COUNT(DISTINCT client_name) as unique_clients,
+          producto as product_name,
+          COALESCE(SUM(cantidad), 0) as total_volume,
+          COALESCE(SUM(importe), 0) as total_revenue,
+          COUNT(DISTINCT cliente) as unique_clients,
           COUNT(*) as transactions,
-          MAX(unit) as unit
-        FROM sales_data
+          MAX(unidad) as unit
+        FROM ventas
         WHERE company_id = $1
-          AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
-          AND sale_date <= CURRENT_DATE
-          AND product_name IS NOT NULL AND product_name <> ''
-        GROUP BY product_name
+          AND fecha >= CURRENT_DATE - INTERVAL '12 months'
+          AND fecha <= CURRENT_DATE
+          AND producto IS NOT NULL AND producto <> ''
+        GROUP BY producto
         ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $2
       `, [resolvedCompanyId, parseInt(limit as string) || 5]);

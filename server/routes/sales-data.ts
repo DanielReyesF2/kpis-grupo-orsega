@@ -40,8 +40,8 @@ router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
       SELECT
         id,
         company_id,
-        NULL as client_id,
-        NULL as product_id,
+        client_id,
+        product_id,
         cliente as client_name,
         producto as product_name,
         cantidad as quantity,
@@ -77,13 +77,13 @@ router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
     }
 
     if (year) {
-      query += ` AND sale_year = $${paramIndex}`;
+      query += ` AND anio = $${paramIndex}`;
       params.push(parseInt(year as string));
       paramIndex++;
     }
 
     if (month) {
-      query += ` AND sale_month = $${paramIndex}`;
+      query += ` AND mes = $${paramIndex}`;
       params.push(parseInt(month as string));
       paramIndex++;
     }

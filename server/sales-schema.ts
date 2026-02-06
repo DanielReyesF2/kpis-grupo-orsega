@@ -4,7 +4,7 @@ import { pool } from "./db";
  * Esquema de base de datos para el Módulo de Ventas
  *
  * Tablas:
- * - sales_data: Datos históricos de ventas (desde enero 2022)
+ * - ventas: Datos históricos de ventas (desde enero 2022)
  * - sales_uploads: Tracking de archivos Excel subidos
  * - sales_alerts: Alertas generadas automáticamente
  */
@@ -26,7 +26,7 @@ const CREATE_TABLES_QUERIES = [
     UNIQUE(company_id, product_code)
   );`,
 
-  // Tabla de tracking de archivos subidos (DEBE IR ANTES de sales_data por FK)
+  // Tabla de tracking de archivos subidos (DEBE IR ANTES de ventas por FK)
   `CREATE TABLE IF NOT EXISTS sales_uploads (
     id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL REFERENCES companies(id),
@@ -43,24 +43,24 @@ const CREATE_TABLES_QUERIES = [
   );`,
 
   // Tabla principal de datos de ventas
-  `CREATE TABLE IF NOT EXISTS sales_data (
+  `CREATE TABLE IF NOT EXISTS ventas (
     id SERIAL PRIMARY KEY,
     company_id INTEGER NOT NULL REFERENCES companies(id),
     submodulo VARCHAR(10),
     client_id INTEGER REFERENCES clients(id),
-    client_name VARCHAR(255) NOT NULL,
+    cliente VARCHAR(255) NOT NULL,
     product_id INTEGER REFERENCES products(id),
-    product_name VARCHAR(255) NOT NULL,
-    quantity DECIMAL(15, 2) NOT NULL,
-    unit VARCHAR(50) DEFAULT 'KG',
-    sale_date DATE NOT NULL,
-    sale_month INTEGER NOT NULL CHECK (sale_month BETWEEN 1 AND 12),
-    sale_year INTEGER NOT NULL,
+    producto VARCHAR(255) NOT NULL,
+    cantidad DECIMAL(15, 2) NOT NULL,
+    unidad VARCHAR(50) DEFAULT 'KG',
+    fecha DATE NOT NULL,
+    mes INTEGER NOT NULL CHECK (mes BETWEEN 1 AND 12),
+    anio INTEGER NOT NULL,
     sale_week INTEGER CHECK (sale_week BETWEEN 1 AND 53),
-    invoice_number VARCHAR(100),
+    factura VARCHAR(100),
     folio VARCHAR(100),
-    unit_price DECIMAL(15, 2),
-    total_amount DECIMAL(15, 2),
+    precio_unitario DECIMAL(15, 2),
+    importe DECIMAL(15, 2),
     quantity_2024 DECIMAL(15, 2),
     quantity_2025 DECIMAL(15, 2),
     tipo_cambio DECIMAL(10, 4),
@@ -149,14 +149,14 @@ const CREATE_TABLES_QUERIES = [
 ];
 
 const CREATE_INDEX_QUERIES = [
-  // Índices para sales_data
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_company_id ON sales_data(company_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_submodulo ON sales_data(submodulo, company_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_client_id ON sales_data(client_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_product_id ON sales_data(product_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_sale_date ON sales_data(sale_date DESC);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_year_month ON sales_data(company_id, sale_year DESC, sale_month DESC);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_data_client_year ON sales_data(client_id, sale_year DESC);`,
+  // Índices para ventas
+  `CREATE INDEX IF NOT EXISTS idx_ventas_company_id ON ventas(company_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_submodulo ON ventas(submodulo, company_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_client_id ON ventas(client_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_product_id ON ventas(product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha DESC);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_anio_mes ON ventas(company_id, anio DESC, mes DESC);`,
+  `CREATE INDEX IF NOT EXISTS idx_ventas_client_anio ON ventas(client_id, anio DESC);`,
 
   // Índices para sales_uploads
   `CREATE INDEX IF NOT EXISTS idx_sales_uploads_company_id ON sales_uploads(company_id);`,
@@ -192,31 +192,31 @@ const CREATE_VIEWS_QUERIES = [
    SELECT
      current_year.company_id,
      current_year.client_id,
-     current_year.client_name,
-     current_year.sale_year as current_year,
-     current_year.sale_month as month,
-     SUM(current_year.quantity) as current_year_total,
-     COALESCE(SUM(previous_year.quantity), 0) as previous_year_total,
-     SUM(current_year.quantity) - COALESCE(SUM(previous_year.quantity), 0) as differential,
+     current_year.cliente,
+     current_year.anio as current_year,
+     current_year.mes as month,
+     SUM(current_year.cantidad) as current_year_total,
+     COALESCE(SUM(previous_year.cantidad), 0) as previous_year_total,
+     SUM(current_year.cantidad) - COALESCE(SUM(previous_year.cantidad), 0) as differential,
      CASE
-       WHEN COALESCE(SUM(previous_year.quantity), 0) > 0
-       THEN ROUND(((SUM(current_year.quantity) - SUM(previous_year.quantity)) / SUM(previous_year.quantity) * 100)::numeric, 2)
+       WHEN COALESCE(SUM(previous_year.cantidad), 0) > 0
+       THEN ROUND(((SUM(current_year.cantidad) - SUM(previous_year.cantidad)) / SUM(previous_year.cantidad) * 100)::numeric, 2)
        ELSE NULL
      END as percent_change,
-     current_year.unit
-   FROM sales_data current_year
-   LEFT JOIN sales_data previous_year
+     current_year.unidad
+   FROM ventas current_year
+   LEFT JOIN ventas previous_year
      ON current_year.client_id = previous_year.client_id
      AND current_year.company_id = previous_year.company_id
-     AND current_year.sale_month = previous_year.sale_month
-     AND current_year.sale_year = previous_year.sale_year + 1
+     AND current_year.mes = previous_year.mes
+     AND current_year.anio = previous_year.anio + 1
    GROUP BY
      current_year.company_id,
      current_year.client_id,
-     current_year.client_name,
-     current_year.sale_year,
-     current_year.sale_month,
-     current_year.unit;`,
+     current_year.cliente,
+     current_year.anio,
+     current_year.mes,
+     current_year.unidad;`,
 
   // Vista para detectar clientes inactivos
   `CREATE OR REPLACE VIEW inactive_clients AS
@@ -224,20 +224,20 @@ const CREATE_VIEWS_QUERIES = [
      c.id as client_id,
      c.name as client_name,
      c.company_id,
-     MAX(sd.sale_date) as last_sale_date,
+     MAX(sd.fecha) as last_sale_date,
      CASE
-       WHEN MAX(sd.sale_date) IS NOT NULL
-       THEN EXTRACT(DAY FROM (CURRENT_DATE - MAX(sd.sale_date)))
+       WHEN MAX(sd.fecha) IS NOT NULL
+       THEN EXTRACT(DAY FROM (CURRENT_DATE - MAX(sd.fecha)))
        ELSE NULL
      END as days_since_last_sale,
      COUNT(sd.id) as total_sales_count,
-     SUM(sd.quantity) as total_quantity
+     SUM(sd.cantidad) as total_quantity
    FROM clients c
-   LEFT JOIN sales_data sd ON c.id = sd.client_id
+   LEFT JOIN ventas sd ON c.id = sd.client_id
    WHERE c.is_active = true
    GROUP BY c.id, c.name, c.company_id
-   HAVING MAX(sd.sale_date) < CURRENT_DATE - INTERVAL '60 days'
-     OR MAX(sd.sale_date) IS NULL;`,
+   HAVING MAX(sd.fecha) < CURRENT_DATE - INTERVAL '60 days'
+     OR MAX(sd.fecha) IS NULL;`,
 ];
 
 export async function ensureSalesSchema(): Promise<void> {

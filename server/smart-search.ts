@@ -25,22 +25,30 @@ interface SearchResult {
 const DATABASE_SCHEMA = `
 ## Base de Datos del Sistema KPIs Grupo ORSEGA
 
-### Tabla: sales_data (Datos de Ventas)
+### Tabla: ventas (Datos de Ventas - Single Source of Truth)
 Contiene todas las ventas de ambas empresas.
 - id: ID único
 - company_id: 1 = DURA International (vende en KG), 2 = Grupo ORSEGA (vende en unidades)
-- client_name: Nombre del cliente
-- quantity: Cantidad vendida (KG para DURA, unidades para ORSEGA)
-- unit: Unidad de medida ('KG' o 'unidades')
-- sale_year: Año de la venta (ej: 2024, 2025)
-- sale_month: Mes de la venta (1-12)
-- sale_date: Fecha completa de la venta
+- cliente: Nombre del cliente
+- producto: Nombre del producto
+- familia_producto: Familia del producto
+- cantidad: Cantidad vendida (KG para DURA, unidades para ORSEGA)
+- unidad: Unidad de medida ('KG' o 'unidades')
+- fecha: Fecha completa de la venta (DATE)
+- anio: Año de la venta (generado de fecha)
+- mes: Mes de la venta 1-12 (generado de fecha)
+- importe: Monto total de la venta
+- precio_unitario: Precio por unidad
+- tipo_cambio: Tipo de cambio USD/MXN
+- importe_mn: Importe en moneda nacional
+- folio: Folio de factura
+- submodulo: 'DI' o 'GO'
 - created_at: Fecha de registro
 
 IMPORTANTE sobre fechas:
-- DURA tiene datos hasta junio 2025
-- ORSEGA tiene datos hasta octubre 2025
+- Los datos van de 2024 a enero 2026
 - NO usar CURRENT_DATE, usar los datos reales disponibles
+- Usar anio y mes (generados automáticamente) en lugar de EXTRACT
 
 ### Tabla: exchange_rates (Tipos de Cambio)
 - id: ID único
@@ -207,14 +215,14 @@ REGLAS IMPORTANTES:
 5. Si no especifican empresa, incluye datos de ambas con GROUP BY company_id
 6. Si no especifican año, usa 2025 para DURA (hasta junio) y ORSEGA (hasta octubre)
 7. Usa COALESCE para evitar NULLs en sumas
-8. Para contar clientes únicos: COUNT(DISTINCT client_name) FILTER (WHERE client_name IS NOT NULL AND client_name <> '')
+8. Para contar clientes únicos: COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '')
 9. Siempre incluye el año y mes en el resultado para contexto
 10. Limita resultados a 20 filas máximo con LIMIT
 
 EJEMPLOS:
-- "cuántos pedidos en noviembre" → SELECT sale_year, SUM(quantity) as total, COUNT(*) as registros FROM sales_data WHERE sale_month = 11 GROUP BY sale_year, company_id ORDER BY sale_year DESC
-- "top 5 clientes de DURA" → SELECT client_name, SUM(quantity) as total_kg FROM sales_data WHERE company_id = 1 AND sale_year = 2025 GROUP BY client_name ORDER BY total_kg DESC LIMIT 5
-- "ventas de octubre ORSEGA" → SELECT SUM(quantity) as total_unidades, COUNT(DISTINCT client_name) as clientes FROM sales_data WHERE company_id = 2 AND sale_month = 10 AND sale_year = 2025`
+- "cuántos pedidos en noviembre" → SELECT anio, SUM(cantidad) as total, COUNT(*) as registros FROM ventas WHERE mes = 11 GROUP BY anio, company_id ORDER BY anio DESC
+- "top 5 clientes de DURA" → SELECT cliente, SUM(cantidad) as total_kg FROM ventas WHERE company_id = 1 AND anio = 2025 GROUP BY cliente ORDER BY total_kg DESC LIMIT 5
+- "ventas de octubre ORSEGA" → SELECT SUM(cantidad) as total_unidades, COUNT(DISTINCT cliente) as clientes FROM ventas WHERE company_id = 2 AND mes = 10 AND anio = 2025`
         },
         {
           role: "user",
@@ -336,17 +344,17 @@ async function fallbackSearch(question: string): Promise<SearchResult> {
     if (month) {
       let query = '';
       if (isDura) {
-        query = `SELECT sale_year, SUM(quantity) as total_kg, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE company_id = 1 AND sale_month = ${month}
-                 GROUP BY sale_year ORDER BY sale_year DESC LIMIT 5`;
+        query = `SELECT anio as sale_year, SUM(cantidad) as total_kg, COUNT(DISTINCT cliente) as clientes
+                 FROM ventas WHERE company_id = 1 AND mes = ${month}
+                 GROUP BY anio ORDER BY anio DESC LIMIT 5`;
       } else if (isOrsega) {
-        query = `SELECT sale_year, SUM(quantity) as total_unidades, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE company_id = 2 AND sale_month = ${month}
-                 GROUP BY sale_year ORDER BY sale_year DESC LIMIT 5`;
+        query = `SELECT anio as sale_year, SUM(cantidad) as total_unidades, COUNT(DISTINCT cliente) as clientes
+                 FROM ventas WHERE company_id = 2 AND mes = ${month}
+                 GROUP BY anio ORDER BY anio DESC LIMIT 5`;
       } else {
-        query = `SELECT company_id, sale_year, SUM(quantity) as total, COUNT(DISTINCT client_name) as clientes
-                 FROM sales_data WHERE sale_month = ${month}
-                 GROUP BY company_id, sale_year ORDER BY sale_year DESC, company_id LIMIT 10`;
+        query = `SELECT company_id, anio as sale_year, SUM(cantidad) as total, COUNT(DISTINCT cliente) as clientes
+                 FROM ventas WHERE mes = ${month}
+                 GROUP BY company_id, anio ORDER BY anio DESC, company_id LIMIT 10`;
       }
 
       const result = await executeSafeQuery(query);
@@ -367,8 +375,8 @@ async function fallbackSearch(question: string): Promise<SearchResult> {
 
     // Resumen general
     if (q.includes('resumen') || q.includes('general') || q.includes('total')) {
-      const query = `SELECT company_id, sale_year, SUM(quantity) as total, COUNT(DISTINCT client_name) as clientes
-                     FROM sales_data GROUP BY company_id, sale_year ORDER BY sale_year DESC, company_id LIMIT 10`;
+      const query = `SELECT company_id, anio as sale_year, SUM(cantidad) as total, COUNT(DISTINCT cliente) as clientes
+                     FROM ventas GROUP BY company_id, anio ORDER BY anio DESC, company_id LIMIT 10`;
       const result = await executeSafeQuery(query);
 
       if (result.success && result.data) {
@@ -385,10 +393,10 @@ async function fallbackSearch(question: string): Promise<SearchResult> {
     // Top clientes
     if (q.includes('top') || q.includes('mejores') || q.includes('principales')) {
       const companyId = isDura ? 1 : 2;
-      const query = `SELECT client_name, SUM(quantity) as total
-                     FROM sales_data WHERE company_id = ${companyId} AND sale_year = 2025
-                     AND client_name IS NOT NULL AND client_name <> ''
-                     GROUP BY client_name ORDER BY total DESC LIMIT 10`;
+      const query = `SELECT cliente as client_name, SUM(cantidad) as total
+                     FROM ventas WHERE company_id = ${companyId} AND anio = 2025
+                     AND cliente IS NOT NULL AND cliente <> ''
+                     GROUP BY cliente ORDER BY total DESC LIMIT 10`;
       const result = await executeSafeQuery(query);
 
       if (result.success && result.data) {

@@ -1,6 +1,6 @@
 /**
- * Módulo de cálculo de valores de KPIs de ventas desde sales_data
- * Calcula valores en tiempo real desde la tabla sales_data sin depender de kpi_values
+ * Módulo de cálculo de valores de KPIs de ventas desde ventas
+ * Calcula valores en tiempo real desde la tabla ventas sin depender de kpi_values
  */
 
 import { neon, neonConfig } from '@neondatabase/serverless';
@@ -166,7 +166,7 @@ async function calculateVolume(
 }
 
 /**
- * Calcula el valor de un KPI de ventas desde sales_data
+ * Calcula el valor de un KPI de ventas desde ventas
  * 
  * @param kpiName - Nombre del KPI
  * @param companyId - ID de la empresa (1 = Dura, 2 = Orsega)
@@ -312,13 +312,13 @@ export async function calculateSalesKpiValue(
         };
         
         const query = `
-          SELECT AVG(total_amount) as avg_value
+          SELECT AVG(importe) as avg_value
           FROM ventas
           WHERE company_id = $1
             AND anio = $2
             AND mes = $3
-            AND total_amount IS NOT NULL
-            AND total_amount > 0
+            AND importe IS NOT NULL
+            AND importe > 0
         `;
         
         const result = await sql(query, [companyId, currentYear, currentMonth]);

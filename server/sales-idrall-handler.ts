@@ -1,6 +1,7 @@
 /**
  * Handler para upload de Excel de IDRALL
  * Procesa el formato específico del CRM IDRALL
+ * Escribe directamente a la tabla ventas (single source of truth)
  */
 
 import type { Request, Response } from 'express';
@@ -28,7 +29,7 @@ interface UploadHandlerDependencies {
 }
 
 /**
- * Asegura que los campos nuevos de IDRALL existan en la tabla sales_data
+ * Asegura que los campos nuevos de IDRALL existan en la tabla ventas
  */
 async function ensureIDRALLColumns(): Promise<void> {
   const columnsToAdd = [
@@ -41,12 +42,16 @@ async function ensureIDRALLColumns(): Promise<void> {
     { name: 'tipo_cambio_costo', definition: 'DECIMAL(10, 4)' },
     { name: 'folio_numero', definition: 'INTEGER' },
     { name: 'folio_secuencia', definition: 'INTEGER' },
+    { name: 'client_id', definition: 'INTEGER' },
+    { name: 'product_id', definition: 'INTEGER' },
+    { name: 'upload_id', definition: 'INTEGER' },
+    { name: 'submodulo', definition: 'VARCHAR(10)' },
   ];
 
   for (const col of columnsToAdd) {
     try {
       await sql(`
-        ALTER TABLE sales_data
+        ALTER TABLE ventas
         ADD COLUMN IF NOT EXISTS ${col.name} ${col.definition}
       `);
     } catch (error: any) {
@@ -57,7 +62,7 @@ async function ensureIDRALLColumns(): Promise<void> {
     }
   }
 
-  console.log('✅ [IDRALL Handler] Columnas verificadas en sales_data');
+  console.log('✅ [IDRALL Handler] Columnas verificadas en ventas');
 }
 
 /**
@@ -210,24 +215,24 @@ export async function handleIDRALLUpload(
 
         // Verificar si ya existe este registro (por folio y fecha)
         const existingRecord = await sql(`
-          SELECT id FROM sales_data
-          WHERE company_id = $1 AND folio = $2 AND sale_date = $3
+          SELECT id FROM ventas
+          WHERE company_id = $1 AND folio = $2 AND fecha = $3
           LIMIT 1
         `, [resolvedCompanyId, tx.folio, tx.fecha.toISOString().split('T')[0]]);
 
         if (existingRecord[0]) {
           // Actualizar registro existente
           await sql(`
-            UPDATE sales_data SET
+            UPDATE ventas SET
               status = $1,
               client_id = $2,
-              client_name = $3,
+              cliente = $3,
               product_id = $4,
-              product_name = $5,
-              quantity = $6,
+              producto = $5,
+              cantidad = $6,
               tipo_cambio = $7,
-              unit_price = $8,
-              total_amount = $9,
+              precio_unitario = $8,
+              importe = $9,
               lote = $10,
               tipo_cambio_costo = $11,
               costo_unitario = $12,
@@ -258,22 +263,22 @@ export async function handleIDRALLUpload(
           ]);
           transaccionesActualizadas++;
         } else {
-          // Insertar nuevo registro
+          // Insertar nuevo registro en ventas
           await sql(`
-            INSERT INTO sales_data (
-              company_id, submodulo, client_id, client_name, product_id, product_name,
-              quantity, unit, sale_date, sale_month, sale_year, sale_week,
+            INSERT INTO ventas (
+              company_id, submodulo, client_id, cliente, product_id, producto,
+              cantidad, unidad, fecha,
               folio, folio_numero, folio_secuencia, status,
-              tipo_cambio, unit_price, total_amount, lote,
+              tipo_cambio, precio_unitario, importe, lote,
               tipo_cambio_costo, costo_unitario, utilidad_perdida,
               utilidad_con_gastos, utilidad_porcentaje, upload_id
             ) VALUES (
               $1, $2, $3, $4, $5, $6,
-              $7, $8, $9, $10, $11, $12,
-              $13, $14, $15, $16,
-              $17, $18, $19, $20,
-              $21, $22, $23,
-              $24, $25, $26
+              $7, $8, $9,
+              $10, $11, $12, $13,
+              $14, $15, $16, $17,
+              $18, $19, $20,
+              $21, $22, $23
             )
           `, [
             resolvedCompanyId,
@@ -285,9 +290,6 @@ export async function handleIDRALLUpload(
             tx.cantidad,
             'KG',
             tx.fecha.toISOString().split('T')[0],
-            tx.mes,
-            tx.año,
-            tx.semana,
             tx.folio,
             tx.folioNumero,
             tx.folioSecuencia,

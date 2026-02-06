@@ -1,6 +1,6 @@
 /**
  * Handler para upload de Excel con hoja "ACUMULADO 2026" (GO - VENTAS 2026.xlsx)
- * Inserta en sales_data con company_id=2 (Grupo Orsega), submodulo GO.
+ * Inserta en ventas con company_id=2 (Grupo Orsega), submodulo GO.
  */
 
 import type { Request, Response } from 'express';
@@ -137,11 +137,11 @@ export async function handleACUMGO2026Upload(
         const totalAmount = tx.importeMN ?? tx.usd ?? 0;
 
         await sql(`
-          INSERT INTO sales_data (
-            company_id, submodulo, client_id, client_name, product_id, product_name,
-            quantity, unit, sale_date, sale_month, sale_year, sale_week,
-            invoice_number, folio, total_amount, tipo_cambio, importe_mn, upload_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          INSERT INTO ventas (
+            company_id, submodulo, client_id, cliente, product_id, producto,
+            cantidad, unidad, fecha,
+            factura, folio, importe, tipo_cambio, importe_mn, upload_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         `, [
           2,
           'GO',
@@ -152,9 +152,6 @@ export async function handleACUMGO2026Upload(
           tx.cantidad,
           tx.unidad ?? 'unidades',
           tx.fecha.toISOString().split('T')[0],
-          tx.mes,
-          tx.año,
-          saleWeek,
           tx.folio,
           tx.folio,
           totalAmount,

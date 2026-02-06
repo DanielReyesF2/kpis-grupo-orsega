@@ -178,7 +178,7 @@ async function calculatePercentileRevenue(
         WHERE company_id = $1
           AND cliente IS NOT NULL 
           AND cliente <> ''
-          AND sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1)
+          AND anio = (SELECT MAX(anio) FROM ventas WHERE company_id = $1)
         GROUP BY cliente
       )
       SELECT PERCENTILE_CONT(${percentile / 100}) WITHIN GROUP (ORDER BY annual_revenue) as percentile_value
@@ -203,14 +203,14 @@ async function calculateYoYChangeStats(
       WITH client_yoy AS (
         SELECT
           cliente,
-          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) THEN cantidad ELSE 0 END) as qty_current,
-          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) as qty_last
+          SUM(CASE WHEN anio = (SELECT MAX(anio) FROM ventas WHERE company_id = $1) THEN cantidad ELSE 0 END) as qty_current,
+          SUM(CASE WHEN anio = (SELECT MAX(anio) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) as qty_last
         FROM ventas
         WHERE company_id = $1
           AND cliente IS NOT NULL 
           AND cliente <> ''
         GROUP BY cliente
-        HAVING SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) > 0
+        HAVING SUM(CASE WHEN anio = (SELECT MAX(anio) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) > 0
       ),
       yoy_changes AS (
         SELECT
@@ -309,11 +309,11 @@ export async function generateSalesAnalystInsights(
         cliente,
         MAX(client_id) as client_id,
         MAX(fecha) as last_purchase_date,
-        SUM(CASE WHEN sale_year = $2 THEN cantidad ELSE 0 END) as qty_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN cantidad ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN sale_year = $2 THEN importe ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN importe ELSE 0 END) as amt_last_year,
-        MAX(unit) as unit
+        SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current_year,
+        SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_last_year,
+        SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_last_year,
+        MAX(unidad) as unit
       FROM ventas
       WHERE company_id = $1
         AND cliente IS NOT NULL AND cliente <> ''
@@ -324,12 +324,12 @@ export async function generateSalesAnalystInsights(
       SELECT
         producto,
         MAX(product_id) as product_id,
-        SUM(CASE WHEN sale_year = $2 THEN cantidad ELSE 0 END) as qty_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN cantidad ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN sale_year = $2 THEN importe ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN importe ELSE 0 END) as amt_last_year,
+        SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current_year,
+        SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_last_year,
+        SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_last_year,
         COUNT(DISTINCT cliente) as unique_clients,
-        MAX(unit) as unit
+        MAX(unidad) as unit
       FROM ventas
       WHERE company_id = $1
         AND producto IS NOT NULL AND producto <> ''

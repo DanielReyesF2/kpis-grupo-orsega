@@ -1,6 +1,6 @@
 /**
  * Módulo de métricas de ventas
- * Calcula todas las métricas de ventas basándose en datos históricos de sales_data
+ * Calcula todas las métricas de ventas basándose en datos históricos de ventas
  * 
  * Patrón: Similar a fx-analytics.ts - funciones async exportadas con documentación JSDoc
  */
@@ -414,10 +414,10 @@ export async function getClientChurn(
     churned_with_details AS (
       SELECT
         cc.cliente,
-        MAX(sd.fecha) as last_purchase_date
+        MAX(v.fecha) as last_purchase_date
       FROM churned_clients cc
-      INNER JOIN sales_data sd ON cc.cliente = sd.cliente
-      WHERE sd.company_id = $1
+      INNER JOIN ventas v ON cc.cliente = v.cliente
+      WHERE v.company_id = $1
       GROUP BY cc.cliente
     )
     SELECT
@@ -790,7 +790,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     const monthlyDataQuery = `
       SELECT 
         mes,
-        COALESCE(SUM(quantity), 0) as monthly_volume,
+        COALESCE(SUM(cantidad), 0) as monthly_volume,
         COALESCE(SUM(importe), 0) as monthly_revenue
       FROM ventas
       WHERE company_id = $1
@@ -835,12 +835,12 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
         // Calcular rentabilidad real basada en precio promedio
         // Si tenemos precio unitario, podemos estimar un margen más preciso
         const avgPriceQuery = `
-          SELECT AVG(unit_price) as avg_price
+          SELECT AVG(precio_unitario) as avg_price
           FROM ventas
           WHERE company_id = $1
             AND anio = $2
-            AND unit_price IS NOT NULL
-            AND unit_price > 0
+            AND precio_unitario IS NOT NULL
+            AND precio_unitario > 0
         `;
         const avgPriceResult = await sql(avgPriceQuery, [companyId, maxYear]);
         const avgPrice = parseFloat(avgPriceResult[0]?.avg_price || '0');

@@ -1,6 +1,6 @@
 /**
  * Módulo de métricas de rentabilidad
- * Calcula rentabilidad real basada en datos de sales_data
+ * Calcula rentabilidad real basada en datos de ventas
  */
 
 import { neon, neonConfig } from '@neondatabase/serverless';
@@ -50,7 +50,7 @@ export interface ProfitabilityMetrics {
 
 /**
  * Calcula rentabilidad real basada en datos de la base de datos
- * Usa unit_price y importe para calcular margen estimado
+ * Usa precio_unitario e importe para calcular margen estimado
  */
 export async function calculateRealProfitability(
   companyId: number,
@@ -70,12 +70,12 @@ export async function calculateRealProfitability(
 
   // 1. Calcular rentabilidad general
   const profitabilityQuery = `
-    SELECT 
+    SELECT
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT invoice_number) as total_transactions,
+      COUNT(DISTINCT factura) as total_transactions,
       COUNT(*) as total_items,
       AVG(importe) as avg_transaction_value,
-      AVG(unit_price) as avg_unit_price
+      AVG(precio_unitario) as avg_unit_price
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
@@ -111,20 +111,20 @@ export async function calculateRealProfitability(
 
   // 2. Top productos por rentabilidad (por revenue total)
   const topProductsQuery = `
-    SELECT 
-      product_name,
+    SELECT
+      producto as product_name,
       product_id,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COALESCE(SUM(quantity), 0) as total_quantity,
-      AVG(unit_price) as avg_unit_price,
+      COALESCE(SUM(cantidad), 0) as total_quantity,
+      AVG(precio_unitario) as avg_unit_price,
       COUNT(*) as transaction_count
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
       AND importe IS NOT NULL
       AND importe > 0
-      AND product_name IS NOT NULL
-    GROUP BY product_name, product_id
+      AND producto IS NOT NULL
+    GROUP BY producto, product_id
     ORDER BY total_revenue DESC
     LIMIT 20
   `;
@@ -134,7 +134,7 @@ export async function calculateRealProfitability(
     const revenue = parseFloat(row.total_revenue || '0');
     const quantity = parseFloat(row.total_quantity || '0');
     const avgPrice = parseFloat(row.avg_unit_price || '0');
-    
+
     // Calcular rentabilidad estimada por producto
     let productProfitability = 18.0;
     if (avgPrice > 100) {
@@ -156,21 +156,21 @@ export async function calculateRealProfitability(
 
   // 3. Top clientes por rentabilidad (por revenue total)
   const topClientsQuery = `
-    SELECT 
-      client_name,
+    SELECT
+      cliente as client_name,
       client_id,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT invoice_number) as transaction_count,
+      COUNT(DISTINCT factura) as transaction_count,
       AVG(importe) as avg_order_value,
-      MAX(sale_date) as last_purchase_date
+      MAX(fecha) as last_purchase_date
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
       AND importe IS NOT NULL
       AND importe > 0
-      AND client_name IS NOT NULL
-      AND client_name <> ''
-    GROUP BY client_name, client_id
+      AND cliente IS NOT NULL
+      AND cliente <> ''
+    GROUP BY cliente, client_id
     ORDER BY total_revenue DESC
     LIMIT 20
   `;
@@ -187,21 +187,21 @@ export async function calculateRealProfitability(
 
   // 4. Top envíos/transacciones por monto
   const topShipmentsQuery = `
-    SELECT 
-      invoice_number,
+    SELECT
+      factura as invoice_number,
       folio,
-      sale_date,
-      client_name,
+      fecha as sale_date,
+      cliente as client_name,
       COALESCE(SUM(importe), 0) as importe,
       COUNT(*) as item_count,
-      STRING_AGG(DISTINCT product_name, ', ') as products
+      STRING_AGG(DISTINCT producto, ', ') as products
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
       AND importe IS NOT NULL
       AND importe > 0
-      AND invoice_number IS NOT NULL
-    GROUP BY invoice_number, folio, sale_date, client_name
+      AND factura IS NOT NULL
+    GROUP BY factura, folio, fecha, cliente
     ORDER BY importe DESC
     LIMIT 20
   `;

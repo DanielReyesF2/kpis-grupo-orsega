@@ -1,8 +1,7 @@
 /**
  * Nuevo handler para upload de Excel de ventas
  * Procesa 4 hojas: VENTAS (DI), RESUMEN DI, VENTAS GO, RESUMEN GO
- *
- * Este archivo será integrado en routes.ts
+ * Escribe directamente a la tabla ventas (single source of truth)
  */
 
 import type { Request, Response } from 'express';
@@ -174,11 +173,11 @@ export async function handleSalesUpload(
       const saleWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 
       await sql(`
-        INSERT INTO sales_data (
-          company_id, submodulo, client_id, client_name, product_id, product_name,
-          quantity, unit, sale_date, sale_month, sale_year, sale_week,
-          invoice_number, folio, unit_price, total_amount, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        INSERT INTO ventas (
+          company_id, submodulo, client_id, cliente, product_id, producto,
+          cantidad, unidad, fecha,
+          factura, folio, precio_unitario, importe, upload_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
         1, // company_id: DI
         'DI', // submodulo
@@ -189,9 +188,6 @@ export async function handleSalesUpload(
         tx.cantidad,
         'KG',
         tx.fecha.toISOString().split('T')[0],
-        tx.mes,
-        tx.año,
-        saleWeek,
         tx.folio,
         tx.folio,
         tx.precioUnitario,
@@ -242,11 +238,11 @@ export async function handleSalesUpload(
       const saleWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 
       await sql(`
-        INSERT INTO sales_data (
-          company_id, submodulo, client_id, client_name, product_id, product_name,
-          quantity, unit, sale_date, sale_month, sale_year, sale_week,
-          invoice_number, total_amount, tipo_cambio, importe_mn, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        INSERT INTO ventas (
+          company_id, submodulo, client_id, cliente, product_id, producto,
+          cantidad, unidad, fecha,
+          factura, importe, tipo_cambio, importe_mn, upload_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
         2, // company_id: GO
         'GO', // submodulo
@@ -257,9 +253,6 @@ export async function handleSalesUpload(
         tx.cantidad,
         'unidades',
         tx.fecha.toISOString().split('T')[0],
-        tx.mes,
-        tx.año,
-        saleWeek,
         tx.folio,
         tx.importe,
         tx.tipoCambio,
@@ -389,7 +382,7 @@ export async function handleSalesUpload(
     if (uploadId) {
       try {
         await sql(`DELETE FROM sales_acciones WHERE excel_origen_id = $1`, [uploadId]);
-        await sql(`DELETE FROM sales_data WHERE upload_id = $1`, [uploadId]);
+        await sql(`DELETE FROM ventas WHERE upload_id = $1`, [uploadId]);
         await sql(`
           UPDATE sales_uploads
           SET status = 'error', notes = $1

@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { AppLayout } from '@/components/layout/AppLayout';
 
-// Dashboard components
+// Dashboard components - Monthly Executive Snapshot
 import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
-import { SalesOverviewCard } from '@/components/dashboard/SalesOverviewCard';
-import { OrderStatsCard } from '@/components/dashboard/OrderStatsCard';
-import { AnnualSummary } from '@/components/dashboard/AnnualSummary';
+import { MonthlyKPICards } from '@/components/dashboard/MonthlyKPICards';
+import { MonthlyTrendCard } from '@/components/dashboard/MonthlyTrendCard';
+import { RiskAlertsCard } from '@/components/dashboard/RiskAlertsCard';
+import { MonthlyTopClientsCard, MonthlyTopProductsCard } from '@/components/dashboard/MonthlyTopListsCard';
+import { AIInsightsBanner } from '@/components/dashboard/AIInsightsBanner';
 
 
 export default function Dashboard() {
@@ -39,23 +41,31 @@ export default function Dashboard() {
   return (
     <AppLayout title="Dashboard Ejecutivo">
       <div id="dashboard-container" ref={dashboardRef} className="min-h-screen space-y-6">
-        {/* SECCIÓN PRINCIPAL - Vista ejecutiva */}
+        {/* ROW 1: KPIs del mes */}
+        <MonthlyKPICards companyId={selectedCompany} />
+
+        {/* ROW 2: Tendencia + Alertas de Riesgo */}
         <div className="grid grid-cols-12 gap-4">
-          {/* Resumen de Ventas - Ocupa más espacio */}
           <div className="col-span-12 lg:col-span-7">
-            <SalesOverviewCard companyId={selectedCompany} />
+            <MonthlyTrendCard companyId={selectedCompany} />
           </div>
-
-          {/* Estadísticas de Órdenes - Gráfica circular */}
           <div className="col-span-12 lg:col-span-5">
-            <OrderStatsCard companyId={selectedCompany} />
-          </div>
-
-          {/* Resumen Anual Ejecutivo - Hasta Tendencias Mensuales */}
-          <div className="col-span-12">
-            <AnnualSummary companyId={selectedCompany} />
+            <RiskAlertsCard companyId={selectedCompany} />
           </div>
         </div>
+
+        {/* ROW 3: Top Clientes + Top Productos del Mes */}
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 lg:col-span-6">
+            <MonthlyTopClientsCard companyId={selectedCompany} />
+          </div>
+          <div className="col-span-12 lg:col-span-6">
+            <MonthlyTopProductsCard companyId={selectedCompany} />
+          </div>
+        </div>
+
+        {/* ROW 4: AI Insights Banner */}
+        <AIInsightsBanner companyId={selectedCompany} />
 
         {/* KPI Details Dialog */}
         <KpiDetailDialog

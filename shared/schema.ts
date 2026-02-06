@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar, numeric, smallint, date } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -849,6 +849,74 @@ export const emailOutbox = pgTable("email_outbox", {
 export const insertEmailOutboxSchema = createInsertSchema(emailOutbox).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertEmailOutbox = z.infer<typeof insertEmailOutboxSchema>;
 export type EmailOutbox = typeof emailOutbox.$inferSelect;
+
+// ============================================================
+// Ventas - Tabla unificada de ventas (single source of truth)
+// ============================================================
+export const ventas = pgTable("ventas", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull().default(1),
+
+  // Datos de la factura
+  fecha: date("fecha", { mode: "string" }).notNull(),
+  folio: varchar("folio", { length: 50 }),
+  factura: varchar("factura", { length: 50 }),
+
+  // Cliente
+  cliente: varchar("cliente", { length: 255 }).notNull(),
+  clientId: integer("client_id"),
+
+  // Producto
+  producto: varchar("producto", { length: 255 }),
+  productId: integer("product_id"),
+  familiaProducto: varchar("familia_producto", { length: 100 }),
+
+  // Cantidades
+  cantidad: numeric("cantidad", { precision: 15, scale: 3 }),
+  unidad: varchar("unidad", { length: 20 }).default("KG"),
+
+  // Precios y montos
+  precioUnitario: numeric("precio_unitario", { precision: 15, scale: 4 }),
+  importe: numeric("importe", { precision: 15, scale: 2 }),
+  usd: numeric("usd", { precision: 15, scale: 2 }),
+  mn: numeric("mn", { precision: 15, scale: 2 }),
+  tipoCambio: numeric("tipo_cambio", { precision: 10, scale: 4 }),
+  importeMn: numeric("importe_mn", { precision: 15, scale: 2 }),
+
+  // Utilidad
+  utilidadBruta: numeric("utilidad_bruta", { precision: 15, scale: 2 }),
+
+  // Campos generados (anio/mes se calculan en BD, pero Drizzle los necesita para lectura)
+  anio: smallint("anio"),
+  mes: smallint("mes"),
+
+  // Comparativos históricos
+  venta2024: numeric("venta_2024", { precision: 15, scale: 2 }),
+  venta2025: numeric("venta_2025", { precision: 15, scale: 2 }),
+
+  // Campos de soporte para uploads
+  submodulo: varchar("submodulo", { length: 10 }),
+  uploadId: integer("upload_id"),
+
+  // IDRALL-specific fields
+  status: varchar("status", { length: 20 }),
+  lote: varchar("lote", { length: 100 }),
+  costoUnitario: numeric("costo_unitario", { precision: 15, scale: 4 }),
+  utilidadPerdida: numeric("utilidad_perdida", { precision: 15, scale: 4 }),
+  utilidadConGastos: numeric("utilidad_con_gastos", { precision: 15, scale: 4 }),
+  utilidadPorcentaje: numeric("utilidad_porcentaje", { precision: 8, scale: 4 }),
+  tipoCambioCosto: numeric("tipo_cambio_costo", { precision: 10, scale: 4 }),
+  folioNumero: integer("folio_numero"),
+  folioSecuencia: integer("folio_secuencia"),
+
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertVentaSchema = createInsertSchema(ventas).omit({ id: true, anio: true, mes: true, createdAt: true, updatedAt: true });
+export type InsertVenta = z.infer<typeof insertVentaSchema>;
+export type Venta = typeof ventas.$inferSelect;
 
 // KPI Detail type for dashboard components
 export interface KpiDetail {

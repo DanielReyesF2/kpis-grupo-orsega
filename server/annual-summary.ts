@@ -50,16 +50,16 @@ export async function getAnnualSummary(
 
   // 1. Ventas totales del año
   const totalSalesQuery = `
-    SELECT 
+    SELECT
       COALESCE(SUM(cantidad), 0) as total_volume,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT invoice_number) as total_transactions,
-      COUNT(DISTINCT client_name) as total_clients,
-      MAX(unit) as unit
+      COUNT(DISTINCT factura) as total_transactions,
+      COUNT(DISTINCT cliente) as total_clients,
+      MAX(unidad) as unit
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND client_name IS NOT NULL AND client_name <> ''
+      AND cliente IS NOT NULL AND cliente <> ''
   `;
   
   const totalSalesData = await sql(totalSalesQuery, [companyId, year]);
@@ -71,16 +71,16 @@ export async function getAnnualSummary(
 
   // 2. Ventas mensuales (desglose)
   const monthlySalesQuery = `
-    SELECT 
+    SELECT
       mes,
       COALESCE(SUM(cantidad), 0) as monthly_volume,
       COALESCE(SUM(importe), 0) as monthly_revenue,
-      COUNT(DISTINCT invoice_number) as monthly_transactions,
-      COUNT(DISTINCT client_name) as monthly_clients
+      COUNT(DISTINCT factura) as monthly_transactions,
+      COUNT(DISTINCT cliente) as monthly_clients
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND client_name IS NOT NULL AND client_name <> ''
+      AND cliente IS NOT NULL AND cliente <> ''
     GROUP BY mes
     ORDER BY mes ASC
   `;
@@ -108,20 +108,20 @@ export async function getAnnualSummary(
 
   // 5. Top producto del año (por volumen y revenue)
   const topProductQuery = `
-    SELECT 
-      product_name,
+    SELECT
+      producto as product_name,
       COALESCE(SUM(cantidad), 0) as total_volume,
       COALESCE(SUM(importe), 0) as total_revenue,
-      MAX(unit) as unit
+      MAX(unidad) as unit
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND product_name IS NOT NULL AND product_name <> ''
-    GROUP BY product_name
+      AND producto IS NOT NULL AND producto <> ''
+    GROUP BY producto
     ORDER BY total_volume DESC
     LIMIT 1
   `;
-  
+
   const topProductData = await sql(topProductQuery, [companyId, year]);
   const topProduct = topProductData[0] ? {
     name: topProductData[0].product_name,
@@ -137,22 +137,22 @@ export async function getAnnualSummary(
 
   // 6. Top 10 productos
   const topProductsQuery = `
-    SELECT 
-      product_name,
+    SELECT
+      producto as product_name,
       product_id,
       COALESCE(SUM(cantidad), 0) as total_volume,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT invoice_number) as transactions,
-      MAX(unit) as unit
+      COUNT(DISTINCT factura) as transactions,
+      MAX(unidad) as unit
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND product_name IS NOT NULL AND product_name <> ''
-    GROUP BY product_name, product_id
+      AND producto IS NOT NULL AND producto <> ''
+    GROUP BY producto, product_id
     ORDER BY total_revenue DESC
     LIMIT 10
   `;
-  
+
   const topProductsData = await sql(topProductsQuery, [companyId, year]);
   const topProducts: ProductSummary[] = topProductsData.map((row: any) => ({
     name: row.product_name,
@@ -165,23 +165,23 @@ export async function getAnnualSummary(
 
   // 7. Top 10 clientes por revenue
   const topClientsQuery = `
-    SELECT 
-      client_name,
+    SELECT
+      cliente as client_name,
       client_id,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT invoice_number) as transactions,
+      COUNT(DISTINCT factura) as transactions,
       AVG(importe) as avg_ticket,
       MAX(fecha) as last_purchase_date
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND client_name IS NOT NULL AND client_name <> ''
+      AND cliente IS NOT NULL AND cliente <> ''
       AND importe IS NOT NULL AND importe > 0
-    GROUP BY client_name, client_id
+    GROUP BY cliente, client_id
     ORDER BY total_revenue DESC
     LIMIT 10
   `;
-  
+
   const topClientsData = await sql(topClientsQuery, [companyId, year]);
   const topClients: ClientSummary[] = topClientsData.map((row: any) => ({
     name: row.client_name,
@@ -203,18 +203,18 @@ export async function getAnnualSummary(
   // 10. Clientes inactivos (compraron año anterior pero no este año)
   const inactiveClientsQuery = `
     WITH previous_year_clients AS (
-      SELECT DISTINCT client_name
+      SELECT DISTINCT cliente as client_name
       FROM ventas
       WHERE company_id = $1
         AND anio = $2
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     current_year_clients AS (
-      SELECT DISTINCT client_name
+      SELECT DISTINCT cliente as client_name
       FROM ventas
       WHERE company_id = $1
         AND anio = $3
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     inactive AS (
       SELECT p.client_name
@@ -222,15 +222,15 @@ export async function getAnnualSummary(
       LEFT JOIN current_year_clients c ON p.client_name = c.client_name
       WHERE c.client_name IS NULL
     )
-    SELECT 
+    SELECT
       i.client_name,
-      MAX(sd.client_id) as client_id,
-      MAX(sd.fecha) as last_purchase_date,
-      COALESCE(SUM(sd.importe), 0) as previous_year_revenue
+      MAX(v.client_id) as client_id,
+      MAX(v.fecha) as last_purchase_date,
+      COALESCE(SUM(v.importe), 0) as previous_year_revenue
     FROM inactive i
-    INNER JOIN sales_data sd ON i.client_name = sd.client_name
-    WHERE sd.company_id = $1
-      AND sd.anio = $2
+    INNER JOIN ventas v ON i.client_name = v.cliente
+    WHERE v.company_id = $1
+      AND v.anio = $2
     GROUP BY i.client_name
     ORDER BY previous_year_revenue DESC
   `;
@@ -251,14 +251,14 @@ export async function getAnnualSummary(
 
   // 13. Comparación con año anterior
   const previousYearQuery = `
-    SELECT 
+    SELECT
       COALESCE(SUM(cantidad), 0) as total_volume,
       COALESCE(SUM(importe), 0) as total_revenue,
-      COUNT(DISTINCT client_name) as total_clients
+      COUNT(DISTINCT cliente) as total_clients
     FROM ventas
     WHERE company_id = $1
       AND anio = $2
-      AND client_name IS NOT NULL AND client_name <> ''
+      AND cliente IS NOT NULL AND cliente <> ''
   `;
   
   const previousYearData = await sql(previousYearQuery, [companyId, year - 1]);
