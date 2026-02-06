@@ -117,29 +117,29 @@ async function calculateVolume(
   if (year && month) {
     // Período específico (mes/año)
     query = `
-      SELECT COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+      SELECT COALESCE(SUM(cantidad), 0) as total_volume
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-        AND sale_month = $3
+        AND anio = $2
+        AND mes = $3
     `;
     params = [companyId, year, month];
   } else if (year) {
     // Año completo
     query = `
-      SELECT COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+      SELECT COALESCE(SUM(cantidad), 0) as total_volume
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
+        AND anio = $2
     `;
     params = [companyId, year];
   } else {
     // Último mes con datos disponibles
     const latestDataQuery = `
-      SELECT sale_year, sale_month
-      FROM sales_data
+      SELECT anio, mes
+      FROM ventas
       WHERE company_id = $1
-      ORDER BY sale_year DESC, sale_month DESC
+      ORDER BY anio DESC, mes DESC
       LIMIT 1
     `;
     const latestData = await sql(latestDataQuery, [companyId]);
@@ -148,15 +148,15 @@ async function calculateVolume(
       return 0;
     }
     
-    const latestYear = parseInt(latestData[0].sale_year);
-    const latestMonth = parseInt(latestData[0].sale_month);
+    const latestYear = parseInt(latestData[0].anio);
+    const latestMonth = parseInt(latestData[0].mes);
     
     query = `
-      SELECT COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+      SELECT COALESCE(SUM(cantidad), 0) as total_volume
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-        AND sale_month = $3
+        AND anio = $2
+        AND mes = $3
     `;
     params = [companyId, latestYear, latestMonth];
   }
@@ -313,10 +313,10 @@ export async function calculateSalesKpiValue(
         
         const query = `
           SELECT AVG(total_amount) as avg_value
-          FROM sales_data
+          FROM ventas
           WHERE company_id = $1
-            AND sale_year = $2
-            AND sale_month = $3
+            AND anio = $2
+            AND mes = $3
             AND total_amount IS NOT NULL
             AND total_amount > 0
         `;
@@ -367,20 +367,20 @@ export async function calculateSalesKpiHistory(
   try {
     const latestDataQuery = `
       SELECT
-        sale_year,
-        sale_month,
-        COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+        anio,
+        mes,
+        COALESCE(SUM(cantidad), 0) as total_volume
+      FROM ventas
       WHERE company_id = $1
-      GROUP BY sale_year, sale_month
-      ORDER BY sale_year DESC, sale_month DESC
+      GROUP BY anio, mes
+      ORDER BY anio DESC, mes DESC
       LIMIT $2
     `;
     const periods = await sql(latestDataQuery, [companyId, months]);
 
     const history = periods.map((row: any) => {
-      const year = parseInt(row.sale_year);
-      const month = parseInt(row.sale_month);
+      const year = parseInt(row.anio);
+      const month = parseInt(row.mes);
       const volume = parseFloat(row.total_volume || '0');
 
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];

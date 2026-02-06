@@ -120,12 +120,12 @@ export async function getActiveClients(
   if (period === 'month') {
     // Path 1: current month data
     query = `
-      SELECT COUNT(DISTINCT client_name) as count
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as count
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-        AND sale_month = $3
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND anio = $2
+        AND mes = $3
+        AND cliente IS NOT NULL AND cliente <> ''
     `;
     params = [companyId, currentYear, currentMonth];
 
@@ -138,12 +138,12 @@ export async function getActiveClients(
 
     // Path 2: last 30 days fallback
     const last30DaysQuery = `
-      SELECT COUNT(DISTINCT client_name) as count
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as count
+      FROM ventas
       WHERE company_id = $1
-        AND client_name IS NOT NULL AND client_name <> ''
-        AND sale_date >= CURRENT_DATE - INTERVAL '30 days'
-        AND sale_date <= CURRENT_DATE
+        AND cliente IS NOT NULL AND cliente <> ''
+        AND fecha >= CURRENT_DATE - INTERVAL '30 days'
+        AND fecha <= CURRENT_DATE
     `;
     const last30DaysResult = await sql(last30DaysQuery, [companyId]);
     const last30DaysCount = parseInt(last30DaysResult[0]?.count || '0', 10);
@@ -154,11 +154,11 @@ export async function getActiveClients(
 
     // Path 3: historical fallback
     const lastMonthWithDataQuery = `
-      SELECT COUNT(DISTINCT client_name) as count
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as count
+      FROM ventas
       WHERE company_id = $1
-        AND client_name IS NOT NULL AND client_name <> ''
-      ORDER BY sale_date DESC
+        AND cliente IS NOT NULL AND cliente <> ''
+      ORDER BY fecha DESC
       LIMIT 1
     `;
     const lastMonthResult = await sql(lastMonthWithDataQuery, [companyId]);
@@ -169,12 +169,12 @@ export async function getActiveClients(
     threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
 
     query = `
-      SELECT COUNT(DISTINCT client_name) as count
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as count
+      FROM ventas
       WHERE company_id = $1
-        AND sale_date >= $2
-        AND sale_date <= $3
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND fecha >= $2
+        AND fecha <= $3
+        AND cliente IS NOT NULL AND cliente <> ''
     `;
     params = [companyId, threeMonthsAgo.toISOString().split('T')[0], now.toISOString().split('T')[0]];
 
@@ -224,28 +224,28 @@ export async function getRetentionRate(
   const previousDates = calculatePeriodDates(previousPeriod);
 
   // Query optimizada para calcular retención
-  // Usamos client_name porque client_id puede ser NULL en datos migrados
+  // Usamos cliente porque client_id puede ser NULL en datos migrados
   const query = `
     WITH current_period_clients AS (
-      SELECT DISTINCT client_name
-      FROM sales_data
+      SELECT DISTINCT cliente
+      FROM ventas
       WHERE company_id = $1
-        AND sale_date >= $2
-        AND sale_date <= $3
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND fecha >= $2
+        AND fecha <= $3
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     previous_period_clients AS (
-      SELECT DISTINCT client_name
-      FROM sales_data
+      SELECT DISTINCT cliente
+      FROM ventas
       WHERE company_id = $1
-        AND sale_date >= $4
-        AND sale_date <= $5
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND fecha >= $4
+        AND fecha <= $5
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     retained_clients AS (
-      SELECT DISTINCT c.client_name
+      SELECT DISTINCT c.cliente
       FROM current_period_clients c
-      INNER JOIN previous_period_clients p ON c.client_name = p.client_name
+      INNER JOIN previous_period_clients p ON c.cliente = p.cliente
     )
     SELECT 
       (SELECT COUNT(*) FROM current_period_clients) as current_count,
@@ -295,17 +295,17 @@ export async function getNewClients(
     WITH first_purchases AS (
       SELECT 
         client_id,
-        client_name,
-        MIN(sale_date) as first_purchase_date
-      FROM sales_data
+        cliente,
+        MIN(fecha) as first_purchase_date
+      FROM ventas
       WHERE company_id = $1
-        AND client_name IS NOT NULL AND client_name <> ''
-      GROUP BY client_id, client_name
+        AND cliente IS NOT NULL AND cliente <> ''
+      GROUP BY client_id, cliente
     ),
     new_clients AS (
       SELECT 
         fp.client_id,
-        fp.client_name,
+        fp.cliente,
         fp.first_purchase_date
       FROM first_purchases fp
       WHERE fp.first_purchase_date >= $2
@@ -313,7 +313,7 @@ export async function getNewClients(
     )
     SELECT 
       client_id as id,
-      client_name as name,
+      cliente as name,
       first_purchase_date as "firstPurchaseDate"
     FROM new_clients
     ORDER BY first_purchase_date DESC
@@ -342,7 +342,7 @@ export async function getNewClients(
  * 
  * @param companyId - ID de la empresa
  * @param period - Período a analizar
- * @returns Valor promedio por orden (en la moneda de total_amount)
+ * @returns Valor promedio por orden (en la moneda de importe)
  */
 export async function getAvgOrderValue(
   companyId: number,
@@ -351,13 +351,13 @@ export async function getAvgOrderValue(
   const dates = calculatePeriodDates(period);
 
   const query = `
-    SELECT AVG(total_amount) as avg_value
-    FROM sales_data
+    SELECT AVG(importe) as avg_value
+    FROM ventas
     WHERE company_id = $1
-      AND sale_date >= $2
-      AND sale_date <= $3
-      AND total_amount IS NOT NULL
-      AND total_amount > 0
+      AND fecha >= $2
+      AND fecha <= $3
+      AND importe IS NOT NULL
+      AND importe > 0
   `;
 
   const result = await sql(query, [
@@ -387,42 +387,42 @@ export async function getClientChurn(
   const currentDates = calculatePeriodDates(currentPeriod);
   const previousDates = calculatePeriodDates(previousPeriod);
 
-  // Usamos client_name porque client_id puede ser NULL en datos migrados
+  // Usamos cliente porque client_id puede ser NULL en datos migrados
   const query = `
     WITH current_period_clients AS (
-      SELECT DISTINCT client_name
-      FROM sales_data
+      SELECT DISTINCT cliente
+      FROM ventas
       WHERE company_id = $1
-        AND sale_date >= $2
-        AND sale_date <= $3
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND fecha >= $2
+        AND fecha <= $3
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     previous_period_clients AS (
-      SELECT DISTINCT client_name
-      FROM sales_data
+      SELECT DISTINCT cliente
+      FROM ventas
       WHERE company_id = $1
-        AND sale_date >= $4
-        AND sale_date <= $5
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND fecha >= $4
+        AND fecha <= $5
+        AND cliente IS NOT NULL AND cliente <> ''
     ),
     churned_clients AS (
-      SELECT DISTINCT p.client_name
+      SELECT DISTINCT p.cliente
       FROM previous_period_clients p
-      LEFT JOIN current_period_clients c ON p.client_name = c.client_name
-      WHERE c.client_name IS NULL
+      LEFT JOIN current_period_clients c ON p.cliente = c.cliente
+      WHERE c.cliente IS NULL
     ),
     churned_with_details AS (
       SELECT
-        cc.client_name,
-        MAX(sd.sale_date) as last_purchase_date
+        cc.cliente,
+        MAX(sd.fecha) as last_purchase_date
       FROM churned_clients cc
-      INNER JOIN sales_data sd ON cc.client_name = sd.client_name
+      INNER JOIN sales_data sd ON cc.cliente = sd.cliente
       WHERE sd.company_id = $1
-      GROUP BY cc.client_name
+      GROUP BY cc.cliente
     )
     SELECT
       0 as id,
-      client_name as name,
+      cliente as name,
       last_purchase_date as "lastPurchaseDate"
     FROM churned_with_details
     ORDER BY last_purchase_date DESC
@@ -445,12 +445,12 @@ export async function getClientChurn(
   // Calcular tasa de churn
   // Necesitamos el total de clientes del período anterior
   const previousCountQuery = `
-    SELECT COUNT(DISTINCT client_name) as count
-    FROM sales_data
+    SELECT COUNT(DISTINCT cliente) as count
+    FROM ventas
     WHERE company_id = $1
-      AND sale_date >= $2
-      AND sale_date <= $3
-      AND client_name IS NOT NULL AND client_name <> ''
+      AND fecha >= $2
+      AND fecha <= $3
+      AND cliente IS NOT NULL AND cliente <> ''
   `;
 
   const previousCountResult = await sql(previousCountQuery, [
@@ -516,12 +516,12 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.log(`[getSalesMetrics] [1/10] Obteniendo rango de datos...`);
     const dataRangeQuery = `
       SELECT
-        MIN(sale_year) as min_year,
-        MAX(sale_year) as max_year,
-        MIN(sale_date) as min_date,
-        MAX(sale_date) as max_date,
+        MIN(anio) as min_year,
+        MAX(anio) as max_year,
+        MIN(fecha) as min_date,
+        MAX(fecha) as max_date,
         COUNT(*) as total_records
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
     `;
     const dataRange = await sql(dataRangeQuery, [companyId]);
@@ -543,10 +543,10 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [2/10] Contando clientes históricos...`);
     const totalClientsQuery = `
-      SELECT COUNT(DISTINCT client_name) as total_clients
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as total_clients
+      FROM ventas
       WHERE company_id = $1
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND cliente IS NOT NULL AND cliente <> ''
     `;
     const totalClientsResult = await sql(totalClientsQuery, [companyId]);
     totalHistoricalClients = parseInt(totalClientsResult[0]?.total_clients || '0');
@@ -561,11 +561,11 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [3/10] Clientes año ${maxYear}...`);
     const currentYearClientsQuery = `
-      SELECT COUNT(DISTINCT client_name) as clients
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as clients
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND anio = $2
+        AND cliente IS NOT NULL AND cliente <> ''
     `;
     const currentYearClients = await sql(currentYearClientsQuery, [companyId, maxYear]);
     activeClientsCurrentYear = parseInt(currentYearClients[0]?.clients || '0');
@@ -581,9 +581,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.log(`[getSalesMetrics] [4/10] Volumen año ${maxYear}...`);
     const currentYearVolumeQuery = `
       SELECT COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
+        AND anio = $2
     `;
     const currentYearVolume = await sql(currentYearVolumeQuery, [companyId, maxYear]);
     volumeCurrentYear = parseFloat(currentYearVolume[0]?.total_volume || '0');
@@ -599,9 +599,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.log(`[getSalesMetrics] [5/10] Volumen año ${maxYear - 1}...`);
     const previousYearVolumeQuery = `
       SELECT COALESCE(SUM(quantity), 0) as total_volume
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
+        AND anio = $2
     `;
     const previousYearVolume = await sql(previousYearVolumeQuery, [companyId, maxYear - 1]);
     volumePreviousYear = parseFloat(previousYearVolume[0]?.total_volume || '0');
@@ -622,16 +622,16 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [7/10] Clientes últimos 3 meses...`);
     const last3MonthsQuery = `
-      SELECT COUNT(DISTINCT client_name) as clients
-      FROM sales_data
+      SELECT COUNT(DISTINCT cliente) as clients
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-        AND sale_month >= (
-          SELECT COALESCE(MAX(sale_month) - 2, 1)
-          FROM sales_data
-          WHERE company_id = $1 AND sale_year = $2
+        AND anio = $2
+        AND mes >= (
+          SELECT COALESCE(MAX(mes) - 2, 1)
+          FROM ventas
+          WHERE company_id = $1 AND anio = $2
         )
-        AND client_name IS NOT NULL AND client_name <> ''
+        AND cliente IS NOT NULL AND cliente <> ''
     `;
     const last3MonthsResult = await sql(last3MonthsQuery, [companyId, maxYear]);
     clientsLast3Months = parseInt(last3MonthsResult[0]?.clients || '0');
@@ -647,7 +647,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.log(`[getSalesMetrics] [8/10] Obteniendo unidad...`);
     const unitQuery = `
       SELECT COALESCE(MAX(unit), $2) as unit
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
     `;
     const unitResult = await sql(unitQuery, [companyId, defaultUnit]);
@@ -698,16 +698,16 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [10/10] Obteniendo último mes con datos...`);
     const lastMonthQuery = `
-      SELECT sale_year, sale_month
-      FROM sales_data
+      SELECT anio, mes
+      FROM ventas
       WHERE company_id = $1
-      GROUP BY sale_year, sale_month
-      ORDER BY sale_year DESC, sale_month DESC
+      GROUP BY anio, mes
+      ORDER BY anio DESC, mes DESC
       LIMIT 1
     `;
     const lastMonthResult = await sql(lastMonthQuery, [companyId]);
-    lastDataYear = parseInt(lastMonthResult[0]?.sale_year || String(maxYear));
-    lastDataMonth = parseInt(lastMonthResult[0]?.sale_month || '12');
+    lastDataYear = parseInt(lastMonthResult[0]?.anio || String(maxYear));
+    lastDataMonth = parseInt(lastMonthResult[0]?.mes || '12');
     console.log(`[getSalesMetrics] ✓ Último mes: ${lastDataYear}-${lastDataMonth}`);
   } catch (error) {
     console.error(`[getSalesMetrics] ❌ Error obteniendo último mes:`, error);
@@ -789,14 +789,14 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     // 1. Obtener datos mensuales del año actual para calcular promedio
     const monthlyDataQuery = `
       SELECT 
-        sale_month,
+        mes,
         COALESCE(SUM(quantity), 0) as monthly_volume,
-        COALESCE(SUM(total_amount), 0) as monthly_revenue
-      FROM sales_data
+        COALESCE(SUM(importe), 0) as monthly_revenue
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
-      GROUP BY sale_month
-      ORDER BY sale_month
+        AND anio = $2
+      GROUP BY mes
+      ORDER BY mes
     `;
     const monthlyData = await sql(monthlyDataQuery, [companyId, maxYear]);
     
@@ -817,14 +817,14 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
       // basado en el promedio de la industria o un margen estándar
       const revenueQuery = `
         SELECT 
-          COALESCE(SUM(total_amount), 0) as total_revenue,
+          COALESCE(SUM(importe), 0) as total_revenue,
           COUNT(*) as transaction_count,
-          AVG(total_amount) as avg_transaction
-        FROM sales_data
+          AVG(importe) as avg_transaction
+        FROM ventas
         WHERE company_id = $1
-          AND sale_year = $2
-          AND total_amount IS NOT NULL
-          AND total_amount > 0
+          AND anio = $2
+          AND importe IS NOT NULL
+          AND importe > 0
       `;
       const revenueData = await sql(revenueQuery, [companyId, maxYear]);
       
@@ -836,9 +836,9 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
         // Si tenemos precio unitario, podemos estimar un margen más preciso
         const avgPriceQuery = `
           SELECT AVG(unit_price) as avg_price
-          FROM sales_data
+          FROM ventas
           WHERE company_id = $1
-            AND sale_year = $2
+            AND anio = $2
             AND unit_price IS NOT NULL
             AND unit_price > 0
         `;

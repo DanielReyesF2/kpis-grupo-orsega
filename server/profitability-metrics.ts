@@ -50,7 +50,7 @@ export interface ProfitabilityMetrics {
 
 /**
  * Calcula rentabilidad real basada en datos de la base de datos
- * Usa unit_price y total_amount para calcular margen estimado
+ * Usa unit_price y importe para calcular margen estimado
  */
 export async function calculateRealProfitability(
   companyId: number,
@@ -58,8 +58,8 @@ export async function calculateRealProfitability(
 ): Promise<ProfitabilityMetrics> {
   // Primero encontrar el año más reciente con datos
   const maxYearQuery = `
-    SELECT MAX(sale_year) as max_year
-    FROM sales_data
+    SELECT MAX(anio) as max_year
+    FROM ventas
     WHERE company_id = $1
   `;
   const maxYearResult = await sql(maxYearQuery, [companyId]);
@@ -71,16 +71,16 @@ export async function calculateRealProfitability(
   // 1. Calcular rentabilidad general
   const profitabilityQuery = `
     SELECT 
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT invoice_number) as total_transactions,
       COUNT(*) as total_items,
-      AVG(total_amount) as avg_transaction_value,
+      AVG(importe) as avg_transaction_value,
       AVG(unit_price) as avg_unit_price
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
-      AND total_amount IS NOT NULL
-      AND total_amount > 0
+      AND anio = $2
+      AND importe IS NOT NULL
+      AND importe > 0
   `;
 
   const profitabilityData = await sql(profitabilityQuery, [companyId, targetYear]);
@@ -114,15 +114,15 @@ export async function calculateRealProfitability(
     SELECT 
       product_name,
       product_id,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COALESCE(SUM(quantity), 0) as total_quantity,
       AVG(unit_price) as avg_unit_price,
       COUNT(*) as transaction_count
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
-      AND total_amount IS NOT NULL
-      AND total_amount > 0
+      AND anio = $2
+      AND importe IS NOT NULL
+      AND importe > 0
       AND product_name IS NOT NULL
     GROUP BY product_name, product_id
     ORDER BY total_revenue DESC
@@ -159,15 +159,15 @@ export async function calculateRealProfitability(
     SELECT 
       client_name,
       client_id,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT invoice_number) as transaction_count,
-      AVG(total_amount) as avg_order_value,
+      AVG(importe) as avg_order_value,
       MAX(sale_date) as last_purchase_date
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
-      AND total_amount IS NOT NULL
-      AND total_amount > 0
+      AND anio = $2
+      AND importe IS NOT NULL
+      AND importe > 0
       AND client_name IS NOT NULL
       AND client_name <> ''
     GROUP BY client_name, client_id
@@ -192,17 +192,17 @@ export async function calculateRealProfitability(
       folio,
       sale_date,
       client_name,
-      COALESCE(SUM(total_amount), 0) as total_amount,
+      COALESCE(SUM(importe), 0) as importe,
       COUNT(*) as item_count,
       STRING_AGG(DISTINCT product_name, ', ') as products
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
-      AND total_amount IS NOT NULL
-      AND total_amount > 0
+      AND anio = $2
+      AND importe IS NOT NULL
+      AND importe > 0
       AND invoice_number IS NOT NULL
     GROUP BY invoice_number, folio, sale_date, client_name
-    ORDER BY total_amount DESC
+    ORDER BY importe DESC
     LIMIT 20
   `;
 
@@ -212,7 +212,7 @@ export async function calculateRealProfitability(
     folio: row.folio || null,
     saleDate: row.sale_date ? new Date(row.sale_date).toISOString().split('T')[0] : '',
     clientName: row.client_name,
-    totalAmount: parseFloat(row.total_amount || '0'),
+    totalAmount: parseFloat(row.importe || '0'),
     itemCount: parseInt(row.item_count || '0'),
     products: row.products ? row.products.split(', ').slice(0, 3) : [] // Primeros 3 productos
   }));

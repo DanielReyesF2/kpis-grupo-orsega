@@ -38,10 +38,26 @@ router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
 
     let query = `
       SELECT
-        id, company_id, client_id, product_id, client_name, product_name,
-        quantity, unit, unit_price, total_amount,
-        sale_date, sale_month, sale_year, invoice_number, folio, notes
-      FROM sales_data
+        id,
+        company_id,
+        NULL as client_id,
+        NULL as product_id,
+        cliente as client_name,
+        producto as product_name,
+        cantidad as quantity,
+        unidad as unit,
+        precio_unitario as unit_price,
+        importe as total_amount,
+        fecha as sale_date,
+        mes as sale_month,
+        anio as sale_year,
+        factura as invoice_number,
+        folio,
+        NULL as notes,
+        familia_producto,
+        tipo_cambio,
+        utilidad_bruta
+      FROM ventas
       WHERE company_id = $1
     `;
 
@@ -73,18 +89,18 @@ router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
     }
 
     if (startDate) {
-      query += ` AND sale_date >= $${paramIndex}`;
+      query += ` AND fecha >= $${paramIndex}`;
       params.push(startDate as string);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND sale_date <= $${paramIndex}`;
+      query += ` AND fecha <= $${paramIndex}`;
       params.push(endDate as string);
       paramIndex++;
     }
 
-    query += ` ORDER BY sale_date DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY fecha DESC LIMIT $${paramIndex}`;
     params.push(parseInt(limit as string));
 
     const salesData = await sql(query, params);

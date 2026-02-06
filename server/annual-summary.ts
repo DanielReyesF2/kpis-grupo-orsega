@@ -27,14 +27,14 @@ const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
  */
 export async function getAvailableYears(companyId: number): Promise<number[]> {
   const query = `
-    SELECT DISTINCT sale_year
-    FROM sales_data
+    SELECT DISTINCT anio
+    FROM ventas
     WHERE company_id = $1
-    ORDER BY sale_year DESC
+    ORDER BY anio DESC
   `;
   
   const result = await sql(query, [companyId]);
-  return result.map((row: any) => parseInt(row.sale_year));
+  return result.map((row: any) => parseInt(row.anio));
 }
 
 /**
@@ -51,14 +51,14 @@ export async function getAnnualSummary(
   // 1. Ventas totales del año
   const totalSalesQuery = `
     SELECT 
-      COALESCE(SUM(quantity), 0) as total_volume,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(cantidad), 0) as total_volume,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT invoice_number) as total_transactions,
       COUNT(DISTINCT client_name) as total_clients,
       MAX(unit) as unit
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND client_name IS NOT NULL AND client_name <> ''
   `;
   
@@ -72,23 +72,23 @@ export async function getAnnualSummary(
   // 2. Ventas mensuales (desglose)
   const monthlySalesQuery = `
     SELECT 
-      sale_month,
-      COALESCE(SUM(quantity), 0) as monthly_volume,
-      COALESCE(SUM(total_amount), 0) as monthly_revenue,
+      mes,
+      COALESCE(SUM(cantidad), 0) as monthly_volume,
+      COALESCE(SUM(importe), 0) as monthly_revenue,
       COUNT(DISTINCT invoice_number) as monthly_transactions,
       COUNT(DISTINCT client_name) as monthly_clients
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND client_name IS NOT NULL AND client_name <> ''
-    GROUP BY sale_month
-    ORDER BY sale_month ASC
+    GROUP BY mes
+    ORDER BY mes ASC
   `;
   
   const monthlyData = await sql(monthlySalesQuery, [companyId, year]);
   const monthlySales: MonthlySales[] = monthlyData.map((row: any) => ({
-    month: parseInt(row.sale_month),
-    monthName: monthNames[parseInt(row.sale_month) - 1],
+    month: parseInt(row.mes),
+    monthName: monthNames[parseInt(row.mes) - 1],
     volume: parseFloat(row.monthly_volume || '0'),
     revenue: parseFloat(row.monthly_revenue || '0'),
     transactions: parseInt(row.monthly_transactions || '0'),
@@ -110,12 +110,12 @@ export async function getAnnualSummary(
   const topProductQuery = `
     SELECT 
       product_name,
-      COALESCE(SUM(quantity), 0) as total_volume,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(cantidad), 0) as total_volume,
+      COALESCE(SUM(importe), 0) as total_revenue,
       MAX(unit) as unit
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND product_name IS NOT NULL AND product_name <> ''
     GROUP BY product_name
     ORDER BY total_volume DESC
@@ -140,13 +140,13 @@ export async function getAnnualSummary(
     SELECT 
       product_name,
       product_id,
-      COALESCE(SUM(quantity), 0) as total_volume,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(cantidad), 0) as total_volume,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT invoice_number) as transactions,
       MAX(unit) as unit
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND product_name IS NOT NULL AND product_name <> ''
     GROUP BY product_name, product_id
     ORDER BY total_revenue DESC
@@ -168,15 +168,15 @@ export async function getAnnualSummary(
     SELECT 
       client_name,
       client_id,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT invoice_number) as transactions,
-      AVG(total_amount) as avg_ticket,
-      MAX(sale_date) as last_purchase_date
-    FROM sales_data
+      AVG(importe) as avg_ticket,
+      MAX(fecha) as last_purchase_date
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND client_name IS NOT NULL AND client_name <> ''
-      AND total_amount IS NOT NULL AND total_amount > 0
+      AND importe IS NOT NULL AND importe > 0
     GROUP BY client_name, client_id
     ORDER BY total_revenue DESC
     LIMIT 10
@@ -204,16 +204,16 @@ export async function getAnnualSummary(
   const inactiveClientsQuery = `
     WITH previous_year_clients AS (
       SELECT DISTINCT client_name
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $2
+        AND anio = $2
         AND client_name IS NOT NULL AND client_name <> ''
     ),
     current_year_clients AS (
       SELECT DISTINCT client_name
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND sale_year = $3
+        AND anio = $3
         AND client_name IS NOT NULL AND client_name <> ''
     ),
     inactive AS (
@@ -225,12 +225,12 @@ export async function getAnnualSummary(
     SELECT 
       i.client_name,
       MAX(sd.client_id) as client_id,
-      MAX(sd.sale_date) as last_purchase_date,
-      COALESCE(SUM(sd.total_amount), 0) as previous_year_revenue
+      MAX(sd.fecha) as last_purchase_date,
+      COALESCE(SUM(sd.importe), 0) as previous_year_revenue
     FROM inactive i
     INNER JOIN sales_data sd ON i.client_name = sd.client_name
     WHERE sd.company_id = $1
-      AND sd.sale_year = $2
+      AND sd.anio = $2
     GROUP BY i.client_name
     ORDER BY previous_year_revenue DESC
   `;
@@ -252,12 +252,12 @@ export async function getAnnualSummary(
   // 13. Comparación con año anterior
   const previousYearQuery = `
     SELECT 
-      COALESCE(SUM(quantity), 0) as total_volume,
-      COALESCE(SUM(total_amount), 0) as total_revenue,
+      COALESCE(SUM(cantidad), 0) as total_volume,
+      COALESCE(SUM(importe), 0) as total_revenue,
       COUNT(DISTINCT client_name) as total_clients
-    FROM sales_data
+    FROM ventas
     WHERE company_id = $1
-      AND sale_year = $2
+      AND anio = $2
       AND client_name IS NOT NULL AND client_name <> ''
   `;
   

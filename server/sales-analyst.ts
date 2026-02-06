@@ -142,14 +142,14 @@ async function calculatePercentileDaysSincePurchase(
     const query = `
       WITH client_days AS (
         SELECT 
-          CURRENT_DATE - MAX(sale_date)::date as days_since
-        FROM sales_data
+          CURRENT_DATE - MAX(fecha)::date as days_since
+        FROM ventas
         WHERE company_id = $1
-          AND client_name IS NOT NULL 
-          AND client_name <> ''
-          AND sale_date IS NOT NULL
-        GROUP BY client_name
-        HAVING MAX(sale_date) < CURRENT_DATE
+          AND cliente IS NOT NULL 
+          AND cliente <> ''
+          AND fecha IS NOT NULL
+        GROUP BY cliente
+        HAVING MAX(fecha) < CURRENT_DATE
       )
       SELECT PERCENTILE_CONT(${percentile / 100}) WITHIN GROUP (ORDER BY days_since) as percentile_value
       FROM client_days
@@ -173,13 +173,13 @@ async function calculatePercentileRevenue(
     const query = `
       WITH client_revenue AS (
         SELECT 
-          SUM(total_amount) as annual_revenue
-        FROM sales_data
+          SUM(importe) as annual_revenue
+        FROM ventas
         WHERE company_id = $1
-          AND client_name IS NOT NULL 
-          AND client_name <> ''
-          AND sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1)
-        GROUP BY client_name
+          AND cliente IS NOT NULL 
+          AND cliente <> ''
+          AND sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1)
+        GROUP BY cliente
       )
       SELECT PERCENTILE_CONT(${percentile / 100}) WITHIN GROUP (ORDER BY annual_revenue) as percentile_value
       FROM client_revenue
@@ -202,15 +202,15 @@ async function calculateYoYChangeStats(
     const query = `
       WITH client_yoy AS (
         SELECT
-          client_name,
-          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) THEN quantity ELSE 0 END) as qty_current,
-          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) - 1 THEN quantity ELSE 0 END) as qty_last
-        FROM sales_data
+          cliente,
+          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) THEN cantidad ELSE 0 END) as qty_current,
+          SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) as qty_last
+        FROM ventas
         WHERE company_id = $1
-          AND client_name IS NOT NULL 
-          AND client_name <> ''
-        GROUP BY client_name
-        HAVING SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM sales_data WHERE company_id = $1) - 1 THEN quantity ELSE 0 END) > 0
+          AND cliente IS NOT NULL 
+          AND cliente <> ''
+        GROUP BY cliente
+        HAVING SUM(CASE WHEN sale_year = (SELECT MAX(sale_year) FROM ventas WHERE company_id = $1) - 1 THEN cantidad ELSE 0 END) > 0
       ),
       yoy_changes AS (
         SELECT
@@ -271,7 +271,7 @@ async function calculateAverageMargin(companyId: number): Promise<number> {
     const defaultMargin = 18;
     
     // TODO: Si hay tabla de costos, calcular desde ahí:
-    // SELECT AVG((unit_price - cost) / unit_price * 100) FROM sales_data JOIN costs...
+    // SELECT AVG((unit_price - cost) / unit_price * 100) FROM ventas JOIN costs...
     
     return defaultMargin;
   } catch (error) {
@@ -306,39 +306,39 @@ export async function generateSalesAnalystInsights(
     -- Estadísticas de clientes por año
     client_stats AS (
       SELECT
-        client_name,
+        cliente,
         MAX(client_id) as client_id,
-        MAX(sale_date) as last_purchase_date,
-        SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_last_year,
+        MAX(fecha) as last_purchase_date,
+        SUM(CASE WHEN sale_year = $2 THEN cantidad ELSE 0 END) as qty_current_year,
+        SUM(CASE WHEN sale_year = $3 THEN cantidad ELSE 0 END) as qty_last_year,
+        SUM(CASE WHEN sale_year = $2 THEN importe ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN sale_year = $3 THEN importe ELSE 0 END) as amt_last_year,
         MAX(unit) as unit
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND client_name IS NOT NULL AND client_name <> ''
-      GROUP BY client_name
+        AND cliente IS NOT NULL AND cliente <> ''
+      GROUP BY cliente
     ),
     -- Estadísticas de productos por año
     product_stats AS (
       SELECT
-        product_name,
+        producto,
         MAX(product_id) as product_id,
-        SUM(CASE WHEN sale_year = $2 THEN quantity ELSE 0 END) as qty_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN quantity ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN sale_year = $2 THEN total_amount ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN sale_year = $3 THEN total_amount ELSE 0 END) as amt_last_year,
-        COUNT(DISTINCT client_name) as unique_clients,
+        SUM(CASE WHEN sale_year = $2 THEN cantidad ELSE 0 END) as qty_current_year,
+        SUM(CASE WHEN sale_year = $3 THEN cantidad ELSE 0 END) as qty_last_year,
+        SUM(CASE WHEN sale_year = $2 THEN importe ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN sale_year = $3 THEN importe ELSE 0 END) as amt_last_year,
+        COUNT(DISTINCT cliente) as unique_clients,
         MAX(unit) as unit
-      FROM sales_data
+      FROM ventas
       WHERE company_id = $1
-        AND product_name IS NOT NULL AND product_name <> ''
-      GROUP BY product_name
+        AND producto IS NOT NULL AND producto <> ''
+      GROUP BY producto
     ),
     -- Clientes inactivos (compraron año anterior pero no este año)
     inactive_clients AS (
       SELECT
-        cs.client_name,
+        cs.cliente,
         cs.client_id,
         cs.last_purchase_date,
         cs.amt_last_year as previous_year_revenue,
@@ -349,7 +349,7 @@ export async function generateSalesAnalystInsights(
     SELECT
       'client' as data_type,
       jsonb_build_object(
-        'name', cs.client_name,
+        'name', cs.cliente,
         'clientId', cs.client_id,
         'lastPurchaseDate', cs.last_purchase_date,
         'daysSincePurchase', CURRENT_DATE - cs.last_purchase_date::date,
@@ -371,7 +371,7 @@ export async function generateSalesAnalystInsights(
     SELECT
       'product' as data_type,
       jsonb_build_object(
-        'name', ps.product_name,
+        'name', ps.producto,
         'productId', ps.product_id,
         'qtyCurrentYear', ps.qty_current_year,
         'qtyLastYear', ps.qty_last_year,
@@ -391,7 +391,7 @@ export async function generateSalesAnalystInsights(
     SELECT
       'inactive' as data_type,
       jsonb_build_object(
-        'name', ic.client_name,
+        'name', ic.cliente,
         'clientId', ic.client_id,
         'lastPurchaseDate', ic.last_purchase_date,
         'previousYearRevenue', ic.previous_year_revenue,
