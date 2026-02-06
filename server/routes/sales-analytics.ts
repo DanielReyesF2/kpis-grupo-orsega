@@ -1222,6 +1222,15 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+    // Check if status column exists in ventas table (company 2 may not have it)
+    const colCheck = await sql(`
+      SELECT COUNT(*) as cnt FROM information_schema.columns
+      WHERE table_name = 'ventas' AND column_name = 'status'
+    `);
+    const hasStatusCol = parseInt(colCheck[0]?.cnt || '0') > 0;
+    const excludeCancelled = hasStatusCol ? `AND (status IS NULL OR UPPER(status) <> 'CANCELADA')` : '';
+    const onlyCancelled = hasStatusCol ? `AND UPPER(status) = 'CANCELADA'` : 'AND FALSE';
+
     // 1. Financial metrics (excluding cancelled)
     const financialQuery = `
       SELECT
@@ -1243,7 +1252,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        ${excludeCancelled}
     `;
     const financialData = await sql(financialQuery, [resolvedCompanyId, targetYear, targetMonth]);
     console.log(`[monthly-financial-summary] company=${resolvedCompanyId} year=${targetYear} month=${targetMonth} rows=${financialData.length} revenue=${financialData[0]?.total_revenue}`);
@@ -1281,7 +1290,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND UPPER(status) = 'CANCELADA'
+        ${onlyCancelled}
     `;
     const cancelledData = await sql(cancelledQuery, [resolvedCompanyId, targetYear, targetMonth]);
     const cancelled = cancelledData[0] || {};
@@ -1297,7 +1306,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        ${excludeCancelled}
       GROUP BY EXTRACT(WEEK FROM fecha::date)
       ORDER BY week_num
     `;
@@ -1326,7 +1335,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        ${excludeCancelled}
       GROUP BY familia_producto
       ORDER BY revenue DESC
     `;
@@ -1356,7 +1365,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        ${excludeCancelled}
         AND cliente IS NOT NULL AND cliente <> ''
       GROUP BY cliente
       ORDER BY total_revenue DESC
@@ -1402,7 +1411,7 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
       WHERE company_id = $1
         AND fecha >= make_date($2::int, $3::int, 1)
         AND fecha < (make_date($2::int, $3::int, 1) + INTERVAL '1 month')
-        AND (status IS NULL OR UPPER(status) <> 'CANCELADA')
+        ${excludeCancelled}
     `;
     const prevData = await sql(prevQuery, [resolvedCompanyId, prevYear, prevMonth]);
     const p = prevData[0] || {};
