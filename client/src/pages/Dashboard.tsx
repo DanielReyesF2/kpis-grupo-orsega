@@ -160,7 +160,7 @@ export default function Dashboard() {
               <RiskAlertsCard companyId={selectedCompany} />
             </div>
             <div className="col-span-12 lg:col-span-7">
-              <StrategicRecommendationsCard companyId={selectedCompany} />
+              <StrategicRecommendationsCard companyId={selectedCompany} year={selectedYear} month={selectedMonth} />
             </div>
           </div>
         </section>
