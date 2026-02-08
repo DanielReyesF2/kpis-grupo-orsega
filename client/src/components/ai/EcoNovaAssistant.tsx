@@ -31,6 +31,7 @@ import { useNovaChat } from "@/lib/econova-sdk/useNovaChat";
 import { usePageContext } from "@/hooks/usePageContext";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, getAuthToken, queryClient } from "@/lib/queryClient";
+import { messageMatchesUpdateIntent } from "@/lib/intentUpdateVentas";
 
 // EcoNova brand colors
 const COLORS = {
