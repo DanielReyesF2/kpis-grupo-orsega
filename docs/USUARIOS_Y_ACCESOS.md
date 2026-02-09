@@ -1,7 +1,7 @@
 # Usuarios del Sistema KPI - Credenciales y Accesos
 
 **Sistema:** KPIs Grupo Orsega
-**Fecha de generacion:** 2026-02-09
+**Fecha de actualizacion:** 2026-02-09
 
 ---
 
@@ -9,30 +9,32 @@
 
 | # | Nombre | Email (Usuario) | Password | Rol | Empresa | Area | Puede Login? |
 |---|--------|-----------------|----------|-----|---------|------|:------------:|
-| 1 | Admin | admin@econova.com | *(hash bcrypt - ver nota 1)* | admin | Todas | Todas | Si |
-| 23 | Daniel Martinez | daniel@econova.com.mx | *(hash bcrypt - ver nota 1)* | admin | Todas | Todas | Si |
-| 22 | Test User | test@test.com | *(hash bcrypt - ver nota 1)* | admin | Todas | Todas | Si |
-| 12 | Mario Reynoso | marioreynoso@grupoorsega.com | *(hash bcrypt - ver nota 1)* | manager | Todas (acceso especial) | Todas | Si |
-| 4 | Omar Navarro | omarnavarro@duraintal.com | *(hash bcrypt - ver nota 1)* | collaborator | Dura International | Ventas (Dura) | Si |
-| 10 | Guillermo Galindo | guillermo.galindo@econova.com | *(hash bcrypt - ver nota 1)* | collaborator | Dura International | Ventas (Dura) | Si |
-| 8 | Miranda de Koster | miranda.dekoster@econova.com | *(hash bcrypt - ver nota 1)* | collaborator | Dura International | Ventas (Dura) | Si |
-| 24 | Test Usuario Corregido | testcorrected@econova.com.mx | *(hash bcrypt - ver nota 1)* | collaborator | Dura International | Ventas (Dura) | Si |
-| 21 | Alejandra Palomera | alejandrapalomera@grupoorsega.com | *(hash bcrypt - ver nota 1)* | collaborator | *(sin asignar)* | Compras (Orsega) | Si |
-| 5 | Thalia Rodriguez | thaliarodriguez@grupoorsega.com | *(sin password)* | collaborator | Grupo Orsega | Logistica (Orsega) | NO |
-| 6 | Dolores Navarro | doloresnavarro@grupoorsega.com | *(sin password)* | collaborator | Dura International | Tesoreria (Dura) | NO |
-| 7 | Andrea Navarro | andreanavarro@duraintal.com | *(sin password)* | collaborator | Dura International | Compras (Orsega) | NO |
-| 11 | Julio Martell | julio.hernandez@econova.com | *(sin password)* | collaborator | Grupo Orsega | Contabilidad y Finanzas (Orsega) | NO |
-| 9 | Jesus Espinoza | jesus.martinez@econova.com | *(sin password)* | collaborator | Grupo Orsega | Ventas (Orsega) | NO |
+| 1 | Admin | admin@econova.com | AdminAdmin | admin | Todas | Todas | Si |
+| 23 | Daniel Martinez | daniel@econova.com.mx | DanielMartinez | admin | Todas | Todas | Si |
+| 22 | Test User | test@test.com | TestUser | admin | Todas | Todas | Si |
+| 12 | Mario Reynoso | marioreynoso@grupoorsega.com | MarioReynoso | manager | Todas (acceso especial) | Todas | Si |
+| 4 | Omar Navarro | omarnavarro@duraintal.com | OmarNavarro | collaborator | Dura International | Ventas (Dura) | Si |
+| 10 | Guillermo Galindo | guillermo.galindo@econova.com | GuillermoGalindo | collaborator | Dura International | Ventas (Dura) | Si |
+| 8 | Miranda de Koster | miranda.dekoster@econova.com | MirandadeKoster | collaborator | Dura International | Ventas (Dura) | Si |
+| 24 | Test Usuario Corregido | testcorrected@econova.com.mx | TestUsuarioCorregido | collaborator | Dura International | Ventas (Dura) | Si |
+| 21 | Alejandra Palomera | alejandrapalomera@grupoorsega.com | AlejandraPalomera | collaborator | *(sin asignar)* | Compras (Orsega) | Si |
+| 5 | Thalia Rodriguez | thaliarodriguez@grupoorsega.com | ThaliaRodriguez | collaborator | Grupo Orsega | Logistica (Orsega) | Si |
+| 6 | Dolores Navarro | doloresnavarro@grupoorsega.com | DoloresNavarro | collaborator | Dura International | Tesoreria (Dura) | Si |
+| 7 | Andrea Navarro | andreanavarro@duraintal.com | AndreaNavarro | collaborator | Dura International | Compras (Orsega) | Si |
+| 11 | Julio Martell | julio.hernandez@econova.com | JulioMartell | collaborator | Grupo Orsega | Contabilidad y Finanzas (Orsega) | Si |
+| 9 | Jesus Espinoza | jesus.martinez@econova.com | JesusEspinoza | collaborator | Grupo Orsega | Ventas (Orsega) | Si |
 
 ---
 
 ## Notas sobre Passwords
 
-1. **Passwords con hash bcrypt:** Las passwords estan almacenadas con hash bcrypt en la base de datos y no se pueden revertir. Fueron configuradas al momento de crear cada usuario. El script `scripts/fix_users_data.js` usa un fallback de `changeMe123` cuando la variable de entorno `DEFAULT_USER_PASSWORD` no esta configurada. El password real depende de lo que se haya configurado en produccion.
+1. **Formato de password:** La password de cada usuario es su Nombre + Apellido sin espacios. Ejemplo: Omar Navarro -> `OmarNavarro`
 
-2. **Usuarios sin password:** 5 usuarios (Thalia, Dolores, Andrea, Julio, Jesus) tienen el campo de password vacio en la migracion de produccion. Estos usuarios **no pueden iniciar sesion** hasta que un administrador les resetee la password.
+2. **Caso especial - Admin:** El usuario Admin no tiene apellido, su password es `AdminAdmin`.
 
-3. **Para resetear passwords:** Solo un usuario con rol `admin` puede resetear passwords de otros usuarios desde el panel de administracion.
+3. **Para aplicar estas passwords:** Ejecutar el script SQL `scripts/set-all-passwords.sql` en la consola de Neon o Railway. Este script contiene los hashes bcrypt pre-generados para cada usuario.
+
+4. **Para resetear passwords:** Solo un usuario con rol `admin` puede resetear passwords de otros usuarios desde el panel de administracion.
 
 ---
 
