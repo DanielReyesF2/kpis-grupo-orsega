@@ -58,6 +58,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
   const [dueDate, setDueDate] = useState<string>("");
+  const [paymentDate, setPaymentDate] = useState<string>("");
   const [reference, setReference] = useState<string>("");
 
   // Mutation para crear cuenta por pagar y subir archivo
@@ -79,6 +80,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
           amount: amount ? parseFloat(amount) : 0,
           currency,
           dueDate: dueDate || new Date().toISOString().split('T')[0],
+          paymentDate: paymentDate || null,
           reference: reference || null,
           status: "pending",
         }),
@@ -520,8 +522,21 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                 </div>
               </div>
 
-              {/* Fecha y referencia */}
+              {/* Fechas */}
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="paymentDate">Fecha de pago</Label>
+                  <div className="relative mt-1.5">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="paymentDate"
+                      type="date"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
                 <div>
                   <Label htmlFor="dueDate">Fecha vencimiento (opcional)</Label>
                   <div className="relative mt-1.5">
@@ -535,16 +550,18 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="reference">No. Factura (opcional)</Label>
-                  <Input
-                    id="reference"
-                    placeholder="Nova lo extraerá"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    className="mt-1.5"
-                  />
-                </div>
+              </div>
+
+              {/* Referencia */}
+              <div>
+                <Label htmlFor="reference">No. Factura (opcional)</Label>
+                <Input
+                  id="reference"
+                  placeholder="Nova lo extraerá"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="mt-1.5"
+                />
               </div>
             </div>
           </CardContent>
