@@ -337,8 +337,14 @@ export async function parseExcelIDRALL(workbook: Workbook): Promise<IDRALLParseR
 
       const folioData = parseFolio(getCellValue(row, 1));
       const status = parseStatus(getCellValue(row, 2));
-      const fecha = parseDate(getCellValue(row, 3), rowNumber);
+      const rawFecha = getCellValue(row, 3);
+      const fecha = parseDate(rawFecha, rowNumber);
       const cliente = getCellValue(row, 4)?.toString().trim() || '';
+
+      // Debug logging para las primeras 10 filas
+      if (rowNumber <= 12) {
+        console.log(`🔍 [IDRALL Parser] Fila ${rowNumber}: rawFecha=${JSON.stringify(rawFecha)}, tipo=${typeof rawFecha}, fecha=${fecha?.toISOString() || 'NULL'}, cliente=${cliente?.substring(0, 20)}`);
+      }
       const producto = getCellValue(row, 5)?.toString().trim() || '';
       const cantidad = parseNumber(getCellValue(row, 6));
       const tipoCambio = parseNumber(getCellValue(row, 7));
