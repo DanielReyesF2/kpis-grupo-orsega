@@ -153,9 +153,9 @@ export function VoucherDetailPanel({
                   }
                 />
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                  <User className="h-4 w-4 text-slate-500" />
-                  <span className="font-medium">{voucher.clientName}</span>
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                  <User className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{voucher.clientName || "N/A"}</span>
                 </div>
               )}
             </div>
@@ -192,9 +192,9 @@ export function VoucherDetailPanel({
                   />
                 </div>
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                  <DollarSign className="h-4 w-4 text-slate-500" />
-                  <span className="font-medium">
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                  <DollarSign className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
                     {voucher.extractedCurrency || "MXN"} $
                     {voucher.extractedAmount?.toLocaleString() || "0.00"}
                   </span>
@@ -218,9 +218,9 @@ export function VoucherDetailPanel({
                   }
                 />
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                  <Building2 className="h-4 w-4 text-slate-500" />
-                  <span>{voucher.extractedBank || "N/A"}</span>
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                  <Building2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-slate-900 dark:text-slate-100">{voucher.extractedBank || "N/A"}</span>
                 </div>
               )}
             </div>
@@ -248,9 +248,9 @@ export function VoucherDetailPanel({
                   }
                 />
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                  <Calendar className="h-4 w-4 text-slate-500" />
-                  <span>
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                  <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-slate-900 dark:text-slate-100">
                     {voucher.extractedDate
                       ? format(new Date(voucher.extractedDate), "dd MMM yyyy", {
                           locale: es,
@@ -277,9 +277,9 @@ export function VoucherDetailPanel({
                   }
                 />
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                  <FileText className="h-4 w-4 text-slate-500" />
-                  <span>{voucher.extractedReference || "N/A"}</span>
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                  <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-slate-900 dark:text-slate-100">{voucher.extractedReference || "N/A"}</span>
                 </div>
               )}
             </div>
@@ -289,9 +289,9 @@ export function VoucherDetailPanel({
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
                 Archivo
               </label>
-              <div className="flex items-center gap-2 p-2 rounded-md bg-slate-50 dark:bg-slate-900">
-                <FileText className="h-4 w-4 text-slate-500" />
-                <span className="text-sm truncate">{voucher.voucherFileName}</span>
+              <div className="flex items-center gap-2 p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span className="text-sm truncate text-slate-900 dark:text-slate-100">{voucher.voucherFileName || "N/A"}</span>
               </div>
             </div>
           </div>
@@ -314,8 +314,8 @@ export function VoucherDetailPanel({
                 placeholder="Agregar notas..."
               />
             ) : (
-              <div className="p-3 rounded-md bg-slate-50 dark:bg-slate-900 min-h-[100px]">
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+              <div className="p-3 rounded-md bg-slate-100 dark:bg-slate-800 min-h-[100px]">
+                <p className="text-sm text-slate-700 dark:text-slate-200">
                   {voucher.notes || "Sin notas"}
                 </p>
               </div>
