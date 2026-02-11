@@ -78,12 +78,12 @@ function parseDate(value: any): Date {
     const excelEpoch = Date.UTC(1899, 11, 30);
     return new Date(excelEpoch + value * 86400000);
   } else if (typeof value === 'string') {
-    // Intentar parsear formato DD/MM/YY o DD/MM/YYYY
+    // Intentar parsear formato MM/DD/YY o MM/DD/YYYY (formato US)
     const dateStr = value.trim();
     const dateParts = dateStr.split('/');
     if (dateParts.length === 3) {
-      const day = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]) - 1; // Mes es 0-indexed
+      const month = parseInt(dateParts[0]) - 1; // Mes es el primer valor (0-indexed)
+      const day = parseInt(dateParts[1]);       // Día es el segundo valor
       let year = parseInt(dateParts[2]);
       // Si el año es de 2 dígitos, asumir 2000-2099
       if (year < 100) {

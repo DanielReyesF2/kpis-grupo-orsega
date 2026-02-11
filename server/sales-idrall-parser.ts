@@ -138,11 +138,11 @@ function parseDate(value: any, rowNum?: number): Date | null {
   if (typeof value === 'string') {
     const dateStr = value.trim();
 
-    // Formato DD/MM/YY o DD/MM/YYYY
+    // Formato MM/DD/YY o MM/DD/YYYY (formato US usado en IDRALL)
     const parts = dateStr.split('/');
     if (parts.length === 3) {
-      const day = parseInt(parts[0]);
-      const month = parseInt(parts[1]) - 1;
+      const month = parseInt(parts[0]) - 1; // Mes es el primer valor
+      const day = parseInt(parts[1]);       // Día es el segundo valor
       let year = parseInt(parts[2]);
 
       // Convertir año de 2 dígitos
@@ -153,7 +153,7 @@ function parseDate(value: any, rowNum?: number): Date | null {
       // Usar UTC para evitar problemas de timezone
       const date = new Date(Date.UTC(year, month, day));
       if (rowNum && rowNum <= 7) {
-        console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha string "${dateStr}" → ${date.toISOString()} → mes=${date.getUTCMonth() + 1}, año=${date.getUTCFullYear()}`);
+        console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha string "${dateStr}" (MM/DD/YY) → ${date.toISOString()} → mes=${date.getUTCMonth() + 1}, año=${date.getUTCFullYear()}`);
       }
       return isNaN(date.getTime()) ? null : date;
     }

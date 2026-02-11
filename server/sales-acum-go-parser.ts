@@ -54,8 +54,9 @@ function parseDate(value: any, añoBase: number): Date | null {
   if (typeof value === 'string') {
     const parts = value.split(/[/\-.]/).map((p: string) => parseInt(p.trim(), 10));
     if (parts.length >= 3) {
-      const day = parts[0];
-      const month = (parts[1] ?? 1) - 1;
+      // Formato MM/DD/YY (formato US)
+      const month = (parts[0] ?? 1) - 1;  // Mes es el primer valor
+      const day = parts[1];                // Día es el segundo valor
       const year = parts[2]! < 100 ? 2000 + parts[2]! : parts[2]!;
       // Usar UTC para evitar problemas de timezone
       const d = new Date(Date.UTC(year, month, day));
