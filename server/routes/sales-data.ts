@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
+import ExcelJS from 'exceljs';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import { handleSalesUpload } from '../sales-upload-handler-NEW';
@@ -164,7 +165,6 @@ router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, ne
   });
 }, async (req, res) => {
   // Detectar formato del archivo y usar el handler apropiado
-  const ExcelJS = await import('exceljs');
   const file = (req as any).file;
 
   if (!file) {
@@ -241,7 +241,6 @@ router.post("/api/sales-data/import-from-nova", jwtAuthMiddleware, uploadLimiter
     next();
   });
 }, async (req, res) => {
-  const ExcelJS = await import('exceljs');
   const file = (req as any).file;
   const user = (req as any).user;
 
