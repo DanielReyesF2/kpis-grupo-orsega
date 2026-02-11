@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,7 +16,9 @@ import {
   Building2,
   Calendar,
   DollarSign,
-  Receipt
+  Receipt,
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -53,14 +54,13 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Datos de la factura
+  // Datos opcionales (se pueden llenar manualmente o los extrae Nova)
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
   const [dueDate, setDueDate] = useState<string>("");
   const [reference, setReference] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
 
-  // Mutation para crear cuenta por pagar
+  // Mutation para crear cuenta por pagar y subir archivo
   const createPaymentMutation = useMutation({
     mutationFn: async () => {
       const token = localStorage.getItem("authToken");
@@ -76,11 +76,10 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
           companyId,
           supplierName: selectedSupplier?.name,
           supplierId: selectedSupplier?.id,
-          amount: parseFloat(amount),
+          amount: amount ? parseFloat(amount) : 0,
           currency,
-          dueDate,
+          dueDate: dueDate || new Date().toISOString().split('T')[0],
           reference: reference || null,
-          notes: notes || null,
           status: "pending",
         }),
       });
@@ -92,7 +91,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
 
       const payment = await paymentRes.json();
 
-      // 2. Si hay archivo, subirlo
+      // 2. Subir el archivo (obligatorio en este flujo)
       if (file && payment.id) {
         const formData = new FormData();
         formData.append("file", file);
@@ -106,7 +105,13 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
         });
 
         if (!uploadRes.ok) {
+          // Si falla el upload, igual se creó el payment
           console.warn("No se pudo subir el archivo, pero la cuenta se creó");
+          toast({
+            title: "Aviso",
+            description: "La cuenta se creó pero el archivo no se pudo subir. Puedes subirlo después.",
+            variant: "destructive",
+          });
         }
       }
 
@@ -114,8 +119,8 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
     },
     onSuccess: () => {
       toast({
-        title: "Cuenta por pagar creada",
-        description: `Se registró el pago a ${selectedSupplier?.name} por ${currency} $${parseFloat(amount).toLocaleString()}`,
+        title: "Factura registrada",
+        description: `Se creó la cuenta por pagar a ${selectedSupplier?.name}. Nova AI extraerá los datos automáticamente.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
@@ -132,20 +137,13 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   });
 
   // File handling
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      processFile(selectedFile);
-    }
-  }, []);
-
-  const processFile = (selectedFile: File) => {
+  const processFile = useCallback((selectedFile: File) => {
     // Validar tipo
-    const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "application/xml", "text/xml"];
     if (!validTypes.includes(selectedFile.type)) {
       toast({
         title: "Formato no válido",
-        description: "Solo se permiten archivos PDF, PNG o JPG",
+        description: "Solo se permiten archivos PDF, PNG, JPG o XML",
         variant: "destructive",
       });
       return;
@@ -167,10 +165,19 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
       const reader = new FileReader();
       reader.onload = (e) => setFilePreview(e.target?.result as string);
       reader.readAsDataURL(selectedFile);
-    } else {
+    } else if (selectedFile.type.startsWith("image/")) {
       setFilePreview(URL.createObjectURL(selectedFile));
+    } else {
+      setFilePreview(null); // XML no tiene preview visual
     }
-  };
+  }, [toast]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      processFile(selectedFile);
+    }
+  }, [processFile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -193,7 +200,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
     if (droppedFile) {
       processFile(droppedFile);
     }
-  }, []);
+  }, [processFile]);
 
   const removeFile = () => {
     setFile(null);
@@ -211,9 +218,9 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
       case 2:
         return selectedSupplier !== null;
       case 3:
-        return amount && parseFloat(amount) > 0 && dueDate;
+        return file !== null; // Archivo es obligatorio
       case 4:
-        return true;
+        return true; // Los datos son opcionales
       default:
         return false;
     }
@@ -234,10 +241,10 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   };
 
   const handleSubmit = () => {
-    if (!companyId || !selectedSupplier || !amount || !dueDate) {
+    if (!companyId || !selectedSupplier || !file) {
       toast({
         title: "Error",
-        description: "Completa todos los campos requeridos",
+        description: "Selecciona empresa, proveedor y sube un archivo",
         variant: "destructive",
       });
       return;
@@ -286,7 +293,6 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
               selectedCompanyId={companyId}
               onSelect={(id) => {
                 setCompanyId(id);
-                // Reset supplier si cambia la empresa
                 if (selectedSupplier && selectedSupplier.company_id !== id) {
                   setSelectedSupplier(null);
                 }
@@ -309,13 +315,18 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
         </Card>
       )}
 
-      {/* Step 3: Datos de la Factura */}
+      {/* Step 3: Subir Factura */}
       {currentStep === 3 && (
         <Card>
           <CardContent className="p-6 space-y-6">
-            <h3 className="text-xl font-bold text-foreground">
-              Datos de la factura
-            </h3>
+            <div>
+              <h3 className="text-xl font-bold text-foreground">
+                Sube la factura
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                El sistema extraerá automáticamente los datos del documento
+              </p>
+            </div>
 
             {/* Resumen de selección */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
@@ -334,136 +345,6 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
               </div>
             </div>
 
-            {/* Monto */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="amount">Monto *</Label>
-                <div className="relative mt-1.5">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="pl-9"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Moneda</Label>
-                <div className="flex gap-2 mt-1.5">
-                  <Button
-                    type="button"
-                    variant={currency === "MXN" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setCurrency("MXN")}
-                  >
-                    MXN
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={currency === "USD" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setCurrency("USD")}
-                  >
-                    USD
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Fecha de vencimiento */}
-            <div>
-              <Label htmlFor="dueDate">Fecha de vencimiento *</Label>
-              <div className="relative mt-1.5">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            {/* Referencia */}
-            <div>
-              <Label htmlFor="reference">Referencia / No. Factura</Label>
-              <Input
-                id="reference"
-                placeholder="Ej: FAC-2024-001"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-
-            {/* Notas */}
-            <div>
-              <Label htmlFor="notes">Notas (opcional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Notas adicionales..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-1.5"
-                rows={2}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 4: Subir Archivo (Opcional) */}
-      {currentStep === 4 && (
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-foreground">
-                Adjuntar factura (opcional)
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Puedes adjuntar el PDF de la factura ahora o hacerlo después
-              </p>
-            </div>
-
-            {/* Resumen */}
-            <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-              <h4 className="font-semibold mb-3">Resumen de la cuenta por pagar</h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Empresa:</span>
-                  <p className="font-medium">{getCompanyName()}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Proveedor:</span>
-                  <p className="font-medium">{selectedSupplier?.name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Monto:</span>
-                  <p className="font-medium text-lg">
-                    {currency} ${parseFloat(amount || "0").toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vencimiento:</span>
-                  <p className="font-medium">
-                    {dueDate ? new Date(dueDate + "T12:00:00").toLocaleDateString("es-MX") : "-"}
-                  </p>
-                </div>
-                {reference && (
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Referencia:</span>
-                    <p className="font-medium">{reference}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Drop zone */}
             {!file ? (
               <div
@@ -472,19 +353,19 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                 onDrop={handleDrop}
                 onClick={() => document.getElementById("invoice-file")?.click()}
                 className={`
-                  border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
+                  border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all
                   ${isDragging
-                    ? "border-primary bg-primary/10"
+                    ? "border-primary bg-primary/10 scale-[1.02]"
                     : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"
                   }
                 `}
               >
-                <Upload className={`h-10 w-10 mx-auto mb-3 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
-                <p className="font-medium">
+                <Upload className={`h-12 w-12 mx-auto mb-4 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+                <p className="text-lg font-medium">
                   {isDragging ? "Suelta el archivo aquí" : "Arrastra la factura aquí"}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  PDF, PNG, JPG (máx. 10MB)
+                <p className="text-sm text-muted-foreground mt-2">
+                  PDF, PNG, JPG o XML (máx. 10MB)
                 </p>
                 <Button variant="outline" className="mt-4">
                   Seleccionar archivo
@@ -492,16 +373,18 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                 <input
                   id="invoice-file"
                   type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
+                  accept=".pdf,.png,.jpg,.jpeg,.xml"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
               </div>
             ) : (
-              <div className="border rounded-lg p-4">
+              <div className="border rounded-lg p-4 bg-primary/5 border-primary/20">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <FileText className="h-8 w-8 text-primary" />
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <FileText className="h-6 w-6 text-primary" />
+                    </div>
                     <div>
                       <p className="font-medium">{file.name}</p>
                       <p className="text-sm text-muted-foreground">
@@ -513,6 +396,8 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Preview */}
                 {filePreview && file.type === "application/pdf" && (
                   <PDFPreview file={file} />
                 )}
@@ -523,8 +408,145 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                     className="max-h-64 mx-auto rounded border"
                   />
                 )}
+                {file.type.includes("xml") && (
+                  <div className="p-4 bg-muted rounded text-center text-sm text-muted-foreground">
+                    Archivo XML - Los datos serán extraídos automáticamente
+                  </div>
+                )}
+
+                {/* Nova AI badge */}
+                <div className="mt-4 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/20">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                      Nova AI extraerá los datos automáticamente
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Monto, fecha de vencimiento, referencia y más
+                  </p>
+                </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 4: Confirmar (datos opcionales) */}
+      {currentStep === 4 && (
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">
+                Confirmar y crear
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Opcionalmente puedes agregar datos. Nova AI los extraerá del documento.
+              </p>
+            </div>
+
+            {/* Resumen */}
+            <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                Resumen
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Empresa:</span>
+                  <p className="font-medium">{getCompanyName()}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Proveedor:</span>
+                  <p className="font-medium">{selectedSupplier?.name}</p>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Archivo:</span>
+                  <p className="font-medium flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    {file?.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Datos opcionales */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="h-4 w-4" />
+                <span>Opcional: Puedes agregar datos manualmente o dejar que Nova los extraiga</span>
+              </div>
+
+              {/* Monto */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="amount">Monto (opcional)</Label>
+                  <div className="relative mt-1.5">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="Nova lo extraerá"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="pl-9"
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Moneda</Label>
+                  <div className="flex gap-2 mt-1.5">
+                    <Button
+                      type="button"
+                      variant={currency === "MXN" ? "default" : "outline"}
+                      className="flex-1"
+                      size="sm"
+                      onClick={() => setCurrency("MXN")}
+                    >
+                      MXN
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={currency === "USD" ? "default" : "outline"}
+                      className="flex-1"
+                      size="sm"
+                      onClick={() => setCurrency("USD")}
+                    >
+                      USD
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fecha y referencia */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="dueDate">Fecha vencimiento (opcional)</Label>
+                  <div className="relative mt-1.5">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="dueDate"
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="reference">No. Factura (opcional)</Label>
+                  <Input
+                    id="reference"
+                    placeholder="Nova lo extraerá"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -545,7 +567,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
           <Button
             onClick={handleSubmit}
             disabled={createPaymentMutation.isPending}
-            className="min-w-[150px]"
+            className="min-w-[180px] bg-emerald-600 hover:bg-emerald-700"
           >
             {createPaymentMutation.isPending ? (
               <>
@@ -555,7 +577,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
             ) : (
               <>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
-                Crear cuenta
+                Crear cuenta por pagar
               </>
             )}
           </Button>
