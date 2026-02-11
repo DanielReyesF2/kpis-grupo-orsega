@@ -53,13 +53,15 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Datos opcionales (se pueden llenar manualmente o los extrae Nova)
+  // Datos (se pueden llenar manualmente o los extrae Nova)
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
   const [dueDate, setDueDate] = useState<string>("");
   const [paymentDate, setPaymentDate] = useState<string>("");
   const [reference, setReference] = useState<string>("");
+  const [extractedIssuer, setExtractedIssuer] = useState<string | null>(null);
 
   // Mutation para crear cuenta por pagar y subir archivo
   const createPaymentMutation = useMutation({
@@ -138,6 +140,53 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
     },
   });
 
+  // Analyze file with Nova AI
+  const analyzeFile = useCallback(async (selectedFile: File) => {
+    setIsAnalyzing(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await fetch("/api/treasury/analyze-invoice", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.extracted) {
+          // Pre-fill form with extracted data
+          if (data.extracted.amount) {
+            setAmount(String(data.extracted.amount));
+          }
+          if (data.extracted.currency === "MXN" || data.extracted.currency === "USD") {
+            setCurrency(data.extracted.currency);
+          }
+          if (data.extracted.dueDate) {
+            setDueDate(data.extracted.dueDate);
+          }
+          if (data.extracted.invoiceNumber) {
+            setReference(data.extracted.invoiceNumber);
+          }
+          if (data.extracted.issuerName) {
+            setExtractedIssuer(data.extracted.issuerName);
+          }
+          toast({
+            title: "Datos extraídos",
+            description: "Los datos de la factura se han pre-llenado automáticamente",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error analyzing file:", error);
+      // No mostrar error - el usuario puede llenar manualmente
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [toast]);
+
   // File handling
   const processFile = useCallback((selectedFile: File) => {
     // Validar tipo
@@ -172,7 +221,10 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
     } else {
       setFilePreview(null); // XML no tiene preview visual
     }
-  }, [toast]);
+
+    // Analyze file to extract data
+    analyzeFile(selectedFile);
+  }, [toast, analyzeFile]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -419,14 +471,30 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                 {/* Nova AI badge */}
                 <div className="mt-4 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/20">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-violet-500" />
-                    <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
-                      Nova AI extraerá los datos automáticamente
-                    </span>
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
+                        <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                          Analizando documento...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 text-violet-500" />
+                        <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                          {amount || reference ? "Datos extraídos" : "Nova AI extraerá los datos"}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Monto, fecha de vencimiento, referencia y más
+                    {isAnalyzing ? "Extrayendo monto, fecha, referencia..." : "Monto, fecha de vencimiento, referencia y más"}
                   </p>
+                  {extractedIssuer && !isAnalyzing && (
+                    <p className="text-xs text-emerald-600 mt-1">
+                      Emisor detectado: {extractedIssuer}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -443,7 +511,9 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
                 Confirmar y crear
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Opcionalmente puedes agregar datos. Nova AI los extraerá del documento.
+                {amount || reference
+                  ? "Verifica los datos extraídos y ajusta si es necesario"
+                  : "Ingresa los datos de la factura manualmente"}
               </p>
             </div>
 
@@ -472,23 +542,30 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
               </div>
             </div>
 
-            {/* Datos opcionales */}
+            {/* Datos */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                <span>Opcional: Puedes agregar datos manualmente o dejar que Nova los extraiga</span>
-              </div>
+              {amount || reference ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Datos extraídos automáticamente - puedes ajustar si es necesario</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Ingresa los datos de la factura</span>
+                </div>
+              )}
 
               {/* Monto */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
-                  <Label htmlFor="amount">Monto (opcional)</Label>
+                  <Label htmlFor="amount">Monto</Label>
                   <div className="relative mt-1.5">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="amount"
                       type="number"
-                      placeholder="Nova lo extraerá"
+                      placeholder="0.00"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       className="pl-9"
@@ -554,10 +631,10 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
 
               {/* Referencia */}
               <div>
-                <Label htmlFor="reference">No. Factura (opcional)</Label>
+                <Label htmlFor="reference">No. Factura</Label>
                 <Input
                   id="reference"
-                  placeholder="Nova lo extraerá"
+                  placeholder="Folio o número de factura"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   className="mt-1.5"
