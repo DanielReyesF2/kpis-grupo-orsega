@@ -47,7 +47,8 @@ function parseDate(value: any, añoBase: number): Date | null {
   if (!value) return null;
   if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
   if (typeof value === 'number') {
-    const d = new Date((value - 25569) * 86400 * 1000);
+    // Excel serial date - usar UTC para evitar problemas de timezone
+    const d = new Date(Date.UTC(1899, 11, 30) + (value - 1) * 86400 * 1000);
     return isNaN(d.getTime()) ? null : d;
   }
   if (typeof value === 'string') {
@@ -56,7 +57,8 @@ function parseDate(value: any, añoBase: number): Date | null {
       const day = parts[0];
       const month = (parts[1] ?? 1) - 1;
       const year = parts[2]! < 100 ? 2000 + parts[2]! : parts[2]!;
-      const d = new Date(year, month, day);
+      // Usar UTC para evitar problemas de timezone
+      const d = new Date(Date.UTC(year, month, day));
       return isNaN(d.getTime()) ? null : d;
     }
   }
@@ -161,7 +163,7 @@ export async function parseAcumGO2026(workbook: Workbook): Promise<AcumGO2026Par
     const mes = colMes >= 0 ? (parseNumber(getVal(colMes)) ?? 0) : 0;
     const año = mes >= 1 && mes <= 12 ? añoBase : añoBase;
     const fechaVal = getVal(colFecha);
-    const fecha = parseDate(fechaVal, año) ?? (mes >= 1 && mes <= 12 ? new Date(año, mes - 1, 1) : new Date(año, 0, 1));
+    const fecha = parseDate(fechaVal, año) ?? (mes >= 1 && mes <= 12 ? new Date(Date.UTC(año, mes - 1, 1)) : new Date(Date.UTC(año, 0, 1)));
     const folio = colFactura >= 0 ? getStr(colFactura) : '';
     const producto = getStr(colProducto);
     if (!producto) continue;
@@ -177,8 +179,8 @@ export async function parseAcumGO2026(workbook: Workbook): Promise<AcumGO2026Par
     if (!rangoHasta || fecha > rangoHasta) rangoHasta = fecha;
 
     transacciones.push({
-      mes: fecha.getMonth() + 1,
-      año: fecha.getFullYear(),
+      mes: fecha.getUTCMonth() + 1,
+      año: fecha.getUTCFullYear(),
       fecha,
       folio,
       cliente,

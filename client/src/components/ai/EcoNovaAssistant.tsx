@@ -413,7 +413,7 @@ export function EcoNovaAssistant() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-5 py-3 rounded-full text-sm font-medium transition-all"
+            className="fixed bottom-5 right-5 max-sm:bottom-4 max-sm:right-4 z-50 flex items-center gap-2.5 px-5 py-3 max-sm:px-4 max-sm:py-3.5 rounded-full text-sm font-medium transition-all"
             style={{
               backgroundColor: COLORS.dark,
               color: '#ffffff',
@@ -428,7 +428,7 @@ export function EcoNovaAssistant() {
             </div>
             <span>NovaAI</span>
             <kbd
-              className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded"
+              className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded hidden sm:inline"
               style={{ backgroundColor: COLORS.darkLight, color: 'rgba(255,255,255,0.7)' }}
             >
               {'\u2318'}K
@@ -445,7 +445,7 @@ export function EcoNovaAssistant() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] px-4"
+            className="fixed inset-0 z-50 flex items-start max-sm:items-stretch justify-center pt-[8vh] max-sm:pt-0 px-4 max-sm:px-0"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
           >
             <motion.div
@@ -457,7 +457,9 @@ export function EcoNovaAssistant() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className="w-full max-w-[580px] flex flex-col overflow-hidden relative"
+              className="w-full max-w-[580px] flex flex-col overflow-hidden relative
+                         max-sm:max-w-none max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none
+                         max-sm:fixed max-sm:inset-0 max-sm:z-50"
               style={{
                 backgroundColor: COLORS.dark,
                 borderRadius: '20px',
@@ -483,7 +485,7 @@ export function EcoNovaAssistant() {
 
               {/* Header */}
               <div
-                className="flex items-center justify-between px-5 py-4"
+                className="flex items-center justify-between px-5 py-4 max-sm:px-4 max-sm:pt-[max(1rem,env(safe-area-inset-top))]"
                 style={{ borderBottom: `1px solid ${COLORS.darkLight}` }}
               >
                 <div className="flex items-center gap-3">
@@ -508,7 +510,7 @@ export function EcoNovaAssistant() {
                   {messages.length > 0 && (
                     <button
                       onClick={handleClear}
-                      className="p-2 rounded-lg transition-colors"
+                      className="p-2 max-sm:p-3 rounded-lg transition-colors"
                       style={{ color: 'rgba(255,255,255,0.5)' }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = COLORS.darkLight;
@@ -525,7 +527,7 @@ export function EcoNovaAssistant() {
                   )}
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="p-2 rounded-lg transition-colors"
+                    className="p-2 max-sm:p-3 rounded-lg transition-colors"
                     style={{ color: 'rgba(255,255,255,0.5)' }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = COLORS.darkLight;
@@ -543,7 +545,7 @@ export function EcoNovaAssistant() {
 
               {/* Modo datos (GODINTAL): desbloquear para confirmar importaciones */}
               <div
-                className="px-5 py-2 flex items-center justify-between gap-2"
+                className="px-5 py-2 max-sm:px-4 max-sm:py-3 flex items-center justify-between gap-2"
                 style={{ borderBottom: `1px solid ${COLORS.darkLight}`, backgroundColor: 'rgba(0,0,0,0.15)' }}
               >
                 {dataModeUnlocked ? (
@@ -576,7 +578,7 @@ export function EcoNovaAssistant() {
                       type="button"
                       onClick={handleUnlockDataMode}
                       disabled={!dataModePassword.trim() || dataModeChecking}
-                      className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                      className="px-3 py-1.5 max-sm:px-4 max-sm:py-2.5 rounded text-xs font-medium disabled:opacity-50"
                       style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
                     >
                       {dataModeChecking ? '...' : 'Desbloquear'}
@@ -588,7 +590,7 @@ export function EcoNovaAssistant() {
               {/* Content */}
               <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto"
+                className="flex-1 overflow-y-auto overscroll-contain max-sm:min-h-0"
                 style={{ minHeight: '250px', maxHeight: 'calc(75vh - 160px)' }}
               >
                 {messages.length === 0 ? (
@@ -752,7 +754,7 @@ export function EcoNovaAssistant() {
 
               {/* Input */}
               <div
-                className="p-4"
+                className="p-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]"
                 style={{ borderTop: `1px solid ${COLORS.darkLight}` }}
               >
                 <form onSubmit={handleSubmit} className="relative">
@@ -764,7 +766,7 @@ export function EcoNovaAssistant() {
                     placeholder="Escribe tu pregunta..."
                     rows={1}
                     disabled={isLoading}
-                    className="w-full resize-none rounded-xl px-4 py-3 pl-11 pr-14 text-sm focus:outline-none transition-all"
+                    className="w-full resize-none rounded-xl px-4 py-3 pl-11 pr-14 text-sm max-sm:text-base focus:outline-none transition-all"
                     style={{
                       backgroundColor: COLORS.darkLight,
                       border: `1px solid ${COLORS.darkLighter}`,
@@ -800,7 +802,7 @@ export function EcoNovaAssistant() {
                   <button
                     type="submit"
                     disabled={(!input.trim() && attachedFiles.length === 0) || isLoading}
-                    className="absolute right-2 bottom-2 p-2.5 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="absolute right-2 bottom-2 p-2.5 max-sm:p-3 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: COLORS.lime,
                       color: COLORS.dark
@@ -817,8 +819,9 @@ export function EcoNovaAssistant() {
                     <ArrowUp className="h-4 w-4" />
                   </button>
                 </form>
+                {/* Keyboard shortcuts - hidden on mobile */}
                 <div
-                  className="flex items-center justify-center gap-4 mt-3 text-[11px]"
+                  className="hidden sm:flex items-center justify-center gap-4 mt-3 text-[11px]"
                   style={{ color: 'rgba(255,255,255,0.4)' }}
                 >
                   <span className="flex items-center gap-1.5">

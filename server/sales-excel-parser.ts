@@ -68,15 +68,15 @@ function parseNumber(value: any): number | null {
 }
 
 /**
- * Función auxiliar para parsear fechas del Excel
+ * Función auxiliar para parsear fechas del Excel (usando UTC para evitar problemas de timezone)
  */
 function parseDate(value: any): Date {
   if (value instanceof Date) {
     return value;
   } else if (typeof value === 'number') {
-    // Excel serial date (días desde 1900-01-01)
-    const excelEpoch = new Date(1899, 11, 30);
-    return new Date(excelEpoch.getTime() + value * 86400000);
+    // Excel serial date (días desde 1899-12-30) - usar UTC
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    return new Date(excelEpoch + value * 86400000);
   } else if (typeof value === 'string') {
     // Intentar parsear formato DD/MM/YY o DD/MM/YYYY
     const dateStr = value.trim();
@@ -89,7 +89,8 @@ function parseDate(value: any): Date {
       if (year < 100) {
         year = year < 50 ? 2000 + year : 1900 + year;
       }
-      return new Date(year, month, day);
+      // Usar UTC para evitar problemas de timezone
+      return new Date(Date.UTC(year, month, day));
     } else {
       return new Date(dateStr);
     }
@@ -124,8 +125,8 @@ function parseVentasDI(workbook: Workbook): SalesTransaction[] {
     const cantidad = parseNumber(row.getCell(5).value);
     const precioUnitario = parseNumber(row.getCell(6).value);
     const importe = parseNumber(row.getCell(7).value);
-    const año = parseInt(row.getCell(8).value?.toString() || '') || fecha.getFullYear();
-    const mes = parseInt(row.getCell(9).value?.toString() || '') || (fecha.getMonth() + 1);
+    const año = parseInt(row.getCell(8).value?.toString() || '') || fecha.getUTCFullYear();
+    const mes = parseInt(row.getCell(9).value?.toString() || '') || (fecha.getUTCMonth() + 1);
 
     // Validar campos requeridos
     if (!cliente || !producto || !cantidad || cantidad <= 0) {
@@ -247,8 +248,8 @@ function parseVentasGO(workbook: Workbook): SalesTransaction[] {
       return; // Skip fila inválida
     }
 
-    const año = fecha.getFullYear();
-    const mes = fecha.getMonth() + 1;
+    const año = fecha.getUTCFullYear();
+    const mes = fecha.getUTCMonth() + 1;
 
     transacciones.push({
       fecha,

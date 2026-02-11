@@ -113,17 +113,25 @@ function parseNumber(value: any): number | null {
 /**
  * Parsea una fecha del Excel (puede ser Date, número serial, o string)
  */
-function parseDate(value: any): Date | null {
+function parseDate(value: any, rowNum?: number): Date | null {
   if (!value) return null;
 
   if (value instanceof Date) {
+    // Log para debugging de fechas (solo primeras 5 filas con datos)
+    if (rowNum && rowNum <= 7) {
+      console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha como Date object: ${value.toISOString()} → mes=${value.getMonth() + 1}, año=${value.getFullYear()}`);
+    }
     return isNaN(value.getTime()) ? null : value;
   }
 
   if (typeof value === 'number') {
     // Excel serial date (días desde 1899-12-30)
-    const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch.getTime() + value * 86400000);
+    // Usar UTC para evitar problemas de timezone
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    const date = new Date(excelEpoch + value * 86400000);
+    if (rowNum && rowNum <= 7) {
+      console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha como serial ${value} → ${date.toISOString()} → mes=${date.getMonth() + 1}, año=${date.getFullYear()}`);
+    }
     return isNaN(date.getTime()) ? null : date;
   }
 
@@ -142,12 +150,19 @@ function parseDate(value: any): Date | null {
         year = year < 50 ? 2000 + year : 1900 + year;
       }
 
-      const date = new Date(year, month, day);
+      // Usar UTC para evitar problemas de timezone
+      const date = new Date(Date.UTC(year, month, day));
+      if (rowNum && rowNum <= 7) {
+        console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha string "${dateStr}" → ${date.toISOString()} → mes=${date.getUTCMonth() + 1}, año=${date.getUTCFullYear()}`);
+      }
       return isNaN(date.getTime()) ? null : date;
     }
 
     // Intentar parseo genérico
     const date = new Date(dateStr);
+    if (rowNum && rowNum <= 7) {
+      console.log(`📅 [IDRALL Parser] Fila ${rowNum}: Fecha genérica "${dateStr}" → ${date.toISOString()}`);
+    }
     return isNaN(date.getTime()) ? null : date;
   }
 
@@ -155,10 +170,10 @@ function parseDate(value: any): Date | null {
 }
 
 /**
- * Calcula el número de semana del año para una fecha
+ * Calcula el número de semana del año para una fecha (usando UTC)
  */
 function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -322,7 +337,7 @@ export async function parseExcelIDRALL(workbook: Workbook): Promise<IDRALLParseR
 
       const folioData = parseFolio(getCellValue(row, 1));
       const status = parseStatus(getCellValue(row, 2));
-      const fecha = parseDate(getCellValue(row, 3));
+      const fecha = parseDate(getCellValue(row, 3), rowNumber);
       const cliente = getCellValue(row, 4)?.toString().trim() || '';
       const producto = getCellValue(row, 5)?.toString().trim() || '';
       const cantidad = parseNumber(getCellValue(row, 6));
@@ -387,14 +402,15 @@ export async function parseExcelIDRALL(workbook: Workbook): Promise<IDRALLParseR
       if (!fechaMax || fecha > fechaMax) fechaMax = fecha;
 
       // Crear registro
+      // Usar métodos UTC para evitar problemas de timezone
       const transaccion: IDRALLTransaction = {
         folio: folioData.folio,
         folioNumero: folioData.numero,
         folioSecuencia: folioData.secuencia,
         status,
         fecha,
-        año: fecha.getFullYear(),
-        mes: fecha.getMonth() + 1,
+        año: fecha.getUTCFullYear(),
+        mes: fecha.getUTCMonth() + 1,
         semana: getWeekNumber(fecha),
         cliente,
         producto,

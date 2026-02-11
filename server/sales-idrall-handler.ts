@@ -230,18 +230,20 @@ export async function handleIDRALLUpload(
               product_id = $4,
               producto = $5,
               cantidad = $6,
-              tipo_cambio = $7,
-              precio_unitario = $8,
-              importe = $9,
-              lote = $10,
-              tipo_cambio_costo = $11,
-              costo_unitario = $12,
-              utilidad_perdida = $13,
-              utilidad_con_gastos = $14,
-              utilidad_porcentaje = $15,
-              upload_id = $16,
+              mes = $7,
+              anio = $8,
+              tipo_cambio = $9,
+              precio_unitario = $10,
+              importe = $11,
+              lote = $12,
+              tipo_cambio_costo = $13,
+              costo_unitario = $14,
+              utilidad_perdida = $15,
+              utilidad_con_gastos = $16,
+              utilidad_porcentaje = $17,
+              upload_id = $18,
               updated_at = CURRENT_TIMESTAMP
-            WHERE id = $17
+            WHERE id = $19
           `, [
             tx.status,
             clientId,
@@ -249,6 +251,8 @@ export async function handleIDRALLUpload(
             productId,
             tx.producto,
             tx.cantidad,
+            tx.mes,
+            tx.año,
             tx.tipoCambio,
             tx.precioUnitario,
             tx.importe,
@@ -267,18 +271,18 @@ export async function handleIDRALLUpload(
           await sql(`
             INSERT INTO ventas (
               company_id, submodulo, client_id, cliente, product_id, producto,
-              cantidad, unidad, fecha,
+              cantidad, unidad, fecha, mes, anio,
               folio, folio_numero, folio_secuencia, status,
               tipo_cambio, precio_unitario, importe, lote,
               tipo_cambio_costo, costo_unitario, utilidad_perdida,
               utilidad_con_gastos, utilidad_porcentaje, upload_id
             ) VALUES (
               $1, $2, $3, $4, $5, $6,
-              $7, $8, $9,
-              $10, $11, $12, $13,
-              $14, $15, $16, $17,
-              $18, $19, $20,
-              $21, $22, $23
+              $7, $8, $9, $10, $11,
+              $12, $13, $14, $15,
+              $16, $17, $18, $19,
+              $20, $21, $22,
+              $23, $24, $25
             )
           `, [
             resolvedCompanyId,
@@ -290,6 +294,8 @@ export async function handleIDRALLUpload(
             tx.cantidad,
             'KG',
             tx.fecha.toISOString().split('T')[0],
+            tx.mes,
+            tx.año,
             tx.folio,
             tx.folioNumero,
             tx.folioSecuencia,

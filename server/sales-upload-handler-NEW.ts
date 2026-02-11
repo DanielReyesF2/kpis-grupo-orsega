@@ -175,9 +175,9 @@ export async function handleSalesUpload(
       await sql(`
         INSERT INTO ventas (
           company_id, submodulo, client_id, cliente, product_id, producto,
-          cantidad, unidad, fecha,
+          cantidad, unidad, fecha, mes, anio,
           factura, folio, precio_unitario, importe, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       `, [
         1, // company_id: DI
         'DI', // submodulo
@@ -188,6 +188,8 @@ export async function handleSalesUpload(
         tx.cantidad,
         'KG',
         tx.fecha.toISOString().split('T')[0],
+        tx.mes,
+        tx.año,
         tx.folio,
         tx.folio,
         tx.precioUnitario,
@@ -240,9 +242,9 @@ export async function handleSalesUpload(
       await sql(`
         INSERT INTO ventas (
           company_id, submodulo, client_id, cliente, product_id, producto,
-          cantidad, unidad, fecha,
+          cantidad, unidad, fecha, mes, anio,
           factura, importe, tipo_cambio, importe_mn, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       `, [
         2, // company_id: GO
         'GO', // submodulo
@@ -253,6 +255,8 @@ export async function handleSalesUpload(
         tx.cantidad,
         'unidades',
         tx.fecha.toISOString().split('T')[0],
+        tx.mes,
+        tx.año,
         tx.folio,
         tx.importe,
         tx.tipoCambio,
