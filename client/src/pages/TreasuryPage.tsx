@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, History, FileText, DollarSign } from "lucide-react";
+import { Users, History, FileText, DollarSign, Upload } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -15,9 +15,10 @@ import { es } from "date-fns/locale";
 import { VoucherKanbanBoard } from "@/components/treasury/vouchers/VoucherKanbanBoard";
 import { PaymentHistory } from "@/components/treasury/PaymentHistory";
 import { ManageSuppliersFlow } from "@/components/treasury/flows/ManageSuppliersFlow";
+import { UploadInvoiceFlow } from "@/components/treasury/flows/UploadInvoiceFlow";
 import { ExchangeRateDashboard } from "@/components/treasury/ExchangeRateDashboard";
 
-type ViewMode = "main" | "suppliers" | "history" | "exchange-rates";
+type ViewMode = "main" | "suppliers" | "history" | "exchange-rates" | "upload";
 
 export default function TreasuryPage() {
   const { toast } = useToast();
@@ -196,17 +197,35 @@ export default function TreasuryPage() {
     );
   }
 
+  // Vista de Subir Factura
+  if (viewMode === "upload") {
+    return (
+      <AppLayout title="Tesorería - Registrar Factura">
+        <UploadInvoiceFlow
+          onBack={() => { setViewMode("main"); setLocation("/treasury"); }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+          }}
+        />
+      </AppLayout>
+    );
+  }
+
   // Vista Principal
   return (
     <AppLayout title="Tesorería">
       <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6">
         {/* Acciones de página */}
         <div className="flex justify-end gap-2">
-            <Button variant="default" size="sm" onClick={() => setViewMode("suppliers")}>
+            <Button variant="default" size="sm" onClick={() => setViewMode("upload")} className="bg-emerald-600 hover:bg-emerald-700">
+              <Upload className="h-4 w-4 mr-2" />
+              Subir Factura
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setViewMode("suppliers")}>
               <Users className="h-4 w-4 mr-2" />
               Proveedores
             </Button>
-            <Button variant="default" size="sm" onClick={() => setViewMode("history")}>
+            <Button variant="outline" size="sm" onClick={() => setViewMode("history")}>
               <History className="h-4 w-4 mr-2" />
               Historial
             </Button>
