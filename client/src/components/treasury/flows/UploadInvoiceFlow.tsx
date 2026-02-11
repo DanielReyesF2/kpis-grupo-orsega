@@ -1,10 +1,18 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,7 +22,7 @@ import {
   CheckCircle2,
   Loader2,
   Building2,
-  Calendar,
+  CalendarIcon,
   DollarSign,
   Receipt,
   Sparkles,
@@ -59,7 +67,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
   const [dueDate, setDueDate] = useState<string>("");
-  const [paymentDate, setPaymentDate] = useState<string>("");
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(undefined);
   const [reference, setReference] = useState<string>("");
   const [extractedIssuer, setExtractedIssuer] = useState<string | null>(null);
 
@@ -82,7 +90,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
           amount: amount ? parseFloat(amount) : 0,
           currency,
           dueDate: dueDate || new Date().toISOString().split('T')[0],
-          paymentDate: paymentDate || null,
+          paymentDate: paymentDate ? format(paymentDate, 'yyyy-MM-dd') : null,
           reference: reference || null,
           status: "pending",
         }),
@@ -602,22 +610,34 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
               {/* Fechas */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="paymentDate">Fecha de pago</Label>
-                  <div className="relative mt-1.5">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="paymentDate"
-                      type="date"
-                      value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
+                  <Label>Fecha de pago</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-start text-left font-normal mt-1.5 ${
+                          !paymentDate && "text-muted-foreground"
+                        }`}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {paymentDate ? format(paymentDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={paymentDate}
+                        onSelect={setPaymentDate}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label htmlFor="dueDate">Fecha vencimiento (opcional)</Label>
                   <div className="relative mt-1.5">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="dueDate"
                       type="date"
