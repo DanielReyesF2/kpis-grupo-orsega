@@ -15,8 +15,9 @@ export function PDFViewer({ fileUrl, fileName = "documento.pdf", onDownload, cla
   const [hasError, setHasError] = useState(false);
 
   // Construir URL completa si es relativa
-  const fullUrl = fileUrl.startsWith("http") 
-    ? fileUrl 
+  // blob: y data: URLs son absolutas y deben usarse directamente
+  const fullUrl = fileUrl.startsWith("http") || fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")
+    ? fileUrl
     : `${window.location.origin}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
 
   const handleDownload = () => {
