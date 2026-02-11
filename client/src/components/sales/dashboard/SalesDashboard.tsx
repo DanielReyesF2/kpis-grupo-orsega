@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, DollarSign, Users, Target, X } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Target, X, Upload, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +25,9 @@ import { ClientTrendsTable } from "./ClientTrendsTable";
 // KPIS Modal
 import { SalesAnalyst } from "../analyst/SalesAnalyst";
 
+// Excel Uploader
+import { SalesExcelUploader } from "../SalesExcelUploader";
+
 interface SalesDashboardProps {
   companyId?: number;
 }
@@ -35,6 +38,9 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
 
   // Estado para el modal de KPIS
   const [showKPIsModal, setShowKPIsModal] = useState(false);
+
+  // Estado para mostrar/ocultar el uploader de Excel
+  const [showUploader, setShowUploader] = useState(false);
 
   // Fetch sales stats for KPIs
   const { data: salesStats, isLoading: isLoadingStats, error: statsError } = useQuery({
@@ -82,6 +88,12 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         ]}
         actions={[
           {
+            label: showUploader ? "Ocultar Upload" : "Actualizar Datos",
+            onClick: () => setShowUploader(!showUploader),
+            variant: "outline" as const,
+            icon: Upload
+          },
+          {
             label: "KPIS",
             onClick: () => {
               setShowKPIsModal(true);
@@ -92,6 +104,21 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
           }
         ]}
       />
+
+      {/* Excel Uploader - Sección colapsible */}
+      {showUploader && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+          <SalesExcelUploader
+            companyId={resolvedCompanyId}
+            onUploadComplete={(result) => {
+              if (result.success) {
+                // Auto-ocultar después de 3 segundos en caso de éxito
+                setTimeout(() => setShowUploader(false), 3000);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* KPIs Principales - Grid 4 columnas */}
       {isLoadingStats ? (
