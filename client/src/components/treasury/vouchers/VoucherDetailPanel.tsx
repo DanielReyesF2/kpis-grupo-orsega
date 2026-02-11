@@ -296,6 +296,39 @@ export function VoucherDetailPanel({
             </div>
           </div>
 
+          {/* Estado REP */}
+          <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">
+                  Complemento de Pago (REP)
+                </label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {voucher.status === "complemento_recibido" || voucher.status === "cierre_contable"
+                    ? "El complemento ya fue recibido"
+                    : voucher.status === "pendiente_complemento"
+                    ? "Pendiente de recibir del proveedor"
+                    : "Se solicitará después del pago"}
+                </p>
+              </div>
+              <Badge
+                className={
+                  voucher.status === "complemento_recibido" || voucher.status === "cierre_contable"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    : voucher.status === "pendiente_complemento"
+                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                }
+              >
+                {voucher.status === "complemento_recibido" || voucher.status === "cierre_contable"
+                  ? "Recibido"
+                  : voucher.status === "pendiente_complemento"
+                  ? "Pendiente"
+                  : "Por solicitar"}
+              </Badge>
+            </div>
+          </div>
+
           {/* Notas */}
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
@@ -310,43 +343,17 @@ export function VoucherDetailPanel({
                     notes: e.target.value,
                   })
                 }
-                rows={4}
+                rows={3}
                 placeholder="Agregar notas..."
               />
             ) : (
-              <div className="p-3 rounded-md bg-slate-100 dark:bg-slate-800 min-h-[100px]">
+              <div className="p-3 rounded-md bg-slate-100 dark:bg-slate-800 min-h-[60px]">
                 <p className="text-sm text-slate-700 dark:text-slate-200">
                   {voucher.notes || "Sin notas"}
                 </p>
               </div>
             )}
           </div>
-
-          {/* Confianza OCR */}
-          {voucher.ocrConfidence !== null && (
-            <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
-                Confianza OCR
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      voucher.ocrConfidence > 0.7
-                        ? "bg-green-500"
-                        : voucher.ocrConfidence > 0.5
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                    }`}
-                    style={{ width: `${voucher.ocrConfidence * 100}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium">
-                  {(voucher.ocrConfidence * 100).toFixed(0)}%
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       </SheetContent>
     </Sheet>
