@@ -580,7 +580,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [4/10] Volumen año ${maxYear}...`);
     const currentYearVolumeQuery = `
-      SELECT COALESCE(SUM(quantity), 0) as total_volume
+      SELECT COALESCE(SUM(cantidad), 0) as total_volume
       FROM ventas
       WHERE company_id = $1
         AND anio = $2
@@ -598,7 +598,7 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [5/10] Volumen año ${maxYear - 1}...`);
     const previousYearVolumeQuery = `
-      SELECT COALESCE(SUM(quantity), 0) as total_volume
+      SELECT COALESCE(SUM(cantidad), 0) as total_volume
       FROM ventas
       WHERE company_id = $1
         AND anio = $2
@@ -646,12 +646,12 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   try {
     console.log(`[getSalesMetrics] [8/10] Obteniendo unidad...`);
     const unitQuery = `
-      SELECT COALESCE(MAX(unit), $2) as unit
+      SELECT COALESCE(MAX(unidad), $2) as unidad
       FROM ventas
       WHERE company_id = $1
     `;
     const unitResult = await sql(unitQuery, [companyId, defaultUnit]);
-    unit = unitResult[0]?.unit || defaultUnit;
+    unit = unitResult[0]?.unidad || defaultUnit;
     console.log(`[getSalesMetrics] ✓ Unidad: ${unit}`);
   } catch (error) {
     console.error(`[getSalesMetrics] ❌ Error obteniendo unidad:`, error);
