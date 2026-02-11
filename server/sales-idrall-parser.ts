@@ -336,16 +336,23 @@ export async function parseExcelIDRALL(workbook: Workbook): Promise<IDRALLParseR
       // O(15): Utilidad aprc % UT
 
       const folioData = parseFolio(getCellValue(row, 1));
-      const status = parseStatus(getCellValue(row, 2));
+      const rawStatus = getCellValue(row, 2);
+      const status = parseStatus(rawStatus);
       const rawFecha = getCellValue(row, 3);
       const fecha = parseDate(rawFecha, rowNumber);
       const cliente = getCellValue(row, 4)?.toString().trim() || '';
-
-      // Debug logging para las primeras 10 filas
-      if (rowNumber <= 12) {
-        console.log(`🔍 [IDRALL Parser] Fila ${rowNumber}: rawFecha=${JSON.stringify(rawFecha)}, tipo=${typeof rawFecha}, fecha=${fecha?.toISOString() || 'NULL'}, cliente=${cliente?.substring(0, 20)}`);
-      }
       const producto = getCellValue(row, 5)?.toString().trim() || '';
+
+      // Debug logging detallado para las primeras 15 filas
+      if (rowNumber <= 15) {
+        console.log(`🔍 [IDRALL] Fila ${rowNumber}:`);
+        console.log(`   Col1(Folio): ${JSON.stringify(getCellValue(row, 1))}`);
+        console.log(`   Col2(Status): ${JSON.stringify(rawStatus)} → ${status}`);
+        console.log(`   Col3(Fecha): ${JSON.stringify(rawFecha)} → ${fecha?.toISOString() || 'NULL'}`);
+        console.log(`   Col4(Cliente): ${JSON.stringify(cliente?.substring(0, 30))}`);
+        console.log(`   Col5(Producto): ${JSON.stringify(producto?.substring(0, 30))}`);
+        console.log(`   Col6(Cantidad): ${JSON.stringify(getCellValue(row, 6))}`);
+      }
       const cantidad = parseNumber(getCellValue(row, 6));
       const tipoCambio = parseNumber(getCellValue(row, 7));
       const precioUnitario = parseNumber(getCellValue(row, 8));
