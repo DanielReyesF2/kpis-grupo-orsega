@@ -198,7 +198,7 @@ export async function handleIDRALLUpload(
         let productId: number | null = null;
         const productResult = await sql(`
           SELECT id FROM products
-          WHERE company_id = $1 AND LOWER(product_name) = LOWER($2)
+          WHERE company_id = $1 AND LOWER(name) = LOWER($2)
           LIMIT 1
         `, [resolvedCompanyId, tx.producto]);
 
@@ -206,8 +206,8 @@ export async function handleIDRALLUpload(
           productId = productResult[0].id;
         } else {
           const newProduct = await sql(`
-            INSERT INTO products (company_id, product_name, unit, is_active)
-            VALUES ($1, $2, 'KG', true)
+            INSERT INTO products (company_id, name, is_active)
+            VALUES ($1, $2, true)
             ON CONFLICT DO NOTHING
             RETURNING id
           `, [resolvedCompanyId, tx.producto]);
