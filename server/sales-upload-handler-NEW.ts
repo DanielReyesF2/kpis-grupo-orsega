@@ -172,12 +172,13 @@ export async function handleSalesUpload(
       const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
       const saleWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 
+      // mes y anio son GENERATED ALWAYS desde fecha
       await sql(`
         INSERT INTO ventas (
           company_id, submodulo, client_id, cliente, product_id, producto,
-          cantidad, unidad, fecha, mes, anio,
+          cantidad, unidad, fecha,
           factura, folio, precio_unitario, importe, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
         1, // company_id: DI
         'DI', // submodulo
@@ -188,8 +189,6 @@ export async function handleSalesUpload(
         tx.cantidad,
         'KG',
         tx.fecha.toISOString().split('T')[0],
-        tx.mes,
-        tx.año,
         tx.folio,
         tx.folio,
         tx.precioUnitario,
@@ -239,12 +238,13 @@ export async function handleSalesUpload(
       const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
       const saleWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 
+      // mes y anio son GENERATED ALWAYS desde fecha
       await sql(`
         INSERT INTO ventas (
           company_id, submodulo, client_id, cliente, product_id, producto,
-          cantidad, unidad, fecha, mes, anio,
+          cantidad, unidad, fecha,
           factura, importe, tipo_cambio, importe_mn, upload_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
         2, // company_id: GO
         'GO', // submodulo
@@ -255,8 +255,6 @@ export async function handleSalesUpload(
         tx.cantidad,
         'unidades',
         tx.fecha.toISOString().split('T')[0],
-        tx.mes,
-        tx.año,
         tx.folio,
         tx.importe,
         tx.tipoCambio,
