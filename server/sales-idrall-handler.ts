@@ -341,6 +341,24 @@ export async function handleIDRALLUpload(
     console.log(`   - Clientes nuevos: ${clientesCreados.size}`);
     console.log(`   - Productos nuevos: ${productosCreados.size}`);
 
+    // Debug: mostrar info del parser
+    const debugInfo = {
+      totalTransacciones: parseResult.transacciones.length,
+      transaccionesActivas: parseResult.transacciones.filter(t => t.status === 'ACTIVO').length,
+      transaccionesCanceladas: parseResult.transacciones.filter(t => t.status === 'CANCELADO').length,
+      primerasTransacciones: parseResult.transacciones.slice(0, 3).map(t => ({
+        folio: t.folio,
+        status: t.status,
+        fecha: t.fecha?.toISOString(),
+        cliente: t.cliente?.substring(0, 20),
+        producto: t.producto?.substring(0, 20),
+        cantidad: t.cantidad
+      })),
+      erroresParser: parseResult.errores.slice(0, 5)
+    };
+
+    console.log('🔍 [IDRALL Debug]:', JSON.stringify(debugInfo, null, 2));
+
     res.json({
       success: true,
       message: 'Archivo procesado exitosamente',
@@ -355,7 +373,8 @@ export async function handleIDRALLUpload(
         errores: parseResult.errores.length
       },
       resumen: parseResult.resumen,
-      errores: parseResult.errores.slice(0, 10)
+      errores: parseResult.errores.slice(0, 10),
+      debug: debugInfo
     });
 
   } catch (error: any) {
