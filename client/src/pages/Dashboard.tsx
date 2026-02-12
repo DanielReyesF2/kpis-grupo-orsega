@@ -14,7 +14,7 @@ import { AnomaliesCard } from '@/components/dashboard/AnomaliesCard';
 import { ClientEfficiencyCard } from '@/components/dashboard/ClientEfficiencyCard';
 import { DerivedKPIsCard } from '@/components/dashboard/DerivedKPIsCard';
 import { StrategicRecommendationsCard } from '@/components/dashboard/StrategicRecommendationsCard';
-import { AIInsightsBanner } from '@/components/dashboard/AIInsightsBanner';
+import { AIInsightsWidget } from '@/components/dashboard/AIInsightsWidget';
 
 import { DollarSign, Users, BarChart3, Activity, Lightbulb } from 'lucide-react';
 
@@ -60,9 +60,6 @@ export default function Dashboard() {
           selectedMonth={selectedMonth}
           onChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
         />
-
-        {/* AI Insights Banner */}
-        <AIInsightsBanner companyId={selectedCompany} />
 
         {/* SECTION 1: Desempeño Financiero */}
         <section>
@@ -156,10 +153,13 @@ export default function Dashboard() {
             Riesgo y Recomendaciones
           </h2>
           <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 lg:col-span-5">
+            <div className="col-span-12 lg:col-span-4">
               <RiskAlertsCard companyId={selectedCompany} />
             </div>
-            <div className="col-span-12 lg:col-span-7">
+            <div className="col-span-12 lg:col-span-4">
+              <AIInsightsWidget companyId={selectedCompany} />
+            </div>
+            <div className="col-span-12 lg:col-span-4">
               <StrategicRecommendationsCard companyId={selectedCompany} year={selectedYear} month={selectedMonth} />
             </div>
           </div>

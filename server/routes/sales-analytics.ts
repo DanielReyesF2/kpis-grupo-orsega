@@ -1233,16 +1233,28 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const onlyCancelled = hasStatusCol ? `AND UPPER(status) = 'CANCELADA'` : 'AND FALSE';
 
     // 1. Financial metrics (excluding cancelled)
-    // Note: costo_unitario and utilidad_porcentaje don't exist in DB
-    // Use (importe - utilidad_bruta) as cost proxy, calculate margin from utilidad_bruta/importe
+    // Calculate gross_profit from utilidad_bruta if available, otherwise from (importe - costo_unitario * cantidad)
+    // total_cost = importe - gross_profit (derived)
     const financialQuery = `
       SELECT
         COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
-        COALESCE(SUM(importe - COALESCE(utilidad_bruta, 0)), 0) as total_cost,
-        COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
-        CASE WHEN COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) > 0
-          THEN (SUM(COALESCE(utilidad_bruta, 0)) / COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0)) * 100
-          ELSE 0 END as avg_margin_pct,
+        COALESCE(SUM(
+          CASE
+            WHEN utilidad_bruta IS NOT NULL AND utilidad_bruta != 0 THEN utilidad_bruta
+            WHEN costo_unitario IS NOT NULL AND cantidad IS NOT NULL
+              THEN COALESCE(importe, importe_mn, 0) - (costo_unitario * cantidad)
+            ELSE 0
+          END
+        ), 0) as gross_profit,
+        COALESCE(SUM(
+          CASE
+            WHEN costo_unitario IS NOT NULL AND cantidad IS NOT NULL
+              THEN costo_unitario * cantidad
+            WHEN utilidad_bruta IS NOT NULL
+              THEN COALESCE(importe, importe_mn, 0) - utilidad_bruta
+            ELSE COALESCE(importe, importe_mn, 0) * 0.85
+          END
+        ), 0) as total_cost,
         COUNT(DISTINCT COALESCE(factura, folio)) as total_transactions,
         COUNT(*) as total_items,
         COALESCE(SUM(cantidad), 0) as total_quantity,
@@ -1263,18 +1275,15 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const f = financialData[0] || {};
 
     const totalRevenue = parseFloat(f.total_revenue || '0');
-    const totalCost = parseFloat(f.total_cost || '0');
     const grossProfit = parseFloat(f.gross_profit || '0');
-    const avgMarginPct = f.avg_margin_pct ? parseFloat(f.avg_margin_pct) : 0;
+    const totalCost = parseFloat(f.total_cost || '0');
     const totalTransactions = parseInt(f.total_transactions || '0');
     const totalItems = parseInt(f.total_items || '0');
     const totalQuantity = parseFloat(f.total_quantity || '0');
     const unit = f.unit || (resolvedCompanyId === 1 ? 'KG' : 'unidades');
 
-    // Gross margin: use direct column if available, otherwise calculate
-    const grossMarginPercent = totalRevenue > 0
-      ? (grossProfit > 0 ? (grossProfit / totalRevenue) * 100 : avgMarginPct)
-      : 0;
+    // Gross margin: calculated from grossProfit / totalRevenue
+    const grossMarginPercent = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
     const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
@@ -1414,7 +1423,14 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const prevQuery = `
       SELECT
         COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
-        COALESCE(SUM(utilidad_bruta), 0) as gross_profit,
+        COALESCE(SUM(
+          CASE
+            WHEN utilidad_bruta IS NOT NULL AND utilidad_bruta != 0 THEN utilidad_bruta
+            WHEN costo_unitario IS NOT NULL AND cantidad IS NOT NULL
+              THEN COALESCE(importe, importe_mn, 0) - (costo_unitario * cantidad)
+            ELSE 0
+          END
+        ), 0) as gross_profit,
         COUNT(DISTINCT factura) as total_transactions
       FROM ventas
       WHERE company_id = $1
