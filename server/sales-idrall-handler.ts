@@ -161,9 +161,14 @@ export async function handleIDRALLUpload(
     let transaccionesActualizadas = 0;
     const clientesCreados = new Set<string>();
     const productosCreados = new Set<string>();
+    const erroresHandler: Array<{ folio: string; error: string }> = [];
+
+    console.log(`🔄 [IDRALL Handler] Procesando ${parseResult.transacciones.length} transacciones...`);
 
     for (const tx of parseResult.transacciones) {
       try {
+        console.log(`   → Procesando: ${tx.folio}, ${tx.cliente?.substring(0, 20)}, fecha=${tx.fecha?.toISOString()?.split('T')[0]}`);
+
         // Buscar o crear cliente
         let clientId: number | null = null;
         const clientResult = await sql(`
@@ -316,9 +321,12 @@ export async function handleIDRALLUpload(
 
       } catch (txError: any) {
         console.error(`❌ Error procesando transacción ${tx.folio}:`, txError.message);
+        erroresHandler.push({ folio: tx.folio, error: txError.message });
         // Continuar con la siguiente transacción
       }
     }
+
+    console.log(`📊 [IDRALL Handler] Resultado: ${transaccionesInsertadas} nuevos, ${transaccionesActualizadas} actualizados, ${erroresHandler.length} errores`);
 
     // Actualizar registro de upload con estadísticas
     await sql(`
@@ -341,7 +349,7 @@ export async function handleIDRALLUpload(
     console.log(`   - Clientes nuevos: ${clientesCreados.size}`);
     console.log(`   - Productos nuevos: ${productosCreados.size}`);
 
-    // Debug: mostrar info del parser
+    // Debug: mostrar info del parser y handler
     const debugInfo = {
       totalTransacciones: parseResult.transacciones.length,
       transaccionesActivas: parseResult.transacciones.filter(t => t.status === 'ACTIVO').length,
@@ -354,7 +362,8 @@ export async function handleIDRALLUpload(
         producto: t.producto?.substring(0, 20),
         cantidad: t.cantidad
       })),
-      erroresParser: parseResult.errores.slice(0, 5)
+      erroresParser: parseResult.errores.slice(0, 5),
+      erroresHandler: erroresHandler.slice(0, 10)
     };
 
     console.log('🔍 [IDRALL Debug]:', JSON.stringify(debugInfo, null, 2));
