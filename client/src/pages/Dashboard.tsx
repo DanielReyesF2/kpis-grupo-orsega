@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 // Dashboard components - Análisis Profundo Mensual (estilo Nova)
@@ -15,13 +16,26 @@ import { ClientEfficiencyCard } from '@/components/dashboard/ClientEfficiencyCar
 import { DerivedKPIsCard } from '@/components/dashboard/DerivedKPIsCard';
 import { StrategicRecommendationsCard } from '@/components/dashboard/StrategicRecommendationsCard';
 import { AIInsightsWidget } from '@/components/dashboard/AIInsightsWidget';
+import { SalesExcelUploader } from '@/components/sales/SalesExcelUploader';
 
-import { DollarSign, Users, BarChart3, Activity, Lightbulb } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+
+import { DollarSign, Users, BarChart3, Activity, Lightbulb, Upload } from 'lucide-react';
 
 
 export default function Dashboard() {
   const { user } = useAuth();
   const dashboardRef = React.useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
   // Company selection
   const [selectedCompany, setSelectedCompany] = useState<number>(() => {
@@ -53,13 +67,49 @@ export default function Dashboard() {
   return (
     <AppLayout title="Dashboard Ejecutivo">
       <div id="dashboard-container" ref={dashboardRef} className="min-h-screen space-y-8">
-        {/* Period Selector */}
-        <MonthYearSelector
-          companyId={selectedCompany}
-          selectedYear={selectedYear}
-          selectedMonth={selectedMonth}
-          onChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
-        />
+        {/* Header: Period Selector + Upload Button */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <MonthYearSelector
+            companyId={selectedCompany}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            onChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
+          />
+
+          {/* Upload Button */}
+          <Sheet open={isUploaderOpen} onOpenChange={setIsUploaderOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Upload className="w-4 h-4" />
+                Actualizar Datos
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="sm:max-w-lg">
+              <SheetHeader>
+                <SheetTitle>Actualizar Ventas</SheetTitle>
+                <SheetDescription>
+                  Sube tu archivo Excel para actualizar los datos de ventas
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-6">
+                <SalesExcelUploader
+                  companyId={selectedCompany}
+                  onUploadComplete={(result) => {
+                    if (result.success) {
+                      // Invalidate and refetch all dashboard queries
+                      queryClient.invalidateQueries({ queryKey: ['/api/monthly-financial-summary'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/sales-analyst'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/sales-data'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/annual-summary'] });
+                      // Close drawer after short delay
+                      setTimeout(() => setIsUploaderOpen(false), 2000);
+                    }
+                  }}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
 
         {/* SECTION 1: Desempeño Financiero */}
         <section>
