@@ -218,7 +218,6 @@ function detectDIColumnPositions(sheet: Worksheet, headerRowNum: number): { [key
 
 /**
  * Parsea hoja "Acumulado" de DI
- * Headers en fila 4, datos desde fila 5
  * Detecta posición de columnas dinámicamente
  */
 export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
@@ -234,10 +233,31 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
   console.log(`📄 [parseAcumuladoDI] Procesando hoja: "${sheet.name}"`);
 
-  // Detectar posiciones de columnas desde el header
-  const headerRow = 4;
-  const cols = detectDIColumnPositions(sheet, headerRow);
+  // DEBUG: Mostrar contenido de primeras filas
+  console.log(`   🔍 Contenido de primeras filas:`);
+  for (let r = 1; r <= 6; r++) {
+    const row = sheet.getRow(r);
+    const cells: string[] = [];
+    for (let c = 1; c <= 15; c++) {
+      const val = getCellValue(row.getCell(c))?.toString()?.trim() || '';
+      if (val) cells.push(`[${c}]${val.substring(0, 12)}`);
+    }
+    if (cells.length > 0) console.log(`      F${r}: ${cells.join(' ')}`);
+  }
 
+  // Buscar fila de headers (puede ser 2, 3 o 4)
+  let headerRow = 2;
+  for (let r = 1; r <= 5; r++) {
+    const row = sheet.getRow(r);
+    const cell1 = getCellValue(row.getCell(1))?.toString()?.toUpperCase()?.trim() || '';
+    if (cell1.includes('FECHA')) {
+      headerRow = r;
+      console.log(`   ✅ Headers encontrados en fila ${r}`);
+      break;
+    }
+  }
+
+  const cols = detectDIColumnPositions(sheet, headerRow);
   console.log(`   📊 Columnas detectadas:`, JSON.stringify(cols));
 
   // Usar posiciones detectadas o valores por defecto para DI 2026
@@ -259,6 +279,9 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   const transactions: VentasTransaction[] = [];
   let primeraUtilidad: number | null = null;
 
+  let rowsSkipped = 0;
+  let firstDataRow = true;
+
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber <= headerRow) return;
 
@@ -267,6 +290,7 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     const folio = folioValue?.toString()?.trim() || '';
 
     if (!folio || folio.toUpperCase().includes('CANCELA')) {
+      rowsSkipped++;
       return;
     }
 
@@ -276,8 +300,23 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     const producto = getCellValue(row.getCell(colProducto))?.toString()?.trim();
     const cantidad = parseNumber(row.getCell(colCantidad).value);
 
+    // DEBUG: Log primera fila de datos
+    if (firstDataRow) {
+      firstDataRow = false;
+      console.log(`   🔬 Primera fila datos (fila ${rowNumber}):`);
+      console.log(`      Folio: "${folio}", Fecha: ${fecha}, Cliente: "${cliente?.substring(0,20)}"`);
+      console.log(`      Producto: "${producto?.substring(0,20)}", Cantidad: ${cantidad}`);
+      // Mostrar columnas de utilidad
+      const rawUtilidad = row.getCell(colUtilidad).value;
+      console.log(`      Col ${colUtilidad} (utilidad): raw=${JSON.stringify(rawUtilidad)}`);
+    }
+
     // Validar campos requeridos
     if (!fecha || !cliente || !producto || !cantidad || cantidad <= 0) {
+      if (transactions.length < 3) {
+        console.log(`   ⚠️ Fila ${rowNumber} saltada: fecha=${!!fecha} cliente=${!!cliente} producto=${!!producto} cantidad=${cantidad}`);
+      }
+      rowsSkipped++;
       return;
     }
 
