@@ -651,12 +651,25 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
 
   console.log(`📄 [parseAcumuladoGO] Procesando hoja: "${sheet.name}"`);
 
-  // Detectar columna de UTILIDAD BRUTA
-  let colUtilidad = 18; // default para GO
-  let colCompra = 16;   // COMPRA (costo)
+  // DEBUG: Mostrar headers completos
   const headerRow = 3;
-
   const row3 = sheet.getRow(headerRow);
+  console.log(`   🔍 [parseAcumuladoGO] Headers fila 3:`);
+  const headers: string[] = [];
+  for (let c = 1; c <= 20; c++) {
+    const val = getCellValue(row3.getCell(c).value)?.toString()?.trim() || '';
+    if (val) {
+      headers.push(`[${c}]${val.substring(0, 15)}`);
+    }
+  }
+  console.log(`      ${headers.join(' | ')}`);
+
+  // Detectar columnas dinámicamente
+  let colUtilidad = 18; // default
+  let colCompra = 16;   // default
+  let colImporte = 14;  // default IMPORTE M.N.
+  let colCantidad = 8;  // default
+
   row3.eachCell((cell, colNumber) => {
     const val = getCellValue(cell.value)?.toString()?.toUpperCase()?.trim() || '';
     if (val.includes('UTILIDAD') && val.includes('BRUTA')) {
@@ -665,9 +678,15 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
     if (val === 'COMPRA') {
       colCompra = colNumber;
     }
+    if (val.includes('IMPORTE') && val.includes('M.N')) {
+      colImporte = colNumber;
+    }
+    if (val === 'CANTIDAD') {
+      colCantidad = colNumber;
+    }
   });
 
-  console.log(`   📋 [parseAcumuladoGO] Columnas: COMPRA=${colCompra}, UTILIDAD BRUTA=${colUtilidad}`);
+  console.log(`   📋 [parseAcumuladoGO] Columnas detectadas: CANTIDAD=${colCantidad}, IMPORTE M.N.=${colImporte}, COMPRA=${colCompra}, UTILIDAD=${colUtilidad}`);
 
   const transactions: VentasTransaction[] = [];
   let primeraUtilidad: number | null = null;
@@ -694,14 +713,21 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
     const producto = getCellValue(row.getCell(5).value)?.toString()?.trim();
     const familiaProducto = getCellValue(row.getCell(6).value)?.toString()?.trim() || null;
     const unidad = getCellValue(row.getCell(7).value)?.toString()?.trim() || 'KG';
-    const cantidad = parseNumber(row.getCell(8).value);
+    const cantidad = parseNumber(row.getCell(colCantidad).value);
     const precioUSD = parseNumber(row.getCell(9).value);
-    const importeMN = parseNumber(row.getCell(10).value);
-    const importeUSD = parseNumber(row.getCell(11).value);
+    const importeTotal = parseNumber(row.getCell(colImporte).value); // IMPORTE M.N.
     const tipoCambio = parseNumber(row.getCell(13).value);
     // GO 2026: COMPRA y UTILIDAD BRUTA
     const compra = parseNumber(row.getCell(colCompra).value);
     const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
+
+    // DEBUG primera fila
+    if (transactions.length === 0) {
+      console.log(`   🔬 Primera fila datos GO (fila ${rowNumber}):`);
+      console.log(`      Cantidad (col ${colCantidad}): ${cantidad}`);
+      console.log(`      Importe (col ${colImporte}): ${importeTotal}`);
+      console.log(`      Utilidad (col ${colUtilidad}): ${utilidadBruta}`);
+    }
 
     // Validar campos requeridos
     if (!fecha || !cliente || !producto || !cantidad || cantidad <= 0 || !folio) {
@@ -721,9 +747,9 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
       producto,
       cantidad,
       precioUnitario: precioUSD,
-      importe: importeUSD || (precioUSD ? precioUSD * cantidad : null),
+      importe: importeTotal || (precioUSD ? precioUSD * cantidad : null),
       tipoCambio,
-      importeMN,
+      importeMN: importeTotal, // IMPORTE M.N. es el importe principal para GO
       familiaProducto,
       unidad,
       año: fecha.getUTCFullYear(),
