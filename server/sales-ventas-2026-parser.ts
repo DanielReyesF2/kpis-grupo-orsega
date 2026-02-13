@@ -318,12 +318,37 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 }
 
 /**
- * Parsea hoja de ventas formato DI
- * Headers en fila 2: FECHA, FOLIO, CLIENTE, PRODUCTO, CANTIDAD, PRECIO UNITARIO, IMPORTE, (vacío), T.C., IMPORTE M.N.
+ * Parsea hoja de ventas formato DI (hojas mensuales)
+ * Detecta posición de columnas dinámicamente
  */
 function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTransaction[] {
   const transactions: VentasTransaction[] = [];
-  const headerRow = 2;
+
+  // Detectar fila de headers (buscar en filas 1-4)
+  let headerRow = 2;
+  let colUtilidad = 11; // default
+
+  for (let r = 1; r <= 4; r++) {
+    const row = worksheet.getRow(r);
+    let foundUtilidad = false;
+
+    row.eachCell((cell, colNumber) => {
+      const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
+      // Buscar columna de utilidad
+      if (val.includes('UTILIDAD') && val.includes('PÉRDIDA') && !val.includes('UNIT') && !val.includes('BRUTA')) {
+        colUtilidad = colNumber;
+        foundUtilidad = true;
+        headerRow = r;
+      }
+    });
+
+    if (foundUtilidad) {
+      console.log(`   🔍 [parseSheetDI] Headers en fila ${r}, UTILIDAD en col ${colUtilidad}`);
+      break;
+    }
+  }
+
+  let primeraUtilidad: number | null = null;
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber <= headerRow) return;
@@ -348,9 +373,15 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
 
     const precioUnitario = parseNumber(row.getCell(6).value);
     const importe = parseNumber(row.getCell(7).value);
-    // DI 2026: Col 9 = COSTO UNITARIO, Col 11 = UTILIDAD / PÉRDIDA
-    const costoUnitario = parseNumber(row.getCell(9).value);
-    const utilidadBruta = parseNumber(row.getCell(11).value);
+    // Columnas de utilidad - detectadas dinámicamente
+    const costoUnitario = parseNumber(row.getCell(colUtilidad - 2).value); // 2 columnas antes de utilidad
+    const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
+
+    // Log primera utilidad encontrada
+    if (primeraUtilidad === null && utilidadBruta !== null) {
+      primeraUtilidad = utilidadBruta;
+      console.log(`   💵 Primera utilidad en hoja: ${utilidadBruta}`);
+    }
 
     // Usar fecha de la fila o construir del mes de la hoja
     const finalDate = fecha || (sheetMonth ? new Date(Date.UTC(2026, sheetMonth - 1, 1)) : new Date());
@@ -373,6 +404,9 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       utilidadBruta
     });
   });
+
+  const conUtilidad = transactions.filter(t => t.utilidadBruta !== null).length;
+  console.log(`   📊 ${transactions.length} txns, ${conUtilidad} con utilidad`);
 
   return transactions;
 }
