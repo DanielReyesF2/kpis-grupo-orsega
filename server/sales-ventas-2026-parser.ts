@@ -38,31 +38,43 @@ export interface ParsedVentas2026 {
  */
 export function detectCompanyFormat(workbook: Workbook): 'DI' | 'GO' | 'UNKNOWN' {
   for (const sheet of workbook.worksheets) {
-    const firstCell = sheet.getCell(1, 1).value?.toString() || '';
-    const secondCell = sheet.getCell(1, 2).value?.toString() || '';
+    // Buscar en las primeras 3 filas y 5 columnas
+    for (let r = 1; r <= 3; r++) {
+      const row = sheet.getRow(r);
+      for (let c = 1; c <= 5; c++) {
+        const cellValue = row.getCell(c).value?.toString()?.toLowerCase() || '';
 
-    // GO tiene "Grupo Orsega" en la primera celda
-    if (firstCell.toLowerCase().includes('orsega') || firstCell.toLowerCase().includes('grupo orsega')) {
-      return 'GO';
+        // GO tiene "Grupo Orsega" o "Orsega" en alguna celda del encabezado
+        if (cellValue.includes('orsega')) {
+          console.log(`🏢 [detectCompanyFormat] Detectado GO por "orsega" en fila ${r}, col ${c}`);
+          return 'GO';
+        }
+
+        // DI tiene "DURA" en el encabezado (pero NO "ventas" solo, es muy genérico)
+        if (cellValue.includes('dura') && !cellValue.includes('orsega')) {
+          console.log(`🏢 [detectCompanyFormat] Detectado DI por "dura" en fila ${r}, col ${c}`);
+          return 'DI';
+        }
+      }
     }
 
-    // DI tiene "DURA" o "VENTAS" como título
-    if (firstCell.toLowerCase().includes('dura') || firstCell.toLowerCase().includes('ventas')) {
-      return 'DI';
-    }
-
-    // Buscar en headers de fila 2 o 3
-    const row2 = sheet.getRow(2);
+    // Buscar por estructura de headers
     const row3 = sheet.getRow(3);
+    const row4 = sheet.getRow(4);
 
-    // DI tiene "FOLIO" en columna 2, fila 2
-    if (row2.getCell(2).value?.toString()?.toUpperCase() === 'FOLIO') {
-      return 'DI';
+    // GO tiene "# MES" en columna 1, fila 3 o "Factura" en columna 2
+    const row3col1 = row3.getCell(1).value?.toString()?.toUpperCase() || '';
+    const row3col2 = row3.getCell(2).value?.toString()?.toLowerCase() || '';
+    if (row3col1.includes('MES') || row3col2.includes('factura')) {
+      console.log(`🏢 [detectCompanyFormat] Detectado GO por estructura headers fila 3`);
+      return 'GO';
     }
 
-    // GO tiene "Factura" en columna 1, fila 3
-    if (row3.getCell(1).value?.toString()?.toLowerCase() === 'factura') {
-      return 'GO';
+    // DI tiene "FECHA" en columna 1, fila 4
+    const row4col1 = row4.getCell(1).value?.toString()?.toUpperCase() || '';
+    if (row4col1 === 'FECHA') {
+      console.log(`🏢 [detectCompanyFormat] Detectado DI por FECHA en fila 4, col 1`);
+      return 'DI';
     }
   }
 
