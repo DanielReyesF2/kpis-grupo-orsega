@@ -221,13 +221,44 @@ function detectDIColumnPositions(sheet: Worksheet, headerRowNum: number): { [key
  * Detecta posición de columnas dinámicamente
  */
 export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
-  // Buscar hoja Acumulado (case insensitive)
-  const sheet = workbook.worksheets.find(
+  // Listar todas las hojas para debug
+  const allSheets = workbook.worksheets.map(ws => ws.name);
+  console.log(`📑 [parseAcumuladoDI] Hojas en workbook: ${JSON.stringify(allSheets)}`);
+
+  // Buscar hoja Acumulado (case insensitive) o la primera hoja que tenga datos DI
+  let sheet = workbook.worksheets.find(
     ws => ws.name.toLowerCase().includes('acumulado')
   );
 
+  // Si no encontramos "Acumulado", buscar hoja con estructura DI (FECHA en fila 4)
   if (!sheet) {
-    console.log('⚠️ [parseAcumuladoDI] No se encontró hoja Acumulado');
+    console.log('   🔍 No se encontró hoja "Acumulado", buscando por estructura...');
+    for (const ws of workbook.worksheets) {
+      // Saltar hojas de meses conocidos
+      const nameUpper = ws.name.toUpperCase();
+      if (nameUpper.includes('ENERO') || nameUpper.includes('FEBRERO') ||
+          nameUpper.includes('MARZO') || nameUpper.includes('ABRIL') ||
+          nameUpper.includes('MAYO') || nameUpper.includes('JUNIO') ||
+          nameUpper.includes('JULIO') || nameUpper.includes('AGOSTO') ||
+          nameUpper.includes('SEPTIEMBRE') || nameUpper.includes('OCTUBRE') ||
+          nameUpper.includes('NOVIEMBRE') || nameUpper.includes('DICIEMBRE')) {
+        continue;
+      }
+      // Verificar si tiene estructura DI (FECHA en alguna fila cercana)
+      for (let r = 1; r <= 6; r++) {
+        const cell = getCellValue(ws.getRow(r).getCell(1))?.toString()?.toUpperCase()?.trim();
+        if (cell === 'FECHA') {
+          sheet = ws;
+          console.log(`   ✅ Encontrada hoja con estructura DI: "${ws.name}" (FECHA en fila ${r})`);
+          break;
+        }
+      }
+      if (sheet) break;
+    }
+  }
+
+  if (!sheet) {
+    console.log('⚠️ [parseAcumuladoDI] No se encontró hoja Acumulado ni hoja con estructura DI');
     return [];
   }
 
@@ -582,13 +613,27 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
  * Datos desde fila 5 (saltando headers y fila NACIONALES)
  */
 export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
+  // Listar todas las hojas para debug
+  const allSheets = workbook.worksheets.map(ws => ws.name);
+  console.log(`📑 [parseAcumuladoGO] Hojas en workbook: ${JSON.stringify(allSheets)}`);
+
   // Buscar hoja ACUMULADO 2026
-  const sheet = workbook.worksheets.find(
+  let sheet = workbook.worksheets.find(
     ws => ws.name.toUpperCase().includes('ACUMULADO') && ws.name.includes('2026')
   );
 
+  // Fallback: buscar solo "ACUMULADO"
   if (!sheet) {
-    console.log('⚠️ [parseAcumuladoGO] No se encontró hoja ACUMULADO 2026');
+    sheet = workbook.worksheets.find(
+      ws => ws.name.toUpperCase().includes('ACUMULADO')
+    );
+    if (sheet) {
+      console.log(`   🔍 Usando hoja fallback: "${sheet.name}"`);
+    }
+  }
+
+  if (!sheet) {
+    console.log('⚠️ [parseAcumuladoGO] No se encontró hoja ACUMULADO');
     return [];
   }
 
