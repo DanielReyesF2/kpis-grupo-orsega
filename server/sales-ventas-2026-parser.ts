@@ -450,6 +450,9 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
     const importeUSD = parseNumber(row.getCell(10).value);
     const importeMN = parseNumber(row.getCell(11).value);
     const tipoCambio = parseNumber(row.getCell(12).value);
+    // GO 2026: Col 16=COMPRA, Col 17=FLETE, Col 18=UTILIDAD BRUTA
+    const compra = parseNumber(row.getCell(16).value);
+    const utilidadBruta = parseNumber(row.getCell(18).value);
 
     // Validar campos requeridos
     if (!cliente || !producto || !cantidad || cantidad <= 0) {
@@ -473,18 +476,23 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       unidad,
       año: finalDate.getUTCFullYear(),
       mes: finalDate.getUTCMonth() + 1,
-      costoUnitario: null, // GO no tiene estos campos
-      utilidadBruta: null
+      costoUnitario: compra, // COMPRA es el costo para GO
+      utilidadBruta
     });
   });
+
+  const conUtilidad = transactions.filter(t => t.utilidadBruta !== null).length;
+  console.log(`   📊 [parseSheetGO] ${transactions.length} txns, ${conUtilidad} con utilidad`);
 
   return transactions;
 }
 
 /**
  * Parsea hoja "ACUMULADO 2026" de GO
- * Headers en fila 3: # MES, Factura, Fecha, Cliente, Producto, FAMILIA, UNIDAD, Cantidad, USD, MN, USD, MN
- * Datos desde fila 5 (saltando fila de headers y fila NACIONALES)
+ * GO tiene 2 filas de headers:
+ * - Fila 2: Headers de grupo (Precio, Importe)
+ * - Fila 3: # MES, Factura, Fecha, Cliente, Producto, FAMILIA, UNIDAD, Cantidad, USD, MN, USD, MN, TIPO DE CAMBIO, IMPORTE M.N., (vacío), COMPRA, FLETE, UTILIDAD BRUTA
+ * Datos desde fila 5 (saltando headers y fila NACIONALES)
  */
 export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
   // Buscar hoja ACUMULADO 2026
@@ -498,8 +506,27 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
   }
 
   console.log(`📄 [parseAcumuladoGO] Procesando hoja: "${sheet.name}"`);
-  const transactions: VentasTransaction[] = [];
+
+  // Detectar columna de UTILIDAD BRUTA
+  let colUtilidad = 18; // default para GO
+  let colCompra = 16;   // COMPRA (costo)
   const headerRow = 3;
+
+  const row3 = sheet.getRow(headerRow);
+  row3.eachCell((cell, colNumber) => {
+    const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
+    if (val.includes('UTILIDAD') && val.includes('BRUTA')) {
+      colUtilidad = colNumber;
+    }
+    if (val === 'COMPRA') {
+      colCompra = colNumber;
+    }
+  });
+
+  console.log(`   📋 [parseAcumuladoGO] Columnas: COMPRA=${colCompra}, UTILIDAD BRUTA=${colUtilidad}`);
+
+  const transactions: VentasTransaction[] = [];
+  let primeraUtilidad: number | null = null;
 
   sheet.eachRow((row, rowNumber) => {
     // Saltar filas de headers (hasta fila 4)
@@ -527,10 +554,20 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
     const precioUSD = parseNumber(row.getCell(9).value);
     const importeMN = parseNumber(row.getCell(10).value);
     const importeUSD = parseNumber(row.getCell(11).value);
+    const tipoCambio = parseNumber(row.getCell(13).value);
+    // GO 2026: COMPRA y UTILIDAD BRUTA
+    const compra = parseNumber(row.getCell(colCompra).value);
+    const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
 
     // Validar campos requeridos
     if (!fecha || !cliente || !producto || !cantidad || cantidad <= 0 || !folio) {
       return;
+    }
+
+    // Log primera utilidad
+    if (primeraUtilidad === null && utilidadBruta !== null) {
+      primeraUtilidad = utilidadBruta;
+      console.log(`   💵 Primera utilidad GO: ${utilidadBruta}`);
     }
 
     transactions.push({
@@ -541,18 +578,19 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
       cantidad,
       precioUnitario: precioUSD,
       importe: importeUSD || (precioUSD ? precioUSD * cantidad : null),
-      tipoCambio: null,
+      tipoCambio,
       importeMN,
       familiaProducto,
       unidad,
       año: fecha.getUTCFullYear(),
       mes: fecha.getUTCMonth() + 1,
-      costoUnitario: null, // GO no tiene estos campos
-      utilidadBruta: null
+      costoUnitario: compra,
+      utilidadBruta
     });
   });
 
-  console.log(`   ✅ ${transactions.length} transacciones del acumulado GO`);
+  const conUtilidad = transactions.filter(t => t.utilidadBruta !== null).length;
+  console.log(`   ✅ ${transactions.length} transacciones del acumulado GO (${conUtilidad} con utilidad)`);
   return transactions;
 }
 
