@@ -637,6 +637,7 @@ export function buildDedupKey(tx: VentasTransaction): string {
  * Esta es la función preferida para uploads semanales
  */
 export async function parseVentas2026Acumulado(workbook: Workbook): Promise<ParsedVentas2026> {
+  console.log(`\n🔶🔶🔶 [NUEVO PARSER v2] Iniciando parseVentas2026Acumulado 🔶🔶🔶`);
   const format = detectCompanyFormat(workbook);
   console.log(`📊 [Ventas2026 Acumulado Parser] Formato detectado: ${format}`);
 
