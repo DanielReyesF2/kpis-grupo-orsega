@@ -240,7 +240,8 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
   console.log(`   📊 Columnas detectadas:`, JSON.stringify(cols));
 
-  // Usar posiciones detectadas o valores por defecto
+  // Usar posiciones detectadas o valores por defecto para DI 2026
+  // DI: 1=FECHA,2=FOLIO,3=CLIENTE,4=PRODUCTO,5=CANTIDAD,6=PRECIO,7=IMPORTE,8=(vacío),9=LOTE,10=COSTO,11=UT.BRUTA UNIT,12=UTILIDAD/PÉRDIDA
   const colFecha = cols['fecha'] || 1;
   const colFolio = cols['folio'] || 2;
   const colCliente = cols['cliente'] || 3;
@@ -248,12 +249,12 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   const colCantidad = cols['cantidad'] || 5;
   const colPrecioUnit = cols['precioUnitario'] || 6;
   const colImporte = cols['importe'] || 7;
-  const colCostoUnit = cols['costoUnitario'] || 9;
-  const colUtilidad = cols['utilidadBruta'] || 11;
+  const colCostoUnit = cols['costoUnitario'] || 10;  // COSTO UNITARIO en col 10
+  const colUtilidad = cols['utilidadBruta'] || 12;   // UTILIDAD / PÉRDIDA en col 12
   const colTC = cols['tipoCambio'];
   const colImporteMN = cols['importeMN'];
 
-  console.log(`   💰 Columna UTILIDAD detectada en: ${colUtilidad}`);
+  console.log(`   💰 Columnas: COSTO=${colCostoUnit}, UTILIDAD=${colUtilidad}`);
 
   const transactions: VentasTransaction[] = [];
   let primeraUtilidad: number | null = null;
@@ -319,34 +320,38 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
 /**
  * Parsea hoja de ventas formato DI (hojas mensuales)
- * Detecta posición de columnas dinámicamente
+ * Columnas DI 2026:
+ * 1=FECHA, 2=FOLIO, 3=CLIENTE, 4=PRODUCTO, 5=CANTIDAD, 6=PRECIO UNITARIO, 7=IMPORTE,
+ * 8=(vacío), 9=LOTE, 10=COSTO UNITARIO, 11=UT. BRUTA UNITARIA, 12=UTILIDAD/PÉRDIDA,
+ * 13=FLETE, 14=UTILIDAD APROX, 15=%UT
  */
 function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTransaction[] {
   const transactions: VentasTransaction[] = [];
 
   // Detectar fila de headers (buscar en filas 1-4)
   let headerRow = 2;
-  let colUtilidad = 11; // default
+  let colUtilidad = 12; // UTILIDAD / PÉRDIDA está en columna 12 para DI
+  let colCosto = 10;    // COSTO UNITARIO está en columna 10
 
   for (let r = 1; r <= 4; r++) {
     const row = worksheet.getRow(r);
-    let foundUtilidad = false;
 
     row.eachCell((cell, colNumber) => {
       const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
-      // Buscar columna de utilidad
+      // Buscar columna UTILIDAD / PÉRDIDA (no la unitaria)
       if (val.includes('UTILIDAD') && val.includes('PÉRDIDA') && !val.includes('UNIT') && !val.includes('BRUTA')) {
         colUtilidad = colNumber;
-        foundUtilidad = true;
         headerRow = r;
+        console.log(`   🔍 [parseSheetDI] UTILIDAD/PÉRDIDA encontrada en col ${colNumber}, fila ${r}`);
+      }
+      // Buscar columna COSTO UNITARIO
+      if (val.includes('COSTO') && val.includes('UNIT')) {
+        colCosto = colNumber;
       }
     });
-
-    if (foundUtilidad) {
-      console.log(`   🔍 [parseSheetDI] Headers en fila ${r}, UTILIDAD en col ${colUtilidad}`);
-      break;
-    }
   }
+
+  console.log(`   📋 [parseSheetDI] Usando: headerRow=${headerRow}, colUtilidad=${colUtilidad}, colCosto=${colCosto}`);
 
   let primeraUtilidad: number | null = null;
 
@@ -373,8 +378,8 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
 
     const precioUnitario = parseNumber(row.getCell(6).value);
     const importe = parseNumber(row.getCell(7).value);
-    // Columnas de utilidad - detectadas dinámicamente
-    const costoUnitario = parseNumber(row.getCell(colUtilidad - 2).value); // 2 columnas antes de utilidad
+    // Columnas de utilidad - usar posiciones detectadas
+    const costoUnitario = parseNumber(row.getCell(colCosto).value);
     const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
 
     // Log primera utilidad encontrada
