@@ -1,26 +1,40 @@
 /**
  * Helper para desencriptar archivos Excel protegidos con contraseña
- * Usa msoffcrypto-tool de Python para manejar encriptación CDFV2
+ * Usa officecrypto-tool (JavaScript puro) para manejar encriptación
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-
-const execAsync = promisify(exec);
 
 // Contraseña estándar para todos los archivos de ventas
 const EXCEL_PASSWORD = 'GODINTAL';
 
 /**
- * Verifica si un archivo está encriptado
+ * Verifica si un archivo Excel está encriptado
+ * Los archivos XLSX encriptados tienen una firma CDFV2 en lugar de ZIP
  */
 export async function isEncryptedExcel(filePath: string): Promise<boolean> {
   try {
-    const { stdout } = await execAsync(`file "${filePath}"`);
-    return stdout.includes('CDFV2 Encrypted') || stdout.includes('Encrypted');
-  } catch {
+    const buffer = fs.readFileSync(filePath);
+    // Los archivos XLSX normales empiezan con PK (ZIP signature)
+    // Los archivos encriptados empiezan con D0 CF 11 E0 (OLE2/CDFV2 signature)
+    const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B;
+    const isCDFV2 = buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0;
+
+    if (isCDFV2) {
+      console.log(`🔒 [Decryptor] Archivo detectado como encriptado (CDFV2)`);
+      return true;
+    }
+
+    if (isZip) {
+      console.log(`📦 [Decryptor] Archivo es ZIP/XLSX normal`);
+      return false;
+    }
+
+    console.log(`❓ [Decryptor] Formato desconocido, asumiendo no encriptado`);
+    return false;
+  } catch (error: any) {
+    console.error(`❌ [Decryptor] Error verificando encriptación: ${error.message}`);
     return false;
   }
 }
@@ -48,11 +62,21 @@ export async function decryptExcel(inputPath: string): Promise<string> {
   }
 
   try {
-    // Usar msoffcrypto-tool para desencriptar
-    const command = `msoffcrypto-tool -p ${EXCEL_PASSWORD} "${inputPath}" "${decryptedPath}"`;
     console.log(`🔐 [Decryptor] Desencriptando archivo con contraseña...`);
 
-    await execAsync(command, { timeout: 30000 });
+    // Importar dinámicamente officecrypto-tool
+    const { decrypt } = await import('officecrypto-tool');
+
+    // Leer archivo encriptado
+    const encryptedBuffer = fs.readFileSync(inputPath);
+
+    // Desencriptar
+    const decryptedBuffer = await decrypt(encryptedBuffer, {
+      password: EXCEL_PASSWORD
+    });
+
+    // Guardar archivo desencriptado
+    fs.writeFileSync(decryptedPath, decryptedBuffer);
 
     // Verificar que se creó el archivo
     if (!fs.existsSync(decryptedPath)) {
@@ -63,9 +87,11 @@ export async function decryptExcel(inputPath: string): Promise<string> {
     return decryptedPath;
 
   } catch (error: any) {
-    // Si falla, puede que no esté encriptado - devolver el original
-    if (error.message?.includes('not encrypted') || error.stderr?.includes('not encrypted')) {
-      console.log(`ℹ️ [Decryptor] Archivo no está encriptado, usando original`);
+    // Si falla porque no está encriptado, devolver el original
+    if (error.message?.includes('not encrypted') ||
+        error.message?.includes('CFB') ||
+        error.message?.includes('password')) {
+      console.log(`ℹ️ [Decryptor] Archivo no está encriptado o contraseña incorrecta, usando original`);
       return inputPath;
     }
 
@@ -79,15 +105,21 @@ export async function decryptExcel(inputPath: string): Promise<string> {
  * Esta función es segura para usar con cualquier archivo Excel
  */
 export async function ensureDecrypted(filePath: string): Promise<{ path: string; wasDecrypted: boolean }> {
-  const encrypted = await isEncryptedExcel(filePath);
+  try {
+    const encrypted = await isEncryptedExcel(filePath);
 
-  if (!encrypted) {
-    console.log(`ℹ️ [Decryptor] Archivo no requiere desencriptación`);
+    if (!encrypted) {
+      console.log(`ℹ️ [Decryptor] Archivo no requiere desencriptación`);
+      return { path: filePath, wasDecrypted: false };
+    }
+
+    const decryptedPath = await decryptExcel(filePath);
+    return { path: decryptedPath, wasDecrypted: decryptedPath !== filePath };
+  } catch (error: any) {
+    console.error(`❌ [Decryptor] Error en ensureDecrypted: ${error.message}`);
+    // En caso de error, intentar usar el archivo original
     return { path: filePath, wasDecrypted: false };
   }
-
-  const decryptedPath = await decryptExcel(filePath);
-  return { path: decryptedPath, wasDecrypted: decryptedPath !== filePath };
 }
 
 /**
