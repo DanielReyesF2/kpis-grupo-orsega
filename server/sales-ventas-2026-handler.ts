@@ -139,14 +139,14 @@ export async function handleVentas2026Upload(
     const existingSet = new Set(existingKeysResult.map((r: any) => r.dedup_key));
     console.log(`   📊 ${existingSet.size} transacciones existentes en BD`);
 
-    // Filtrar solo transacciones nuevas
+    // Filtrar transacciones nuevas vs existentes
     const nuevasTransacciones: VentasTransaction[] = [];
-    let yaExistian = 0;
+    const transaccionesExistentes: VentasTransaction[] = [];
 
     for (const tx of parsedData.transactions) {
       const key = buildDedupKey(tx);
       if (existingSet.has(key)) {
-        yaExistian++;
+        transaccionesExistentes.push(tx);
       } else {
         nuevasTransacciones.push(tx);
       }
@@ -154,22 +154,67 @@ export async function handleVentas2026Upload(
 
     console.log(`📊 [Ventas2026 Upload] Resumen de deduplicación:`);
     console.log(`   📥 Total en Excel: ${parsedData.transactions.length}`);
-    console.log(`   ✅ Ya existen en BD: ${yaExistian}`);
+    console.log(`   ✅ Ya existen en BD: ${transaccionesExistentes.length}`);
     console.log(`   🆕 Nuevas a insertar: ${nuevasTransacciones.length}`);
 
-    // Si no hay nada nuevo, responder temprano
+    // ========== ACTUALIZAR UTILIDAD DE TRANSACCIONES EXISTENTES ==========
+    let utilidadesActualizadas = 0;
+    if (transaccionesExistentes.length > 0) {
+      console.log(`🔄 [Ventas2026 Upload] Actualizando utilidad_bruta de ${transaccionesExistentes.length} transacciones existentes...`);
+
+      for (const tx of transaccionesExistentes) {
+        // Solo actualizar si tenemos utilidad en el Excel
+        if (tx.utilidadBruta !== null && tx.utilidadBruta !== undefined) {
+          try {
+            const result = await sql(`
+              UPDATE ventas
+              SET utilidad_bruta = $1
+              WHERE company_id = $2
+                AND submodulo = $3
+                AND LOWER(TRIM(COALESCE(folio, ''))) = LOWER(TRIM($4))
+                AND fecha = $5
+                AND LOWER(TRIM(COALESCE(producto, ''))) = LOWER(TRIM($6))
+                AND ROUND(cantidad::NUMERIC, 2) = ROUND($7::NUMERIC, 2)
+                AND (utilidad_bruta IS NULL OR utilidad_bruta = 0)
+            `, [
+              tx.utilidadBruta,
+              resolvedCompanyId,
+              submodulo,
+              tx.folio || '',
+              tx.fecha.toISOString().split('T')[0],
+              tx.producto || '',
+              tx.cantidad
+            ]);
+
+            // Neon returns an array, check if rows were affected
+            if (result && (result as any).length !== undefined) {
+              utilidadesActualizadas++;
+            }
+          } catch (err: any) {
+            console.error(`   ⚠️ Error actualizando utilidad: ${err.message}`);
+          }
+        }
+      }
+
+      console.log(`   ✅ ${utilidadesActualizadas} utilidades actualizadas`);
+    }
+
+    // Si no hay nada nuevo pero sí actualizamos utilidades, responder con éxito
     if (nuevasTransacciones.length === 0) {
       res.json({
         success: true,
         uploadId: null,
-        message: 'No hay transacciones nuevas para insertar',
+        message: utilidadesActualizadas > 0
+          ? `${utilidadesActualizadas} transacciones actualizadas con utilidad`
+          : 'No hay transacciones nuevas para insertar',
         details: {
           format: 'VENTAS_2026',
           company: submodulo === 'DI' ? 'Dura International' : 'Grupo Orsega',
           companyId: resolvedCompanyId,
           source: parsedData.monthsFound,
           totalEnExcel: parsedData.transactions.length,
-          yaExistian,
+          yaExistian: transaccionesExistentes.length,
+          utilidadesActualizadas,
           nuevasInsertadas: 0
         }
       });
@@ -299,7 +344,8 @@ export async function handleVentas2026Upload(
         companyId: resolvedCompanyId,
         source: parsedData.monthsFound,
         totalEnExcel: parsedData.transactions.length,
-        yaExistian,
+        yaExistian: transaccionesExistentes.length,
+        utilidadesActualizadas,
         nuevasInsertadas: transaccionesInsertadas,
         erroresInsercion,
         parserErrors: parsedData.errors
