@@ -21,6 +21,9 @@ export interface VentasTransaction {
   unidad: string | null;
   año: number;
   mes: number;
+  // Nuevos campos de utilidad (DI)
+  costoUnitario: number | null;
+  utilidadBruta: number | null;
 }
 
 export interface ParsedVentas2026 {
@@ -232,8 +235,14 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
     const precioUnitario = parseNumber(row.getCell(6).value);
     const importe = parseNumber(row.getCell(7).value);
-    const tipoCambio = parseNumber(row.getCell(9).value);
-    const importeMN = parseNumber(row.getCell(10).value);
+    // Columnas de utilidad (formato DI 2026):
+    // Col 9 = COSTO UNITARIO PUESTO EN BODEGA
+    // Col 11 = UTILIDAD / PÉRDIDA (total por línea)
+    const costoUnitario = parseNumber(row.getCell(9).value);
+    const utilidadBruta = parseNumber(row.getCell(11).value);
+    // T.C. e IMPORTE M.N. podrían estar en otras columnas o no existir
+    const tipoCambio = null; // Ya no está en col 9
+    const importeMN = null; // Ya no está en col 10
 
     transactions.push({
       fecha,
@@ -248,7 +257,9 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
       familiaProducto: null,
       unidad: 'KG',
       año: fecha.getUTCFullYear(),
-      mes: fecha.getUTCMonth() + 1
+      mes: fecha.getUTCMonth() + 1,
+      costoUnitario,
+      utilidadBruta
     });
   });
 
@@ -287,8 +298,9 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
 
     const precioUnitario = parseNumber(row.getCell(6).value);
     const importe = parseNumber(row.getCell(7).value);
-    const tipoCambio = parseNumber(row.getCell(9).value);
-    const importeMN = parseNumber(row.getCell(10).value);
+    // DI 2026: Col 9 = COSTO UNITARIO, Col 11 = UTILIDAD / PÉRDIDA
+    const costoUnitario = parseNumber(row.getCell(9).value);
+    const utilidadBruta = parseNumber(row.getCell(11).value);
 
     // Usar fecha de la fila o construir del mes de la hoja
     const finalDate = fecha || (sheetMonth ? new Date(Date.UTC(2026, sheetMonth - 1, 1)) : new Date());
@@ -301,12 +313,14 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       cantidad,
       precioUnitario,
       importe,
-      tipoCambio,
-      importeMN,
+      tipoCambio: null,
+      importeMN: null,
       familiaProducto: null,
       unidad: 'KG',
       año: finalDate.getUTCFullYear(),
-      mes: finalDate.getUTCMonth() + 1
+      mes: finalDate.getUTCMonth() + 1,
+      costoUnitario,
+      utilidadBruta
     });
   });
 
@@ -369,7 +383,9 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       familiaProducto,
       unidad,
       año: finalDate.getUTCFullYear(),
-      mes: finalDate.getUTCMonth() + 1
+      mes: finalDate.getUTCMonth() + 1,
+      costoUnitario: null, // GO no tiene estos campos
+      utilidadBruta: null
     });
   });
 
@@ -441,7 +457,9 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
       familiaProducto,
       unidad,
       año: fecha.getUTCFullYear(),
-      mes: fecha.getUTCMonth() + 1
+      mes: fecha.getUTCMonth() + 1,
+      costoUnitario: null, // GO no tiene estos campos
+      utilidadBruta: null
     });
   });
 
