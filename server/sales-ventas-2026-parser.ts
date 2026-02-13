@@ -231,18 +231,25 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     return [];
   }
 
-  console.log(`📄 [parseAcumuladoDI] Procesando hoja: "${sheet.name}"`);
+  console.log(`📄 [parseAcumuladoDI] Procesando hoja: "${sheet.name}" - NUEVO CÓDIGO v3`);
 
   // DEBUG: Mostrar contenido de primeras filas
-  console.log(`   🔍 Contenido de primeras filas:`);
-  for (let r = 1; r <= 6; r++) {
-    const row = sheet.getRow(r);
-    const cells: string[] = [];
-    for (let c = 1; c <= 15; c++) {
-      const val = getCellValue(row.getCell(c))?.toString()?.trim() || '';
-      if (val) cells.push(`[${c}]${val.substring(0, 12)}`);
+  try {
+    console.log(`   🔍 DEBUG: Analizando estructura del sheet...`);
+    console.log(`   📊 Total filas en sheet: ${sheet.rowCount}`);
+
+    for (let r = 1; r <= Math.min(6, sheet.rowCount); r++) {
+      const row = sheet.getRow(r);
+      const cells: string[] = [];
+      for (let c = 1; c <= 15; c++) {
+        const cellVal = row.getCell(c).value;
+        const val = getCellValue(cellVal)?.toString()?.trim() || '';
+        if (val) cells.push(`[${c}]${val.substring(0, 12)}`);
+      }
+      console.log(`      F${r}: ${cells.length > 0 ? cells.join(' ') : '(vacía)'}`);
     }
-    if (cells.length > 0) console.log(`      F${r}: ${cells.join(' ')}`);
+  } catch (debugError: any) {
+    console.log(`   ❌ Error en debug: ${debugError.message}`);
   }
 
   // Buscar fila de headers (puede ser 2, 3 o 4)
