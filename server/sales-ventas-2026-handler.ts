@@ -159,14 +159,25 @@ export async function handleVentas2026Upload(
 
     // ========== ACTUALIZAR UTILIDAD DE TRANSACCIONES EXISTENTES ==========
     let utilidadesActualizadas = 0;
-    if (transaccionesExistentes.length > 0) {
-      console.log(`🔄 [Ventas2026 Upload] Actualizando utilidad_bruta de ${transaccionesExistentes.length} transacciones existentes...`);
+    const conUtilidadEnExcel = transaccionesExistentes.filter(t => t.utilidadBruta !== null && t.utilidadBruta !== undefined).length;
+
+    console.log(`🔄 [Ventas2026 Upload] Transacciones existentes: ${transaccionesExistentes.length}`);
+    console.log(`   💰 Con utilidad en Excel: ${conUtilidadEnExcel}`);
+
+    if (conUtilidadEnExcel > 0) {
+      console.log(`🔄 [Ventas2026 Upload] Actualizando utilidad_bruta...`);
+
+      // Log de ejemplo de primera transacción con utilidad
+      const ejemplo = transaccionesExistentes.find(t => t.utilidadBruta !== null);
+      if (ejemplo) {
+        console.log(`   📋 Ejemplo: folio="${ejemplo.folio}", fecha=${ejemplo.fecha.toISOString().split('T')[0]}, producto="${ejemplo.producto}", utilidad=${ejemplo.utilidadBruta}`);
+      }
 
       for (const tx of transaccionesExistentes) {
         // Solo actualizar si tenemos utilidad en el Excel
         if (tx.utilidadBruta !== null && tx.utilidadBruta !== undefined) {
           try {
-            const result = await sql(`
+            await sql(`
               UPDATE ventas
               SET utilidad_bruta = $1
               WHERE company_id = $2
@@ -186,17 +197,16 @@ export async function handleVentas2026Upload(
               tx.cantidad
             ]);
 
-            // Neon returns an array, check if rows were affected
-            if (result && (result as any).length !== undefined) {
-              utilidadesActualizadas++;
-            }
+            utilidadesActualizadas++;
           } catch (err: any) {
             console.error(`   ⚠️ Error actualizando utilidad: ${err.message}`);
           }
         }
       }
 
-      console.log(`   ✅ ${utilidadesActualizadas} utilidades actualizadas`);
+      console.log(`   ✅ ${utilidadesActualizadas} utilidades procesadas`);
+    } else {
+      console.log(`   ⚠️ Ninguna transacción del Excel tiene utilidad - verificar columnas del archivo`);
     }
 
     // Si no hay nada nuevo pero sí actualizamos utilidades, responder con éxito

@@ -192,9 +192,34 @@ function getMonthFromSheetName(name: string): number | null {
 }
 
 /**
+ * Detecta posiciones de columnas en header de DI
+ */
+function detectDIColumnPositions(sheet: Worksheet, headerRowNum: number): { [key: string]: number } {
+  const positions: { [key: string]: number } = {};
+  const headerRow = sheet.getRow(headerRowNum);
+
+  headerRow.eachCell((cell, colNumber) => {
+    const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
+    if (val.includes('FECHA') && !val.includes('MES')) positions['fecha'] = colNumber;
+    if (val.includes('FOLIO') || val === 'FACTURA') positions['folio'] = colNumber;
+    if (val.includes('CLIENTE')) positions['cliente'] = colNumber;
+    if (val.includes('PRODUCTO') && !val.includes('FAMILIA')) positions['producto'] = colNumber;
+    if (val.includes('CANTIDAD') || val === 'CANT') positions['cantidad'] = colNumber;
+    if (val.includes('PRECIO') && val.includes('UNIT')) positions['precioUnitario'] = colNumber;
+    if (val === 'IMPORTE' || (val.includes('IMPORTE') && !val.includes('M.N'))) positions['importe'] = colNumber;
+    if (val.includes('UTILIDAD') && val.includes('PÉRDIDA') && !val.includes('UNIT')) positions['utilidadBruta'] = colNumber;
+    if (val.includes('COSTO') && val.includes('UNIT')) positions['costoUnitario'] = colNumber;
+    if (val.includes('T.C') || val.includes('TIPO') && val.includes('CAMBIO')) positions['tipoCambio'] = colNumber;
+    if (val.includes('IMPORTE') && val.includes('M.N')) positions['importeMN'] = colNumber;
+  });
+
+  return positions;
+}
+
+/**
  * Parsea hoja "Acumulado" de DI
- * Headers en fila 4: FECHA, FOLIO, CLIENTE, PRODUCTO, CANTIDAD, PRECIO UNITARIO, IMPORTE
- * Datos desde fila 5
+ * Headers en fila 4, datos desde fila 5
+ * Detecta posición de columnas dinámicamente
  */
 export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   // Buscar hoja Acumulado (case insensitive)
@@ -208,41 +233,65 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   }
 
   console.log(`📄 [parseAcumuladoDI] Procesando hoja: "${sheet.name}"`);
-  const transactions: VentasTransaction[] = [];
+
+  // Detectar posiciones de columnas desde el header
   const headerRow = 4;
+  const cols = detectDIColumnPositions(sheet, headerRow);
+
+  console.log(`   📊 Columnas detectadas:`, JSON.stringify(cols));
+
+  // Usar posiciones detectadas o valores por defecto
+  const colFecha = cols['fecha'] || 1;
+  const colFolio = cols['folio'] || 2;
+  const colCliente = cols['cliente'] || 3;
+  const colProducto = cols['producto'] || 4;
+  const colCantidad = cols['cantidad'] || 5;
+  const colPrecioUnit = cols['precioUnitario'] || 6;
+  const colImporte = cols['importe'] || 7;
+  const colCostoUnit = cols['costoUnitario'] || 9;
+  const colUtilidad = cols['utilidadBruta'] || 11;
+  const colTC = cols['tipoCambio'];
+  const colImporteMN = cols['importeMN'];
+
+  console.log(`   💰 Columna UTILIDAD detectada en: ${colUtilidad}`);
+
+  const transactions: VentasTransaction[] = [];
+  let primeraUtilidad: number | null = null;
 
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber <= headerRow) return;
 
     // Obtener folio y saltar canceladas
-    const folioValue = getCellValue(row.getCell(2));
+    const folioValue = getCellValue(row.getCell(colFolio));
     const folio = folioValue?.toString()?.trim() || '';
 
     if (!folio || folio.toUpperCase().includes('CANCELA')) {
       return;
     }
 
-    const fechaValue = row.getCell(1).value;
+    const fechaValue = row.getCell(colFecha).value;
     const fecha = parseDate(fechaValue);
-    const cliente = getCellValue(row.getCell(3))?.toString()?.trim();
-    const producto = getCellValue(row.getCell(4))?.toString()?.trim();
-    const cantidad = parseNumber(row.getCell(5).value);
+    const cliente = getCellValue(row.getCell(colCliente))?.toString()?.trim();
+    const producto = getCellValue(row.getCell(colProducto))?.toString()?.trim();
+    const cantidad = parseNumber(row.getCell(colCantidad).value);
 
     // Validar campos requeridos
     if (!fecha || !cliente || !producto || !cantidad || cantidad <= 0) {
       return;
     }
 
-    const precioUnitario = parseNumber(row.getCell(6).value);
-    const importe = parseNumber(row.getCell(7).value);
-    // Columnas de utilidad (formato DI 2026):
-    // Col 9 = COSTO UNITARIO PUESTO EN BODEGA
-    // Col 11 = UTILIDAD / PÉRDIDA (total por línea)
-    const costoUnitario = parseNumber(row.getCell(9).value);
-    const utilidadBruta = parseNumber(row.getCell(11).value);
-    // T.C. e IMPORTE M.N. podrían estar en otras columnas o no existir
-    const tipoCambio = null; // Ya no está en col 9
-    const importeMN = null; // Ya no está en col 10
+    const precioUnitario = parseNumber(row.getCell(colPrecioUnit).value);
+    const importe = parseNumber(row.getCell(colImporte).value);
+    const costoUnitario = parseNumber(row.getCell(colCostoUnit).value);
+    const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
+    const tipoCambio = colTC ? parseNumber(row.getCell(colTC).value) : null;
+    const importeMN = colImporteMN ? parseNumber(row.getCell(colImporteMN).value) : null;
+
+    // Log de la primera utilidad encontrada para debugging
+    if (primeraUtilidad === null && utilidadBruta !== null) {
+      primeraUtilidad = utilidadBruta;
+      console.log(`   💵 Primera utilidad encontrada: ${utilidadBruta} (fila ${rowNumber})`);
+    }
 
     transactions.push({
       fecha,
@@ -263,7 +312,8 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     });
   });
 
-  console.log(`   ✅ ${transactions.length} transacciones del acumulado DI`);
+  const conUtilidad = transactions.filter(t => t.utilidadBruta !== null).length;
+  console.log(`   ✅ ${transactions.length} transacciones del acumulado DI (${conUtilidad} con utilidad)`);
   return transactions;
 }
 
