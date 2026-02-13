@@ -56,7 +56,7 @@ export function RiskAlertsCard({ companyId }: RiskAlertsCardProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Riesgo de Churn</span>
             <div className="flex items-center gap-2">
-              <span className={cn("text-2xl font-bold", riskColor)}>{churnRisk}</span>
+              <span className={cn("text-2xl font-bold", riskColor)}>{churnRisk.toFixed(1)}%</span>
               <Badge
                 variant="outline"
                 className={cn(

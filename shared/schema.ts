@@ -918,6 +918,32 @@ export const insertVentaSchema = createInsertSchema(ventas).omit({ id: true, ani
 export type InsertVenta = z.infer<typeof insertVentaSchema>;
 export type Venta = typeof ventas.$inferSelect;
 
+// ============================================================
+// Client Contact Tracking - Seguimiento de contactos a clientes
+// ============================================================
+export const clientContactTracking = pgTable("client_contact_tracking", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  clientName: varchar("client_name", { length: 255 }).notNull(),
+  clientId: integer("client_id"),
+  contactedBy: integer("contacted_by").references(() => users.id),
+  contactedAt: timestamp("contacted_at").notNull().defaultNow(),
+  notes: text("notes"),
+  nextAction: varchar("next_action", { length: 255 }),
+  nextActionDate: date("next_action_date", { mode: "string" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertClientContactTrackingSchema = createInsertSchema(clientContactTracking).omit({
+  id: true,
+  contactedAt: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertClientContactTracking = z.infer<typeof insertClientContactTrackingSchema>;
+export type ClientContactTracking = typeof clientContactTracking.$inferSelect;
+
 // KPI Detail type for dashboard components
 export interface KpiDetail {
   id: number;

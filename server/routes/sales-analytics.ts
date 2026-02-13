@@ -1493,4 +1493,153 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
   }
 });
 
+// ============================================
+// CLIENT CONTACT TRACKING - Plan de Ventas
+// ============================================
+
+// Schema validation for contact tracking
+const clientContactTrackingSchema = z.object({
+  companyId: z.number().int().positive(),
+  clientName: z.string().min(1).max(255),
+  clientId: z.number().int().optional().nullable(),
+  notes: z.string().optional(),
+  nextAction: z.string().max(255).optional(),
+  nextActionDate: z.string().optional(), // ISO date string
+});
+
+// POST /api/client-contact-tracking - Register a client contact
+router.post("/api/client-contact-tracking", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+
+    // Validate input
+    const parsed = clientContactTrackingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: parsed.error.issues
+      });
+    }
+
+    const { companyId, clientName, clientId, notes, nextAction, nextActionDate } = parsed.data;
+
+    // Check company access
+    const resolvedCompanyId = user?.role === 'admin' ? companyId : user?.companyId;
+    if (resolvedCompanyId !== companyId) {
+      return res.status(403).json({ error: 'No access to this company' });
+    }
+
+    // Insert contact tracking record
+    const result = await sql(`
+      INSERT INTO client_contact_tracking
+        (company_id, client_name, client_id, contacted_by, notes, next_action, next_action_date)
+      VALUES
+        ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, contacted_at
+    `, [
+      companyId,
+      clientName,
+      clientId || null,
+      user?.id || null,
+      notes || null,
+      nextAction || null,
+      nextActionDate || null
+    ]);
+
+    console.log(`[POST /api/client-contact-tracking] Registered contact: ${clientName} by user ${user?.id}`);
+
+    res.json({
+      success: true,
+      id: result[0]?.id,
+      contactedAt: result[0]?.contacted_at,
+      clientName
+    });
+  } catch (error) {
+    console.error('[POST /api/client-contact-tracking] Error:', error);
+    res.status(500).json({ error: 'Failed to register client contact' });
+  }
+});
+
+// GET /api/client-contact-tracking - Get contact history
+router.get("/api/client-contact-tracking", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, clientName, limit = 50 } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    let query = `
+      SELECT
+        cct.id,
+        cct.client_name,
+        cct.client_id,
+        cct.contacted_by,
+        u.username as contacted_by_name,
+        cct.contacted_at,
+        cct.notes,
+        cct.next_action,
+        cct.next_action_date
+      FROM client_contact_tracking cct
+      LEFT JOIN users u ON cct.contacted_by = u.id
+      WHERE cct.company_id = $1
+    `;
+    const params: any[] = [resolvedCompanyId];
+
+    if (clientName) {
+      query += ` AND cct.client_name = $${params.length + 1}`;
+      params.push(clientName);
+    }
+
+    query += ` ORDER BY cct.contacted_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit as string));
+
+    const results = await sql(query, params);
+
+    res.json(results);
+  } catch (error) {
+    console.error('[GET /api/client-contact-tracking] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch contact history' });
+  }
+});
+
+// GET /api/client-contact-tracking/recent - Get recently contacted clients (for UI state)
+router.get("/api/client-contact-tracking/recent", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, days = 7 } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    // Get unique clients contacted in the last N days
+    const results = await sql(`
+      SELECT DISTINCT client_name
+      FROM client_contact_tracking
+      WHERE company_id = $1
+        AND contacted_at >= NOW() - INTERVAL '${parseInt(days as string)} days'
+    `, [resolvedCompanyId]);
+
+    const recentlyContacted = results.map((r: any) => r.client_name);
+
+    res.json({ recentlyContacted });
+  } catch (error) {
+    console.error('[GET /api/client-contact-tracking/recent] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch recently contacted clients' });
+  }
+});
+
 export default router;

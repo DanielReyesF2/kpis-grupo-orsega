@@ -14,6 +14,11 @@ export interface ClientFocus {
   yoyChange: number;
   riskScore: number; // 0-100
   recommendedActions: string[];
+  // New fields for Sales Plan
+  topProducts: string[];        // Top 3 productos que compraba
+  lastOrderDateFormatted: string;  // Fecha legible del último pedido (ej: "15-May-2024")
+  suggestedAction: string;      // Acción específica sugerida
+  contactPriority: number;      // 1-10 para ordenar (1 = más urgente)
 }
 
 export interface ProductOpportunity {

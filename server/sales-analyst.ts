@@ -345,6 +345,26 @@ export async function generateSalesAnalystInsights(
         CURRENT_DATE - cs.last_purchase_date::date as days_since_purchase
       FROM client_stats cs
       WHERE cs.qty_last_year > 0 AND cs.qty_current_year = 0
+    ),
+    -- Top 3 productos por cliente (basado en importe histórico)
+    client_top_products AS (
+      SELECT
+        cliente,
+        array_agg(producto ORDER BY total_importe DESC) as top_products
+      FROM (
+        SELECT
+          cliente,
+          producto,
+          SUM(importe) as total_importe,
+          ROW_NUMBER() OVER (PARTITION BY cliente ORDER BY SUM(importe) DESC) as rn
+        FROM ventas
+        WHERE company_id = $1
+          AND cliente IS NOT NULL AND cliente <> ''
+          AND producto IS NOT NULL AND producto <> ''
+        GROUP BY cliente, producto
+      ) ranked
+      WHERE rn <= 3
+      GROUP BY cliente
     )
     SELECT
       'client' as data_type,
@@ -361,9 +381,11 @@ export async function generateSalesAnalystInsights(
           WHEN cs.qty_last_year > 0 THEN ((cs.qty_current_year - cs.qty_last_year) / cs.qty_last_year * 100)
           ELSE CASE WHEN cs.qty_current_year > 0 THEN 100 ELSE 0 END
         END,
-        'unit', cs.unit
+        'unit', cs.unit,
+        'topProducts', COALESCE(ctp.top_products, ARRAY[]::text[])
       ) as data
     FROM client_stats cs
+    LEFT JOIN client_top_products ctp ON cs.cliente = ctp.cliente
     WHERE cs.qty_last_year > 0 OR cs.qty_current_year > 0
     
     UNION ALL
@@ -617,6 +639,36 @@ function categorizeClients(
       priority = 'opportunity';
     }
 
+    // Calculate contact priority (1-10, where 1 is most urgent)
+    // Based on: days since purchase (50%), revenue at risk (30%), yoy decline (20%)
+    const daysWeight = Math.min(daysSince / criticalDaysThreshold, 1.0) * 5; // 0-5 points
+    const revenueWeight = Math.min(previousRevenue / 100000, 1.0) * 3; // 0-3 points (scales to $100k)
+    const declineWeight = yoyChange < 0 ? Math.min(Math.abs(yoyChange) / 50, 1.0) * 2 : 0; // 0-2 points
+    const contactPriorityRaw = 10 - Math.min(daysWeight + revenueWeight + declineWeight, 9);
+    const contactPriority = Math.max(1, Math.round(contactPriorityRaw));
+
+    // Format last order date in readable Spanish format
+    const lastOrderDate = client.lastPurchaseDate ? new Date(client.lastPurchaseDate) : null;
+    const lastOrderDateFormatted = lastOrderDate
+      ? lastOrderDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+      : 'N/A';
+
+    // Generate specific suggested action based on priority and context
+    let suggestedAction = '';
+    if (isCritical) {
+      const discountNeeded = Math.min(Math.floor(daysSince / 30) * 5, 25);
+      suggestedAction = `Llamar y ofrecer ${discountNeeded}% desc. en primer pedido`;
+    } else if (isWarning) {
+      suggestedAction = 'Contactar para entender necesidades actuales';
+    } else if (yoyChange > 10) {
+      suggestedAction = 'Ofrecer mayor volumen o productos complementarios';
+    } else {
+      suggestedAction = 'Seguimiento de satisfacción';
+    }
+
+    // Get top products (already from query, or empty array)
+    const topProducts: string[] = client.topProducts || [];
+
     const clientFocus: ClientFocus = {
       name: client.name,
       clientId: client.clientId,
@@ -627,7 +679,12 @@ function categorizeClients(
       currentYearRevenue: currentRevenue,
       yoyChange: yoyChange,
       riskScore: Math.min(riskScore, 100),
-      recommendedActions
+      recommendedActions,
+      // New fields for Sales Plan
+      topProducts,
+      lastOrderDateFormatted,
+      suggestedAction,
+      contactPriority
     };
 
     // Categorizar basado en días sin compra (umbrales fijos)

@@ -8,14 +8,12 @@ import { KpiDetailDialog } from '@/components/kpis/KpiDetailDialog';
 import { MonthYearSelector } from '@/components/dashboard/MonthYearSelector';
 import { MonthlyKPICards } from '@/components/dashboard/MonthlyKPICards';
 import { MonthlyTrendCard } from '@/components/dashboard/MonthlyTrendCard';
-import { RiskAlertsCard } from '@/components/dashboard/RiskAlertsCard';
 import { ClientAnalysisCard } from '@/components/dashboard/ClientAnalysisCard';
 import { ProductAnalysisCard } from '@/components/dashboard/ProductAnalysisCard';
 import { AnomaliesCard } from '@/components/dashboard/AnomaliesCard';
 import { ClientEfficiencyCard } from '@/components/dashboard/ClientEfficiencyCard';
 import { DerivedKPIsCard } from '@/components/dashboard/DerivedKPIsCard';
-import { StrategicRecommendationsCard } from '@/components/dashboard/StrategicRecommendationsCard';
-import { AIInsightsWidget } from '@/components/dashboard/AIInsightsWidget';
+import { SalesPlanSection } from '@/components/dashboard/SalesPlanSection';
 import { SalesExcelUploader } from '@/components/sales/SalesExcelUploader';
 
 import { Button } from '@/components/ui/button';
@@ -196,23 +194,17 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* SECTION 5: Riesgo y Recomendaciones */}
+        {/* SECTION 5: Plan de Ventas */}
         <section>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Lightbulb className="w-5 h-5 text-primary" />
-            Riesgo y Recomendaciones
+            Plan de Ventas
           </h2>
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 lg:col-span-4">
-              <RiskAlertsCard companyId={selectedCompany} />
-            </div>
-            <div className="col-span-12 lg:col-span-4">
-              <AIInsightsWidget companyId={selectedCompany} />
-            </div>
-            <div className="col-span-12 lg:col-span-4">
-              <StrategicRecommendationsCard companyId={selectedCompany} year={selectedYear} month={selectedMonth} />
-            </div>
-          </div>
+          <SalesPlanSection
+            companyId={selectedCompany}
+            year={selectedYear}
+            month={selectedMonth}
+          />
         </section>
 
         {/* KPI Details Dialog */}
