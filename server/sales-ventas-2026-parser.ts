@@ -253,15 +253,24 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   }
 
   // Buscar fila de headers (puede ser 2, 3 o 4)
-  let headerRow = 2;
-  for (let r = 1; r <= 5; r++) {
+  // Buscar FECHA en columnas 1-5
+  let headerRow = 4; // Default para DI es fila 4
+  let foundHeader = false;
+  for (let r = 1; r <= 6; r++) {
     const row = sheet.getRow(r);
-    const cell1 = getCellValue(row.getCell(1))?.toString()?.toUpperCase()?.trim() || '';
-    if (cell1.includes('FECHA')) {
-      headerRow = r;
-      console.log(`   ✅ Headers encontrados en fila ${r}`);
-      break;
+    for (let c = 1; c <= 5; c++) {
+      const cellVal = getCellValue(row.getCell(c))?.toString()?.toUpperCase()?.trim() || '';
+      if (cellVal.includes('FECHA')) {
+        headerRow = r;
+        console.log(`   ✅ Headers encontrados en fila ${r}, col ${c} (FECHA)`);
+        foundHeader = true;
+        break;
+      }
     }
+    if (foundHeader) break;
+  }
+  if (!foundHeader) {
+    console.log(`   ⚠️ No se encontró header FECHA, usando default fila ${headerRow}`);
   }
 
   const cols = detectDIColumnPositions(sheet, headerRow);
@@ -288,13 +297,22 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
   let rowsSkipped = 0;
   let firstDataRow = true;
+  let rowsProcessed = 0;
+
+  console.log(`   🔄 Iniciando eachRow desde headerRow=${headerRow}...`);
 
   sheet.eachRow((row, rowNumber) => {
+    rowsProcessed++;
     if (rowNumber <= headerRow) return;
 
     // Obtener folio y saltar canceladas
     const folioValue = getCellValue(row.getCell(colFolio));
     const folio = folioValue?.toString()?.trim() || '';
+
+    // DEBUG: Mostrar las primeras 3 filas de datos intentadas
+    if (rowsProcessed <= headerRow + 3) {
+      console.log(`      📝 Fila ${rowNumber}: folio="${folio?.substring(0,15) || '(vacío)'}"`);
+    }
 
     if (!folio || folio.toUpperCase().includes('CANCELA')) {
       rowsSkipped++;
@@ -359,6 +377,7 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     });
   });
 
+  console.log(`   📊 eachRow completado: ${rowsProcessed} filas procesadas, ${rowsSkipped} saltadas`);
   const conUtilidad = transactions.filter(t => t.utilidadBruta !== null).length;
   console.log(`   ✅ ${transactions.length} transacciones del acumulado DI (${conUtilidad} con utilidad)`);
   return transactions;
