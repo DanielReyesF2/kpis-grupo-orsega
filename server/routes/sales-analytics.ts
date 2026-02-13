@@ -925,7 +925,8 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     `, params);
 
     // Si no hay datos y es month/year, buscar en el último período con datos
-    if ((!topClients || topClients.length === 0 || (topClients[0]?.total_volume === 0)) && (period === 'month' || period === 'year')) {
+    // Solo hacer fallback si NO hay resultados (no si tienen volume=0 pero sí revenue)
+    if ((!topClients || topClients.length === 0) && (period === 'month' || period === 'year')) {
       topClients = await sql(`
         SELECT
           cliente as client_name,
