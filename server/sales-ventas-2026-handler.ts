@@ -216,7 +216,7 @@ export async function handleVentas2026Upload(
         let productId = null;
         const productResult = await sql(`
           SELECT id FROM products
-          WHERE company_id = $1 AND LOWER(product_name) = LOWER($2)
+          WHERE company_id = $1 AND LOWER(name) = LOWER($2)
           LIMIT 1
         `, [resolvedCompanyId, tx.producto]);
 
@@ -225,10 +225,11 @@ export async function handleVentas2026Upload(
         } else {
           // Crear producto si no existe
           const newProduct = await sql(`
-            INSERT INTO products (company_id, product_name, unit, is_active)
-            VALUES ($1, $2, $3, true)
+            INSERT INTO products (company_id, name, is_active)
+            VALUES ($1, $2, true)
+            ON CONFLICT DO NOTHING
             RETURNING id
-          `, [resolvedCompanyId, tx.producto, tx.unidad || 'KG']);
+          `, [resolvedCompanyId, tx.producto]);
 
           if (newProduct[0]) {
             productId = newProduct[0].id;
@@ -278,12 +279,11 @@ export async function handleVentas2026Upload(
     // Actualizar estado del upload
     await sql(`
       UPDATE sales_uploads
-      SET status = 'completed',
-          processed_at = NOW(),
-          rows_processed = $2,
-          rows_failed = $3
+      SET status = 'processed',
+          records_count = $2,
+          notes = $3
       WHERE id = $1
-    `, [uploadId, transaccionesInsertadas, erroresInsercion]);
+    `, [uploadId, transaccionesInsertadas, `Ventas 2026: ${transaccionesInsertadas} nuevas, ${erroresInsercion} errores`]);
 
     // Responder con información detallada de deduplicación
     res.json({
@@ -314,9 +314,9 @@ export async function handleVentas2026Upload(
         await sql(`
           UPDATE sales_uploads
           SET status = 'failed',
-              error_message = $2
+              notes = $2
           WHERE id = $1
-        `, [uploadId, error.message]);
+        `, [uploadId, `Error: ${error.message}`]);
       } catch {
         // Ignorar error de actualización
       }
