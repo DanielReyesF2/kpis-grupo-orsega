@@ -10,6 +10,9 @@ import { handleSalesUpload } from '../sales-upload-handler-NEW';
 import { handleIDRALLUpload, detectExcelFormat } from '../sales-idrall-handler';
 import { handleACUMGO2026Upload } from '../sales-acum-go-handler';
 import { autoAnalyzeSalesUpload } from '../nova/nova-auto-analyze';
+import { ensureDecrypted, cleanupDecrypted } from '../excel-decryptor';
+import { isVentas2026Format } from '../sales-ventas-2026-parser';
+import { handleVentas2026Upload } from '../sales-ventas-2026-handler';
 
 const router = Router();
 
@@ -174,10 +177,31 @@ router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, ne
     });
   }
 
+  let decryptedPath: string | null = null;
+  let originalPath = file.path;
+
   try {
+    // Desencriptar archivo si es necesario (contraseña: GODINTAL)
+    console.log('🔐 [Sales Upload] Verificando encriptación del archivo...');
+    const decryptResult = await ensureDecrypted(file.path);
+    decryptedPath = decryptResult.path;
+
+    if (decryptResult.wasDecrypted) {
+      console.log('✅ [Sales Upload] Archivo desencriptado exitosamente');
+      // Actualizar la ruta del archivo para los handlers
+      file.path = decryptedPath;
+    }
+
     // Leer archivo para detectar formato
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(file.path);
+
+    // Primero verificar si es el nuevo formato VENTAS 2026
+    if (isVentas2026Format(workbook)) {
+      console.log('📋 [Sales Upload] Formato detectado: VENTAS_2026');
+      await handleVentas2026Upload(req, res, { getAuthUser, ExcelJS, workbook });
+      return;
+    }
 
     const format = await detectExcelFormat(workbook);
     console.log(`📋 [Sales Upload] Formato detectado: ${format}`);
@@ -224,6 +248,11 @@ router.post("/api/sales/upload", jwtAuthMiddleware, uploadLimiter, (req, res, ne
     console.error('❌ [Sales Upload] Error detectando formato:', error.message);
     // Fallback: intentar con IDRALL
     await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
+  } finally {
+    // Limpiar archivo desencriptado temporal
+    if (decryptedPath && decryptedPath !== originalPath) {
+      cleanupDecrypted(decryptedPath, originalPath);
+    }
   }
 });
 
@@ -251,18 +280,38 @@ router.post("/api/sales-data/import-from-nova", jwtAuthMiddleware, uploadLimiter
     });
   }
 
+  let decryptedPath: string | null = null;
+  let originalPath = file.path;
+
   try {
+    // Desencriptar archivo si es necesario (contraseña: GODINTAL)
+    console.log('🔐 [Import from Nova] Verificando encriptación del archivo...');
+    const decryptResult = await ensureDecrypted(file.path);
+    decryptedPath = decryptResult.path;
+
+    if (decryptResult.wasDecrypted) {
+      console.log('✅ [Import from Nova] Archivo desencriptado exitosamente');
+      file.path = decryptedPath;
+    }
+
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(file.path);
-
-    const format = await detectExcelFormat(workbook);
-    console.log(`📋 [Import from Nova] Formato detectado: ${format}`);
 
     // Asegurar company_id del usuario para el handler (multer deja body en req.body)
     const body = (req as any).body ?? {};
     if (user?.companyId != null && body.companyId == null) {
       (req as any).body = { ...body, companyId: String(user.companyId) };
     }
+
+    // Primero verificar si es el nuevo formato VENTAS 2026
+    if (isVentas2026Format(workbook)) {
+      console.log('📋 [Import from Nova] Formato detectado: VENTAS_2026');
+      await handleVentas2026Upload(req, res, { getAuthUser, ExcelJS, workbook });
+      return;
+    }
+
+    const format = await detectExcelFormat(workbook);
+    console.log(`📋 [Import from Nova] Formato detectado: ${format}`);
 
     if (format === 'IDRALL') {
       await handleIDRALLUpload(req, res, { getAuthUser, ExcelJS });
@@ -279,6 +328,11 @@ router.post("/api/sales-data/import-from-nova", jwtAuthMiddleware, uploadLimiter
       error: 'Error al importar ventas',
       details: error.message || 'Revisa que el archivo sea un Excel de ventas válido (IDRALL o 4 hojas).'
     });
+  } finally {
+    // Limpiar archivo desencriptado temporal
+    if (decryptedPath && decryptedPath !== originalPath) {
+      cleanupDecrypted(decryptedPath, originalPath);
+    }
   }
 });
 
