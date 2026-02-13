@@ -199,7 +199,7 @@ function detectDIColumnPositions(sheet: Worksheet, headerRowNum: number): { [key
   const headerRow = sheet.getRow(headerRowNum);
 
   headerRow.eachCell((cell, colNumber) => {
-    const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
+    const val = getCellValue(cell.value)?.toString()?.toUpperCase()?.trim() || '';
     if (val.includes('FECHA') && !val.includes('MES')) positions['fecha'] = colNumber;
     if (val.includes('FOLIO') || val === 'FACTURA') positions['folio'] = colNumber;
     if (val.includes('CLIENTE')) positions['cliente'] = colNumber;
@@ -246,7 +246,7 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
       }
       // Verificar si tiene estructura DI (FECHA en alguna fila cercana)
       for (let r = 1; r <= 6; r++) {
-        const cell = getCellValue(ws.getRow(r).getCell(1))?.toString()?.toUpperCase()?.trim();
+        const cell = getCellValue(ws.getRow(r).getCell(1).value)?.toString()?.toUpperCase()?.trim();
         if (cell === 'FECHA') {
           sheet = ws;
           console.log(`   ✅ Encontrada hoja con estructura DI: "${ws.name}" (FECHA en fila ${r})`);
@@ -290,7 +290,7 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
   for (let r = 1; r <= 6; r++) {
     const row = sheet.getRow(r);
     for (let c = 1; c <= 5; c++) {
-      const cellVal = getCellValue(row.getCell(c))?.toString()?.toUpperCase()?.trim() || '';
+      const cellVal = getCellValue(row.getCell(c).value)?.toString()?.toUpperCase()?.trim() || '';
       if (cellVal.includes('FECHA')) {
         headerRow = r;
         console.log(`   ✅ Headers encontrados en fila ${r}, col ${c} (FECHA)`);
@@ -337,7 +337,7 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
     if (rowNumber <= headerRow) return;
 
     // Obtener folio y saltar canceladas
-    const folioValue = getCellValue(row.getCell(colFolio));
+    const folioValue = getCellValue(row.getCell(colFolio).value);
     const folio = folioValue?.toString()?.trim() || '';
 
     // DEBUG: Mostrar las primeras 3 filas de datos intentadas
@@ -352,8 +352,8 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
     const fechaValue = row.getCell(colFecha).value;
     const fecha = parseDate(fechaValue);
-    const cliente = getCellValue(row.getCell(colCliente))?.toString()?.trim();
-    const producto = getCellValue(row.getCell(colProducto))?.toString()?.trim();
+    const cliente = getCellValue(row.getCell(colCliente).value)?.toString()?.trim();
+    const producto = getCellValue(row.getCell(colProducto).value)?.toString()?.trim();
     const cantidad = parseNumber(row.getCell(colCantidad).value);
 
     // DEBUG: Log primera fila de datos
@@ -426,7 +426,7 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
     const row = worksheet.getRow(r);
     const cells: string[] = [];
     for (let c = 1; c <= 18; c++) {
-      const val = getCellValue(row.getCell(c))?.toString()?.trim() || '';
+      const val = getCellValue(row.getCell(c).value)?.toString()?.trim() || '';
       if (val) cells.push(`[${c}]${val.substring(0, 12)}`);
     }
     if (cells.length > 0) console.log(`      F${r}: ${cells.join(' ')}`);
@@ -440,7 +440,7 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
   for (let r = 1; r <= 4; r++) {
     const row = worksheet.getRow(r);
     for (let c = 1; c <= 20; c++) {
-      const val = getCellValue(row.getCell(c))?.toString()?.toUpperCase()?.trim() || '';
+      const val = getCellValue(row.getCell(c).value)?.toString()?.toUpperCase()?.trim() || '';
       // Buscar UTILIDAD / PÉRDIDA (exacta o parcial)
       if (val.includes('UTILIDAD') && (val.includes('PERDIDA') || val.includes('PÉRDIDA'))) {
         if (!val.includes('UNIT') && !val.includes('BRUTA') && !val.includes('APROX')) {
@@ -495,7 +495,7 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       console.log(`      Col ${colUtilidad} (utilidad): raw="${rawUtilidad}" → ${utilidadBruta}`);
       // También mostrar cols cercanas
       for (let c = 8; c <= 14; c++) {
-        const v = getCellValue(row.getCell(c));
+        const v = getCellValue(row.getCell(c).value);
         console.log(`      Col ${c}: "${v}"`);
       }
     }
@@ -646,7 +646,7 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
 
   const row3 = sheet.getRow(headerRow);
   row3.eachCell((cell, colNumber) => {
-    const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
+    const val = getCellValue(cell.value)?.toString()?.toUpperCase()?.trim() || '';
     if (val.includes('UTILIDAD') && val.includes('BRUTA')) {
       colUtilidad = colNumber;
     }
@@ -665,7 +665,7 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
     if (rowNumber <= headerRow + 1) return;
 
     // Saltar filas de separador (NACIONALES, EXPORTACIONES, TOTAL, etc.)
-    const firstCell = getCellValue(row.getCell(1))?.toString()?.trim() || '';
+    const firstCell = getCellValue(row.getCell(1).value)?.toString()?.trim() || '';
     if (!firstCell ||
         firstCell.toUpperCase() === 'NACIONALES' ||
         firstCell.toUpperCase() === 'EXPORTACIONES' ||
@@ -674,14 +674,14 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
       return;
     }
 
-    const folio = getCellValue(row.getCell(2))?.toString()?.trim() || null;
+    const folio = getCellValue(row.getCell(2).value)?.toString()?.trim() || null;
     const fechaValue = row.getCell(3).value;
     const fecha = parseDate(fechaValue);
 
-    const cliente = getCellValue(row.getCell(4))?.toString()?.trim();
-    const producto = getCellValue(row.getCell(5))?.toString()?.trim();
-    const familiaProducto = getCellValue(row.getCell(6))?.toString()?.trim() || null;
-    const unidad = getCellValue(row.getCell(7))?.toString()?.trim() || 'KG';
+    const cliente = getCellValue(row.getCell(4).value)?.toString()?.trim();
+    const producto = getCellValue(row.getCell(5).value)?.toString()?.trim();
+    const familiaProducto = getCellValue(row.getCell(6).value)?.toString()?.trim() || null;
+    const unidad = getCellValue(row.getCell(7).value)?.toString()?.trim() || 'KG';
     const cantidad = parseNumber(row.getCell(8).value);
     const precioUSD = parseNumber(row.getCell(9).value);
     const importeMN = parseNumber(row.getCell(10).value);
