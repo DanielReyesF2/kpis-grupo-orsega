@@ -665,23 +665,28 @@ export function parseAcumuladoGO(workbook: Workbook): VentasTransaction[] {
   console.log(`      ${headers.join(' | ')}`);
 
   // Detectar columnas dinámicamente
-  let colUtilidad = 18; // default
-  let colCompra = 16;   // default
-  let colImporte = 14;  // default IMPORTE M.N.
-  let colCantidad = 8;  // default
+  // Defaults según estructura real del Excel GO:
+  // N(14)=IMPORTE M.N., O(15)=COMPRA, P(16)=FLETE, Q(17)=UTILIDAD BRUTA
+  let colUtilidad = 17; // UTILIDAD BRUTA en col Q (17)
+  let colCompra = 15;   // COMPRA en col O (15)
+  let colImporte = 14;  // IMPORTE M.N. en col N (14)
+  let colCantidad = 8;  // Cantidad en col H (8)
 
   row3.eachCell((cell, colNumber) => {
     const val = getCellValue(cell.value)?.toString()?.toUpperCase()?.trim() || '';
-    if (val.includes('UTILIDAD') && val.includes('BRUTA')) {
+    if (val.includes('UTILIDAD')) {
       colUtilidad = colNumber;
+      console.log(`      → UTILIDAD detectada en col ${colNumber}: "${val}"`);
     }
-    if (val === 'COMPRA') {
+    if (val.includes('COMPRA')) {
       colCompra = colNumber;
+      console.log(`      → COMPRA detectada en col ${colNumber}: "${val}"`);
     }
     if (val.includes('IMPORTE') && val.includes('M.N')) {
       colImporte = colNumber;
+      console.log(`      → IMPORTE M.N. detectado en col ${colNumber}: "${val}"`);
     }
-    if (val === 'CANTIDAD') {
+    if (val.includes('CANTIDAD')) {
       colCantidad = colNumber;
     }
   });
