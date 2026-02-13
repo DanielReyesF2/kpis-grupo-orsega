@@ -1,5 +1,5 @@
 /**
- * Monthly Financial KPI Cards - 7 tarjetas con métricas financieras del mes
+ * Monthly Financial KPI Cards - 6 tarjetas con métricas financieras del mes
  * Replica la sección "Desempeño Financiero - Métricas Principales" del análisis Nova
  */
 
@@ -21,7 +21,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <Skeleton key={i} className="h-32 rounded-lg" />
         ))}
       </div>
@@ -29,9 +29,8 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
   }
 
   const d = data as any;
-  const fm = d?.financialMetrics as { totalRevenueMXN: number; totalRevenueUSD: number; totalCostMXN: number; grossProfitMXN: number; grossMarginPercent: number; avgTransactionValue: number; totalTransactions: number; totalItems: number; totalQuantity: number; unit: string } | undefined;
+  const fm = d?.financialMetrics as { totalRevenueMXN: number; totalCostMXN: number; grossProfitMXN: number; grossMarginPercent: number; avgTransactionValue: number; totalTransactions: number; totalItems: number; totalQuantity: number; unit: string } | undefined;
   const prev = d?.previousMonth as { totalRevenue: number; grossProfit: number; grossMarginPercent: number; totalTransactions: number } | undefined;
-  const exchangeRate = d?.exchangeRate as { avgRate: number; minRate: number; maxRate: number } | undefined;
   const monthName: string = d?.monthName || 'este mes';
 
   if (!fm) {
@@ -53,11 +52,9 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
     ? ((fm.totalTransactions - prev.totalTransactions) / prev.totalTransactions) * 100
     : undefined;
 
-  const showUSD = companyId === 1 && fm.totalRevenueUSD > 0;
-
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {/* 1. Venta Total MXN */}
+      {/* 1. Venta Total */}
       <SalesKPICard
         title={`Venta Total ${monthName}`}
         value={formatCurrency(fm.totalRevenueMXN, companyId)}
@@ -67,18 +64,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
         variant="success"
       />
 
-      {/* 2. Venta Total USD (solo company 1) */}
-      {showUSD && (
-        <SalesKPICard
-          title="Venta Total USD"
-          value={`$${formatNumber(Math.round(fm.totalRevenueUSD))}`}
-          subtitle={`TC prom: ${exchangeRate?.avgRate?.toFixed(2) || 'N/A'}`}
-          icon={DollarSign}
-          variant="default"
-        />
-      )}
-
-      {/* 3. Costo Total */}
+      {/* 2. Costo Total */}
       <SalesKPICard
         title="Costo Total"
         value={formatCurrency(fm.totalCostMXN, companyId)}
@@ -87,7 +73,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
         variant={fm.totalCostMXN > 0 ? "warning" : "default"}
       />
 
-      {/* 4. Utilidad Bruta */}
+      {/* 3. Utilidad Bruta */}
       <SalesKPICard
         title="Utilidad Bruta"
         value={formatCurrency(fm.grossProfitMXN, companyId)}
@@ -97,7 +83,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
         variant={fm.grossProfitMXN > 0 ? "success" : "danger"}
       />
 
-      {/* 5. Margen Bruto % */}
+      {/* 4. Margen Bruto % */}
       <SalesKPICard
         title="Margen Bruto"
         value={`${fm.grossMarginPercent.toFixed(2)}%`}
@@ -108,7 +94,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
         variant={fm.grossMarginPercent >= 15 ? "success" : fm.grossMarginPercent >= 8 ? "warning" : "danger"}
       />
 
-      {/* 6. Promedio por Transacción */}
+      {/* 5. Promedio por Transacción */}
       <SalesKPICard
         title="Promedio/Transacción"
         value={formatCurrency(fm.avgTransactionValue, companyId)}
@@ -117,7 +103,7 @@ export function MonthlyKPICards({ companyId, year, month }: MonthlyKPICardsProps
         variant="default"
       />
 
-      {/* 7. Total Transacciones */}
+      {/* 6. Total Transacciones */}
       <SalesKPICard
         title="Transacciones"
         value={formatNumber(fm.totalTransactions)}
