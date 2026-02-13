@@ -320,38 +320,46 @@ export function parseAcumuladoDI(workbook: Workbook): VentasTransaction[] {
 
 /**
  * Parsea hoja de ventas formato DI (hojas mensuales)
- * Columnas DI 2026:
- * 1=FECHA, 2=FOLIO, 3=CLIENTE, 4=PRODUCTO, 5=CANTIDAD, 6=PRECIO UNITARIO, 7=IMPORTE,
- * 8=(vacío), 9=LOTE, 10=COSTO UNITARIO, 11=UT. BRUTA UNITARIA, 12=UTILIDAD/PÉRDIDA,
- * 13=FLETE, 14=UTILIDAD APROX, 15=%UT
  */
 function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTransaction[] {
   const transactions: VentasTransaction[] = [];
 
-  // Detectar fila de headers (buscar en filas 1-4)
+  // DEBUG: Mostrar contenido de headers
+  console.log(`   🔍 [parseSheetDI] Headers de "${worksheet.name}":`);
+  for (let r = 1; r <= 3; r++) {
+    const row = worksheet.getRow(r);
+    const cells: string[] = [];
+    for (let c = 1; c <= 18; c++) {
+      const val = getCellValue(row.getCell(c))?.toString()?.trim() || '';
+      if (val) cells.push(`[${c}]${val.substring(0, 12)}`);
+    }
+    if (cells.length > 0) console.log(`      F${r}: ${cells.join(' ')}`);
+  }
+
+  // Detectar columna de utilidad buscando en headers
   let headerRow = 2;
-  let colUtilidad = 12; // UTILIDAD / PÉRDIDA está en columna 12 para DI
-  let colCosto = 10;    // COSTO UNITARIO está en columna 10
+  let colUtilidad = 11; // Default más bajo por si no hay columna vacía
+  let colCosto = 9;
 
   for (let r = 1; r <= 4; r++) {
     const row = worksheet.getRow(r);
-
-    row.eachCell((cell, colNumber) => {
-      const val = getCellValue(cell)?.toString()?.toUpperCase()?.trim() || '';
-      // Buscar columna UTILIDAD / PÉRDIDA (no la unitaria)
-      if (val.includes('UTILIDAD') && val.includes('PÉRDIDA') && !val.includes('UNIT') && !val.includes('BRUTA')) {
-        colUtilidad = colNumber;
-        headerRow = r;
-        console.log(`   🔍 [parseSheetDI] UTILIDAD/PÉRDIDA encontrada en col ${colNumber}, fila ${r}`);
+    for (let c = 1; c <= 20; c++) {
+      const val = getCellValue(row.getCell(c))?.toString()?.toUpperCase()?.trim() || '';
+      // Buscar UTILIDAD / PÉRDIDA (exacta o parcial)
+      if (val.includes('UTILIDAD') && (val.includes('PERDIDA') || val.includes('PÉRDIDA'))) {
+        if (!val.includes('UNIT') && !val.includes('BRUTA') && !val.includes('APROX')) {
+          colUtilidad = c;
+          headerRow = r;
+          console.log(`   ✅ [parseSheetDI] UTILIDAD col=${c} fila=${r} "${val}"`);
+        }
       }
-      // Buscar columna COSTO UNITARIO
       if (val.includes('COSTO') && val.includes('UNIT')) {
-        colCosto = colNumber;
+        colCosto = c;
       }
-    });
+    }
   }
 
-  console.log(`   📋 [parseSheetDI] Usando: headerRow=${headerRow}, colUtilidad=${colUtilidad}, colCosto=${colCosto}`);
+  console.log(`   📋 [parseSheetDI] FINAL: headerRow=${headerRow}, colUtilidad=${colUtilidad}, colCosto=${colCosto}`);
 
   let primeraUtilidad: number | null = null;
 
@@ -381,6 +389,20 @@ function parseSheetDI(worksheet: Worksheet, sheetMonth: number | null): VentasTr
     // Columnas de utilidad - usar posiciones detectadas
     const costoUnitario = parseNumber(row.getCell(colCosto).value);
     const utilidadBruta = parseNumber(row.getCell(colUtilidad).value);
+
+    // DEBUG: Log de primera fila de datos para verificar columnas
+    if (transactions.length === 0) {
+      const rawUtilidad = row.getCell(colUtilidad).value;
+      const rawCosto = row.getCell(colCosto).value;
+      console.log(`   🔬 Primera fila datos (fila ${rowNumber}):`);
+      console.log(`      Col ${colCosto} (costo): raw="${rawCosto}" → ${costoUnitario}`);
+      console.log(`      Col ${colUtilidad} (utilidad): raw="${rawUtilidad}" → ${utilidadBruta}`);
+      // También mostrar cols cercanas
+      for (let c = 8; c <= 14; c++) {
+        const v = getCellValue(row.getCell(c));
+        console.log(`      Col ${c}: "${v}"`);
+      }
+    }
 
     // Log primera utilidad encontrada
     if (primeraUtilidad === null && utilidadBruta !== null) {
