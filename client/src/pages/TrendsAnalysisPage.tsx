@@ -41,7 +41,9 @@ import {
   ChevronRight,
   Table,
   Eye,
-  Sparkles
+  Sparkles,
+  Brain,
+  Users
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -50,6 +52,12 @@ import { YearlyTotalsBarChart } from '@/components/dashboard/YearlyTotalsBarChar
 import { MultiYearTrendChart } from '@/components/dashboard/MultiYearTrendChart';
 import { TopClientsChart } from '@/components/dashboard/TopClientsChart';
 import { TopProductsChart } from '@/components/dashboard/TopProductsChart';
+
+// Componentes de gestión de clientes (Analista de Ventas)
+import { PriorityClientsTable } from '@/components/dashboard/PriorityClientsTable';
+import { WeeklyActionsPanel } from '@/components/dashboard/WeeklyActionsPanel';
+import { ContactedClientsProvider } from '@/components/dashboard/ContactedClientsContext';
+import { useSalesAnalyst } from '@/hooks/useSalesAnalyst';
 
 interface MonthlyData {
   month: string;
@@ -88,6 +96,15 @@ export default function TrendsAnalysisPage() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  // Query para datos del analista de ventas (clientes prioritarios)
+  const { data: salesInsights, isLoading: isLoadingSalesInsights } = useSalesAnalyst(selectedCompany);
+
+  // Extraer datos de clientes para los componentes de gestión
+  const dormantClients = salesInsights?.focusClients?.dormant ?? [];
+  const criticalClients = salesInsights?.focusClients?.critical ?? [];
+  const atRiskClients = salesInsights?.focusClients?.atRisk ?? [];
+  const opportunityClients = salesInsights?.focusClients?.opportunities ?? [];
 
   const companyName = selectedCompany === 1 ? "DURA" : "ORSEGA";
   const companyConfig = selectedCompany === 2
@@ -465,6 +482,92 @@ export default function TrendsAnalysisPage() {
           </CardContent>
         </Card>
 
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* SECCIÓN: ANALISTA DE VENTAS - Gestión de Clientes */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+
+        {/* Header del Analista */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-xl shadow-xl p-6 text-white">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/4 translate-y-1/4"></div>
+          </div>
+          <div className="relative flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                Analista de Ventas
+                <Badge className="bg-white/20 text-white border-white/30 text-xs">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  IA
+                </Badge>
+              </h2>
+              <p className="text-purple-100 text-sm">
+                Gestión de clientes prioritarios y acciones semanales
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenido del Analista envuelto en ContactedClientsProvider */}
+        <ContactedClientsProvider companyId={selectedCompany}>
+          {/* Clientes Prioritarios - Tabla interactiva */}
+          <Card className="border-border/50 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Users className="h-5 w-5 text-purple-600" />
+                Clientes Prioritarios
+                <Badge variant="outline" className="text-xs font-normal">
+                  Top 10
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Clientes que requieren atención inmediata con acciones sugeridas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSalesInsights ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <PriorityClientsTable
+                  companyId={selectedCompany}
+                  dormantClients={dormantClients}
+                  criticalClients={criticalClients}
+                  atRiskClients={atRiskClients}
+                  opportunityClients={opportunityClients}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Acciones de la Semana - Panel colapsable */}
+          <Card className="border-border/50 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-indigo-600" />
+                Acciones de la Semana
+              </CardTitle>
+              <CardDescription>
+                Plan de contacto organizado por prioridad
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSalesInsights ? (
+                <Skeleton className="h-48 w-full" />
+              ) : (
+                <WeeklyActionsPanel
+                  companyId={selectedCompany}
+                  dormantClients={dormantClients}
+                  criticalClients={criticalClients}
+                  atRiskClients={atRiskClients}
+                  opportunityClients={opportunityClients}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </ContactedClientsProvider>
 
       </div>
     </AppLayout>

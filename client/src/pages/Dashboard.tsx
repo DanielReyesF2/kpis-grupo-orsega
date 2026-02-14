@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 // Dashboard components - Análisis Profundo Mensual (estilo Nova)
@@ -13,7 +14,6 @@ import { ProductAnalysisCard } from '@/components/dashboard/ProductAnalysisCard'
 import { AnomaliesCard } from '@/components/dashboard/AnomaliesCard';
 import { ClientEfficiencyCard } from '@/components/dashboard/ClientEfficiencyCard';
 import { DerivedKPIsCard } from '@/components/dashboard/DerivedKPIsCard';
-import { SalesPlanSection } from '@/components/dashboard/SalesPlanSection';
 import { SalesExcelUploader } from '@/components/sales/SalesExcelUploader';
 
 import { Button } from '@/components/ui/button';
@@ -26,13 +26,14 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 
-import { DollarSign, Users, BarChart3, Activity, Lightbulb, Upload } from 'lucide-react';
+import { DollarSign, Users, BarChart3, Activity, Upload, Brain, ArrowRight } from 'lucide-react';
 
 
 export default function Dashboard() {
   const { user } = useAuth();
   const dashboardRef = React.useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
   // Company selection
@@ -194,17 +195,40 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* SECTION 5: Plan de Ventas */}
+        {/* SECTION 5: Acceso rapido al Analisis de Tendencias */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            Plan de Ventas
-          </h2>
-          <SalesPlanSection
-            companyId={selectedCompany}
-            year={selectedYear}
-            month={selectedMonth}
-          />
+          <div
+            onClick={() => navigate('/trends-analysis')}
+            className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 p-6 text-white cursor-pointer hover:shadow-xl transition-all hover:scale-[1.01] group"
+          >
+            {/* Patron decorativo */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+              <div className="absolute bottom-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/4 translate-y-1/4"></div>
+            </div>
+
+            <div className="relative flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold mb-1">Analisis de Tendencias</h3>
+                  <p className="text-purple-100 text-sm">
+                    Tendencias historicas, clientes prioritarios y acciones semanales con IA
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm group-hover:bg-white group-hover:text-purple-600 transition-all"
+              >
+                Ir al Analisis
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
+          </div>
         </section>
 
         {/* KPI Details Dialog */}
