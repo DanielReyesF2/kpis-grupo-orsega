@@ -238,7 +238,7 @@ export function WeeklyActionsPanel({
               icon={Moon}
               title="DORMIDOS (Reactivar)"
               count={dormantActions.length}
-              colorClass="bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/30 dark:hover:bg-purple-950/50 text-purple-700 dark:text-purple-300"
+              colorClass="bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/50 dark:hover:bg-purple-900/70 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800"
               section="dormant"
               actions={dormantActions}
             />
@@ -258,7 +258,7 @@ export function WeeklyActionsPanel({
             icon={AlertCircle}
             title="CRITICOS (Urgente)"
             count={criticalActions.length}
-            colorClass="bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50 text-red-700 dark:text-red-300"
+            colorClass="bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900/70 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800"
             section="critical"
             actions={criticalActions}
           />
@@ -282,7 +282,7 @@ export function WeeklyActionsPanel({
             icon={AlertTriangle}
             title="EN RIESGO (Preventivo)"
             count={atRiskActions.length}
-            colorClass="bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300"
+            colorClass="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800"
             section="at-risk"
             actions={atRiskActions}
           />
@@ -306,7 +306,7 @@ export function WeeklyActionsPanel({
             icon={TrendingUp}
             title="OPORTUNIDADES (Crecimiento)"
             count={opportunityActions.length}
-            colorClass="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
+            colorClass="bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800"
             section="opportunities"
             actions={opportunityActions}
           />

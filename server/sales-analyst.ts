@@ -312,8 +312,8 @@ export async function generateSalesAnalystInsights(
         MAX(fecha) as last_purchase_date,
         SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current_year,
         SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_last_year,
+        SUM(CASE WHEN anio = $2 THEN COALESCE(NULLIF(importe, 0), importe_mn, 0) ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN anio = $3 THEN COALESCE(NULLIF(importe, 0), importe_mn, 0) ELSE 0 END) as amt_last_year,
         MAX(unidad) as unit
       FROM ventas
       WHERE company_id = $1
@@ -327,8 +327,8 @@ export async function generateSalesAnalystInsights(
         MAX(product_id) as product_id,
         SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) as qty_current_year,
         SUM(CASE WHEN anio = $3 THEN cantidad ELSE 0 END) as qty_last_year,
-        SUM(CASE WHEN anio = $2 THEN importe ELSE 0 END) as amt_current_year,
-        SUM(CASE WHEN anio = $3 THEN importe ELSE 0 END) as amt_last_year,
+        SUM(CASE WHEN anio = $2 THEN COALESCE(NULLIF(importe, 0), importe_mn, 0) ELSE 0 END) as amt_current_year,
+        SUM(CASE WHEN anio = $3 THEN COALESCE(NULLIF(importe, 0), importe_mn, 0) ELSE 0 END) as amt_last_year,
         COUNT(DISTINCT cliente) as unique_clients,
         MAX(unidad) as unit
       FROM ventas
@@ -356,8 +356,8 @@ export async function generateSalesAnalystInsights(
         SELECT
           cliente,
           producto,
-          SUM(importe) as total_importe,
-          ROW_NUMBER() OVER (PARTITION BY cliente ORDER BY SUM(importe) DESC) as rn
+          SUM(COALESCE(NULLIF(importe, 0), importe_mn, 0)) as total_importe,
+          ROW_NUMBER() OVER (PARTITION BY cliente ORDER BY SUM(COALESCE(NULLIF(importe, 0), importe_mn, 0)) DESC) as rn
         FROM ventas
         WHERE company_id = $1
           AND cliente IS NOT NULL AND cliente <> ''
