@@ -178,7 +178,7 @@ describe('Sales KPI Calculator', () => {
 
       it('should calculate volume for latest month when no period specified', async () => {
         // First call: get latest period
-        mockSql.mockResolvedValueOnce([{ sale_year: '2025', sale_month: '3' }]);
+        mockSql.mockResolvedValueOnce([{ anio: '2025', mes: '3' }]);
         // Second call: get volume for that period
         mockSql.mockResolvedValueOnce([{ total_volume: '7500' }]);
 
@@ -417,9 +417,9 @@ describe('Sales KPI Calculator', () => {
 
     it('should return volume history sorted by date ascending', async () => {
       mockSql.mockResolvedValueOnce([
-        { sale_year: '2025', sale_month: '3', total_volume: '3000' },
-        { sale_year: '2025', sale_month: '2', total_volume: '2500' },
-        { sale_year: '2025', sale_month: '1', total_volume: '2000' },
+        { anio: '2025', mes: '3', total_volume: '3000' },
+        { anio: '2025', mes: '2', total_volume: '2500' },
+        { anio: '2025', mes: '1', total_volume: '2000' },
       ]);
 
       const result = await calculateSalesKpiHistory('Volumen de Ventas', 1, 3);
@@ -457,8 +457,8 @@ describe('Sales KPI Calculator', () => {
 
     it('should use correct month names in Spanish', async () => {
       mockSql.mockResolvedValueOnce([
-        { sale_year: '2025', sale_month: '12', total_volume: '1000' },
-        { sale_year: '2025', sale_month: '6', total_volume: '500' },
+        { anio: '2025', mes: '12', total_volume: '1000' },
+        { anio: '2025', mes: '6', total_volume: '500' },
       ]);
 
       const result = await calculateSalesKpiHistory('Volumen de Ventas', 1, 12);
@@ -471,7 +471,7 @@ describe('Sales KPI Calculator', () => {
 
     it('should include date field as Date object in each entry', async () => {
       mockSql.mockResolvedValueOnce([
-        { sale_year: '2025', sale_month: '1', total_volume: '100' },
+        { anio: '2025', mes: '1', total_volume: '100' },
       ]);
 
       const result = await calculateSalesKpiHistory('Volumen de Ventas', 1, 1);
@@ -492,7 +492,7 @@ describe('Sales KPI Calculator', () => {
 
     it('should handle null volume by treating as 0', async () => {
       mockSql.mockResolvedValueOnce([
-        { sale_year: '2025', sale_month: '1', total_volume: null },
+        { anio: '2025', mes: '1', total_volume: null },
       ]);
 
       const result = await calculateSalesKpiHistory('Volumen de Ventas', 1, 1);

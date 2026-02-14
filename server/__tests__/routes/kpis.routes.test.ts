@@ -75,6 +75,7 @@ vi.mock('../../middleware/tenant-validation', () => ({
 }));
 vi.mock('../../sales-kpi-calculator', () => ({
   calculateSalesKpiValue: vi.fn(),
+  identifySalesKpiType: vi.fn().mockReturnValue(null),
 }));
 vi.mock('@shared/kpi-utils', () => ({
   calculateKpiStatus: vi.fn().mockReturnValue('complies'),

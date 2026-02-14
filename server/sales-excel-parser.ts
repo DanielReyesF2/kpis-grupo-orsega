@@ -49,7 +49,7 @@ export interface SalesResumen {
 /**
  * Función auxiliar para parsear números del Excel
  */
-function parseNumber(value: any): number | null {
+export function parseNumber(value: any): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
@@ -70,7 +70,7 @@ function parseNumber(value: any): number | null {
 /**
  * Función auxiliar para parsear fechas del Excel (usando UTC para evitar problemas de timezone)
  */
-function parseDate(value: any): Date {
+export function parseDate(value: any): Date {
   if (value instanceof Date) {
     return value;
   } else if (typeof value === 'number') {

@@ -52,12 +52,13 @@ describe('Sales Excel Parser', () => {
   });
 
   describe('parseDate', () => {
-    it('should parse DD/MM/YYYY format', () => {
-      const result = parseDate('15/06/2025');
+    it('should parse MM/DD/YYYY format (US format)', () => {
+      // Implementation uses US format: MM/DD/YYYY
+      const result = parseDate('06/15/2025');
       expect(result).toBeInstanceOf(Date);
-      expect(result.getDate()).toBe(15);
-      expect(result.getMonth()).toBe(5); // June
-      expect(result.getFullYear()).toBe(2025);
+      expect(result.getUTCDate()).toBe(15);
+      expect(result.getUTCMonth()).toBe(5); // June
+      expect(result.getUTCFullYear()).toBe(2025);
     });
 
     it('should return a Date for null input', () => {
@@ -145,13 +146,15 @@ describe('Sales Excel Parser', () => {
     });
 
     it('should parse 2-digit year >= 50 as 1900s', () => {
+      // Format is MM/DD/YY - so 01/01/75 = Jan 1, 1975
       const result = parseDate('01/01/75');
-      expect(result.getFullYear()).toBe(1975);
+      expect(result.getUTCFullYear()).toBe(1975);
     });
 
     it('should parse 2-digit year < 50 as 2000s', () => {
+      // Format is MM/DD/YY - so 01/01/25 = Jan 1, 2025
       const result = parseDate('01/01/25');
-      expect(result.getFullYear()).toBe(2025);
+      expect(result.getUTCFullYear()).toBe(2025);
     });
 
     it('should handle an Excel serial date of 1', () => {

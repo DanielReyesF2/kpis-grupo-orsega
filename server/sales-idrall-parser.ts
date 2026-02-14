@@ -79,7 +79,7 @@ export interface IDRALLParseResult {
 /**
  * Parsea un valor numérico del Excel, manejando formatos como "$1,234.56"
  */
-function parseNumber(value: any): number | null {
+export function parseNumber(value: any): number | null {
   if (value === null || value === undefined || value === '') return null;
 
   // Si ya es número, retornarlo
@@ -113,7 +113,7 @@ function parseNumber(value: any): number | null {
 /**
  * Parsea una fecha del Excel (puede ser Date, número serial, o string)
  */
-function parseDate(value: any, rowNum?: number): Date | null {
+export function parseDate(value: any, rowNum?: number): Date | null {
   if (!value) return null;
 
   if (value instanceof Date) {
@@ -172,7 +172,7 @@ function parseDate(value: any, rowNum?: number): Date | null {
 /**
  * Calcula el número de semana del año para una fecha (usando UTC)
  */
-function getWeekNumber(date: Date): number {
+export function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
@@ -183,7 +183,7 @@ function getWeekNumber(date: Date): number {
 /**
  * Parsea el campo MID/Folio que viene en formato "101441 / 45"
  */
-function parseFolio(value: any): { folio: string; numero: number | null; secuencia: number | null } {
+export function parseFolio(value: any): { folio: string; numero: number | null; secuencia: number | null } {
   if (!value) {
     return { folio: '', numero: null, secuencia: null };
   }
@@ -206,7 +206,7 @@ function parseFolio(value: any): { folio: string; numero: number | null; secuenc
 /**
  * Parsea el status de la transacción
  */
-function parseStatus(value: any): 'ACTIVO' | 'CANCELADO' {
+export function parseStatus(value: any): 'ACTIVO' | 'CANCELADO' {
   if (!value) return 'ACTIVO';
 
   const str = value.toString().toUpperCase().trim();

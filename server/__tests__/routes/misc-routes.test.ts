@@ -982,7 +982,8 @@ describe('Sales Data routes', () => {
     mockSql.mockResolvedValueOnce([]);
     const res = await request(app).get('/api/sales-data?startDate=2025-01-01&endDate=2025-12-31');
     expect(res.status).toBe(200);
-    expect(mockSql).toHaveBeenCalledWith(expect.stringContaining('sale_date >='), expect.arrayContaining(['2025-01-01', '2025-12-31']));
+    // The implementation uses 'fecha' (Spanish) column name
+    expect(mockSql).toHaveBeenCalledWith(expect.stringContaining('fecha >='), expect.arrayContaining(['2025-01-01', '2025-12-31']));
   });
 
   it('GET /api/sales-data should use custom limit', async () => {

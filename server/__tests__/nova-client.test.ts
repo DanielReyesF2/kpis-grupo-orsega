@@ -248,6 +248,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: token\ndata: {"text":"Hello"}\n\nevent: token\ndata: {"text":" World"}\n\n',
           'event: done\ndata: {"answer":"Hello World","toolsUsed":[],"source":"nova-ai-2.0"}\n\n',
@@ -274,6 +276,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: tool_start\ndata: {"tool":"sql_query"}\n\n',
           'event: done\ndata: {"answer":"","toolsUsed":["sql_query"],"source":"nova-ai-2.0"}\n\n',
@@ -297,6 +301,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: tool_result\ndata: {"tool":"sql_query","success":true}\n\n',
           'event: done\ndata: {"answer":"","toolsUsed":[],"source":"nova-ai-2.0"}\n\n',
@@ -320,6 +326,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: error\ndata: {"message":"Something went wrong"}\n\n',
         ]),
@@ -344,6 +352,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: token\ndata: {"text":"partial"}\n\n',
         ]),
@@ -455,6 +465,8 @@ describe('Nova AI Client', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: { get: () => 'text/event-stream' },
         body: buildStream([
           'event: token\ndata: {broken json}\n\nevent: token\ndata: {"text":"valid"}\n\n',
           'event: done\ndata: {"answer":"valid","toolsUsed":[],"source":"nova-ai-2.0"}\n\n',

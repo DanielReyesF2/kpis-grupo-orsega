@@ -50,6 +50,7 @@ vi.mock('../../auth', () => ({
 vi.mock('../../sales-kpi-calculator', () => ({
   calculateSalesKpiValue: vi.fn().mockResolvedValue(null),
   calculateSalesKpiHistory: vi.fn().mockResolvedValue({ supported: false, data: [] }),
+  identifySalesKpiType: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock('@shared/kpi-utils', () => ({

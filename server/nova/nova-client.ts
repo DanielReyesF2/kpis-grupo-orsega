@@ -26,7 +26,7 @@ function getBaseUrl(): string {
 }
 
 function getApiKey(): string {
-  return process.env.NOVA_API_KEY || process.env.VITE_NOVA_AI_API_KEY || '';
+  return process.env.NOVA_AI_API_KEY || process.env.NOVA_API_KEY || process.env.VITE_NOVA_AI_API_KEY || '';
 }
 
 function getTenantId(): string {

@@ -32,7 +32,7 @@ const sql = neon(process.env.DATABASE_URL!);
  * @param period - Período a calcular
  * @returns Objeto con fechas de inicio y fin
  */
-function calculatePeriodDates(period: Period): { start: Date; end: Date } {
+export function calculatePeriodDates(period: Period): { start: Date; end: Date } {
   const now = new Date();
   const start = new Date();
   const end = new Date();

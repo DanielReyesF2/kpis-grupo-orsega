@@ -2,7 +2,7 @@ import { db } from "./db";
 import { exchangeRates } from "@shared/schema";
 import { gte, eq, and, desc } from "drizzle-orm";
 
-interface RatePoint {
+export interface RatePoint {
   date: Date;
   buy: number;
   sell: number;
@@ -103,7 +103,7 @@ export async function getSourceSeries(
   };
 }
 
-function calculateTrend7d(series: RatePoint[], useField: "sell" | "buy" = "sell"): TrendClassification {
+export function calculateTrend7d(series: RatePoint[], useField: "sell" | "buy" = "sell"): TrendClassification {
   if (series.length < 2) return "N/D";
 
   const t0 = series[series.length - 1];
@@ -131,7 +131,7 @@ function calculateTrend7d(series: RatePoint[], useField: "sell" | "buy" = "sell"
   return "Estable";
 }
 
-function calculateVolatility5d(series: RatePoint[], useField: "sell" | "buy" = "sell"): VolatilityClassification {
+export function calculateVolatility5d(series: RatePoint[], useField: "sell" | "buy" = "sell"): VolatilityClassification {
   if (series.length < 3) return "N/D";
   
   const last6 = series.slice(-6);
@@ -156,7 +156,7 @@ function calculateVolatility5d(series: RatePoint[], useField: "sell" | "buy" = "
   return "Baja";
 }
 
-function calculateSpreadStatus(series: RatePoint[]): string {
+export function calculateSpreadStatus(series: RatePoint[]): string {
   if (series.length < 10) return "Datos insuficientes";
   
   const last30 = series.slice(-30);
