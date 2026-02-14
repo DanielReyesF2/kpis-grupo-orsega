@@ -227,7 +227,7 @@ const CREATE_VIEWS_QUERIES = [
      MAX(sd.fecha) as last_sale_date,
      CASE
        WHEN MAX(sd.fecha) IS NOT NULL
-       THEN EXTRACT(DAY FROM (CURRENT_DATE - MAX(sd.fecha)))
+       THEN (CURRENT_DATE - MAX(sd.fecha)::date)
        ELSE NULL
      END as days_since_last_sale,
      COUNT(sd.id) as total_sales_count,

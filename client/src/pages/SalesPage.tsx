@@ -47,6 +47,7 @@ import { ChurnRiskScorecard } from "@/components/dashboard/ChurnRiskScorecard";
 import { ClientTrendsChart } from "@/components/dashboard/ClientTrendsChart";
 import { YearlyTotalsBarChart } from "@/components/dashboard/YearlyTotalsBarChart";
 import { SalesDashboard } from "@/components/sales/dashboard/SalesDashboard";
+import { SalesAnalyst } from "@/components/sales/analyst/SalesAnalyst";
 
 type ViewMode = "dashboard" | "overview" | "comparison" | "alerts" | "analytics" | "analyst";
 
@@ -1239,7 +1240,26 @@ export default function SalesPage() {
           </div>
         )}
 
+        {/* Vista Analista de Ventas */}
+        {viewMode === "analyst" && (
+          <div className="space-y-6">
+            {/* Header con botón de regreso */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("dashboard")}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            </div>
 
+            {/* SalesAnalyst Component - embedded mode para evitar layout duplicado */}
+            <SalesAnalyst companyId={selectedCompany} embedded />
+          </div>
+        )}
 
       </div>
     </AppLayout>

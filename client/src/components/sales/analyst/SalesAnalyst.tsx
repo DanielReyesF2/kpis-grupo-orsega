@@ -1,6 +1,14 @@
 /**
  * Componente principal del Analista de Ventas
  * Container que orquesta todas las secciones de análisis
+ *
+ * Incluye:
+ * - Resumen Ejecutivo (métricas clave)
+ * - Clientes Prioritarios (tabla interactiva con tracking de contacto)
+ * - Acciones de la Semana (panel colapsable por prioridad)
+ * - Oportunidades de Productos
+ * - Insights Estratégicos
+ * - Heatmap de Comportamiento de Compras
  */
 
 import { Brain, Download, RefreshCw, Sparkles } from "lucide-react";
@@ -14,11 +22,14 @@ import type { SalesAnalystInsights } from "@shared/sales-analyst-types";
 
 // Sections
 import { ExecutiveSummary } from "./sections/ExecutiveSummary";
-import { ClientFocusSection } from "./sections/ClientFocusSection";
 import { ProductOpportunitiesSection } from "./sections/ProductOpportunitiesSection";
 import { StrategicInsightsSection } from "./sections/StrategicInsightsSection";
-import { ActionItemsSection } from "./sections/ActionItemsSection";
 import { ClientPurchaseBehavior } from "@/components/dashboard/ClientPurchaseBehavior";
+
+// Dashboard components for client management
+import { ContactedClientsProvider } from "@/components/dashboard/ContactedClientsContext";
+import { PriorityClientsTable } from "@/components/dashboard/PriorityClientsTable";
+import { WeeklyActionsPanel } from "@/components/dashboard/WeeklyActionsPanel";
 
 interface SalesAnalystProps {
   companyId: number;
@@ -196,80 +207,104 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
   // Type assertion to help TypeScript after null checks
   const typedInsights = insights as unknown as SalesAnalystInsights;
 
+  // Extract focus clients for the interactive components
+  const dormantClients = typedInsights.focusClients.dormant ?? [];
+  const criticalClients = typedInsights.focusClients.critical ?? [];
+  const atRiskClients = typedInsights.focusClients.atRisk ?? [];
+  const opportunityClients = typedInsights.focusClients.opportunities ?? [];
+
   return (
-    <div className={wrapperClass}>
-      {/* Wrapper con padding y fondo distintivo */}
-      <div className={containerClass}>
-        {/* Page Header - Diseño distintivo para Analista (solo si no está embedded) */}
-        {!embedded && <AnalystHeader />}
+    <ContactedClientsProvider companyId={companyId}>
+      <div className={wrapperClass}>
+        {/* Wrapper con padding y fondo distintivo */}
+        <div className={containerClass}>
+          {/* Page Header - Diseño distintivo para Analista (solo si no está embedded) */}
+          {!embedded && <AnalystHeader />}
 
-        {/* Filtros - Tema claro */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-4">
-            <select
-              value={typeof filters.period === 'string' ? filters.period : 'year'}
-              onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
-              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="year">2024-2025</option>
-              <option value="quarter">Último trimestre</option>
-              <option value="month">Último mes</option>
-            </select>
-            <select
-              value={typeof filters.priority === 'string' ? filters.priority : 'all'}
-              onChange={(e) => updateFilters({ ...filters, priority: e.target.value === 'all' ? undefined : e.target.value as any })}
-              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="all">Todas las prioridades</option>
-              <option value="critical">Crítica</option>
-              <option value="high">Alta</option>
-              <option value="medium">Media</option>
-            </select>
+          {/* Filtros - Tema claro */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
+            <div className="flex items-center gap-4">
+              <select
+                value={typeof filters.period === 'string' ? filters.period : 'year'}
+                onChange={(e) => updateFilters({ ...filters, period: e.target.value })}
+                className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="year">2024-2025</option>
+                <option value="quarter">Ultimo trimestre</option>
+                <option value="month">Ultimo mes</option>
+              </select>
+              <select
+                value={typeof filters.priority === 'string' ? filters.priority : 'all'}
+                onChange={(e) => updateFilters({ ...filters, priority: e.target.value === 'all' ? undefined : e.target.value as any })}
+                className="px-3 py-1.5 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="all">Todas las prioridades</option>
+                <option value="critical">Critica</option>
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+              </select>
+            </div>
+            <span className="text-sm text-slate-500">
+              {dormantClients.length + criticalClients.length + atRiskClients.length + opportunityClients.length} clientes · {typedInsights.inactiveClients.length} inactivos
+            </span>
           </div>
-          <span className="text-sm text-slate-500">
-            {(typedInsights.focusClients.dormant?.length ?? 0) + typedInsights.focusClients.critical.length + (typedInsights.focusClients.atRisk?.length ?? 0) + typedInsights.focusClients.opportunities.length} clientes · {typedInsights.inactiveClients.length} inactivos
-          </span>
-        </div>
 
-        {/* AI Insights Banner - Tema claro */}
-        {typedInsights.statisticalContext?.aiInsights && (
-          <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="p-1.5 bg-emerald-100 rounded">
-                <Sparkles className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-medium text-slate-900">Resumen Ejecutivo</h3>
-                  <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">EconovaAI</span>
+          {/* AI Insights Banner - Tema claro */}
+          {typedInsights.statisticalContext?.aiInsights && (
+            <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="p-1.5 bg-emerald-100 rounded">
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {typedInsights.statisticalContext.aiInsights}
-                </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-sm font-medium text-slate-900">Resumen Ejecutivo</h3>
+                    <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">EconovaAI</span>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {typedInsights.statisticalContext.aiInsights}
+                  </p>
+                </div>
               </div>
             </div>
+          )}
+
+          {/* 1. Executive Summary */}
+          <ExecutiveSummary insights={typedInsights} companyId={companyId} />
+
+          {/* 2. Priority Clients Table - Interactive table with contact tracking */}
+          <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+            <PriorityClientsTable
+              companyId={companyId}
+              dormantClients={dormantClients}
+              criticalClients={criticalClients}
+              atRiskClients={atRiskClients}
+              opportunityClients={opportunityClients}
+            />
           </div>
-        )}
 
-        {/* Executive Summary */}
-        <ExecutiveSummary insights={typedInsights} companyId={companyId} />
+          {/* 3. Weekly Actions Panel - Collapsible sections by priority */}
+          <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+            <WeeklyActionsPanel
+              companyId={companyId}
+              dormantClients={dormantClients}
+              criticalClients={criticalClients}
+              atRiskClients={atRiskClients}
+              opportunityClients={opportunityClients}
+            />
+          </div>
 
-        {/* Focus Areas - Grid de 2 columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ClientFocusSection insights={typedInsights} companyId={companyId} />
-          <ProductOpportunitiesSection insights={typedInsights} />
+          {/* 4. Products and Strategic Insights - Grid de 2 columnas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ProductOpportunitiesSection insights={typedInsights} />
+            <StrategicInsightsSection insights={typedInsights} companyId={companyId} />
+          </div>
+
+          {/* 5. Purchase Behavior Heatmap */}
+          <ClientPurchaseBehavior companyId={companyId} />
         </div>
-
-        {/* Strategic Insights and Action Items */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StrategicInsightsSection insights={typedInsights} companyId={companyId} />
-          <ActionItemsSection insights={typedInsights} />
-        </div>
-
-        {/* Purchase Behavior Heatmap */}
-        <ClientPurchaseBehavior companyId={companyId} />
       </div>
-    </div>
+    </ContactedClientsProvider>
   );
 }
 
