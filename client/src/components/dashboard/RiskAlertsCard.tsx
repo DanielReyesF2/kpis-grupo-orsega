@@ -33,8 +33,9 @@ export function RiskAlertsCard({ companyId }: RiskAlertsCardProps) {
 
   const churnRisk = insights?.riskAnalysis?.churnRisk ?? 0;
   const revenueAtRisk = insights?.riskAnalysis?.revenueAtRisk ?? 0;
+  const dormantCount = insights?.focusClients?.dormant?.length ?? 0;
   const criticalCount = insights?.focusClients?.critical?.length ?? 0;
-  const warningCount = insights?.focusClients?.warning?.length ?? 0;
+  const atRiskCount = insights?.focusClients?.atRisk?.length ?? 0;
   const opportunityCount = insights?.focusClients?.opportunities?.length ?? 0;
 
   // Color based on risk level
@@ -92,10 +93,21 @@ export function RiskAlertsCard({ companyId }: RiskAlertsCardProps) {
 
         {/* Client Counts */}
         <div className="space-y-2">
+          {dormantCount > 0 && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                <span className="text-sm">Clientes dormidos</span>
+              </div>
+              <Badge className="text-xs bg-purple-500 hover:bg-purple-600">
+                {dormantCount}
+              </Badge>
+            </div>
+          )}
           <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-              <span className="text-sm">Clientes críticos</span>
+              <span className="text-sm">Clientes criticos</span>
             </div>
             <Badge variant="destructive" className="text-xs">
               {criticalCount}
@@ -104,10 +116,10 @@ export function RiskAlertsCard({ companyId }: RiskAlertsCardProps) {
           <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span className="text-sm">En seguimiento</span>
+              <span className="text-sm">En riesgo</span>
             </div>
             <Badge className="text-xs bg-amber-500 hover:bg-amber-600">
-              {warningCount}
+              {atRiskCount}
             </Badge>
           </div>
           <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 transition-colors">

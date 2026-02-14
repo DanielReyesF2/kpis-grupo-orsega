@@ -47,13 +47,16 @@ export function AIInsightsWidget({ companyId }: AIInsightsWidgetProps) {
 
   const aiSummary = insights?.statisticalContext?.aiInsights;
   const recommendations = (insights?.strategicRecommendations || []).slice(0, 4);
+  const dormantCount = insights?.focusClients?.dormant?.length ?? 0;
   const criticalCount = insights?.focusClients?.critical?.length ?? 0;
-  const warningCount = insights?.focusClients?.warning?.length ?? 0;
+  const atRiskCount = insights?.focusClients?.atRisk?.length ?? 0;
   const churnRisk = insights?.riskAnalysis?.churnRisk ?? 0;
 
+  const totalAtRisk = dormantCount + criticalCount + atRiskCount;
+
   // Fallback summary if no AI insights
-  const fallbackSummary = criticalCount > 0 || warningCount > 0
-    ? `${criticalCount} clientes críticos, ${warningCount} en seguimiento. Riesgo de churn: ${churnRisk}/100.`
+  const fallbackSummary = totalAtRisk > 0
+    ? `${dormantCount} dormidos, ${criticalCount} críticos, ${atRiskCount} en riesgo. Churn: ${churnRisk}/100.`
     : "Cartera estable. Enfócate en oportunidades de crecimiento.";
 
   const displaySummary = aiSummary || fallbackSummary;

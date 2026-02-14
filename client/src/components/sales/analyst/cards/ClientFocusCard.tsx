@@ -18,21 +18,32 @@ interface ClientFocusCardProps {
 export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
   const priorityConfig = useMemo(() => {
     switch (client.priority) {
+      case 'dormant':
+        return {
+          border: 'border-purple-200',
+          bg: 'bg-purple-50/50',
+          badge: 'secondary',
+          icon: AlertCircle,
+          iconColor: 'text-purple-600',
+          label: 'Dormido'
+        };
       case 'critical':
         return {
           border: 'border-red-200',
           bg: 'bg-red-50/50',
           badge: 'destructive',
           icon: AlertCircle,
-          iconColor: 'text-red-600'
+          iconColor: 'text-red-600',
+          label: 'Critico'
         };
-      case 'warning':
+      case 'at-risk':
         return {
           border: 'border-amber-200',
           bg: 'bg-amber-50/50',
           badge: 'secondary',
           icon: AlertCircle,
-          iconColor: 'text-amber-600'
+          iconColor: 'text-amber-600',
+          label: 'En Riesgo'
         };
       case 'opportunity':
         return {
@@ -40,24 +51,25 @@ export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
           bg: 'bg-emerald-50/50',
           badge: 'default',
           icon: TrendingUp,
-          iconColor: 'text-emerald-600'
+          iconColor: 'text-emerald-600',
+          label: 'Oportunidad'
         };
     }
   }, [client.priority]);
 
-  const Icon = priorityConfig.icon;
+  const Icon = priorityConfig?.icon ?? AlertCircle;
   const isPositive = client.yoyChange > 0;
 
   return (
-    <Card className={cn("border-2 transition-all hover:shadow-md", priorityConfig.border, priorityConfig.bg)}>
+    <Card className={cn("border-2 transition-all hover:shadow-md", priorityConfig?.border, priorityConfig?.bg)}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <Icon className={cn("h-4 w-4 flex-shrink-0", priorityConfig.iconColor)} />
+              <Icon className={cn("h-4 w-4 flex-shrink-0", priorityConfig?.iconColor)} />
               <h4 className="font-semibold text-sm truncate">{client.name}</h4>
-              <Badge variant={priorityConfig.badge as any} className="text-xs">
-                {client.priority === 'critical' ? 'Crítico' : client.priority === 'warning' ? 'Riesgo' : 'Oportunidad'}
+              <Badge variant={(priorityConfig?.badge ?? 'default') as any} className="text-xs">
+                {priorityConfig?.label ?? client.priority}
               </Badge>
             </div>
 
@@ -103,8 +115,9 @@ export function ClientFocusCard({ client, companyId }: ClientFocusCardProps) {
           <div className="flex-shrink-0">
             <div className={cn(
               "w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-white",
+              client.priority === 'dormant' ? "bg-purple-500" :
               client.priority === 'critical' ? "bg-red-500" :
-              client.priority === 'warning' ? "bg-amber-500" :
+              client.priority === 'at-risk' ? "bg-amber-500" :
               "bg-emerald-500"
             )}>
               {client.name.charAt(0).toUpperCase()}

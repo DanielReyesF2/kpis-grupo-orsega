@@ -16,22 +16,28 @@ interface ClientFocusSectionProps {
 }
 
 export function ClientFocusSection({ insights, companyId }: ClientFocusSectionProps) {
-  const { critical, warning, opportunities } = insights.focusClients;
+  const { dormant = [], critical, atRisk = [], opportunities } = insights.focusClients;
 
   return (
     <ChartCard
       title="Clientes a Enfocar"
       subtitle="Análisis de prioridad y recomendaciones"
     >
-      <Tabs defaultValue="critical" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue={dormant.length > 0 ? "dormant" : "critical"} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          {dormant.length > 0 && (
+            <TabsTrigger value="dormant" className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Dormidos ({dormant.length})
+            </TabsTrigger>
+          )}
           <TabsTrigger value="critical" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
-            Críticos ({critical.length})
+            Criticos ({critical.length})
           </TabsTrigger>
-          <TabsTrigger value="warning" className="flex items-center gap-2">
+          <TabsTrigger value="atRisk" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
-            Riesgo ({warning.length})
+            En Riesgo ({atRisk.length})
           </TabsTrigger>
           <TabsTrigger value="opportunities" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
@@ -39,12 +45,20 @@ export function ClientFocusSection({ insights, companyId }: ClientFocusSectionPr
           </TabsTrigger>
         </TabsList>
 
+        {dormant.length > 0 && (
+          <TabsContent value="dormant" className="mt-4 space-y-3">
+            {dormant.slice(0, 10).map((client: typeof critical[0]) => (
+              <ClientFocusCard key={client.name} client={client} companyId={companyId} />
+            ))}
+          </TabsContent>
+        )}
+
         <TabsContent value="critical" className="mt-4 space-y-3">
           {critical.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="Sin clientes críticos"
-              description="No hay clientes que requieran atención inmediata"
+              title="Sin clientes criticos"
+              description="No hay clientes que requieran atencion inmediata"
               size="sm"
             />
           ) : (
@@ -54,16 +68,16 @@ export function ClientFocusSection({ insights, companyId }: ClientFocusSectionPr
           )}
         </TabsContent>
 
-        <TabsContent value="warning" className="mt-4 space-y-3">
-          {warning.length === 0 ? (
+        <TabsContent value="atRisk" className="mt-4 space-y-3">
+          {atRisk.length === 0 ? (
             <EmptyState
               icon={Users}
               title="Sin clientes en riesgo"
-              description="No hay clientes con caída significativa"
+              description="No hay clientes con caida significativa"
               size="sm"
             />
           ) : (
-            warning.slice(0, 10).map((client) => (
+            atRisk.slice(0, 10).map((client: typeof critical[0]) => (
               <ClientFocusCard key={client.name} client={client} companyId={companyId} />
             ))
           )}

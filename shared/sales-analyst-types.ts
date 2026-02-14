@@ -6,7 +6,7 @@
 export interface ClientFocus {
   name: string;
   clientId: number | null;
-  priority: 'critical' | 'warning' | 'opportunity';
+  priority: 'dormant' | 'critical' | 'at-risk' | 'opportunity';  // 4 niveles de prioridad
   lastPurchaseDate: string;
   daysSincePurchase: number;
   previousYearRevenue: number;
@@ -14,7 +14,7 @@ export interface ClientFocus {
   yoyChange: number;
   riskScore: number; // 0-100
   recommendedActions: string[];
-  // New fields for Sales Plan
+  // Fields for Sales Plan
   topProducts: string[];        // Top 3 productos que compraba
   lastOrderDateFormatted: string;  // Fecha legible del último pedido (ej: "15-May-2024")
   suggestedAction: string;      // Acción específica sugerida
@@ -77,9 +77,10 @@ export interface SalesAnalystInsights {
     };
   };
   focusClients: {
-    critical: ClientFocus[];      // 6+ meses (180 días) sin compra
-    warning: ClientFocus[];       // 3-6 meses (90-180 días) sin compra
-    opportunities: ClientFocus[]; // Creciendo >10%
+    dormant: ClientFocus[];       // 4+ meses (120+ días) sin compra - reactivación agresiva
+    critical: ClientFocus[];      // 3 meses (90-119 días) sin compra - llamada urgente
+    atRisk: ClientFocus[];        // 2 meses (60-89 días) sin compra - contacto preventivo
+    opportunities: ClientFocus[]; // Creciendo >10% - upselling/cross-selling
   };
   productOpportunities: {
     stars: ProductOpportunity[];      // Alto crecimiento + alta rentabilidad
@@ -101,8 +102,9 @@ export interface SalesAnalystInsights {
     topRisks: RiskFactor[];
   };
   statisticalContext?: {
-    criticalDaysThreshold: number;      // Umbral para clientes críticos (6 meses = 180 días)
-    warningDaysThreshold: number;       // Umbral para clientes en riesgo (3 meses = 90 días)
+    dormantDaysThreshold: number;       // Umbral para clientes dormidos (4 meses = 120 días)
+    criticalDaysThreshold: number;      // Umbral para clientes críticos (3 meses = 90 días)
+    atRiskDaysThreshold: number;        // Umbral para clientes en riesgo (2 meses = 60 días)
     highValueRevenueThreshold: number;  // Umbral para revenue alto valor
     yoyStats: {
       mean: number;                     // Media de cambios YoY

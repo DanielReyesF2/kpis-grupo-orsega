@@ -944,6 +944,30 @@ export const insertClientContactTrackingSchema = createInsertSchema(clientContac
 export type InsertClientContactTracking = z.infer<typeof insertClientContactTrackingSchema>;
 export type ClientContactTracking = typeof clientContactTracking.$inferSelect;
 
+// ============================================================
+// Client Notes - Notas y contexto de clientes (ej: "Solo compra urgencias")
+// ============================================================
+export const clientNotes = pgTable("client_notes", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  clientName: varchar("client_name", { length: 255 }).notNull(),
+  clientId: integer("client_id"),
+  note: text("note").notNull(),  // Ej: "Solo compra urgencias/devoluciones de importación"
+  category: varchar("category", { length: 50 }),  // Ej: "comportamiento", "contexto", "importante"
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertClientNoteSchema = createInsertSchema(clientNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertClientNote = z.infer<typeof insertClientNoteSchema>;
+export type ClientNote = typeof clientNotes.$inferSelect;
+
 // KPI Detail type for dashboard components
 export interface KpiDetail {
   id: number;

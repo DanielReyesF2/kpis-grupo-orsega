@@ -18,6 +18,7 @@ import { ClientFocusSection } from "./sections/ClientFocusSection";
 import { ProductOpportunitiesSection } from "./sections/ProductOpportunitiesSection";
 import { StrategicInsightsSection } from "./sections/StrategicInsightsSection";
 import { ActionItemsSection } from "./sections/ActionItemsSection";
+import { ClientPurchaseBehavior } from "@/components/dashboard/ClientPurchaseBehavior";
 
 interface SalesAnalystProps {
   companyId: number;
@@ -226,7 +227,7 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
             </select>
           </div>
           <span className="text-sm text-slate-500">
-            {typedInsights.focusClients.critical.length + typedInsights.focusClients.warning.length + typedInsights.focusClients.opportunities.length} clientes · {typedInsights.inactiveClients.length} inactivos
+            {(typedInsights.focusClients.dormant?.length ?? 0) + typedInsights.focusClients.critical.length + (typedInsights.focusClients.atRisk?.length ?? 0) + typedInsights.focusClients.opportunities.length} clientes · {typedInsights.inactiveClients.length} inactivos
           </span>
         </div>
 
@@ -264,6 +265,9 @@ export function SalesAnalyst({ companyId, embedded = false }: SalesAnalystProps)
           <StrategicInsightsSection insights={typedInsights} companyId={companyId} />
           <ActionItemsSection insights={typedInsights} />
         </div>
+
+        {/* Purchase Behavior Heatmap */}
+        <ClientPurchaseBehavior companyId={companyId} />
       </div>
     </div>
   );

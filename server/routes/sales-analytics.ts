@@ -1610,6 +1610,359 @@ router.get("/api/client-contact-tracking", jwtAuthMiddleware, async (req, res) =
   }
 });
 
+// ============================================
+// CLIENT NOTES - Notas de contexto por cliente
+// ============================================
+
+const clientNoteSchema = z.object({
+  companyId: z.number().int().positive(),
+  clientName: z.string().min(1).max(255),
+  clientId: z.number().int().optional().nullable(),
+  note: z.string().min(1).max(1000),
+  category: z.string().max(50).optional(),
+});
+
+// POST /api/client-notes - Create a note for a client
+router.post("/api/client-notes", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+
+    const parsed = clientNoteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: parsed.error.issues
+      });
+    }
+
+    const { companyId, clientName, clientId, note, category } = parsed.data;
+
+    // Check company access
+    const resolvedCompanyId = user?.role === 'admin' ? companyId : user?.companyId;
+    if (resolvedCompanyId !== companyId) {
+      return res.status(403).json({ error: 'No access to this company' });
+    }
+
+    const result = await sql(`
+      INSERT INTO client_notes
+        (company_id, client_name, client_id, note, category, created_by)
+      VALUES
+        ($1, $2, $3, $4, $5, $6)
+      RETURNING id, created_at
+    `, [
+      companyId,
+      clientName,
+      clientId || null,
+      note,
+      category || null,
+      user?.id || null
+    ]);
+
+    console.log(`[POST /api/client-notes] Note created for ${clientName} by user ${user?.id}`);
+
+    res.json({
+      success: true,
+      id: result[0]?.id,
+      createdAt: result[0]?.created_at,
+      clientName
+    });
+  } catch (error) {
+    console.error('[POST /api/client-notes] Error:', error);
+    res.status(500).json({ error: 'Failed to create client note' });
+  }
+});
+
+// GET /api/client-notes - Get notes for clients
+router.get("/api/client-notes", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, clientName, category, limit = 100 } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    let query = `
+      SELECT
+        cn.id,
+        cn.client_name as "clientName",
+        cn.client_id as "clientId",
+        cn.note,
+        cn.category,
+        cn.created_by as "createdBy",
+        u.name as "createdByName",
+        cn.created_at as "createdAt",
+        cn.updated_at as "updatedAt",
+        cn.is_active as "isActive"
+      FROM client_notes cn
+      LEFT JOIN users u ON cn.created_by = u.id
+      WHERE cn.company_id = $1 AND cn.is_active = true
+    `;
+    const params: any[] = [resolvedCompanyId];
+
+    if (clientName) {
+      query += ` AND cn.client_name = $${params.length + 1}`;
+      params.push(clientName);
+    }
+
+    if (category) {
+      query += ` AND cn.category = $${params.length + 1}`;
+      params.push(category);
+    }
+
+    query += ` ORDER BY cn.created_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit as string));
+
+    const results = await sql(query, params);
+
+    res.json(results);
+  } catch (error) {
+    console.error('[GET /api/client-notes] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch client notes' });
+  }
+});
+
+// DELETE /api/client-notes/:id - Soft delete a note
+router.delete("/api/client-notes/:id", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const noteId = parseInt(req.params.id);
+
+    // Verify note belongs to user's company
+    const note = await sql(`
+      SELECT company_id FROM client_notes WHERE id = $1
+    `, [noteId]);
+
+    if (!note[0]) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    const noteCompanyId = note[0].company_id;
+    if (user?.role !== 'admin' && user?.companyId !== noteCompanyId) {
+      return res.status(403).json({ error: 'No access to this note' });
+    }
+
+    await sql(`
+      UPDATE client_notes
+      SET is_active = false, updated_at = NOW()
+      WHERE id = $1
+    `, [noteId]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[DELETE /api/client-notes/:id] Error:', error);
+    res.status(500).json({ error: 'Failed to delete client note' });
+  }
+});
+
+// GET /api/client-notes/summary - Get a summary of notes per client (for display in tables)
+router.get("/api/client-notes/summary", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    // Get the most recent note for each client
+    const results = await sql(`
+      SELECT DISTINCT ON (client_name)
+        client_name as "clientName",
+        note,
+        category,
+        created_at as "createdAt"
+      FROM client_notes
+      WHERE company_id = $1 AND is_active = true
+      ORDER BY client_name, created_at DESC
+    `, [resolvedCompanyId]);
+
+    // Convert to a map for easy lookup
+    const notesMap: Record<string, { note: string; category: string | null; createdAt: string }> = {};
+    results.forEach((r: any) => {
+      notesMap[r.clientName] = {
+        note: r.note,
+        category: r.category,
+        createdAt: r.createdAt
+      };
+    });
+
+    res.json(notesMap);
+  } catch (error) {
+    console.error('[GET /api/client-notes/summary] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch client notes summary' });
+  }
+});
+
+// ============================================
+// CLIENT PURCHASE BEHAVIOR - Análisis de compras por cliente
+// ============================================
+
+// GET /api/client-purchase-behavior - Get monthly purchase data per client for 2024-2025
+router.get("/api/client-purchase-behavior", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = authReq.user;
+    const { companyId, clientName, limit = 50 } = req.query;
+
+    const resolvedCompanyId = user?.role === 'admin' && companyId
+      ? parseInt(companyId as string)
+      : user?.companyId;
+
+    if (!resolvedCompanyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    // Get monthly purchase data for each client in 2024-2025
+    let query = `
+      WITH monthly_data AS (
+        SELECT
+          cliente as client_name,
+          anio as year,
+          mes as month,
+          COALESCE(SUM(cantidad), 0) as volume,
+          COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as revenue,
+          COUNT(*) as transactions
+        FROM ventas
+        WHERE company_id = $1
+          AND anio IN (2024, 2025)
+          AND cliente IS NOT NULL AND cliente <> ''
+        GROUP BY cliente, anio, mes
+      ),
+      client_totals AS (
+        SELECT
+          client_name,
+          SUM(revenue) as total_revenue,
+          SUM(volume) as total_volume
+        FROM monthly_data
+        GROUP BY client_name
+      )
+      SELECT
+        md.client_name as "clientName",
+        md.year,
+        md.month,
+        md.volume,
+        md.revenue,
+        md.transactions
+      FROM monthly_data md
+      JOIN client_totals ct ON md.client_name = ct.client_name
+    `;
+
+    const params: any[] = [resolvedCompanyId];
+
+    if (clientName) {
+      query += ` WHERE md.client_name = $${params.length + 1}`;
+      params.push(clientName);
+    }
+
+    query += ` ORDER BY ct.total_revenue DESC, md.client_name, md.year, md.month`;
+
+    if (!clientName) {
+      // Limit to top clients by revenue when not filtering by specific client
+      query = `
+        WITH monthly_data AS (
+          SELECT
+            cliente as client_name,
+            anio as year,
+            mes as month,
+            COALESCE(SUM(cantidad), 0) as volume,
+            COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as revenue,
+            COUNT(*) as transactions
+          FROM ventas
+          WHERE company_id = $1
+            AND anio IN (2024, 2025)
+            AND cliente IS NOT NULL AND cliente <> ''
+          GROUP BY cliente, anio, mes
+        ),
+        client_totals AS (
+          SELECT
+            client_name,
+            SUM(revenue) as total_revenue,
+            SUM(volume) as total_volume
+          FROM monthly_data
+          GROUP BY client_name
+          ORDER BY total_revenue DESC
+          LIMIT $2
+        )
+        SELECT
+          md.client_name as "clientName",
+          md.year,
+          md.month,
+          md.volume,
+          md.revenue,
+          md.transactions
+        FROM monthly_data md
+        JOIN client_totals ct ON md.client_name = ct.client_name
+        ORDER BY ct.total_revenue DESC, md.client_name, md.year, md.month
+      `;
+      params.push(parseInt(limit as string));
+    }
+
+    const results = await sql(query, params);
+
+    // Group by client and organize as a heatmap structure
+    const clientsMap: Record<string, {
+      clientName: string;
+      months: Record<string, { volume: number; revenue: number; transactions: number }>;
+      totals: { volume: number; revenue: number; transactions: number };
+    }> = {};
+
+    results.forEach((row: any) => {
+      const key = row.clientName;
+      if (!clientsMap[key]) {
+        clientsMap[key] = {
+          clientName: key,
+          months: {},
+          totals: { volume: 0, revenue: 0, transactions: 0 }
+        };
+      }
+
+      const monthKey = `${row.year}-${String(row.month).padStart(2, '0')}`;
+      clientsMap[key].months[monthKey] = {
+        volume: parseFloat(row.volume || '0'),
+        revenue: parseFloat(row.revenue || '0'),
+        transactions: parseInt(row.transactions || '0')
+      };
+
+      clientsMap[key].totals.volume += parseFloat(row.volume || '0');
+      clientsMap[key].totals.revenue += parseFloat(row.revenue || '0');
+      clientsMap[key].totals.transactions += parseInt(row.transactions || '0');
+    });
+
+    // Convert to array sorted by total revenue
+    const clients = Object.values(clientsMap).sort((a, b) => b.totals.revenue - a.totals.revenue);
+
+    // Generate list of all months for 2024-2025
+    const allMonths: string[] = [];
+    for (let year = 2024; year <= 2025; year++) {
+      for (let month = 1; month <= 12; month++) {
+        allMonths.push(`${year}-${String(month).padStart(2, '0')}`);
+      }
+    }
+
+    res.json({
+      clients,
+      months: allMonths,
+      unit: resolvedCompanyId === 1 ? 'KG' : 'unidades'
+    });
+  } catch (error) {
+    console.error('[GET /api/client-purchase-behavior] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch client purchase behavior' });
+  }
+});
+
 // GET /api/client-contact-tracking/recent - Get recently contacted clients (for UI state)
 router.get("/api/client-contact-tracking/recent", jwtAuthMiddleware, async (req, res) => {
   try {
@@ -1625,15 +1978,23 @@ router.get("/api/client-contact-tracking/recent", jwtAuthMiddleware, async (req,
       return res.status(403).json({ error: 'No company access' });
     }
 
-    // Get unique clients contacted in the last N days
+    // Get unique clients contacted in the last N days with their most recent contact timestamp
     const results = await sql(`
-      SELECT DISTINCT client_name
+      SELECT
+        client_name as "clientName",
+        MAX(contacted_at) as "contactedAt"
       FROM client_contact_tracking
       WHERE company_id = $1
         AND contacted_at >= NOW() - INTERVAL '${parseInt(days as string)} days'
+      GROUP BY client_name
+      ORDER BY MAX(contacted_at) DESC
     `, [resolvedCompanyId]);
 
-    const recentlyContacted = results.map((r: any) => r.client_name);
+    // Return both formats for backwards compatibility
+    const recentlyContacted = results.map((r: any) => ({
+      clientName: r.clientName,
+      contactedAt: r.contactedAt
+    }));
 
     res.json({ recentlyContacted });
   } catch (error) {

@@ -50,13 +50,16 @@ export function AIInsightsBanner({ companyId }: AIInsightsBannerProps) {
 
   const aiSummary = insights?.statisticalContext?.aiInsights;
   const recommendations = (insights?.strategicRecommendations || []).slice(0, 3);
+  const dormantCount = insights?.focusClients?.dormant?.length ?? 0;
   const criticalCount = insights?.focusClients?.critical?.length ?? 0;
-  const warningCount = insights?.focusClients?.warning?.length ?? 0;
+  const atRiskCount = insights?.focusClients?.atRisk?.length ?? 0;
   const churnRisk = insights?.riskAnalysis?.churnRisk ?? 0;
 
+  const totalAtRisk = dormantCount + criticalCount + atRiskCount;
+
   // Fallback summary if no AI insights
-  const fallbackSummary = criticalCount > 0 || warningCount > 0
-    ? `Hay ${criticalCount} clientes en estado crítico y ${warningCount} en seguimiento. El riesgo de churn es de ${churnRisk}/100. Se recomienda acción inmediata en la cartera de clientes.`
+  const fallbackSummary = totalAtRisk > 0
+    ? `Hay ${dormantCount} clientes dormidos, ${criticalCount} críticos y ${atRiskCount} en riesgo. El riesgo de churn es de ${churnRisk}/100. Se recomienda acción inmediata.`
     : "La cartera de clientes se encuentra estable. Enfócate en identificar oportunidades de crecimiento y cross-sell.";
 
   const displaySummary = aiSummary || fallbackSummary;

@@ -17,8 +17,9 @@ interface ExecutiveSummaryProps {
 }
 
 export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps) {
+  const dormantCount = insights.focusClients.dormant?.length ?? 0;
   const criticalCount = insights.focusClients.critical.length;
-  const warningCount = insights.focusClients.warning.length;
+  const atRiskCount = insights.focusClients.atRisk?.length ?? 0;
   const opportunitiesCount = insights.focusClients.opportunities.length;
   const inactiveCount = insights.inactiveClients.length;
   const revenueAtRisk = insights.riskAnalysis.revenueAtRisk;
@@ -35,37 +36,33 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
   return (
     <TooltipProvider>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Clientes Críticos */}
+        {/* Clientes Dormidos + Criticos */}
         <ChartCard
-          title="Clientes Críticos"
-          subtitle={`${criticalCount} requieren atención inmediata`}
+          title="Atencion Urgente"
+          subtitle={`${dormantCount + criticalCount} requieren atencion`}
         >
           <div className="space-y-2">
             <div className="flex items-baseline gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1 cursor-help">
-                    <span className="text-3xl font-bold text-red-600">{criticalCount}</span>
+                    <span className="text-3xl font-bold text-red-600">{dormantCount + criticalCount}</span>
                     <Info className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <div className="space-y-1">
-                    <p className="font-semibold">Criterio:</p>
-                    <p className="text-sm">
-                      Clientes con más de 6 meses (180 días) sin realizar compras.
-                    </p>
-                    <p className="font-semibold mt-2">Acción requerida:</p>
-                    <p className="text-sm">
-                      Requieren atención inmediata para evitar pérdida total del cliente.
-                    </p>
+                    <p className="font-semibold">Dormidos ({dormantCount}):</p>
+                    <p className="text-sm">4+ meses sin compra. Necesitan reactivacion agresiva.</p>
+                    <p className="font-semibold mt-2">Criticos ({criticalCount}):</p>
+                    <p className="text-sm">3 meses sin compra. Requieren llamada urgente.</p>
                   </div>
                 </TooltipContent>
               </Tooltip>
               <span className="text-sm text-muted-foreground">clientes</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              6+ meses sin compra
+              {dormantCount} dormidos + {criticalCount} criticos
             </p>
           </div>
         </ChartCard>
@@ -73,14 +70,14 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
       {/* Clientes en Riesgo */}
       <ChartCard
         title="Clientes en Riesgo"
-        subtitle={`${warningCount} con caída significativa`}
+        subtitle={`${atRiskCount} necesitan seguimiento`}
       >
         <div className="space-y-2">
           <div className="flex items-baseline gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-1 cursor-help">
-                  <span className="text-3xl font-bold text-amber-600">{warningCount}</span>
+                  <span className="text-3xl font-bold text-amber-600">{atRiskCount}</span>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </div>
               </TooltipTrigger>
@@ -88,11 +85,11 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
                 <div className="space-y-1">
                   <p className="font-semibold">Criterio:</p>
                   <p className="text-sm">
-                    Clientes con 3 a 6 meses (90-180 días) sin realizar compras.
+                    Clientes con 2 meses (60-89 dias) sin realizar compras.
                   </p>
-                  <p className="font-semibold mt-2">Acción requerida:</p>
+                  <p className="font-semibold mt-2">Accion requerida:</p>
                   <p className="text-sm">
-                    Dar seguimiento proactivo para prevenir que se conviertan en críticos.
+                    Contacto preventivo para evitar que se conviertan en criticos.
                   </p>
                 </div>
               </TooltipContent>
@@ -100,7 +97,7 @@ export function ExecutiveSummary({ insights, companyId }: ExecutiveSummaryProps)
             <span className="text-sm text-muted-foreground">clientes</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            3-6 meses sin compra
+            2 meses sin compra
           </p>
         </div>
       </ChartCard>

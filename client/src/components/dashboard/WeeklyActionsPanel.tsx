@@ -1,36 +1,39 @@
 /**
  * WeeklyActionsPanel - Panel de acciones semanales organizadas por prioridad
- * Categoriza acciones en: Urgente (esta semana), Seguimiento (proximas 2 semanas),
- * y Oportunidades de crecimiento.
+ * Categoriza acciones en: Dormidos (reactivacion), Criticos (urgente),
+ * En Riesgo (preventivo), y Oportunidades de crecimiento.
  */
 
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
+  Moon,
   AlertCircle,
-  Clock,
+  AlertTriangle,
   TrendingUp,
   ChevronRight,
   Calendar,
   Package,
-  CheckCircle2
-} from "lucide-react";
-import { formatCurrency } from "@/lib/sales-utils";
-import { cn } from "@/lib/utils";
-import type { ClientFocus } from "@shared/sales-analyst-types";
+  CheckCircle2,
+} from 'lucide-react';
+import { formatCurrency } from '@/lib/sales-utils';
+import { cn } from '@/lib/utils';
+import type { ClientFocus } from '@shared/sales-analyst-types';
+import { useContactedClients } from './ContactedClientsContext';
 
 interface WeeklyActionsPanelProps {
   companyId: number;
+  dormantClients: ClientFocus[];
   criticalClients: ClientFocus[];
-  warningClients: ClientFocus[];
+  atRiskClients: ClientFocus[];
   opportunityClients: ClientFocus[];
 }
 
 interface ActionItem {
   id: string;
   clientName: string;
-  type: 'urgent' | 'follow-up' | 'opportunity';
+  type: 'dormant' | 'critical' | 'at-risk' | 'opportunity';
   title: string;
   description: string;
   potential: number;
@@ -41,36 +44,49 @@ interface ActionItem {
 
 export function WeeklyActionsPanel({
   companyId,
+  dormantClients,
   criticalClients,
-  warningClients,
+  atRiskClients,
   opportunityClients,
 }: WeeklyActionsPanelProps) {
-  const [expandedSection, setExpandedSection] = useState<string | null>('urgent');
-  const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
+  const [expandedSection, setExpandedSection] = useState<string | null>('dormant');
+  const { contactedClients, markAsContacted, isLoading, getRelativeTime } = useContactedClients();
 
   // Transform clients into action items
-  const urgentActions: ActionItem[] = criticalClients.slice(0, 5).map((c, idx) => ({
-    id: `urgent-${idx}`,
+  const dormantActions: ActionItem[] = dormantClients.slice(0, 5).map((c, idx) => ({
+    id: `dormant-${idx}`,
     clientName: c.name,
-    type: 'urgent' as const,
-    title: `Llamar a ${c.name}`,
-    description: `${c.daysSincePurchase} dias sin compra`,
+    type: 'dormant' as const,
+    title: `Reactivar ${c.name}`,
+    description: `${c.daysSincePurchase} dias sin compra (4+ meses)`,
     potential: c.previousYearRevenue,
     products: c.topProducts || [],
     lastOrderDate: c.lastOrderDateFormatted || c.lastPurchaseDate,
-    suggestedAction: c.suggestedAction || 'Ofrecer descuento de reactivacion',
+    suggestedAction: c.suggestedAction || 'Campana de reactivacion agresiva con descuento fuerte',
   }));
 
-  const followUpActions: ActionItem[] = warningClients.slice(0, 5).map((c, idx) => ({
-    id: `followup-${idx}`,
+  const criticalActions: ActionItem[] = criticalClients.slice(0, 5).map((c, idx) => ({
+    id: `critical-${idx}`,
     clientName: c.name,
-    type: 'follow-up' as const,
-    title: `Dar seguimiento a ${c.name}`,
-    description: `${c.daysSincePurchase} dias sin compra`,
+    type: 'critical' as const,
+    title: `Llamar a ${c.name}`,
+    description: `${c.daysSincePurchase} dias sin compra (3 meses)`,
     potential: c.previousYearRevenue,
     products: c.topProducts || [],
     lastOrderDate: c.lastOrderDateFormatted || c.lastPurchaseDate,
-    suggestedAction: c.suggestedAction || 'Contactar para entender situacion',
+    suggestedAction: c.suggestedAction || 'Llamada urgente con oferta especial',
+  }));
+
+  const atRiskActions: ActionItem[] = atRiskClients.slice(0, 5).map((c, idx) => ({
+    id: `atrisk-${idx}`,
+    clientName: c.name,
+    type: 'at-risk' as const,
+    title: `Dar seguimiento a ${c.name}`,
+    description: `${c.daysSincePurchase} dias sin compra (2 meses)`,
+    potential: c.previousYearRevenue,
+    products: c.topProducts || [],
+    lastOrderDate: c.lastOrderDateFormatted || c.lastPurchaseDate,
+    suggestedAction: c.suggestedAction || 'Contacto preventivo para entender situacion',
   }));
 
   const opportunityActions: ActionItem[] = opportunityClients.slice(0, 5).map((c, idx) => ({
@@ -79,7 +95,7 @@ export function WeeklyActionsPanel({
     type: 'opportunity' as const,
     title: `Crecimiento en ${c.name}`,
     description: `+${c.yoyChange.toFixed(1)}% vs ano anterior`,
-    potential: c.currentYearRevenue,
+    potential: c.currentYearRevenue, // Usar currentYearRevenue para oportunidades
     products: c.topProducts || [],
     lastOrderDate: c.lastOrderDateFormatted || c.lastPurchaseDate,
     suggestedAction: c.suggestedAction || 'Ofrecer mayor volumen o productos complementarios',
@@ -89,37 +105,38 @@ export function WeeklyActionsPanel({
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const markComplete = (actionId: string) => {
-    setCompletedActions(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(actionId)) {
-        newSet.delete(actionId);
-      } else {
-        newSet.add(actionId);
-      }
-      return newSet;
-    });
+  const handleMarkComplete = async (action: ActionItem) => {
+    const client = [...dormantClients, ...criticalClients, ...atRiskClients, ...opportunityClients]
+      .find(c => c.name === action.clientName);
+
+    if (client) {
+      await markAsContacted(action.clientName, client.clientId);
+    }
   };
 
   const ActionCard = ({ action }: { action: ActionItem }) => {
-    const isComplete = completedActions.has(action.id);
+    const isComplete = contactedClients.has(action.clientName);
+    const isActionLoading = isLoading(action.clientName);
+    const relativeTime = getRelativeTime(action.clientName);
 
     return (
       <div
         className={cn(
-          "p-4 rounded-lg border transition-all",
+          'p-4 rounded-lg border transition-all',
           isComplete
-            ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30"
-            : "bg-card hover:border-primary/30"
+            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30'
+            : 'bg-card hover:border-primary/30'
         )}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h4 className={cn(
-                "text-sm font-medium",
-                isComplete && "line-through text-muted-foreground"
-              )}>
+              <h4
+                className={cn(
+                  'text-sm font-medium',
+                  isComplete && 'line-through text-muted-foreground'
+                )}
+              >
                 {action.title}
               </h4>
               <Badge variant="outline" className="text-xs">
@@ -139,20 +156,27 @@ export function WeeklyActionsPanel({
             <p className="text-xs text-primary mt-2 font-medium">
               {action.suggestedAction}
             </p>
+            {isComplete && relativeTime && (
+              <p className="text-xs text-emerald-600 mt-1">{relativeTime}</p>
+            )}
           </div>
           <Button
             size="sm"
-            variant={isComplete ? "outline" : "ghost"}
+            variant={isComplete ? 'outline' : 'ghost'}
             className={cn(
-              "h-8 w-8 p-0 shrink-0",
-              isComplete && "border-emerald-300 text-emerald-700"
+              'h-8 w-8 p-0 shrink-0',
+              isComplete && 'border-emerald-300 text-emerald-700'
             )}
-            onClick={() => markComplete(action.id)}
+            onClick={() => !isComplete && !isActionLoading && handleMarkComplete(action)}
+            disabled={isComplete || isActionLoading}
           >
-            <CheckCircle2 className={cn(
-              "w-4 h-4",
-              isComplete ? "text-emerald-600" : "text-muted-foreground"
-            )} />
+            <CheckCircle2
+              className={cn(
+                'w-4 h-4',
+                isComplete ? 'text-emerald-600' : 'text-muted-foreground',
+                isActionLoading && 'animate-spin'
+              )}
+            />
           </Button>
         </div>
       </div>
@@ -165,25 +189,23 @@ export function WeeklyActionsPanel({
     count,
     colorClass,
     section,
+    actions,
   }: {
     icon: typeof AlertCircle;
     title: string;
     count: number;
     colorClass: string;
     section: string;
+    actions: ActionItem[];
   }) => {
     const isExpanded = expandedSection === section;
-    const completedCount = (
-      section === 'urgent' ? urgentActions :
-      section === 'follow-up' ? followUpActions :
-      opportunityActions
-    ).filter(a => completedActions.has(a.id)).length;
+    const completedCount = actions.filter((a) => contactedClients.has(a.clientName)).length;
 
     return (
       <button
         onClick={() => toggleSection(section)}
         className={cn(
-          "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
+          'w-full flex items-center justify-between p-3 rounded-lg transition-colors',
           colorClass
         )}
       >
@@ -194,10 +216,9 @@ export function WeeklyActionsPanel({
             {completedCount}/{count}
           </Badge>
         </div>
-        <ChevronRight className={cn(
-          "w-4 h-4 transition-transform",
-          isExpanded && "rotate-90"
-        )} />
+        <ChevronRight
+          className={cn('w-4 h-4 transition-transform', isExpanded && 'rotate-90')}
+        />
       </button>
     );
   };
@@ -205,53 +226,76 @@ export function WeeklyActionsPanel({
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-        <Clock className="w-4 h-4" />
+        <Calendar className="w-4 h-4" />
         Acciones de la Semana
       </h3>
 
       <div className="space-y-2">
-        {/* URGENT Section */}
+        {/* DORMANT Section */}
+        {dormantActions.length > 0 && (
+          <div className="rounded-lg border overflow-hidden">
+            <SectionHeader
+              icon={Moon}
+              title="DORMIDOS (Reactivar)"
+              count={dormantActions.length}
+              colorClass="bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/30 dark:hover:bg-purple-950/50 text-purple-700 dark:text-purple-300"
+              section="dormant"
+              actions={dormantActions}
+            />
+            {expandedSection === 'dormant' && dormantActions.length > 0 && (
+              <div className="p-3 space-y-2 bg-card">
+                {dormantActions.map((action) => (
+                  <ActionCard key={action.id} action={action} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CRITICAL Section */}
         <div className="rounded-lg border overflow-hidden">
           <SectionHeader
             icon={AlertCircle}
-            title="URGENTE (Esta semana)"
-            count={urgentActions.length}
+            title="CRITICOS (Urgente)"
+            count={criticalActions.length}
             colorClass="bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50 text-red-700 dark:text-red-300"
-            section="urgent"
+            section="critical"
+            actions={criticalActions}
           />
-          {expandedSection === 'urgent' && urgentActions.length > 0 && (
+          {expandedSection === 'critical' && criticalActions.length > 0 && (
             <div className="p-3 space-y-2 bg-card">
-              {urgentActions.map(action => (
+              {criticalActions.map((action) => (
                 <ActionCard key={action.id} action={action} />
               ))}
             </div>
           )}
-          {expandedSection === 'urgent' && urgentActions.length === 0 && (
+          {expandedSection === 'critical' && criticalActions.length === 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              No hay acciones urgentes pendientes
+              No hay acciones criticas pendientes
             </div>
           )}
         </div>
 
-        {/* FOLLOW-UP Section */}
+        {/* AT-RISK Section */}
         <div className="rounded-lg border overflow-hidden">
           <SectionHeader
-            icon={Clock}
-            title="SEGUIMIENTO (Proximas 2 semanas)"
-            count={followUpActions.length}
+            icon={AlertTriangle}
+            title="EN RIESGO (Preventivo)"
+            count={atRiskActions.length}
             colorClass="bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300"
-            section="follow-up"
+            section="at-risk"
+            actions={atRiskActions}
           />
-          {expandedSection === 'follow-up' && followUpActions.length > 0 && (
+          {expandedSection === 'at-risk' && atRiskActions.length > 0 && (
             <div className="p-3 space-y-2 bg-card">
-              {followUpActions.map(action => (
+              {atRiskActions.map((action) => (
                 <ActionCard key={action.id} action={action} />
               ))}
             </div>
           )}
-          {expandedSection === 'follow-up' && followUpActions.length === 0 && (
+          {expandedSection === 'at-risk' && atRiskActions.length === 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              No hay acciones de seguimiento pendientes
+              No hay acciones preventivas pendientes
             </div>
           )}
         </div>
@@ -260,14 +304,15 @@ export function WeeklyActionsPanel({
         <div className="rounded-lg border overflow-hidden">
           <SectionHeader
             icon={TrendingUp}
-            title="OPORTUNIDADES DE CRECIMIENTO"
+            title="OPORTUNIDADES (Crecimiento)"
             count={opportunityActions.length}
             colorClass="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
             section="opportunities"
+            actions={opportunityActions}
           />
           {expandedSection === 'opportunities' && opportunityActions.length > 0 && (
             <div className="p-3 space-y-2 bg-card">
-              {opportunityActions.map(action => (
+              {opportunityActions.map((action) => (
                 <ActionCard key={action.id} action={action} />
               ))}
             </div>
