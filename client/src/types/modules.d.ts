@@ -29,6 +29,7 @@ declare module "date-fns" {
   export function isTomorrow(date: Date | number): boolean;
   export function differenceInDays(left: Date | number, right: Date | number): number;
   export function isFuture(date: Date | number): boolean;
+  export function formatDistance(date: Date | number, baseDate: Date | number, options?: object): string;
   export const es: object;
   export const enUS: object;
 }

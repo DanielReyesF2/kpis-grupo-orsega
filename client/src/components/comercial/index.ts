@@ -1,0 +1,11 @@
+export { ProspectsList } from "./ProspectsList";
+export { PipelineKanban } from "./PipelineKanban";
+export { ProspectDetail } from "./ProspectDetail";
+export { ProspectTimeline } from "./ProspectTimeline";
+export { ProspectNotes } from "./ProspectNotes";
+export { ProspectMeetings } from "./ProspectMeetings";
+export { ProspectDocuments } from "./ProspectDocuments";
+export { ProspectProposals } from "./ProspectProposals";
+export { ProspectFormDialog } from "./ProspectFormDialog";
+export { AlertsDropdown } from "./AlertsDropdown";
+export { ComercialReports } from "./ComercialReports";

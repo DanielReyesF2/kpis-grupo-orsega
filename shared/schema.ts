@@ -979,3 +979,6 @@ export interface KpiDetail {
   period: string;
   comments: string | null;
 }
+
+// Re-export comercial module
+export * from "./comercial";
