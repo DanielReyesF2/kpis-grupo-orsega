@@ -5,4 +5,3 @@
 
 export * from './r2';
 export * from './file-storage';
-export * from './comercial';
