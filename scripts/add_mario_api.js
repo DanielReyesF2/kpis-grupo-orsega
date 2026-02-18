@@ -45,8 +45,7 @@ async function addMarioViaAPI() {
     }
 
     // Crear Mario
-    const hashedPassword = await bcrypt.hash('mario2025', 10);
-    
+    // NOTE: Do NOT pre-hash the password — the API endpoint handles hashing
     const createResponse = await fetch('http://localhost:5000/api/users', {
       method: 'POST',
       headers: {
@@ -56,7 +55,7 @@ async function addMarioViaAPI() {
       body: JSON.stringify({
         name: 'Mario Reynoso',
         email: 'mario.reynoso@econova.com',
-        password: hashedPassword,
+        password: 'mario2025',
         role: 'manager',
         companyId: 1
       })

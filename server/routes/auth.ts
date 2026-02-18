@@ -171,4 +171,50 @@ router.post("/api/register", registerLimiter, async (req, res) => {
   }
 });
 
+// ========================================
+// ONE-TIME PASSWORD RESET (for double-hashed accounts)
+// Protected by a one-time secret — remove after use
+// ========================================
+
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: 'Demasiados intentos. Intenta de nuevo en 15 minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/api/emergency-reset-password", resetLimiter, async (req, res) => {
+  try {
+    const { email, newPassword, secret } = req.body;
+
+    // Require a one-time secret to prevent abuse
+    if (secret !== "fix-mario-2026") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ message: "email and newPassword are required" });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
+    const user = await storage.getUserByUsername(email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const hashedPassword = await bcryptHash(newPassword, 10);
+    await storage.updateUser(user.id, { password: hashedPassword });
+
+    logger.info(`[EMERGENCY RESET] Password reset for user ${user.email} (id: ${user.id})`);
+    res.json({ success: true, message: `Password reset for ${user.email}` });
+  } catch (error) {
+    logger.error("[POST /api/emergency-reset-password] Error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 export default router;

@@ -44,9 +44,14 @@ router.post("/api/users", jwtAuthMiddleware, async (req, res) => {
     const validatedData = insertUserSchema.parse(req.body);
     console.log("[POST /api/users] Datos validados:", JSON.stringify(redactSensitiveData(validatedData), null, 2));
 
-    // Hash password if provided
+    // Hash password if provided — skip if already a bcrypt hash (prevents double-hashing)
     if (validatedData.password) {
-      validatedData.password = await bcryptHash(validatedData.password, 10);
+      const isBcrypt = /^\$2[aby]\$\d{1,2}\$/.test(validatedData.password);
+      if (isBcrypt) {
+        console.warn("[POST /api/users] Password already bcrypt-hashed, skipping re-hash");
+      } else {
+        validatedData.password = await bcryptHash(validatedData.password, 10);
+      }
     }
 
     console.log("[POST /api/users] Datos después del hash:", JSON.stringify({ ...validatedData, password: '[HASHED]' }, null, 2));
@@ -88,9 +93,14 @@ router.put("/api/users/:id", jwtAuthMiddleware, async (req, res) => {
     // Validar datos con Zod (usando partial para permitir actualizaciones parciales)
     const validatedData = insertUserSchema.partial().parse(req.body);
 
-    // Hash password if provided
+    // Hash password if provided — skip if already a bcrypt hash (prevents double-hashing)
     if (validatedData.password) {
-      validatedData.password = await bcryptHash(validatedData.password, 10);
+      const isBcrypt = /^\$2[aby]\$\d{1,2}\$/.test(validatedData.password);
+      if (isBcrypt) {
+        console.warn("[PUT /api/users/:id] Password already bcrypt-hashed, skipping re-hash");
+      } else {
+        validatedData.password = await bcryptHash(validatedData.password, 10);
+      }
     }
 
     console.log("[PUT /api/users/:id] Datos validados:", redactSensitiveData(validatedData));
