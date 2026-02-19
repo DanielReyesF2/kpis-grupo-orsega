@@ -74,7 +74,7 @@ class EmailService {
       // Cuando el dominio esté verificado, cambiará automáticamente a este formato
       fromEmail = department === 'treasury'
         ? `Lolita - Tesorería <dolores@${clientDomain}>`
-        : `Jesus Daniel - Tesorería <jesusmarquez@${clientDomain}>`;
+        : `Jesus Daniel - Logística <jesusmarquez@${clientDomain}>`;
       logger.info('Intentando usar dominio del cliente', { fromEmail });
       logger.info('NOTA: Si el dominio no está verificado en Resend, el envío fallará. Usa USE_RESEND_TEST_EMAIL=true para pruebas.');
     }
