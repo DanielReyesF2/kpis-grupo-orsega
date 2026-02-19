@@ -41,9 +41,9 @@ export const ZIP_CODE_COORDINATES: Record<string, { lat: number; lng: number }> 
   "34000": { lat: 24.0277, lng: -104.6532 },
   // Villahermosa
   "86000": { lat: 17.9904, lng: -92.9304 },
-  // Altamira (solicitado por Thalia)
+  // Altamira
   "89600": { lat: 22.4025, lng: -97.9297 },
-  // Nextipac (solicitado por Thalia)
+  // Nextipac
   "45200": { lat: 20.7503, lng: -103.4500 }
 };
 

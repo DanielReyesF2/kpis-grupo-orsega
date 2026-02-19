@@ -458,7 +458,7 @@ export default function NewShipmentPage() {
             <CardDescription className="text-xs sm:text-sm">
               Completa el formulario para crear un nuevo envío. 
               <span className="block mt-1 text-primary font-medium">
-                Responsable de Logística: Thalia Rodriguez
+                Responsable de Logística: Jesus Daniel Marquez
               </span>
             </CardDescription>
           </CardHeader>
@@ -768,7 +768,7 @@ export default function NewShipmentPage() {
                     <Alert className="mb-4 bg-blue-50 border-blue-200">
                       <AlertTitle className="text-primary font-medium">Información de Logística</AlertTitle>
                       <AlertDescription>
-                        La logística de este envío está gestionada por <span className="font-medium">Thalia Rodriguez</span>. 
+                        La logística de este envío está gestionada por <span className="font-medium">Jesus Daniel Marquez</span>. 
                         Por favor, complete los datos de forma precisa para facilitar el seguimiento.
                       </AlertDescription>
                     </Alert>
@@ -918,7 +918,7 @@ export default function NewShipmentPage() {
                         )}
                       />
 
-                      {/* Campos de conductor eliminados por petición de Thalia (Logística) */}
+                      {/* Campos de conductor eliminados por petición de Logística */}
                     </div>
                   </div>
                 )}

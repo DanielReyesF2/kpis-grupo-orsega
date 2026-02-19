@@ -291,11 +291,11 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                       <h3 className="text-sm font-semibold mb-2 text-primary">Responsable de Logística</h3>
                       <div className="flex items-center space-x-2 mb-1">
                         <User className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-gray-700">Thalia Rodriguez</span>
+                        <span className="text-sm text-gray-700">Jesus Daniel Marquez</span>
                       </div>
                       <div className="flex items-center space-x-2 mb-1">
                         <Mail className="h-4 w-4 text-primary" />
-                        <span className="text-sm text-gray-700">thalia.rodriguez@econova.mx</span>
+                        <span className="text-sm text-gray-700">jesusmarquez@grupoorsega.com</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Phone className="h-4 w-4 text-primary" />

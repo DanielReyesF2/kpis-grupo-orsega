@@ -74,7 +74,7 @@ class EmailService {
       // Cuando el dominio esté verificado, cambiará automáticamente a este formato
       fromEmail = department === 'treasury'
         ? `Lolita - Tesorería <dolores@${clientDomain}>`
-        : `Thalia - Logística <thalia@${clientDomain}>`;
+        : `Jesus Daniel - Tesorería <jesusmarquez@${clientDomain}>`;
       logger.info('Intentando usar dominio del cliente', { fromEmail });
       logger.info('NOTA: Si el dominio no está verificado en Resend, el envío fallará. Usa USE_RESEND_TEST_EMAIL=true para pruebas.');
     }
@@ -212,7 +212,7 @@ class EmailService {
     });
   }
 
-  // Funciones específicas para Logística (Thalia)
+  // Funciones específicas para Logística
   async sendShipmentUpdate(
     clientEmail: string,
     clientName: string,
@@ -232,7 +232,7 @@ class EmailService {
           ${trackingNumber ? `<p><strong>Número de Rastreo:</strong> ${trackingNumber}</p>` : ''}
         </div>
         <p>Gracias por confiar en nuestros servicios logísticos.</p>
-        <p>Saludos cordiales,<br><strong>Thalia</strong><br>Equipo de Logística - Econova</p>
+        <p>Saludos cordiales,<br><strong>Jesus Daniel</strong><br>Equipo de Logística - Econova</p>
       </div>
     `;
 
@@ -260,7 +260,7 @@ class EmailService {
           <p><strong>Horario:</strong> ${timeSlot}</p>
         </div>
         <p>Por favor, asegúrese de que alguien esté disponible para recibir el paquete.</p>
-        <p>Saludos cordiales,<br><strong>Thalia</strong><br>Equipo de Logística - Econova</p>
+        <p>Saludos cordiales,<br><strong>Jesus Daniel</strong><br>Equipo de Logística - Econova</p>
       </div>
     `;
 

@@ -38,8 +38,8 @@ UPDATE users SET password = '$2b$10$F4.4z4g2M2VKEGpNtVvjvOrxv8wxeV4mprnPTsNyes6T
 -- Alejandra Palomera -> password: AlejandraPalomera
 UPDATE users SET password = '$2b$10$Pw0omUih59bGagcQP65bHeBLaNpUZabBDmquwdWtNFMEl2tUJAIX2' WHERE id = 21;
 
--- Thalia Rodriguez -> password: ThaliaRodriguez
-UPDATE users SET password = '$2b$10$IAESRZZJufQUeM3UGUk2mOOogkw8iDNCwUvvvH.iLZ7Hya8Ca0F2O' WHERE id = 5;
+-- Jesus Daniel Marquez -> password: JesusDanielMarquez
+UPDATE users SET password = '$2b$10$LNah86GrszNjvewX1D3a/OVcWA5CrKNMAd0T5iUlPe8ee8SxsZPN2' WHERE id = 7;
 
 -- Dolores Navarro -> password: DoloresNavarro
 UPDATE users SET password = '$2b$10$mkyRIvL5bXLrvowFSdt9feJb19jKNilj2kHF6p0bJZ/Ocj7FiFzIa' WHERE id = 6;

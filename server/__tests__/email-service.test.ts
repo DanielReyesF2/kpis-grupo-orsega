@@ -244,7 +244,7 @@ describe('Email Service', () => {
 
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: expect.stringContaining('thalia'),
+          from: expect.stringContaining('jesusmarquez'),
         })
       );
     });

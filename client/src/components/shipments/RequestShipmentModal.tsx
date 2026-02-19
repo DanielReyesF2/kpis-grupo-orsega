@@ -121,9 +121,9 @@ ${formData.additionalNotes ? `Notas adicionales: ${formData.additionalNotes}` : 
 Por favor confirmen disponibilidad y cotización.
 
 Saludos cordiales,
-Thalía Rodríguez
-Dura International
-thaliarodriguez@duraintal.com
+Jesus Daniel Marquez
+Grupo Orsega
+jesusmarquez@grupoorsega.com
     `.trim();
 
     return { subject, body: emailBody };

@@ -15,7 +15,7 @@ interface ProtectedRouteProps {
   children: ReactNode;
   adminOnly?: boolean;
   executiveOnly?: boolean;  // Nuevo: solo Mario y admin
-  logisticsOnly?: boolean;  // Nuevo: solo Mario, admin y Thalia (logística)
+  logisticsOnly?: boolean;  // Nuevo: solo Mario, admin y Jesus Daniel (logística)
   salesOnly?: boolean;  // Nuevo: solo área de ventas
 }
 

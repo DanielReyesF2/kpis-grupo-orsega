@@ -265,7 +265,7 @@ export async function ensureSalesSchema(): Promise<void> {
       INSERT INTO sales_responsables (codigo, nombre, email, activo) VALUES
         ('ON', 'Omar Navarro', 'omar@orsega.com', true),
         ('EDV', 'Emilio del Valle', 'emilio@orsega.com', true),
-        ('TR', 'Thalia Rodriguez', 'thalia@orsega.com', true),
+        ('JDM', 'Jesus Daniel Marquez', 'jesusmarquez@grupoorsega.com', true),
         ('MR', 'Mario Reynoso', 'mario@orsega.com', true),
         ('AVM', '[Por confirmar]', null, true),
         ('MDK', '[Por confirmar]', null, true),

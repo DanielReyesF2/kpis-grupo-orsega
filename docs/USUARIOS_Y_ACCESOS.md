@@ -18,7 +18,7 @@
 | 8 | Miranda de Koster | miranda.dekoster@econova.com | MirandadeKoster | collaborator | Dura International | Ventas (Dura) | Si |
 | 24 | Test Usuario Corregido | testcorrected@econova.com.mx | TestUsuarioCorregido | collaborator | Dura International | Ventas (Dura) | Si |
 | 21 | Alejandra Palomera | alejandrapalomera@grupoorsega.com | AlejandraPalomera | collaborator | *(sin asignar)* | Compras (Orsega) | Si |
-| 5 | Thalia Rodriguez | thaliarodriguez@grupoorsega.com | ThaliaRodriguez | collaborator | Grupo Orsega | Logistica (Orsega) | Si |
+| 7 | Jesus Daniel Marquez | jesusmarquez@grupoorsega.com | JesusDanielMarquez | manager | Grupo Orsega | Tesoreria (Orsega) | Si |
 | 6 | Dolores Navarro | doloresnavarro@grupoorsega.com | DoloresNavarro | collaborator | Dura International | Tesoreria (Dura) | Si |
 | 7 | Andrea Navarro | andreanavarro@duraintal.com | AndreaNavarro | collaborator | Dura International | Compras (Orsega) | Si |
 | 11 | Julio Martell | julio.hernandez@econova.com | JulioMartell | collaborator | Grupo Orsega | Contabilidad y Finanzas (Orsega) | Si |
@@ -86,7 +86,7 @@
 
 **NO puede:** Crear/editar/eliminar definiciones de KPIs, cerrar mes, gestionar usuarios, ver datos de otras empresas.
 
-**Usuarios con este rol:** Omar Navarro, Guillermo Galindo, Miranda de Koster, Test Usuario Corregido, Alejandra Palomera, Thalia Rodriguez, Dolores Navarro, Andrea Navarro, Julio Martell, Jesus Espinoza
+**Usuarios con este rol:** Omar Navarro, Guillermo Galindo, Miranda de Koster, Test Usuario Corregido, Alejandra Palomera, Dolores Navarro, Andrea Navarro, Julio Martell, Jesus Espinoza
 
 ---
 

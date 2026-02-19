@@ -134,7 +134,7 @@ export function getShipmentStatusEmailTemplate(
           <p>Si tiene alguna pregunta o necesita más información, no dude en contactarnos.</p>
         </div>
         <div class="footer">
-          <p>Este mensaje fue enviado por <strong>Thalia Rodriguez</strong> - Departamento de Logística<br>
+          <p>Este mensaje fue enviado por <strong>Jesus Daniel Marquez</strong> - Departamento de Tesorería<br>
           Econova | Dura International & Grupo Orsega<br>
           Email: marioreynoso@grupoorsega.com</p>
         </div>
@@ -159,7 +159,7 @@ ${newStatus === 'delayed' ? 'Lamentamos informarle que su envío presenta un ret
 Si tiene alguna pregunta, no dude en contactarnos.
 
 Saludos,
-Thalia Rodriguez - Departamento de Logística
+Jesus Daniel Marquez - Departamento de Tesorería
 Econova | Dura International & Grupo Orsega
   `;
 
