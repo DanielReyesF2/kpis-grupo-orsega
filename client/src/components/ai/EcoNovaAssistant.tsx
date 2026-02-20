@@ -420,12 +420,11 @@ export function EcoNovaAssistant() {
               boxShadow: `0 4px 20px ${COLORS.dark}50`
             }}
           >
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-              style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
-            >
-              N
-            </div>
+            <img
+              src="/avatar-nova.png"
+              alt="Nova"
+              className="w-5 h-5 rounded-full object-cover"
+            />
             <span>NovaAI</span>
             <kbd
               className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded hidden sm:inline"
@@ -489,12 +488,11 @@ export function EcoNovaAssistant() {
                 style={{ borderBottom: `1px solid ${COLORS.darkLight}` }}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold"
-                    style={{ backgroundColor: COLORS.lime, color: COLORS.dark }}
-                  >
-                    N
-                  </div>
+                  <img
+                    src="/avatar-nova.png"
+                    alt="Nova"
+                    className="w-8 h-8 rounded-xl object-cover"
+                  />
                   <div>
                     <span className="font-semibold text-white text-sm">NovaAI</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
