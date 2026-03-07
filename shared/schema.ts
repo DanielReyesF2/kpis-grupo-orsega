@@ -316,6 +316,7 @@ export const shipments = pgTable("shipments", {
   driverName: text("driver_name"), // Nombre del conductor
   driverPhone: text("driver_phone"), // Teléfono del conductor
   comments: text("comments"), // Comentarios adicionales
+  drumCount: integer("drum_count"), // Cantidad de tambos para orden de recolección
   // KPIs de Logística
   transportCost: real("transport_cost"), // Costo de transporte (MXN)
   inRouteAt: timestamp("in_route_at"), // Timestamp automático cuando pasa a in_transit
@@ -428,6 +429,36 @@ export const updateShipmentStatusSchema = z.object({
   location: z.string().optional(),
   invoiceNumber: z.string().optional(),
 });
+
+// Collection Orders - Historial de órdenes de recolección generadas/enviadas
+export const collectionOrders = pgTable("collection_orders", {
+  id: serial("id").primaryKey(),
+  shipmentId: integer("shipment_id").notNull(),
+  companyId: integer("company_id").notNull(),
+  // Datos de la orden
+  drumCount: integer("drum_count").notNull(),
+  totalWeightKg: integer("total_weight_kg").notNull(),
+  totalTarimas: integer("total_tarimas").notNull(),
+  palletDescription: text("pallet_description"),
+  pickupDate: text("pickup_date").notNull(), // YYYY-MM-DD
+  pickupWindow: text("pickup_window"),
+  // Proveedor (null si solo se descargó)
+  providerId: text("provider_id"),
+  providerName: text("provider_name"),
+  providerEmail: text("provider_email"),
+  // Acción y resultado
+  action: text("action").notNull(), // 'downloaded' | 'sent'
+  emailMessageId: text("email_message_id"),
+  emailError: text("email_error"),
+  // Trazabilidad
+  sentBy: integer("sent_by"), // userId que ejecutó la acción
+  sentByName: text("sent_by_name"), // nombre del usuario
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCollectionOrderSchema = createInsertSchema(collectionOrders).omit({ id: true, createdAt: true });
+export type InsertCollectionOrder = z.infer<typeof insertCollectionOrderSchema>;
+export type CollectionOrder = typeof collectionOrders.$inferSelect;
 
 // Job Profiles schema - Para información detallada de cada puesto de trabajo
 export const jobProfiles = pgTable("job_profiles", {
@@ -568,6 +599,8 @@ export const clients = pgTable("clients", {
   emailNotifications: boolean("email_notifications").default(true), // Si recibe notificaciones por email
   customerType: text("customer_type"), // Tipo de cliente (distribuidor, mayorista, etc.)
   requiresPaymentComplement: boolean("requires_payment_complement").default(false), // Si requiere complemento de pago para cerrar compras
+  colonia: text("colonia"), // Colonia/barrio del cliente
+  municipality: text("municipality"), // Municipio/delegación del cliente
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true, updatedAt: true });

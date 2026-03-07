@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { RequestShipmentModal } from './RequestShipmentModal';
+import { CollectionOrderModal } from './CollectionOrderModal';
 import { ReportModal } from '../reports/ReportModal';
 
 interface ShipmentItem {
@@ -61,6 +62,8 @@ interface Shipment {
   invoiceNumber?: string | null;
   purchaseOrder?: string | null;
   companyId?: number | null;
+  customerId?: number | null;
+  drumCount?: number | null;
   // Include cycle times data to eliminate N+1 queries
   cycleTimes?: {
     hoursTotalCycle?: string | null;
@@ -99,14 +102,16 @@ const StatusBadge = ({ status }: { status: string }) => {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-const ShipmentCard = ({ 
-  shipment, 
+const ShipmentCard = ({
+  shipment,
   onCardClick,
-  onRequestTransport
-}: { 
+  onRequestTransport,
+  onCollectionOrder
+}: {
   shipment: Shipment;
   onCardClick: (shipment: Shipment) => void;
   onRequestTransport?: (shipment: Shipment) => void;
+  onCollectionOrder?: (shipment: Shipment) => void;
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -306,44 +311,60 @@ const ShipmentCard = ({
         </div>
       )}
 
-      {/* Botón Solicitar envío para pendientes */}
-      {shipment.status === 'pending' && onRequestTransport && (
-        <div className="mt-3 pt-2 border-t border-border">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRequestTransport(shipment);
-            }}
-            className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
-          >
-            <Truck className="h-3 w-3" />
-            Solicitar envío
-          </button>
+      {/* Botones para pendientes */}
+      {shipment.status === 'pending' && (onRequestTransport || onCollectionOrder) && (
+        <div className="mt-3 pt-2 border-t border-border space-y-1.5">
+          {onRequestTransport && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestTransport(shipment);
+              }}
+              className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
+            >
+              <Truck className="h-3 w-3" />
+              Solicitar envío
+            </button>
+          )}
+          {onCollectionOrder && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollectionOrder(shipment);
+              }}
+              className="w-full text-xs bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
+            >
+              <Package className="h-3 w-3" />
+              Orden de Recolección
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-const KanbanColumn = ({ 
-  title, 
-  status, 
-  shipments, 
+const KanbanColumn = ({
+  title,
+  status,
+  shipments,
   allShipmentsCount,
   onDrop,
   onCardClick,
   onRequestTransport,
+  onCollectionOrder,
   showLoadMoreButton,
   onLoadMore,
   isLoadingMore
-}: { 
-  title: string; 
-  status: string; 
-  shipments: Shipment[]; 
+}: {
+  title: string;
+  status: string;
+  shipments: Shipment[];
   allShipmentsCount?: number;
   onDrop: (shipment: Shipment, newStatus: string) => void;
   onCardClick: (shipment: Shipment) => void;
   onRequestTransport?: (shipment: Shipment) => void;
+  onCollectionOrder?: (shipment: Shipment) => void;
   showLoadMoreButton?: boolean;
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
@@ -543,11 +564,12 @@ const KanbanColumn = ({
                 
                 {/* Tarjetas del grupo */}
                 {group.shipments.map((shipment) => (
-                  <ShipmentCard 
-                    key={shipment.id} 
-                    shipment={shipment} 
+                  <ShipmentCard
+                    key={shipment.id}
+                    shipment={shipment}
                     onCardClick={onCardClick}
                     onRequestTransport={onRequestTransport}
+                    onCollectionOrder={onCollectionOrder}
                   />
                 ))}
                 
@@ -626,7 +648,15 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     isOpen: false,
     shipment: null
   });
-  
+
+  const [collectionOrderDialog, setCollectionOrderDialog] = useState<{
+    isOpen: boolean;
+    shipment: Shipment | null;
+  }>({
+    isOpen: false,
+    shipment: null
+  });
+
   const [reportDialog, setReportDialog] = useState(false);
   const [newShipmentDialog, setNewShipmentDialog] = useState(false);
   const [invoiceDialog, setInvoiceDialog] = useState<{
@@ -930,6 +960,13 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     });
   };
 
+  const handleCollectionOrder = (shipment: Shipment) => {
+    setCollectionOrderDialog({
+      isOpen: true,
+      shipment
+    });
+  };
+
   const handleRequestSubmit = async (requestData: any) => {
     // TODO: Implementar llamada al backend
     console.log('Datos de solicitud:', requestData);
@@ -1062,14 +1099,15 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
 
       {/* Tablero principal */}
       <div className="flex gap-4 overflow-x-auto pb-4">
-        <KanbanColumn 
-          title="Por embarcar" 
-          status="pending" 
-          shipments={shipments} 
+        <KanbanColumn
+          title="Por embarcar"
+          status="pending"
+          shipments={shipments}
           allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
           onRequestTransport={handleRequestTransport}
+          onCollectionOrder={handleCollectionOrder}
         />
         <KanbanColumn 
           title="En Tránsito" 
@@ -1599,6 +1637,16 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           isOpen={requestDialog.isOpen}
           onClose={() => setRequestDialog({ isOpen: false, shipment: null })}
           onSubmit={handleRequestSubmit}
+        />
+      )}
+
+      {/* Modal de orden de recolección */}
+      {collectionOrderDialog.shipment && (
+        <CollectionOrderModal
+          shipment={collectionOrderDialog.shipment}
+          providers={providers}
+          isOpen={collectionOrderDialog.isOpen}
+          onClose={() => setCollectionOrderDialog({ isOpen: false, shipment: null })}
         />
       )}
 

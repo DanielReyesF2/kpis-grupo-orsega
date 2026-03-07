@@ -6,6 +6,9 @@ import { insertShipmentSchema, updateShipmentStatusSchema } from '@shared/schema
 import { sendEmail as sendGridEmail, getShipmentStatusEmailTemplate } from '../sendgrid';
 import { z } from 'zod';
 import { validateTenantAccess } from '../middleware/tenant-validation';
+import { generateCollectionOrderExcel } from '../collection-order-excel';
+import { emailService } from '../email-service';
+import { calculatePalletDistribution } from '@shared/collection-order-utils';
 
 const router = Router();
 
@@ -697,6 +700,232 @@ const router = Router();
       res.json(metrics);
     } catch (error) {
       console.error("[GET /api/metrics/cycle-times] Error:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ==========================================
+  // Collection Order Endpoints
+  // ==========================================
+
+  const collectionOrderSchema = z.object({
+    drumCount: z.number().int().min(1).max(1000),
+    pickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido (YYYY-MM-DD)"),
+    pickupWindow: z.string().optional(),
+    // Client address overrides (saved to client record and used in Excel)
+    clientColonia: z.string().max(200).optional(),
+    clientMunicipality: z.string().max(200).optional(),
+  });
+
+  // Helper: save client overrides + build Excel data
+  async function buildExcelData(shipment: any, validated: z.infer<typeof collectionOrderSchema>) {
+    // If client overrides provided, save them first
+    if (shipment.customerId && (validated.clientColonia || validated.clientMunicipality)) {
+      const updates: Record<string, string> = {};
+      if (validated.clientColonia) updates.colonia = validated.clientColonia;
+      if (validated.clientMunicipality) updates.municipality = validated.clientMunicipality;
+      await storage.updateClient(shipment.customerId, updates);
+    }
+
+    // Now fetch client with updated data
+    const client = shipment.customerId ? await storage.getClient(shipment.customerId) : null;
+    return {
+      pickupDate: validated.pickupDate,
+      drumCount: validated.drumCount,
+      pickupWindow: validated.pickupWindow,
+      clientName: client?.company || client?.name || shipment.customerName,
+      clientAddress: client?.address || shipment.destination,
+      clientColonia: client?.colonia || undefined,
+      clientCp: client?.postalCode || undefined,
+      clientMunicipality: client?.municipality || undefined,
+      clientState: client?.state || undefined,
+      clientContact: client?.contactPerson || shipment.customerName,
+      clientPhone: client?.phone || shipment.customerPhone || undefined,
+      trackingCode: shipment.trackingCode,
+      product: shipment.product,
+    };
+  }
+
+  // Helper: insert collection order log
+  async function logCollectionOrder(params: {
+    shipment: any;
+    validated: any;
+    action: 'downloaded' | 'sent';
+    user: { id: number; name: string };
+    provider?: { id: string; name: string; email: string } | null;
+    emailMessageId?: string;
+    emailError?: string;
+  }) {
+    const dist = calculatePalletDistribution(params.validated.drumCount);
+    await sql(`
+      INSERT INTO collection_orders (
+        shipment_id, company_id, drum_count, total_weight_kg, total_tarimas,
+        pallet_description, pickup_date, pickup_window,
+        provider_id, provider_name, provider_email,
+        action, email_message_id, email_error, sent_by, sent_by_name
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+    `, [
+      params.shipment.id, params.shipment.companyId,
+      params.validated.drumCount, dist.totalWeightKg, dist.totalTarimas,
+      dist.description, params.validated.pickupDate, params.validated.pickupWindow || null,
+      params.provider?.id || null, params.provider?.name || null, params.provider?.email || null,
+      params.action, params.emailMessageId || null, params.emailError || null,
+      params.user.id, params.user.name,
+    ]);
+  }
+
+  // Generate & download collection order Excel
+  router.post("/api/shipments/:id/collection-order/generate", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const shipmentId = parseInt(req.params.id);
+      const validated = collectionOrderSchema.parse(req.body);
+
+      const shipment = await storage.getShipment(shipmentId);
+      if (!shipment) return res.status(404).json({ message: "Envío no encontrado" });
+      if (shipment.status !== 'pending') {
+        return res.status(400).json({ message: "Solo se pueden generar órdenes para envíos pendientes" });
+      }
+
+      await storage.updateShipment(shipmentId, { drumCount: validated.drumCount });
+
+      const excelData = await buildExcelData(shipment, validated);
+      const buffer = await generateCollectionOrderExcel(excelData);
+
+      // Log the download action
+      await logCollectionOrder({
+        shipment, validated, action: 'downloaded',
+        user: { id: user.id, name: user.name },
+      });
+
+      const filename = `Orden_Recoleccion_${shipment.trackingCode}_${validated.pickupDate}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("[POST /api/shipments/:id/collection-order/generate] Error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Datos inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // Generate & send collection order Excel via email
+  router.post("/api/shipments/:id/collection-order/send", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const user = getAuthUser(req as AuthRequest);
+      const shipmentId = parseInt(req.params.id);
+      const sendSchema = collectionOrderSchema.extend({
+        providerId: z.string().min(1),
+      });
+      const validated = sendSchema.parse(req.body);
+
+      const shipment = await storage.getShipment(shipmentId);
+      if (!shipment) return res.status(404).json({ message: "Envío no encontrado" });
+      if (shipment.status !== 'pending') {
+        return res.status(400).json({ message: "Solo se pueden enviar órdenes para envíos pendientes" });
+      }
+
+      // Get provider
+      const providerRows = await sql(`SELECT * FROM provider WHERE id = $1`, [validated.providerId]);
+      const provider = providerRows[0];
+      if (!provider || !provider.email) {
+        return res.status(400).json({ message: "El proveedor no tiene email configurado" });
+      }
+
+      await storage.updateShipment(shipmentId, { drumCount: validated.drumCount });
+
+      const excelData = await buildExcelData(shipment, validated);
+      const buffer = await generateCollectionOrderExcel(excelData);
+
+      const filename = `Orden_Recoleccion_${shipment.trackingCode}_${validated.pickupDate}.xlsx`;
+      const pickupDateFormatted = new Date(validated.pickupDate).toLocaleDateString('es-MX');
+
+      const emailResult = await emailService.sendEmail({
+        to: provider.email,
+        subject: `Orden de Recolección - ${shipment.customerName} - ${pickupDateFormatted}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Orden de Recolección</h2>
+            <p>Estimado equipo de ${provider.name},</p>
+            <p>Adjuntamos la orden de recolección con los siguientes datos:</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Cliente:</strong> ${shipment.customerName}</p>
+              <p><strong>Fecha de recolección:</strong> ${pickupDateFormatted}</p>
+              <p><strong>Tambos:</strong> ${validated.drumCount}</p>
+              <p><strong>Código:</strong> ${shipment.trackingCode}</p>
+            </div>
+            <p>Por favor revisar el archivo adjunto y confirmar disponibilidad.</p>
+            <p>Saludos cordiales,<br><strong>Jesús Espinoza</strong><br>Logística - Dura International</p>
+          </div>
+        `,
+        attachments: [{
+          content: buffer,
+          filename,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }],
+      }, 'logistics');
+
+      // Log the send action
+      await logCollectionOrder({
+        shipment, validated, action: 'sent',
+        user: { id: user.id, name: user.name },
+        provider: { id: validated.providerId, name: provider.name, email: provider.email },
+        emailMessageId: emailResult.messageId,
+        emailError: emailResult.error,
+      });
+
+      res.json({
+        success: emailResult.success,
+        emailSent: emailResult.success,
+        messageId: emailResult.messageId,
+        error: emailResult.error,
+      });
+    } catch (error) {
+      console.error("[POST /api/shipments/:id/collection-order/send] Error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Datos inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // Get collection order history for a shipment
+  router.get("/api/shipments/:id/collection-orders", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      const rows = await sql(`
+        SELECT * FROM collection_orders
+        WHERE shipment_id = $1
+        ORDER BY created_at DESC
+      `, [shipmentId]);
+      res.json(rows);
+    } catch (error) {
+      console.error("[GET /api/shipments/:id/collection-orders] Error:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // Update client colonia/municipality (for inline editing in modal)
+  router.patch("/api/clients/:id/address-fields", jwtAuthMiddleware, async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const schema = z.object({
+        colonia: z.string().max(200).optional(),
+        municipality: z.string().max(200).optional(),
+      });
+      const validated = schema.parse(req.body);
+
+      const updated = await storage.updateClient(clientId, validated);
+      if (!updated) return res.status(404).json({ message: "Cliente no encontrado" });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("[PATCH /api/clients/:id/address-fields] Error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Datos inválidos", errors: error.errors });
+      }
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });

@@ -6,6 +6,11 @@ export interface EmailData {
   subject: string;
   html: string;
   from?: string;
+  attachments?: Array<{
+    content: Buffer;
+    filename: string;
+    contentType?: string;
+  }>;
 }
 
 export interface EmailResult {
@@ -87,6 +92,13 @@ class EmailService {
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html,
+        ...(emailData.attachments?.length ? {
+          attachments: emailData.attachments.map(a => ({
+            content: a.content,
+            filename: a.filename,
+            content_type: a.contentType,
+          })),
+        } : {}),
       });
 
       logger.info('Email enviado exitosamente', { 
