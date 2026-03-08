@@ -38,27 +38,27 @@ interface VoucherDetailPanelProps {
 
 const STATUS_CONFIG = {
   pago_programado: {
-    label: "Pago Programado",
+    label: "Por pagar",
     icon: Calendar,
     color: "bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300",
   },
   factura_pagada: {
-    label: "Factura Pagada",
+    label: "Factura pagada",
     icon: ClipboardCheck,
     color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
   },
   pendiente_complemento: {
-    label: "Pendiente Complemento",
+    label: "Esperando REP",
     icon: AlertTriangle,
     color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
   },
   complemento_recibido: {
-    label: "Complemento Recibido",
+    label: "REP recibido",
     icon: FileCheck,
     color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
   },
   cierre_contable: {
-    label: "Cierre Contable",
+    label: "Completado",
     icon: CheckCircle,
     color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
   },
@@ -301,14 +301,14 @@ export function VoucherDetailPanel({
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">
-                  Complemento de Pago (REP)
+                  REP (Recibo Electrónico de Pago)
                 </label>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {voucher.status === "complemento_recibido" || voucher.status === "cierre_contable"
-                    ? "El complemento ya fue recibido"
+                    ? "Ya lo recibimos del proveedor"
                     : voucher.status === "pendiente_complemento"
-                    ? "Pendiente de recibir del proveedor"
-                    : "Se solicitará después del pago"}
+                    ? "Falta que el proveedor nos lo envíe"
+                    : "Se le pedirá al proveedor después del pago"}
                 </p>
               </div>
               <Badge

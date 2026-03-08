@@ -1,0 +1,374 @@
+{
+  "name": "Tesorería - Emails",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "treasury-email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0001-4000-8000-000000000001",
+      "name": "Webhook Tesorería",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 460],
+      "webhookId": "treasury-email"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "purchase_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Purchase Request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "payment_receipt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Payment Receipt"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "complement_reminder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Complement Reminder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "receipt_send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Receipt Send"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "b1c2d3e4-0002-4000-8000-000000000002",
+      "name": "Switch por Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [480, 460]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">\n  <h2 style=\"color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px;\">Solicitud de Compra de Dólares</h2>\n  <div style=\"background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n    <p style=\"margin: 0; font-size: 16px;\"><strong>Hola Lolita,</strong></p>\n    <p style=\"margin: 10px 0; font-size: 14px;\">Por favor compra <strong style=\"color: #2563eb; font-size: 18px;\">{{ $json.data.amountUsd }} USD</strong> a precio de <strong style=\"color: #2563eb;\">${{ $json.data.rate }} MXN</strong> ({{ $json.data.source }}).</p>\n    <p style=\"margin: 10px 0; font-size: 14px;\"><strong>Total a pagar:</strong> <span style=\"color: #16a34a; font-size: 18px;\">${{ $json.data.amountMxn }} MXN</span></p>\n    {{ $json.data.notes ? '<p style=\"margin: 10px 0; font-size: 14px;\"><strong>Nota:</strong> ' + $json.data.notes + '</p>' : '' }}\n  </div>\n  <div style=\"background-color: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb;\">\n    <p style=\"margin: 0; font-size: 12px; color: #1e40af;\">Esta solicitud fue enviada desde el sistema por {{ $json.data.requestedBy }}</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0003-4000-8000-000000000003",
+      "name": "Gmail - Purchase Request",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [780, 160]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;\">\n    <h1 style=\"color: white; margin: 0; font-size: 24px;\">🏦 EcoNova - Comprobante de Pago</h1>\n  </div>\n  <div style=\"padding: 30px; background: #f8f9fa;\">\n    <h2 style=\"color: #333; margin-bottom: 20px;\">Hola {{ $json.data.clientName }},</h2>\n    <p style=\"color: #666; line-height: 1.6; margin-bottom: 20px;\">Te confirmamos que hemos realizado el pago correspondiente.</p>\n    <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 20px 0;\">\n      <h3 style=\"color: #333; margin-top: 0;\">📋 Detalles del Pago</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #555;\">Monto:</td><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; color: #333;\">{{ $json.data.currency }} ${{ $json.data.amount }}</td></tr>\n        <tr><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #555;\">Referencia:</td><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; color: #333;\">{{ $json.data.reference }}</td></tr>\n        <tr><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; color: #555;\">Banco:</td><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; color: #333;\">{{ $json.data.bank }}</td></tr>\n        <tr><td style=\"padding: 8px 0; font-weight: bold; color: #555;\">Fecha:</td><td style=\"padding: 8px 0; color: #333;\">{{ $json.data.date }}</td></tr>\n      </table>\n    </div>\n    {{ $json.data.requiresComplement ? '<div style=\"background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;\"><h4 style=\"color: #856404; margin-top: 0;\">⚠️ Complemento de Pago Requerido</h4><p style=\"color: #856404; margin-bottom: 0;\">Para completar el proceso, necesitamos que nos envíes el complemento de pago correspondiente.</p></div>' : '<div style=\"background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin: 20px 0;\"><h4 style=\"color: #155724; margin-top: 0;\">✅ Pago Completado</h4><p style=\"color: #155724; margin-bottom: 0;\">Este pago no requiere complemento adicional. El proceso ha sido completado exitosamente.</p></div>' }}\n    <p style=\"color: #999; font-size: 12px; margin-top: 20px; text-align: center;\">Este es un mensaje automático del sistema EcoNova.</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0004-4000-8000-000000000004",
+      "name": "Gmail - Payment Receipt",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [780, 360]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 20px; text-align: center;\">\n    <h1 style=\"color: white; margin: 0; font-size: 24px;\">⏰ Recordatorio - Complemento de Pago</h1>\n  </div>\n  <div style=\"padding: 30px; background: #f8f9fa;\">\n    <h2 style=\"color: #333; margin-bottom: 20px;\">Hola {{ $json.data.clientName }},</h2>\n    <p style=\"color: #666; line-height: 1.6; margin-bottom: 20px;\">Te recordamos que aún necesitamos el complemento de pago para completar el proceso del voucher #{{ $json.data.voucherId }}.</p>\n    <div style=\"background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n      <h3 style=\"color: #856404; margin-top: 0;\">📋 Acción Requerida</h3>\n      <p style=\"color: #856404; margin-bottom: 15px;\">Por favor, envía el complemento de pago correspondiente para que podamos finalizar el proceso.</p>\n      <p style=\"color: #856404; margin-bottom: 0; font-weight: bold;\">Puedes enviarlo respondiendo a este correo o contactándonos directamente.</p>\n    </div>\n    <p style=\"color: #999; font-size: 12px; margin-top: 20px; text-align: center;\">Este es un recordatorio automático del sistema EcoNova.</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0005-4000-8000-000000000005",
+      "name": "Gmail - Complement Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [780, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convertir attachments base64 a binario para Gmail\nconst item = $input.first();\nconst attachments = item.json.attachments || [];\nconst binaryData = {};\n\nfor (let i = 0; i < attachments.length; i++) {\n  const att = attachments[i];\n  binaryData[`attachment_${i}`] = {\n    data: att.contentBase64,\n    mimeType: att.contentType,\n    fileName: att.filename,\n  };\n}\n\nreturn [{\n  json: item.json,\n  binary: binaryData\n}];"
+      },
+      "id": "b1c2d3e4-0006-4000-8000-000000000006",
+      "name": "Preparar Adjuntos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 760]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ Array.isArray($json.to) ? $json.to.join(', ') : $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;\">\n    <h1 style=\"color: white; margin: 0; font-size: 24px;\">🏦 Comprobante de Pago</h1>\n  </div>\n  <div style=\"padding: 30px; background: #f8f9fa;\">\n    <p style=\"color: #333; font-size: 16px;\">Se adjuntan los comprobantes de pago para <strong>{{ $json.data.supplierName }}</strong>.</p>\n    <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 20px 0;\">\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;\">Monto:</td><td style=\"padding: 8px 0; border-bottom: 1px solid #eee;\">{{ $json.data.currency }} ${{ $json.data.amount }}</td></tr>\n        <tr><td style=\"padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;\">Referencia:</td><td style=\"padding: 8px 0; border-bottom: 1px solid #eee;\">{{ $json.data.reference }}</td></tr>\n        <tr><td style=\"padding: 8px 0; font-weight: bold;\">Archivos:</td><td style=\"padding: 8px 0;\">{{ $json.data.receiptFiles.join(', ') }}</td></tr>\n      </table>\n    </div>\n    <p style=\"color: #999; font-size: 12px; text-align: center;\">Este es un mensaje automático del sistema EcoNova.</p>\n  </div>\n</div>",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "attachment_0"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b1c2d3e4-0007-4000-8000-000000000007",
+      "name": "Gmail - Receipt Send",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1020, 760]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Tesorería').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0008-4000-8000-000000000008",
+      "name": "Respond OK - Purchase",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Tesorería').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0009-4000-8000-000000000009",
+      "name": "Respond OK - Receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 360]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Tesorería').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0010-4000-8000-000000000010",
+      "name": "Respond OK - Reminder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Tesorería').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0011-4000-8000-000000000011",
+      "name": "Respond OK - Send",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 760]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":\"Unknown event type\"}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "b1c2d3e4-0012-4000-8000-000000000012",
+      "name": "Respond Error - Unknown",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 960]
+    }
+  ],
+  "connections": {
+    "Webhook Tesorería": {
+      "main": [
+        [
+          {
+            "node": "Switch por Evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch por Evento": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Purchase Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Payment Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Complement Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Adjuntos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Purchase Request": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Payment Receipt": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Complement Reminder": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Adjuntos": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Receipt Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Receipt Send": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "versionId": "1"
+}

@@ -73,28 +73,28 @@ const mapOldVoucherStatus = (oldStatus: string): string => {
 const BOARD_COLUMNS = [
   {
     id: "factura_pagada",
-    label: "Factura Pagada",
+    label: "Factura pagada",
     accent: "bg-pastel-blue/25",
     badge: "bg-pastel-blue/80 text-white",
     icon: ClipboardCheck,
   },
   {
     id: "pendiente_complemento",
-    label: "Pendiente complemento",
+    label: "Esperando REP",
     accent: "bg-pastel-orange/25",
     badge: "bg-pastel-orange/80 text-white",
     icon: AlertTriangle,
   },
   {
     id: "complemento_recibido",
-    label: "Complemento recibido",
+    label: "REP recibido",
     accent: "bg-pastel-teal/25",
     badge: "bg-pastel-teal/80 text-white",
     icon: FileText,
   },
   {
     id: "cierre_contable",
-    label: "Cierre contable",
+    label: "Completado",
     accent: "bg-pastel-violet/25",
     badge: "bg-pastel-violet/80 text-white",
     icon: CheckCircle,

@@ -1,7 +1,7 @@
 import { db } from './db';
 import { eq } from 'drizzle-orm';
 import { paymentVouchers, clients } from '@shared/schema';
-import { emailService } from './email-service';
+import { triggerN8nTreasury } from './n8n-treasury';
 
 interface PaymentVoucher {
   id: number;
@@ -132,12 +132,21 @@ export class TreasuryAutomation {
         `
       };
 
-      // Enviar email via Resend
-      await emailService.sendEmail({
-        to: emailTemplate.to,
+      // Enviar email via N8N
+      await triggerN8nTreasury({
+        event: 'payment_receipt',
+        to: client.email,
         subject: emailTemplate.subject,
-        html: emailTemplate.html,
-      }, 'treasury');
+        data: {
+          clientName: client.name,
+          amount,
+          currency,
+          reference,
+          bank,
+          date: new Date().toLocaleDateString('es-MX'),
+          requiresComplement: !!client.requiresPaymentComplement,
+        },
+      });
 
       // Actualizar estado del comprobante
       await db.update(paymentVouchers)
@@ -257,11 +266,15 @@ export class TreasuryAutomation {
         `
       };
 
-      await emailService.sendEmail({
-        to: emailTemplate.to,
+      await triggerN8nTreasury({
+        event: 'complement_reminder',
+        to: client.email,
         subject: emailTemplate.subject,
-        html: emailTemplate.html,
-      }, 'treasury');
+        data: {
+          clientName: client.name,
+          voucherId,
+        },
+      });
 
       return {
         success: true,

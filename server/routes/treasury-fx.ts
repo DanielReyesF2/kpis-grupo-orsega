@@ -4,7 +4,7 @@ import { storage } from '../storage';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware, jwtAdminMiddleware } from '../auth';
 import { getSourceSeries, getComparison } from '../fx-analytics';
-import { emailService } from '../email-service';
+import { triggerN8nTreasury } from '../n8n-treasury';
 import { logger } from '../logger';
 
 const router = Router();
@@ -887,12 +887,20 @@ router.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) =
         </div>
       `;
 
-      // Enviar email a Lolita
-      const emailResult = await emailService.sendEmail({
+      // Enviar email a Lolita via N8N
+      const emailResult = await triggerN8nTreasury({
+        event: 'purchase_request',
         to: lolitaEmail,
         subject: emailSubject,
-        html: emailBody,
-      }, 'treasury');
+        data: {
+          amountUsd: parseFloat(amountUsd),
+          amountMxn: parseFloat(amountMxn),
+          rate: parseFloat(rate),
+          source,
+          notes: notes || '',
+          requestedBy: user.name || user.email,
+        },
+      });
 
       if (!emailResult.success) {
         console.error('Error sending email:', emailResult.error);

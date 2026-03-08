@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { storage } from '../storage';
 import { getAuthUser, type AuthRequest } from './_helpers';
@@ -384,7 +382,6 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
     }
 
     // No OCR analysis — Nova 2.0 handles document analysis
-    const fileBuffer = file.buffer;
     const analysis = {
       extractedAmount: null as number | null,
       extractedDate: null as Date | null,
@@ -394,21 +391,15 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
       ocrConfidence: 0,
     };
 
-    // Guardar el comprobante en la ubicación final
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const voucherDir = path.join(process.cwd(), 'uploads', 'comprobantes', String(year), month);
-
-    if (!fs.existsSync(voucherDir)) {
-      fs.mkdirSync(voucherDir, { recursive: true });
-    }
-
-    const safeOriginalName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const voucherFileName = `${Date.now()}-pago-${safeOriginalName}`;
-    const finalPath = path.join(voucherDir, voucherFileName);
-    // Escribir el buffer al archivo (memoryStorage no tiene file.path)
-    fs.writeFileSync(finalPath, fileBuffer);
+    // Subir archivo a storage (R2 o local)
+    const uploadResult = await uploadFile(
+      file.buffer,
+      'comprobantes',
+      file.originalname,
+      file.mimetype
+    );
+    const voucherFileUrl = uploadResult.url;
+    console.log(`💳 [Pay] Archivo subido a ${uploadResult.storage}: ${voucherFileUrl}`);
 
     // Verificar si el proveedor requiere REP
     // Buscar el supplier/client para verificar requiresPaymentComplement
@@ -470,7 +461,7 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
       voucherId: voucherId,
       scheduledPaymentId: existingVoucher.scheduledPaymentId || undefined,
       fileName: file.originalname,
-      fileUrl: `/uploads/comprobantes/${year}/${month}/${voucherFileName}`,
+      fileUrl: voucherFileUrl,
       companyId: existingVoucher.companyId,
       userId: user.id.toString(),
     });

@@ -76,23 +76,44 @@ export function UploadVoucherToPaymentModal({
     },
   });
 
+  const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'application/xml', 'text/xml'];
+
+  const processFile = useCallback((selectedFile: File) => {
+    if (!validTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.xml')) {
+      toast({
+        title: "Formato no válido",
+        description: "Solo se permiten archivos PDF, PNG, JPG o XML",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      toast({
+        title: "Archivo muy grande",
+        description: "El tamaño máximo es 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFile(selectedFile);
+
+    if (selectedFile.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = (e) => setPreview(e.target?.result as string);
+      reader.readAsDataURL(selectedFile);
+    } else if (selectedFile.type.startsWith('image/')) {
+      setPreview(URL.createObjectURL(selectedFile));
+    } else {
+      setPreview(null);
+    }
+  }, [toast]);
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      
-      // Crear preview para PDFs
-      if (selectedFile.type === 'application/pdf') {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(selectedFile);
-      } else {
-        setPreview(URL.createObjectURL(selectedFile));
-      }
+      processFile(e.target.files[0]);
     }
-  }, []);
+  }, [processFile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -113,19 +134,9 @@ export function UploadVoucherToPaymentModal({
 
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      setFile(droppedFile);
-      
-      if (droppedFile.type === 'application/pdf') {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(droppedFile);
-      } else {
-        setPreview(URL.createObjectURL(droppedFile));
-      }
+      processFile(droppedFile);
     }
-  }, []);
+  }, [processFile]);
 
   const handleRemoveFile = useCallback(() => {
     setFile(null);
@@ -203,7 +214,7 @@ export function UploadVoucherToPaymentModal({
                 {isDragging ? "Suelta el archivo aquí" : "Arrastra el comprobante aquí"}
               </p>
               <p className="text-sm text-muted-foreground mb-4">
-                PDF, PNG, JPG, JPEG (máx. 10MB)
+                PDF, PNG, JPG, XML (máx. 10MB)
               </p>
               <Button variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
@@ -212,7 +223,7 @@ export function UploadVoucherToPaymentModal({
               <input
                 id="file-input"
                 type="file"
-                accept=".pdf,.png,.jpg,.jpeg"
+                accept=".pdf,.png,.jpg,.jpeg,.xml"
                 onChange={handleFileSelect}
                 className="hidden"
               />

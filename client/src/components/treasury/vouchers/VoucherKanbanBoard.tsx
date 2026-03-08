@@ -26,6 +26,16 @@ import {
   FileCheck,
   CheckCircle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
@@ -39,25 +49,25 @@ const VoucherDetailPanel = lazy(() =>
 
 const STATUS_CONFIG = {
   pago_programado: {
-    label: "Pago Programado",
+    label: "Por pagar",
     icon: ClipboardCheck,
     color: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
     headerColor: "bg-blue-100 dark:bg-blue-900/30",
   },
   pendiente_complemento: {
-    label: "Pendiente Complemento",
+    label: "Esperando REP",
     icon: AlertTriangle,
     color: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
     headerColor: "bg-yellow-100 dark:bg-yellow-900/30",
   },
   complemento_recibido: {
-    label: "Complemento Recibido",
+    label: "REP recibido",
     icon: FileCheck,
     color: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
     headerColor: "bg-purple-100 dark:bg-purple-900/30",
   },
   cierre_contable: {
-    label: "Cierre Contable",
+    label: "Completado",
     icon: CheckCircle,
     color: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800",
     headerColor: "bg-emerald-100 dark:bg-emerald-900/30",
@@ -145,6 +155,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
   const [selectedVoucher, setSelectedVoucher] = useState<PaymentVoucher | null>(null);
   const [payingVoucher, setPayingVoucher] = useState<PaymentVoucher | null>(null);
   const [deletingVoucher, setDeletingVoucher] = useState<PaymentVoucher | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ voucher: PaymentVoucher; newStatus: keyof typeof STATUS_CONFIG } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -199,10 +210,17 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
     }
 
     if (draggedVoucher.status !== newStatus) {
+      setPendingMove({ voucher: draggedVoucher, newStatus });
+    }
+  };
+
+  const confirmMove = () => {
+    if (pendingMove) {
       updateStatusMutation.mutate({
-        id: draggedVoucher.id,
-        status: newStatus,
+        id: pendingMove.voucher.id,
+        status: pendingMove.newStatus,
       });
+      setPendingMove(null);
     }
   };
 
@@ -313,6 +331,25 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           }}
         />
       )}
+
+      {/* Confirmación al mover tarjeta */}
+      <AlertDialog open={!!pendingMove} onOpenChange={() => setPendingMove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cambiar estado</AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              ¿Mover <strong>{pendingMove?.voucher.clientName}</strong> a{" "}
+              <strong>{pendingMove ? STATUS_CONFIG[pendingMove.newStatus].label : ""}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMove}>
+              Sí, mover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

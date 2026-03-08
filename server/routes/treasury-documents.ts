@@ -4,7 +4,7 @@ import { storage } from '../storage';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import multer from 'multer';
-import { sendEmail as sendGridEmail, getPaymentReceiptEmailTemplate } from '../sendgrid';
+import { triggerN8nTreasury } from '../n8n-treasury';
 import { uploadFile, getFile } from '../storage/file-storage';
 
 const router = Router();
@@ -115,21 +115,25 @@ router.post("/api/treasury/payments/:id/receipts", jwtAuthMiddleware, upload.sin
         }
       }
 
-      // Obtener template de email
+      // Enviar via N8N (una sola llamada con todos los destinatarios)
       const payment = receipts[0];
-      const emailTemplate = getPaymentReceiptEmailTemplate(payment, receipts);
-
-      // Enviar email a cada destinatario
-      for (const email of emails) {
-        await sendGridEmail({
-          to: email,
-          from: 'marioreynoso@grupoorsega.com',
-          subject: emailTemplate.subject,
-          html: emailTemplate.html,
-          text: emailTemplate.text,
-          attachments: attachments
-        });
-      }
+      await triggerN8nTreasury({
+        event: 'receipt_send',
+        to: emails,
+        subject: `Comprobante de Pago - ${payment.supplier_name}`,
+        data: {
+          supplierName: payment.supplier_name,
+          amount: payment.amount,
+          currency: payment.currency,
+          reference: payment.reference,
+          receiptFiles: receipts.map((r: any) => r.file_name),
+        },
+        attachments: attachments.map((a: any) => ({
+          filename: a.filename,
+          contentBase64: a.content,
+          contentType: a.type,
+        })),
+      });
 
       // Actualizar registro
       await sql(`

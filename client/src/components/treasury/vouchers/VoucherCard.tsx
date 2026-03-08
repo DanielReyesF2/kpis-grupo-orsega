@@ -132,20 +132,22 @@ export const VoucherCard = memo(function VoucherCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 w-7 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
+                className="h-9 w-9 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
                 onClick={handlePreview}
+                title="Ver documento"
               >
-                <Eye className="h-3.5 w-3.5 text-slate-600" />
+                <Eye className="h-4 w-4 text-slate-600" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 w-7 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
+                    className="h-9 w-9 p-0 border-slate-300 hover:bg-slate-100 hover:border-slate-400"
                     onClick={(e) => e.stopPropagation()}
+                    title="Más opciones"
                   >
-                    <MoreVertical className="h-3.5 w-3.5 text-slate-600" />
+                    <MoreVertical className="h-4 w-4 text-slate-600" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-white border shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -188,12 +190,12 @@ export const VoucherCard = memo(function VoucherCard({
               >
                 {voucher.extractedCurrency} ${voucher.extractedAmount.toLocaleString()}
               </Badge>
-              {voucher.ocrConfidence !== null && (
+              {voucher.ocrConfidence !== null && voucher.ocrConfidence > 0 && (
                 <Badge
                   variant={voucher.ocrConfidence > 0.7 ? "default" : "secondary"}
                   className="text-xs"
                 >
-                  OCR: {(voucher.ocrConfidence * 100).toFixed(0)}%
+                  {voucher.ocrConfidence > 0.7 ? "Datos verificados" : "Revisar datos"}
                 </Badge>
               )}
             </div>
