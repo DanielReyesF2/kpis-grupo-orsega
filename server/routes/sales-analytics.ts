@@ -90,7 +90,8 @@ router.get("/api/sales-stats", jwtAuthMiddleware, async (req, res) => {
     const { companyId } = req.query;
 
     // Multi-tenant filtering
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -132,7 +133,8 @@ router.get("/api/sales-comparison", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, year, month } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -186,7 +188,8 @@ router.get("/api/sales-alerts", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, type } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -248,7 +251,8 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, months, year } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -368,7 +372,8 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
     const user = authReq.user;
     const { companyId, year1, year2 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -605,7 +610,8 @@ router.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) =>
     const user = authReq.user;
     const { companyId } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -678,7 +684,8 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -810,7 +817,8 @@ router.get("/api/sales-client-trends", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, limit = 10 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -876,7 +884,8 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -974,7 +983,8 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, limit = 5, period = '3months', sortBy = 'volume' } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1074,7 +1084,8 @@ router.get("/api/sales-analyst/insights", jwtAuthMiddleware, async (req, res) =>
     const user = authReq.user;
     const { companyId } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1131,7 +1142,8 @@ router.get("/api/profitability-metrics", jwtAuthMiddleware, async (req, res) => 
     const user = authReq.user;
     const { companyId, year } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1156,7 +1168,8 @@ router.get("/api/annual-summary", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, year } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1185,7 +1198,8 @@ router.get("/api/annual-summary/years", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1208,7 +1222,8 @@ router.get("/api/monthly-financial-summary", jwtAuthMiddleware, async (req, res)
     const user = authReq.user;
     const { companyId, year, month } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1568,7 +1583,8 @@ router.get("/api/client-contact-tracking", jwtAuthMiddleware, async (req, res) =
     const user = authReq.user;
     const { companyId, clientName, limit = 50 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1680,7 +1696,8 @@ router.get("/api/client-notes", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, clientName, category, limit = 100 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1769,7 +1786,8 @@ router.get("/api/client-notes/summary", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1817,7 +1835,8 @@ router.get("/api/client-purchase-behavior", jwtAuthMiddleware, async (req, res) 
     const user = authReq.user;
     const { companyId, clientName, limit = 50 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
@@ -1970,7 +1989,8 @@ router.get("/api/client-contact-tracking/recent", jwtAuthMiddleware, async (req,
     const user = authReq.user;
     const { companyId, days = 7 } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 
