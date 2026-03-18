@@ -18,6 +18,7 @@ import type { KpiCardType } from '@shared/kpi-card-types';
 import { TremorKpiDashboard, TremorKpiUpdateModal, type TremorCollaboratorData } from '@/components/tremor';
 import { KpiAdminPanel } from '@/components/kpis/KpiAdminPanel';
 import { useAuth } from '@/hooks/use-auth';
+import { useCompanyFilter } from '@/hooks/use-company-filter';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -480,17 +481,23 @@ export default function KpiControlCenter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isAdmin, isMarioOrAdmin } = useAuth();
+  const { selectedCompany: globalCompanyId } = useCompanyFilter();
   const [location] = useLocation();
-  
-  // Estados para KPIs - 🔧 FORZAR Grupo Orsega por defecto
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(2);
+
+  // Estados para KPIs - Usar empresa seleccionada globalmente
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(globalCompanyId);
   const [selectedKpiId, setSelectedKpiId] = useState<number | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [responsibleFilter, setResponsibleFilter] = useState<string>('all'); // Nuevo filtro por responsable
   const [companyFilter, setCompanyFilter] = useState<string>('all'); // Nuevo filtro por empresa
   const [viewType, setViewType] = useState<'dashboard' | 'kpis'>('kpis'); // Por defecto vista por KPI (tarjetas diferenciadas por tipo)
-  
+
+  // Sincronizar con selector global de empresa
+  useEffect(() => {
+    setSelectedCompanyId(globalCompanyId);
+  }, [globalCompanyId]);
+
   // Estados para vistas históricas (nueva funcionalidad)
   const [selectedUserIdForHistory, setSelectedUserIdForHistory] = useState<number | null>(null);
   const [historicalMonths, setHistoricalMonths] = useState<number>(12); // Meses a mostrar por defecto
@@ -510,10 +517,17 @@ export default function KpiControlCenter() {
     staleTime: 5 * 60 * 1000, // Los datos son válidos por 5 minutos
   });
 
-  // Obtener áreas
+  // Obtener áreas filtradas por empresa
   const { data: areas } = useQuery<Area[]>({
-    queryKey: ['/api/areas'],
-    staleTime: 5 * 60 * 1000, // Los datos son válidos por 5 minutos
+    queryKey: ['/api/areas', selectedCompanyId],
+    queryFn: async () => {
+      const url = selectedCompanyId
+        ? `/api/areas?companyId=${selectedCompanyId}`
+        : '/api/areas';
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Obtener todos los KPIs (con actualización optimizada)

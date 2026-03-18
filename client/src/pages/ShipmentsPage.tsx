@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, TrendingUp, Map, Calendar, Truck, AlertTriangle, CheckCircle2, X, Lock } from "lucide-react";
+import { useCompanyFilter } from "@/hooks/use-company-filter";
 import { useLocation } from "wouter";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,7 +50,7 @@ const StatusBadge = ({ status }: { status: Shipment['status'] }) => {
 export default function ShipmentsPage() {
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedCompany, setSelectedCompany] = useState<string>("all");
+  const { selectedCompany } = useCompanyFilter();
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [isRouteMapOpen, setIsRouteMapOpen] = useState<boolean>(false);
   const [location, setLocation] = useLocation();
@@ -60,14 +61,22 @@ export default function ShipmentsPage() {
     queryKey: ["/api/companies"],
   });
 
-  // Consulta para obtener envíos
+  // Consulta para obtener envíos filtrados por empresa
   const {
     data: shipmentsResponse,
     isLoading: isLoadingShipments,
     error: shipmentsError,
     refetch: refetchShipments
   } = useQuery<{ shipments: Shipment[] }>({
-    queryKey: ["/api/shipments"],
+    queryKey: ["/api/shipments", selectedCompany],
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/shipments?companyId=${selectedCompany}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch shipments');
+      return res.json();
+    },
   });
 
   // Extraer el array de shipments de la respuesta
@@ -95,28 +104,21 @@ export default function ShipmentsPage() {
     }
   }, [shipmentsError, toast, shipmentsResponse, shipments]);
 
-  // Filtrar envíos según la pestaña seleccionada
+  // Filtrar envíos según la pestaña seleccionada (empresa ya filtrada server-side)
   const filteredShipments = Array.isArray(shipments)
     ? shipments.filter((shipment: Shipment) => {
-        // Filtrar por estado
-        const statusFilter = 
-          selectedTab === "all" || 
+        const statusFilter =
+          selectedTab === "all" ||
           shipment.status === selectedTab;
-        
-        // Filtrar por empresa
-        const companyFilter = 
-          selectedCompany === "all" || 
-          shipment.companyId === parseInt(selectedCompany);
-        
-        // Filtrar por búsqueda (código de seguimiento, cliente, producto, destino)
-        const searchFilter = 
-          !searchQuery || 
+
+        const searchFilter =
+          !searchQuery ||
           shipment.trackingCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
           shipment.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           shipment.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
           shipment.destination.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        return statusFilter && companyFilter && searchFilter;
+
+        return statusFilter && searchFilter;
       })
     : [];
 
@@ -155,19 +157,9 @@ export default function ShipmentsPage() {
           />
         </div>
         <div className="w-full sm:w-64">
-          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por empresa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las empresas</SelectItem>
-              {companies?.map((company) => (
-                <SelectItem key={company.id} value={company.id.toString()}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Badge variant="outline" className="text-sm py-2 px-4">
+            {companies?.find(c => c.id === selectedCompany)?.name || 'Empresa'}
+          </Badge>
         </div>
       </div>
 

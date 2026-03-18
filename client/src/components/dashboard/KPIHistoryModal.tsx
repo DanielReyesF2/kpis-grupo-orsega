@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Calendar, TrendingUp, TrendingDown, Clock, Download } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { apiRequest } from "@/lib/queryClient";
 
 interface KPIHistoryModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface KPIHistoryModalProps {
   userName: string;
   areaName: string;
   companyName: string;
+  companyId?: number;
 }
 
 interface KPIHistoryItem {
@@ -27,20 +29,27 @@ interface KPIHistoryItem {
   updatedBy: number;
 }
 
-export function KPIHistoryModal({ 
-  isOpen, 
-  onClose, 
-  kpiId, 
-  kpiName, 
-  kpiTarget, 
-  userName, 
-  areaName, 
-  companyName 
+export function KPIHistoryModal({
+  isOpen,
+  onClose,
+  kpiId,
+  kpiName,
+  kpiTarget,
+  userName,
+  areaName,
+  companyName,
+  companyId
 }: KPIHistoryModalProps) {
   const [months, setMonths] = useState(12);
 
   const { data: kpiHistory, isLoading } = useQuery<KPIHistoryItem[]>({
-    queryKey: ['/api/kpi-history', kpiId, months],
+    queryKey: ['/api/kpi-history', kpiId, months, companyId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ months: String(months) });
+      if (companyId) params.set('companyId', String(companyId));
+      const res = await apiRequest('GET', `/api/kpi-history/${kpiId}?${params}`);
+      return res.json();
+    },
     enabled: kpiId !== null && isOpen,
   });
 

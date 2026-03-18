@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useCompanyFilter } from "@/hooks/use-company-filter";
 import { useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +23,7 @@ type ViewMode = "main" | "suppliers" | "history" | "exchange-rates" | "upload";
 
 export default function TreasuryPage() {
   const { toast } = useToast();
+  const { selectedCompany } = useCompanyFilter();
   const [location, setLocation] = useLocation();
 
   // Detectar vista basada en URL
@@ -72,13 +74,13 @@ export default function TreasuryPage() {
     }
   };
 
-  // Obtener comprobantes
+  // Obtener comprobantes filtrados por empresa
   const { data: vouchers = [] } = useQuery<any[]>({
-    queryKey: ["/api/payment-vouchers"],
+    queryKey: ["/api/payment-vouchers", selectedCompany],
     staleTime: 30000,
     queryFn: async () => {
       const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/payment-vouchers", {
+      const response = await fetch(`/api/payment-vouchers?companyId=${selectedCompany}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch vouchers');
@@ -86,13 +88,13 @@ export default function TreasuryPage() {
     },
   });
 
-  // Obtener pagos
+  // Obtener pagos filtrados por empresa
   const { data: payments = [] } = useQuery<any[]>({
-    queryKey: ["/api/treasury/payments"],
+    queryKey: ["/api/treasury/payments", selectedCompany],
     staleTime: 0,
     queryFn: async () => {
       const token = localStorage.getItem("authToken");
-      const response = await fetch("/api/treasury/payments", {
+      const response = await fetch(`/api/treasury/payments?companyId=${selectedCompany}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch payments');

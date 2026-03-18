@@ -460,6 +460,7 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
           userName={selectedKPI.userName}
           areaName={selectedKPI.areaName}
           companyName={selectedKPI.companyName}
+          companyId={selectedCompany}
         />
       )}
     </div>
