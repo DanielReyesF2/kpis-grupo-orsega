@@ -10,6 +10,7 @@ import { AlertCircle, TrendingUp, TrendingDown, Clock, Search, Filter, Eye, BarC
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { KPIHistoryModal } from "./KPIHistoryModal";
+import { apiRequest } from "@/lib/queryClient";
 
 interface KPIOverviewItem {
   userId: number;
@@ -41,7 +42,13 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   const { data: kpiOverview, isLoading } = useQuery<KPIOverviewItem[]>({
-    queryKey: ['/api/kpi-overview'],
+    queryKey: ['/api/kpi-overview', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/kpi-overview?companyId=${selectedCompany}`);
+      return await res.json();
+    },
+    staleTime: 0,
+    enabled: selectedCompany > 0,
   });
 
   const { data: companies } = useQuery<any[]>({
@@ -49,7 +56,11 @@ export function KPIOverview({ selectedCompany }: KPIOverviewProps) {
   });
 
   const { data: areas } = useQuery({
-    queryKey: ['/api/areas'],
+    queryKey: ['/api/areas', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/areas?companyId=${selectedCompany}`);
+      return await res.json();
+    },
   });
 
   const getStatusColor = (status: string) => {

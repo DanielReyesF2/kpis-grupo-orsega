@@ -1569,7 +1569,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getKPIOverview(): Promise<any[]> {
+  async getKPIOverview(filterCompanyId?: number): Promise<any[]> {
     try {
       const [allUsers, areasList, companiesList] = await Promise.all([
         db.select().from(users),
@@ -1579,18 +1579,21 @@ export class DatabaseStorage implements IStorage {
 
       const assignedUsers = allUsers.filter(
         (user) => user.areaId !== null && user.areaId !== undefined && user.companyId !== null && user.companyId !== undefined
+          && (filterCompanyId === undefined || user.companyId === filterCompanyId)
       );
 
       const areaById = new Map(areasList.map((area) => [area.id, area]));
       const companyById = new Map(companiesList.map((company) => [company.id, company]));
 
-      const uniqueCompanyIds = Array.from(
-        new Set(
-          assignedUsers
-            .map((user) => user.companyId)
-            .filter((companyId): companyId is number => typeof companyId === "number")
-        )
-      );
+      const uniqueCompanyIds = filterCompanyId !== undefined
+        ? [filterCompanyId]
+        : Array.from(
+            new Set(
+              assignedUsers
+                .map((user) => user.companyId)
+                .filter((companyId): companyId is number => typeof companyId === "number")
+            )
+          );
 
       const kpisByCompany = new Map<number, Kpi[]>();
       const valuesByCompany = new Map<number, KpiValue[]>();

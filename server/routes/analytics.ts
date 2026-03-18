@@ -25,7 +25,17 @@ router.get("/api/job-profiles/:userId", jwtAuthMiddleware, async (req, res) => {
 
 router.get("/api/user-kpis/:userId", jwtAuthMiddleware, async (req, res) => {
   try {
+    const authUser = getAuthUser(req as AuthRequest);
     const userId = parseInt(req.params.userId);
+
+    // Verificar que el usuario solicitado pertenece a la misma empresa (o es admin)
+    if (authUser.role !== 'admin' && authUser.id !== userId) {
+      const targetUser = await storage.getUser(userId);
+      if (targetUser && targetUser.companyId !== authUser.companyId) {
+        return res.status(403).json({ message: "No tienes acceso a los KPIs de este usuario" });
+      }
+    }
+
     const userKpis = await storage.getUserKpis(userId);
     res.json(userKpis);
   } catch (error) {
@@ -37,7 +47,16 @@ router.get("/api/user-kpis/:userId", jwtAuthMiddleware, async (req, res) => {
 // KPI Overview - Vista consolidada para ejecutivos
 router.get("/api/kpi-overview", jwtAuthMiddleware, async (req, res) => {
   try {
-    const kpiOverview = await storage.getKPIOverview();
+    const user = getAuthUser(req as AuthRequest);
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    const companyId = companyIdParam ?? user.companyId ?? undefined;
+
+    if (companyId !== undefined && companyId !== 1 && companyId !== 2) {
+      return res.status(400).json({ error: "companyId inválido (1=Dura, 2=Orsega)" });
+    }
+
+    const kpiOverview = await storage.getKPIOverview(companyId);
     res.json(kpiOverview);
   } catch (error) {
     console.error("[GET /api/kpi-overview] Error:", error);
@@ -48,9 +67,13 @@ router.get("/api/kpi-overview", jwtAuthMiddleware, async (req, res) => {
 // KPI History - Historial mensual de un KPI específico
 router.get("/api/kpi-history/:kpiId", jwtAuthMiddleware, async (req, res) => {
   try {
+    const user = getAuthUser(req as AuthRequest);
     const kpiId = parseInt(req.params.kpiId);
     const months = parseInt(req.query.months as string) || 12;
-    const companyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyId = req.query.companyId
+      ? parseInt(req.query.companyId as string, 10)
+      : (user.companyId as number | undefined);
 
     // Resolver companyId si no se proporciona
     let resolvedCompanyId = companyId;
@@ -162,8 +185,13 @@ router.get("/api/user-kpi-history/:userId", jwtAuthMiddleware, async (req, res) 
 // KPI History by Users - Historial de un KPI con todos los usuarios
 router.get("/api/kpi-history-by-users/:kpiId", jwtAuthMiddleware, async (req, res) => {
   try {
+    const user = getAuthUser(req as AuthRequest);
     const kpiId = parseInt(req.params.kpiId);
     const months = parseInt(req.query.months as string) || 6;
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyId = req.query.companyId
+      ? parseInt(req.query.companyId as string, 10)
+      : (user.companyId as number | undefined);
 
     const kpiHistory = await storage.getKPIHistoryByUsers(kpiId, months);
 
