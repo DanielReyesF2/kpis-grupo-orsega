@@ -139,7 +139,8 @@ describe('KPIs Routes', () => {
   // GET /api/kpis
   // =========================================================================
   describe('GET /api/kpis', () => {
-    it('should return all KPIs when no companyId filter is given', async () => {
+    it('should return KPIs for user company when no companyId filter is given', async () => {
+      // Without companyId param, falls back to user.companyId=1
       vi.mocked(storage.getKpis).mockResolvedValue([mockKpi, mockKpi2] as any);
 
       const res = await request(app).get('/api/kpis');
@@ -147,7 +148,7 @@ describe('KPIs Routes', () => {
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body).toHaveLength(2);
-      expect(storage.getKpis).toHaveBeenCalledWith();
+      expect(storage.getKpis).toHaveBeenCalledWith(1);
     });
 
     it('should return KPIs filtered by valid companyId', async () => {
@@ -923,29 +924,26 @@ describe('KPIs Routes', () => {
       expect(res.body[0]).toHaveProperty('responsible', 'Juan Garcia');
     });
 
-    it('should search both companies when user has no companyId', async () => {
+    it('should search only auth user company when target user has no companyId', async () => {
       const noCompanyUser = { id: 11, name: 'Ana Test', email: 'ana@test.com', companyId: null };
       vi.mocked(storage.getUser).mockResolvedValue(noCompanyUser as any);
       vi.mocked(storage.getUserKpis).mockResolvedValue([]);
+      // Falls back to authUser.companyId=1 (not both companies)
       vi.mocked(storage.getKpis)
-        .mockResolvedValueOnce([{ ...mockKpi, id: 1, responsible: 'Ana R.', companyId: 1 }] as any)
-        .mockResolvedValueOnce([{ ...mockKpi, id: 2, responsible: 'Ana S.', companyId: 2 }] as any);
+        .mockResolvedValueOnce([{ ...mockKpi, id: 1, responsible: 'Ana R.', companyId: 1 }] as any);
 
       const res = await request(app).get('/api/kpis-by-user/11');
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveLength(2);
-      // Verify both companies were searched
+      expect(res.body).toHaveLength(1);
       expect(storage.getKpis).toHaveBeenCalledWith(1);
-      expect(storage.getKpis).toHaveBeenCalledWith(2);
     });
 
     it('should deduplicate KPIs by id', async () => {
       vi.mocked(storage.getUser).mockResolvedValue(mockUser as any);
-      // getUserKpis returns one KPI
       vi.mocked(storage.getUserKpis).mockResolvedValue([]);
-      // The fallback also finds the same KPI by responsible match
-      vi.mocked(storage.getKpis).mockResolvedValue([
+      // The fallback finds duplicate KPIs by responsible match (user.companyId=1)
+      vi.mocked(storage.getKpis).mockResolvedValueOnce([
         { ...mockKpi, id: 1, responsible: 'Juan Z' },
         { ...mockKpi, id: 1, responsible: 'Juan Z' }, // duplicate
       ] as any);
@@ -953,7 +951,6 @@ describe('KPIs Routes', () => {
       const res = await request(app).get('/api/kpis-by-user/10');
 
       expect(res.status).toBe(200);
-      // Should be deduped to 1
       expect(res.body).toHaveLength(1);
     });
 

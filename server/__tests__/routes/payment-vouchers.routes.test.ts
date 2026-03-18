@@ -111,7 +111,8 @@ describe('Payment Vouchers Routes', () => {
   // =====================
   describe('GET /api/payment-vouchers', () => {
     it('should return all payment vouchers', async () => {
-      mockStorage.getPaymentVouchers.mockResolvedValueOnce([
+      // Without companyId param, falls back to user.companyId=1
+      mockStorage.getPaymentVouchersByCompany.mockResolvedValueOnce([
         { id: 1, status: 'factura_pagada', clientName: 'Client A' },
       ]);
 
@@ -119,6 +120,7 @@ describe('Payment Vouchers Routes', () => {
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
+      expect(mockStorage.getPaymentVouchersByCompany).toHaveBeenCalledWith(1);
     });
 
     it('should filter by companyId', async () => {
@@ -131,12 +133,13 @@ describe('Payment Vouchers Routes', () => {
     });
 
     it('should filter by status', async () => {
+      // With status only, falls back to user.companyId=1 → calls with both
       mockStorage.getPaymentVouchersByStatus.mockResolvedValueOnce([]);
 
       const res = await request(app).get('/api/payment-vouchers?status=factura_pagada');
 
       expect(res.status).toBe(200);
-      expect(mockStorage.getPaymentVouchersByStatus).toHaveBeenCalledWith('factura_pagada');
+      expect(mockStorage.getPaymentVouchersByStatus).toHaveBeenCalledWith('factura_pagada', 1);
     });
 
     it('should filter by status and companyId', async () => {
@@ -149,7 +152,7 @@ describe('Payment Vouchers Routes', () => {
     });
 
     it('should handle server errors', async () => {
-      mockStorage.getPaymentVouchers.mockRejectedValueOnce(new Error('DB error'));
+      mockStorage.getPaymentVouchersByCompany.mockRejectedValueOnce(new Error('DB error'));
 
       const res = await request(app).get('/api/payment-vouchers');
 
@@ -327,7 +330,7 @@ describe('Payment Vouchers Routes', () => {
   // =====================
   describe('GET /api/payment-vouchers (additional edge cases)', () => {
     it('should return empty array when no vouchers exist', async () => {
-      mockStorage.getPaymentVouchers.mockResolvedValueOnce([]);
+      mockStorage.getPaymentVouchersByCompany.mockResolvedValueOnce([]);
 
       const res = await request(app).get('/api/payment-vouchers');
 
@@ -336,7 +339,7 @@ describe('Payment Vouchers Routes', () => {
     });
 
     it('should return multiple vouchers', async () => {
-      mockStorage.getPaymentVouchers.mockResolvedValueOnce([
+      mockStorage.getPaymentVouchersByCompany.mockResolvedValueOnce([
         { id: 1, status: 'factura_pagada', clientName: 'Client A' },
         { id: 2, status: 'pendiente_complemento', clientName: 'Client B' },
         { id: 3, status: 'cierre_contable', clientName: 'Client C' },

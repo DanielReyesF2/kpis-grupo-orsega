@@ -93,6 +93,7 @@ describe('KPI Values Routes', () => {
     vi.clearAllMocks();
     app = createTestApp(kpiValuesRouter);
     mockStorage.isSalesKpi.mockReturnValue(false);
+    mockStorage.getKpi.mockReset();
   });
 
   // =====================
@@ -129,9 +130,10 @@ describe('KPI Values Routes', () => {
     });
 
     it('should return values for specific kpiId', async () => {
-      mockStorage.getKpis.mockResolvedValueOnce([
+      // With user.companyId=1 fallback, calls getKpi(5, 1)
+      mockStorage.getKpi.mockResolvedValueOnce(
         { id: 5, companyId: 1, name: 'Test KPI', target: '100' },
-      ]);
+      );
       mockStorage.getKpiValuesByKpi.mockResolvedValueOnce([
         { id: 1, kpiId: 5, value: '85', companyId: 1 },
       ]);
