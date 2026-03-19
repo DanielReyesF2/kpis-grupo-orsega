@@ -45,9 +45,14 @@ const router = Router();
 
       let shipments: any[];
 
-      if (companyId) {
-        const companyIdNum = parseInt(companyId as string);
-        shipments = await storage.getShipmentsByCompany(companyIdNum);
+      // Usar companyId del query param, o del usuario autenticado como fallback
+      const user = getAuthUser(req as AuthRequest);
+      const resolvedCompanyId = companyId
+        ? parseInt(companyId as string)
+        : (user.companyId as number | undefined);
+
+      if (resolvedCompanyId) {
+        shipments = await storage.getShipmentsByCompany(resolvedCompanyId);
       } else {
         shipments = await storage.getShipments();
       }
@@ -100,14 +105,22 @@ const router = Router();
       const user = getAuthUser(req as AuthRequest);
       const { companyId } = req.query;
 
-      console.log("[GET /api/shipments/products] Usuario:", user.name, "Empresa filtro:", companyId);
+      // Usar companyId del query param, o del usuario autenticado como fallback
+      const resolvedCompanyId = companyId
+        ? parseInt(companyId as string)
+        : (user.companyId as number | undefined);
+
+      console.log("[GET /api/shipments/products] Usuario:", user.name, "Empresa:", resolvedCompanyId);
 
       let whereConditions = ["product IS NOT NULL AND product != ''"];
       let queryParams: any[] = [];
       let paramCount = 0;
 
-      // ✅ ACCESO UNIVERSAL: Todos los usuarios ven todos los productos
-      // Sin restricciones por empresa o rol
+      if (resolvedCompanyId) {
+        paramCount++;
+        whereConditions.push(`company_id = $${paramCount}`);
+        queryParams.push(resolvedCompanyId);
+      }
 
       const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 

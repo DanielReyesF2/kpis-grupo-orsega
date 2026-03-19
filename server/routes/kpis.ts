@@ -20,9 +20,11 @@ router.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
   try {
     const user = getAuthUser(req as AuthRequest);
     const rawCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyId = rawCompanyId ?? (user.companyId as number | undefined);
 
     console.log("🔵 [GET /api/kpis] Endpoint llamado");
-    console.log(`📊 Usuario: ${user.name}, Company ID: ${rawCompanyId ?? "ALL"}`);
+    console.log(`📊 Usuario: ${user.name}, Company ID: ${companyId ?? "ALL"}`);
 
     const addKpiType = (list: any[]) =>
       list.map((kpi) => ({
@@ -30,11 +32,11 @@ router.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
         kpiType: salesKpiTypeToCardType(identifySalesKpiType(kpi.name || kpi.kpiName || ''))
       }));
 
-    if (rawCompanyId !== undefined) {
-      if (rawCompanyId !== 1 && rawCompanyId !== 2) {
+    if (companyId !== undefined) {
+      if (companyId !== 1 && companyId !== 2) {
         return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
       }
-      const result = await storage.getKpis(rawCompanyId);
+      const result = await storage.getKpis(companyId);
       return res.json(addKpiType(result));
     }
 
@@ -402,6 +404,7 @@ router.patch("/api/kpis/:id/transfer", jwtAuthMiddleware, async (req, res) => {
 // ==============================
 router.get("/api/kpis-by-user/:userId", jwtAuthMiddleware, async (req, res) => {
   try {
+    const authUser = getAuthUser(req as AuthRequest);
     const userId = parseInt(req.params.userId, 10);
     console.log(`🔵 [GET /api/kpis-by-user/${userId}] Endpoint llamado`);
 
@@ -410,12 +413,20 @@ router.get("/api/kpis-by-user/:userId", jwtAuthMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Verificar acceso cross-company (excepto admin)
+    if (authUser.role !== 'admin' && authUser.id !== userId) {
+      if (user.companyId && authUser.companyId && user.companyId !== authUser.companyId) {
+        return res.status(403).json({ error: 'No tienes acceso a los KPIs de este usuario' });
+      }
+    }
+
     const userKpis = await storage.getUserKpis(userId);
     const aggregated: any[] = [];
     aggregated.push(...userKpis);
 
     if (aggregated.length === 0) {
-      const companiesToCheck = user.companyId ? [user.companyId] : [1, 2];
+      // Solo buscar en la empresa del usuario objetivo, no en ambas
+      const companiesToCheck = user.companyId ? [user.companyId] : [authUser.companyId ?? 1];
       const responsibleKey = (user.name?.split(' ')[0] || '').toLowerCase();
 
       for (const companyId of companiesToCheck) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCompanyFilter } from '@/hooks/use-company-filter';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -31,30 +32,11 @@ import { DollarSign, Users, BarChart3, Activity, Upload, Brain, ArrowRight } fro
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { selectedCompany } = useCompanyFilter();
   const dashboardRef = React.useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
-
-  // Company selection
-  const [selectedCompany, setSelectedCompany] = useState<number>(() => {
-    const storedCompany = localStorage.getItem('selectedCompanyId');
-    return storedCompany ? Number(storedCompany) : 1;
-  });
-
-  // Listen to company changes from sidebar
-  React.useEffect(() => {
-    const handleCompanyChange = (event: CustomEvent) => {
-      const { companyId } = event.detail;
-      setSelectedCompany(companyId);
-      localStorage.setItem('selectedCompanyId', String(companyId));
-    };
-
-    window.addEventListener('companyChanged', handleCompanyChange as EventListener);
-    return () => {
-      window.removeEventListener('companyChanged', handleCompanyChange as EventListener);
-    };
-  }, []);
 
   // Period selection
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());

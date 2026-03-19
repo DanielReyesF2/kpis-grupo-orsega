@@ -795,8 +795,9 @@ describe('Analytics routes', () => {
     expect(res.status).toBe(200);
   });
 
-  it('GET /api/kpi-history/:kpiId should fall back to traditional when KPI has no companyId', async () => {
-    mockStorage.getKpis.mockResolvedValueOnce([{ id: 1, companyId: null, name: 'Generic KPI' }]);
+  it('GET /api/kpi-history/:kpiId should use user companyId as fallback', async () => {
+    // Without companyId param, falls back to user.companyId=1
+    mockStorage.getKpi.mockResolvedValueOnce({ id: 1, companyId: 1, name: 'Generic KPI' });
     mockStorage.getKPIHistory.mockResolvedValueOnce([]);
     const res = await request(app).get('/api/kpi-history/1');
     expect(res.status).toBe(200);
@@ -844,7 +845,7 @@ describe('Analytics routes', () => {
   });
 
   it('GET /api/kpi-history/:kpiId should return 500 on outer catch error', async () => {
-    mockStorage.getKpis.mockRejectedValueOnce(new Error('DB error'));
+    mockStorage.getKpi.mockRejectedValueOnce(new Error('DB error'));
     const res = await request(app).get('/api/kpi-history/1');
     expect(res.status).toBe(500);
   });

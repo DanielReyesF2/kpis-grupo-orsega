@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useCompanyFilter } from '@/hooks/use-company-filter';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,7 +75,7 @@ interface YearlyData {
 }
 
 export default function TrendsAnalysisPage() {
-  const [selectedCompany, setSelectedCompany] = useState<number>(1);
+  const { selectedCompany, setSelectedCompany } = useCompanyFilter();
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Query para tendencias mensuales

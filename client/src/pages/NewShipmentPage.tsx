@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useCompanyFilter } from "@/hooks/use-company-filter";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -94,6 +95,7 @@ interface ShipmentItemForm {
 export default function NewShipmentPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { selectedCompany } = useCompanyFilter();
   const [showCarbonSection, setShowCarbonSection] = useState(false);
   const [calculatedCarbonFootprint, setCalculatedCarbonFootprint] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -115,14 +117,22 @@ export default function NewShipmentPage() {
     queryKey: ["/api/companies"],
   });
 
-  // Consulta para obtener clientes desde la nueva base de datos
+  // Consulta para obtener clientes filtrados por empresa
   const { data: clients, isLoading: isLoadingClients } = useQuery<any[]>({
-    queryKey: ["/api/clients"],
+    queryKey: ["/api/clients", selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/clients?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
-  // Consulta para obtener proveedores reales de transporte
+  // Consulta para obtener proveedores filtrados por empresa
   const { data: providers = [], isLoading: isLoadingProviders } = useQuery<any[]>({
-    queryKey: ["/api/providers"],
+    queryKey: ["/api/providers", selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/providers?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
   // Configuración del formulario
@@ -130,7 +140,7 @@ export default function NewShipmentPage() {
     resolver: zodResolver(shipmentFormSchema),
     defaultValues: {
       trackingCode: generateTrackingCode(), // Inicialmente sin empresa seleccionada (usará DUR por defecto)
-      companyId: "", // Se guardará como string pero se convertirá a número al enviar
+      companyId: String(selectedCompany), // Pre-seleccionar empresa global
       customerName: "",
       customerEmail: "", // Email del cliente para notificaciones automáticas
       destination: "",

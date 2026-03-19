@@ -9,15 +9,28 @@ const CompanyFilterContext = createContext<CompanyFilterContextType | null>(null
 
 export function CompanyFilterProvider({ children }: { children: React.ReactNode }) {
   const [selectedCompany, setSelectedCompany] = useState<number>(() => {
-    // Intentar recuperar la compañía seleccionada del localStorage
     const storedCompany = localStorage.getItem('selectedCompanyId');
-    return storedCompany ? Number(storedCompany) : 1; // Por defecto, Dura International (ID: 1)
+    return storedCompany ? Number(storedCompany) : 1;
   });
 
   // Guardar la selección en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem('selectedCompanyId', selectedCompany.toString());
   }, [selectedCompany]);
+
+  // Sincronizar con el evento companyChanged del Sidebar
+  useEffect(() => {
+    const handleCompanyChange = (event: CustomEvent) => {
+      const { companyId } = event.detail;
+      if (typeof companyId === 'number' && (companyId === 1 || companyId === 2)) {
+        setSelectedCompany(companyId);
+      }
+    };
+    window.addEventListener('companyChanged', handleCompanyChange as EventListener);
+    return () => {
+      window.removeEventListener('companyChanged', handleCompanyChange as EventListener);
+    };
+  }, []);
 
   return (
     <CompanyFilterContext.Provider value={{ selectedCompany, setSelectedCompany }}>

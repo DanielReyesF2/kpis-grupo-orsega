@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useCompanyFilter } from '@/hooks/use-company-filter';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,6 +113,7 @@ export default function LogisticsPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedCompany } = useCompanyFilter();
 
   // Consulta para obtener empresas
   const { data: companies = [] } = useQuery<any[]>({
@@ -119,21 +121,37 @@ export default function LogisticsPage() {
   });
 
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ['/api/clients'],
+    queryKey: ['/api/clients', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/clients?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
   const { data: providers = [], isLoading: providersLoading } = useQuery<Provider[]>({
-    queryKey: ['/api/providers'],
+    queryKey: ['/api/providers', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/providers?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
-  // Obtener productos de ambas empresas (sin filtro de companyId)
+  // Obtener productos filtrados por empresa
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ['/api/products'],
+    queryKey: ['/api/products', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/products?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
-  // Handle both old and new API response formats
+  // Obtener envíos filtrados por empresa
   const { data: shipmentsResponse, isLoading: shipmentsLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
-    queryKey: ['/api/shipments'],
+    queryKey: ['/api/shipments', selectedCompany],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/shipments?companyId=${selectedCompany}`);
+      return res.json();
+    },
   });
 
   // Extract shipments array (handle both old and new API response formats)

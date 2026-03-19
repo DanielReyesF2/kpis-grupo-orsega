@@ -32,7 +32,8 @@ router.get("/api/sales-data", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, clientId, productId, year, month, startDate, endDate, limit = '1000' } = req.query;
 
-    const resolvedCompanyId = user?.role === 'admin' && companyId
+    // Permitir a cualquier usuario autenticado seleccionar empresa vía query param
+    const resolvedCompanyId = companyId
       ? parseInt(companyId as string)
       : user?.companyId;
 

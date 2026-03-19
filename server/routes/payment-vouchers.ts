@@ -54,13 +54,18 @@ const voucherUpload = multer({
 // GET /api/payment-vouchers - Listar comprobantes
 router.get("/api/payment-vouchers", jwtAuthMiddleware, async (req, res) => {
   try {
-    const { companyId, status } = req.query;
+    const user = getAuthUser(req as AuthRequest);
+    const { companyId: companyIdParam, status } = req.query;
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyId = companyIdParam
+      ? parseInt(companyIdParam as string)
+      : (user.companyId as number | undefined);
 
     let vouchers;
     if (status && companyId) {
-      vouchers = await storage.getPaymentVouchersByStatus(status as string, parseInt(companyId as string));
+      vouchers = await storage.getPaymentVouchersByStatus(status as string, companyId);
     } else if (companyId) {
-      vouchers = await storage.getPaymentVouchersByCompany(parseInt(companyId as string));
+      vouchers = await storage.getPaymentVouchersByCompany(companyId);
     } else if (status) {
       vouchers = await storage.getPaymentVouchersByStatus(status as string);
     } else {

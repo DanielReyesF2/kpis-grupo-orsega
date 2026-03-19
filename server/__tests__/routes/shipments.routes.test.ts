@@ -112,7 +112,7 @@ describe('Shipments Routes', () => {
   // =====================
   describe('GET /api/shipments', () => {
     it('should return paginated shipments', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'in_transit', createdAt: new Date() },
         { id: 2, status: 'delivered', createdAt: new Date() },
       ]);
@@ -135,7 +135,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should filter by status', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'in_transit', createdAt: new Date() },
         { id: 2, status: 'delivered', createdAt: new Date() },
       ]);
@@ -147,7 +147,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should handle pagination parameters', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce(
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce(
         Array(10).fill(null).map((_, i) => ({ id: i + 1, status: 'in_transit', createdAt: new Date() }))
       );
 
@@ -356,7 +356,7 @@ describe('Shipments Routes', () => {
   // =====================
   describe('GET /api/shipments - error handling', () => {
     it('should return 500 when storage.getShipments throws', async () => {
-      mockStorage.getShipments.mockRejectedValueOnce(new Error('DB connection lost'));
+      mockStorage.getShipmentsByCompany.mockRejectedValueOnce(new Error('DB connection lost'));
 
       const res = await request(app).get('/api/shipments');
 
@@ -380,7 +380,7 @@ describe('Shipments Routes', () => {
       const old = new Date(now);
       old.setDate(old.getDate() - 60);
 
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'delivered', createdAt: recent.toISOString() },
         { id: 2, status: 'delivered', createdAt: old.toISOString() },
       ]);
@@ -398,7 +398,7 @@ describe('Shipments Routes', () => {
       recent.setDate(recent.getDate() - 5);
       const old = new Date('2020-01-01');
 
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'delivered', createdAt: recent.toISOString() },
         { id: 2, status: 'delivered', createdAt: old.toISOString() },
       ]);
@@ -418,7 +418,7 @@ describe('Shipments Routes', () => {
       const older = new Date('2024-01-01');
       const newer = new Date('2025-06-15');
 
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'delivered', createdAt: older.toISOString() },
         { id: 2, status: 'delivered', createdAt: newer.toISOString() },
       ]);
@@ -431,7 +431,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should correctly compute hasMore and totalPages', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce(
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce(
         Array(12).fill(null).map((_, i) => ({ id: i + 1, status: 'pending', createdAt: new Date().toISOString() }))
       );
 
@@ -445,7 +445,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should return no shipments on out-of-range page', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'pending', createdAt: new Date().toISOString() },
       ]);
 
@@ -457,7 +457,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should use actualDeliveryDate for sorting when present', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'delivered', actualDeliveryDate: '2025-12-01', createdAt: '2025-01-01' },
         { id: 2, status: 'delivered', actualDeliveryDate: '2025-06-01', createdAt: '2025-02-01' },
       ]);
@@ -470,7 +470,7 @@ describe('Shipments Routes', () => {
     });
 
     it('should use updatedAt as fallback for sorting when no actualDeliveryDate', async () => {
-      mockStorage.getShipments.mockResolvedValueOnce([
+      mockStorage.getShipmentsByCompany.mockResolvedValueOnce([
         { id: 1, status: 'pending', updatedAt: '2025-03-01', createdAt: '2025-01-01' },
         { id: 2, status: 'pending', updatedAt: '2025-09-01', createdAt: '2025-02-01' },
       ]);

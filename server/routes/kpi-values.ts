@@ -17,7 +17,11 @@ const router = Router();
 // ==============================
 router.get("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
   try {
-    const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    const user = getAuthUser(req as AuthRequest);
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyIdParam = req.query.companyId
+      ? parseInt(req.query.companyId as string, 10)
+      : (user.companyId as number | undefined);
     if (companyIdParam !== undefined && companyIdParam !== 1 && companyIdParam !== 2) {
       return res.status(400).json({ error: "companyId query param inválido (1=Dura, 2=Orsega)" });
     }
@@ -344,7 +348,11 @@ router.get("/api/kpi-monthly-achievement", jwtAuthMiddleware, async (req, res) =
 // ==============================
 router.get("/api/collaborators-performance", jwtAuthMiddleware, async (req, res) => {
   try {
-    const companyIdParam = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+    const user = getAuthUser(req as AuthRequest);
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyIdParam = req.query.companyId
+      ? parseInt(req.query.companyId as string, 10)
+      : (user.companyId as number | undefined);
     if (companyIdParam !== undefined && companyIdParam !== 1 && companyIdParam !== 2) {
       return res.status(400).json({ error: "companyId query param inválido (1=Dura, 2=Orsega)" });
     }

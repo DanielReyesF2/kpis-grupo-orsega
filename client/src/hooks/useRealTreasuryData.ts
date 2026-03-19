@@ -37,15 +37,21 @@ export interface Payment {
 }
 
 export function useRealTreasuryData(companyId?: number) {
-  // Fetch payment vouchers - usar misma queryKey que otros componentes
+  // Fetch payment vouchers filtrados por empresa
   const { data: vouchers, isLoading: isLoadingVouchers, error: vouchersError } = useQuery<PaymentVoucher[]>({
-    queryKey: ['/api/payment-vouchers'],
-    staleTime: 1 * 60 * 1000, // 1 minute
-    refetchInterval: 30000, // Refetch every 30 seconds
+    queryKey: ['/api/payment-vouchers', companyId],
+    queryFn: async () => {
+      const url = companyId ? `/api/payment-vouchers?companyId=${companyId}` : '/api/payment-vouchers';
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      return res.json();
+    },
+    staleTime: 1 * 60 * 1000,
+    refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
 
-  // Fetch exchange rates
+  // Fetch exchange rates (global - no filtro por empresa)
   const { data: exchangeRates, isLoading: isLoadingRates, error: ratesError } = useQuery<ExchangeRate[]>({
     queryKey: ['/api/treasury/exchange-rates'],
     staleTime: 1 * 60 * 1000,
@@ -53,9 +59,15 @@ export function useRealTreasuryData(companyId?: number) {
     refetchOnWindowFocus: true,
   });
 
-  // Fetch payments - CORREGIDO: usar endpoint correcto /api/treasury/payments
+  // Fetch payments filtrados por empresa
   const { data: payments, isLoading: isLoadingPayments, error: paymentsError } = useQuery<Payment[]>({
-    queryKey: ['/api/treasury/payments'],
+    queryKey: ['/api/treasury/payments', companyId],
+    queryFn: async () => {
+      const url = companyId ? `/api/treasury/payments?companyId=${companyId}` : '/api/treasury/payments';
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      return res.json();
+    },
     staleTime: 1 * 60 * 1000,
     refetchInterval: 30000,
     refetchOnWindowFocus: true,

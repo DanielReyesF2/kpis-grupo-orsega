@@ -26,14 +26,20 @@ const router = Router();
 // GET /api/treasury/payments - Listar pagos programados
 router.get("/api/treasury/payments", jwtAuthMiddleware, async (req, res) => {
   try {
-    const { companyId, status } = req.query;
+    const user = getAuthUser(req as AuthRequest);
+    const { companyId: companyIdParam, status } = req.query;
+    // Usar companyId del query param, o del usuario autenticado como fallback
+    const companyId = companyIdParam
+      ? parseInt(companyIdParam as string)
+      : (user.companyId as number | undefined);
+
     let whereClause = "WHERE 1=1";
     const params: any[] = [];
     let paramIndex = 1;
 
     if (companyId) {
       whereClause += ` AND company_id = $${paramIndex}`;
-      params.push(parseInt(companyId as string));
+      params.push(companyId);
       paramIndex++;
     }
 
