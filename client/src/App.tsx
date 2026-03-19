@@ -13,7 +13,6 @@ import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages (code splitting)
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
 const LogisticsPage = lazy(() => import("@/pages/LogisticsPage"));
@@ -45,7 +44,7 @@ function Router() {
       <Route path="/">
         {() => (
           <ProtectedRoute>
-            <Dashboard />
+            <SalesPage />
           </ProtectedRoute>
         )}
       </Route>

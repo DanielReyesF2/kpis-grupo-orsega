@@ -21,13 +21,10 @@ import {
   ChevronRight,
   Receipt,
   DollarSign,
-  ShoppingCart,
-  Building,
   Search,
   X,
   Sparkles,
   BarChart3,
-  Users
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -86,17 +83,11 @@ function Sidebar() {
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(
     location === "/treasury" || location.startsWith("/treasury/")
   );
-  const [isSalesOpen, setIsSalesOpen] = useState(
-    location === "/sales" || location.startsWith("/sales/")
-  );
 
   // Auto-expandir cuando se navega a una ruta
   useEffect(() => {
     if (location === "/treasury" || location.startsWith("/treasury/")) {
       setIsTreasuryOpen(true);
-    }
-    if (location === "/sales" || location.startsWith("/sales/")) {
-      setIsSalesOpen(true);
     }
   }, [location]);
 
@@ -174,7 +165,7 @@ function Sidebar() {
           <NavItem
             href="/"
             icon={<LayoutDashboard className="h-4 w-4" />}
-            active={location === "/"}
+            active={location === "/" || location.startsWith("/sales")}
             onClick={closeMenu}
           >
             Dashboard
@@ -186,7 +177,7 @@ function Sidebar() {
                   localStorage.setItem('selectedCompanyId', String(companyId));
                   setSelectedCompany(companyId);
                   window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
-                  setLocation('/');
+                  setLocation('/sales/dura');
                   closeMenu();
                 }}
                 className={cn(
@@ -204,7 +195,7 @@ function Sidebar() {
                   localStorage.setItem('selectedCompanyId', String(companyId));
                   setSelectedCompany(companyId);
                   window.dispatchEvent(new CustomEvent('companyChanged', { detail: { companyId } }));
-                  setLocation('/');
+                  setLocation('/sales/orsega');
                   closeMenu();
                 }}
                 className={cn(
@@ -224,52 +215,6 @@ function Sidebar() {
           <p className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
             Principal
           </p>
-
-          {/* Ventas */}
-          <Collapsible open={isSalesOpen} onOpenChange={setIsSalesOpen}>
-            <CollapsibleTrigger asChild>
-              <div
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-all duration-150",
-                  location.startsWith("/sales")
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  <span>Ventas</span>
-                </div>
-                {isSalesOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 mt-1">
-              <NavItem
-                href="/sales/dura"
-                icon={<Building className={cn("h-4 w-4", location === "/sales/dura" && "text-green-500")} />}
-                active={location === "/sales/dura"}
-                onClick={closeMenu}
-                indent
-                className={location === "/sales/dura" ? "!bg-green-500/10 !text-green-600" : ""}
-              >
-                DURA International
-              </NavItem>
-              <NavItem
-                href="/sales/orsega"
-                icon={<Building className={cn("h-4 w-4", location === "/sales/orsega" && "text-purple-500")} />}
-                active={location === "/sales/orsega"}
-                onClick={closeMenu}
-                indent
-                className={location === "/sales/orsega" ? "!bg-purple-500/10 !text-purple-600" : ""}
-              >
-                Grupo ORSEGA
-              </NavItem>
-            </CollapsibleContent>
-          </Collapsible>
 
           {/* Tesorería */}
           <Collapsible open={isTreasuryOpen} onOpenChange={setIsTreasuryOpen}>
