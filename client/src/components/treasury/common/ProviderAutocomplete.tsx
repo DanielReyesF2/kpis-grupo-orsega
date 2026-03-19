@@ -45,7 +45,7 @@ export function ProviderAutocomplete({
 
   // Filtrar proveedores por búsqueda (empresa ya filtrada server-side)
   const filteredSuppliers = suppliers.filter((supplier) => {
-    if (!supplier.is_active) return false;
+    if (supplier.is_active === false) return false;
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
