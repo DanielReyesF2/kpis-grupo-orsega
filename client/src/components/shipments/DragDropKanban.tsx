@@ -767,14 +767,25 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     return (shipmentsResponse as {pagination?: any}).pagination;
   }, [shipmentsResponse]);
 
-  // Obtener proveedores para el modal de solicitud
+  // Obtener proveedores para el modal de solicitud (filtrados por empresa del formulario)
+  const formCompanyId = newShipmentForm.companyId ? parseInt(newShipmentForm.companyId) : 1;
   const { data: providers = [] } = useQuery<any[]>({
-    queryKey: ['/api/providers'],
+    queryKey: ['/api/providers', formCompanyId],
+    queryFn: async () => {
+      const res = await fetch(`/api/providers?companyId=${formCompanyId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch providers');
+      return res.json();
+    },
   });
 
-  // Obtener clientes de la base de datos
+  // Obtener clientes de la base de datos (filtrados por empresa del formulario)
   const { data: clients = [], isLoading: isLoadingClients } = useQuery<any[]>({
-    queryKey: ['/api/clients'],
+    queryKey: ['/api/clients', formCompanyId],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients?companyId=${formCompanyId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch clients');
+      return res.json();
+    },
   });
 
   // Obtener productos filtrados por empresa desde la base de datos

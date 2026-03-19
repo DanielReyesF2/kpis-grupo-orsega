@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { X } from "lucide-react";
 
@@ -31,6 +32,9 @@ interface SupplierFormProps {
 }
 
 export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
+  const { user } = useAuth();
+  const defaultCompanyId = user?.companyId ?? 1;
+
   const [formData, setFormData] = useState({
     name: "",
     shortName: "",
@@ -38,7 +42,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
     location: "NAC",
     requiresRep: false,
     repFrequency: 30,
-    companyId: 1,
+    companyId: defaultCompanyId,
     isActive: true,
     notes: "",
   });
@@ -55,7 +59,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         location: supplier.location || "NAC",
         requiresRep: supplier.requires_rep || false,
         repFrequency: supplier.rep_frequency || 30,
-        companyId: supplier.company_id || 1,
+        companyId: supplier.company_id || defaultCompanyId,
         isActive: supplier.is_active !== undefined ? supplier.is_active : true,
         notes: supplier.notes || "",
       });
@@ -68,12 +72,12 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         location: "NAC",
         requiresRep: false,
         repFrequency: 30,
-        companyId: 1,
+        companyId: defaultCompanyId,
         isActive: true,
         notes: "",
       });
     }
-  }, [supplier, isOpen]);
+  }, [supplier, isOpen, defaultCompanyId]);
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {

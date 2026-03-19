@@ -38,7 +38,13 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
-    queryKey: ["/api/suppliers"],
+    queryKey: ["/api/suppliers", selectedCompany],
+    queryFn: async () => {
+      const url = selectedCompany ? `/api/suppliers?companyId=${selectedCompany}` : "/api/suppliers";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      return res.json();
+    },
     staleTime: 30000,
   });
 
