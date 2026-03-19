@@ -25,19 +25,19 @@ export const catalogRouter = Router()
 // CLIENTS
 catalogRouter.get('/clients', async (req, res) => {
   try {
-    console.log('🔵 [GET /clients] Endpoint llamado');
+    const authUser = (req as AuthRequest).user;
+    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : authUser?.companyId;
+    const companyId = companyIdParam ?? 1;
+    console.log(`🔵 [GET /clients] Endpoint llamado, companyId=${companyId}`);
     const result = await sql(`
       SELECT c.id, c.code, c.name, c.contact, c.email, c.company_id, c.is_active, c.notes, c.created_at, c.updated_at,
              comp.name as company_name
       FROM clients c
       LEFT JOIN companies comp ON c.company_id = comp.id
-      WHERE c.is_active = TRUE 
+      WHERE c.is_active = TRUE AND c.company_id = $1
       ORDER BY c.name
-    `)
-    console.log(`📊 [GET /clients] Retornando ${result.rows.length} clientes`);
-    if (result.rows.length > 0) {
-      console.log(`📋 Primer cliente:`, JSON.stringify(result.rows[0], null, 2));
-    }
+    `, [companyId])
+    console.log(`📊 [GET /clients] Retornando ${result.rows.length} clientes para empresa ${companyId}`);
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching clients:', error)
@@ -220,16 +220,16 @@ catalogRouter.delete('/clients/:id', async (req, res) => {
 // PROVIDERS
 catalogRouter.get('/providers', async (req, res) => {
   try {
-    console.log('🔵 [GET /providers] Endpoint llamado');
+    const authUser = (req as AuthRequest).user;
+    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : authUser?.companyId;
+    const companyId = companyIdParam ?? 1;
+    console.log(`🔵 [GET /providers] Endpoint llamado, companyId=${companyId}`);
     const result = await sql(`
-      SELECT * FROM provider 
-      WHERE is_active = TRUE
+      SELECT * FROM provider
+      WHERE is_active = TRUE AND company_id = $1
       ORDER BY name
-    `)
-    console.log(`📊 [GET /providers] Retornando ${result.rows.length} proveedores`);
-    if (result.rows.length > 0) {
-      console.log(`📋 Primer proveedor:`, JSON.stringify(result.rows[0], null, 2));
-    }
+    `, [companyId])
+    console.log(`📊 [GET /providers] Retornando ${result.rows.length} proveedores para empresa ${companyId}`);
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching providers:', error)
@@ -358,16 +358,20 @@ catalogRouter.post('/providers/:id/channels', async (req, res) => {
 // GET /api/suppliers - Obtener proveedores de tesorería
 catalogRouter.get('/suppliers', async (req, res) => {
   try {
-    console.log('🔵 [GET /suppliers] Endpoint llamado');
-    
+    const authUser = (req as AuthRequest).user;
+    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : authUser?.companyId;
+    const companyId = companyIdParam ?? 1;
+    console.log(`🔵 [GET /suppliers] Endpoint llamado, companyId=${companyId}`);
+
     const result = await sql(`
       SELECT s.*, c.name as company_name
       FROM suppliers s
       LEFT JOIN companies c ON s.company_id = c.id
-      ORDER BY s.company_id, s.name
-    `)
-    
-    console.log(`📊 [GET /suppliers] Retornando ${result.rows.length} proveedores de tesorería`)
+      WHERE s.company_id = $1
+      ORDER BY s.name
+    `, [companyId])
+
+    console.log(`📊 [GET /suppliers] Retornando ${result.rows.length} proveedores de tesorería para empresa ${companyId}`)
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching suppliers:', error)

@@ -33,18 +33,19 @@ export function ProviderAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
-    queryKey: ["/api/suppliers"],
-    enabled: true, // Cargar siempre, luego filtrar por companyId
+    queryKey: ["/api/suppliers", companyId],
+    queryFn: async () => {
+      const url = companyId ? `/api/suppliers?companyId=${companyId}` : "/api/suppliers";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      return res.json();
+    },
     staleTime: 60000,
   });
 
-  // Filtrar proveedores por empresa y búsqueda
+  // Filtrar proveedores por búsqueda (empresa ya filtrada server-side)
   const filteredSuppliers = suppliers.filter((supplier) => {
-    // Filtrar solo activos
     if (!supplier.is_active) return false;
-    // Filtrar por empresa si está seleccionada
-    if (companyId && supplier.company_id !== companyId) return false;
-    // Filtrar por término de búsqueda
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
