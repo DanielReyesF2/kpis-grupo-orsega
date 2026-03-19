@@ -41,7 +41,7 @@ export function ProviderAutocomplete({
   // Filtrar proveedores por empresa y búsqueda
   const filteredSuppliers = suppliers.filter((supplier) => {
     // Filtrar solo activos
-    if (!supplier.is_active) return false;
+    if (supplier.is_active === false) return false;
     // Filtrar por empresa si está seleccionada
     if (companyId && supplier.company_id !== companyId) return false;
     // Filtrar por término de búsqueda

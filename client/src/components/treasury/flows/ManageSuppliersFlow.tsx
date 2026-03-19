@@ -94,7 +94,7 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
 
   const stats = {
     total: suppliers.length,
-    active: suppliers.filter((s) => s.is_active).length,
+    active: suppliers.filter((s) => s.is_active !== false).length,
     withRep: suppliers.filter((s) => s.requires_rep).length,
     dura: suppliers.filter((s) => s.company_id === 1).length,
     orsega: suppliers.filter((s) => s.company_id === 2).length,
