@@ -334,7 +334,7 @@ export default function SalesPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Volumen del Mes</p>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Volumen {stats?.currentMonthLabel || 'del Mes'}</p>
                       <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
                         {isLoadingStats ? (
                           <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
@@ -403,7 +403,7 @@ export default function SalesPage() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
-                    Mismo período 2024
+                    vs mismo mes año anterior
                   </p>
                 </CardContent>
               </Card>

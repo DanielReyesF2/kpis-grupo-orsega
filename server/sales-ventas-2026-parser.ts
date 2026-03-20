@@ -578,7 +578,9 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
     const precioUSD = parseNumber(row.getCell(8).value);
     const precioMN = parseNumber(row.getCell(9).value);
     const importeUSD = parseNumber(row.getCell(10).value);
-    const importeMN = parseNumber(row.getCell(11).value);
+    // Col 11 = "MN" (partial, only products priced in MN)
+    // Col 13 = "IMPORTE M.N." = Importe USD × T.C. = total MN (the real total)
+    const importeMN = parseNumber(row.getCell(13).value);
     const tipoCambio = parseNumber(row.getCell(12).value);
     // GO 2026: Col 16=COMPRA, Col 17=FLETE, Col 18=UTILIDAD BRUTA
     const compra = parseNumber(row.getCell(16).value);
@@ -599,7 +601,7 @@ function parseSheetGO(worksheet: Worksheet, sheetMonth: number | null): VentasTr
       producto,
       cantidad,
       precioUnitario: precioUSD,
-      importe: importeUSD,
+      importe: importeMN, // Store MN as importe (formatCurrency displays as MXN for Orsega)
       tipoCambio,
       importeMN,
       familiaProducto,

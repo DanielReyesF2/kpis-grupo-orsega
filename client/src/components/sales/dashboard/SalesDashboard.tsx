@@ -55,22 +55,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch monthly trends to calculate total revenue
-  const { data: monthlyTrends } = useQuery({
-    queryKey: ['/api/sales-monthly-trends', resolvedCompanyId],
-    queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${resolvedCompanyId}`);
-      if (!res.ok) {
-        return [];
-      }
-      return await res.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Calculate total revenue from monthly trends
-  const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
-
   // Calculate growth percentage
   const growthPercent = salesStats?.growth || 0;
 
@@ -132,18 +116,18 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <SalesKPICard
-            title="Revenue Total"
-            value={formatCurrency(totalRevenue, resolvedCompanyId)}
+            title={`Revenue ${salesStats?.currentMonthLabel || 'Mes Actual'}`}
+            value={formatCurrency(salesStats?.currentMonthRevenue || 0, resolvedCompanyId)}
             subtitle={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'} vendidos`}
             icon={DollarSign}
             trend={growthPercent !== undefined ? {
               value: growthPercent,
-              label: "vs período anterior"
+              label: "vs mismo mes año anterior"
             } : undefined}
             variant="success"
           />
           <SalesKPICard
-            title="Clientes Activos"
+            title="Clientes del Mes"
             value={salesStats?.activeClients || 0}
             subtitle={`${salesStats?.activeClientsMetrics?.last3Months || 0} últimos 3 meses`}
             icon={Users}
@@ -152,7 +136,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
           <SalesKPICard
             title="Crecimiento"
             value={`${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(1)}%`}
-            subtitle="vs período anterior"
+            subtitle="vs mismo mes año anterior"
             icon={TrendingUp}
             variant={growthPercent >= 0 ? "success" : "danger"}
           />
