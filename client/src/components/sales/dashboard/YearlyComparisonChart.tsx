@@ -113,7 +113,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
         const prevYear = yearsToShow[idx - 1];
         const baseValue = item[`amt_${prevYear}`] || 0;
         const currentValue = item[`amt_${year}`] || 0;
-        if (baseValue > 0) {
+        if (baseValue > 0 && currentValue > 0) {
           dataPoint[`percent_${year}`] = ((currentValue - baseValue) / baseValue) * 100;
           dataPoint[`prevYear_${year}`] = prevYear;
         } else {
