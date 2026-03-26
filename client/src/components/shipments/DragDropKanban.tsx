@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequestLegacy as apiRequest } from "@/lib/queryClient";
+import { apiRequest, apiRequestLegacy } from "@/lib/queryClient";
 import { 
   Package, 
   MapPin, 
@@ -690,6 +690,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     unit: 'kg',
     origin: '',
     destination: '',
+    departureDate: '',
     estimatedDeliveryDate: ''
   });
 
@@ -780,8 +781,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   const { data: providers = [] } = useQuery<any[]>({
     queryKey: ['/api/providers', formCompanyId],
     queryFn: async () => {
-      const res = await fetch(`/api/providers?companyId=${formCompanyId}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch providers');
+      const res = await apiRequest('GET', `/api/providers?companyId=${formCompanyId}`);
       return res.json();
     },
   });
@@ -790,8 +790,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   const { data: clients = [], isLoading: isLoadingClients } = useQuery<any[]>({
     queryKey: ['/api/clients', formCompanyId],
     queryFn: async () => {
-      const res = await fetch(`/api/clients?companyId=${formCompanyId}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch clients');
+      const res = await apiRequest('GET', `/api/clients?companyId=${formCompanyId}`);
       return res.json();
     },
   });
@@ -829,7 +828,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   // Mutación para actualizar estado
   const updateStatusMutation = useMutation({
     mutationFn: async ({ shipmentId, status, invoiceNumber }: { shipmentId: number; status: string; invoiceNumber?: string }) => {
-      return await apiRequest(`/api/shipments/${shipmentId}/status`, {
+      return await apiRequestLegacy(`/api/shipments/${shipmentId}/status`, {
         method: 'PATCH',
         body: {
           status,
@@ -876,7 +875,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
   // Mutación para crear nuevo envío
   const createShipmentMutation = useMutation({
     mutationFn: async (shipmentData: any) => {
-      return await apiRequest('/api/shipments', {
+      return await apiRequestLegacy('/api/shipments', {
         method: 'POST',
         body: {
           ...shipmentData,
@@ -884,6 +883,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           carbonFootprint: "0",
           status: 'pending',
           companyId: parseInt(shipmentData.companyId),
+          departureDate: shipmentData.departureDate || null,
           estimatedDeliveryDate: shipmentData.estimatedDeliveryDate || null,
           // Enviar los productos múltiples
           items: shipmentProducts.filter(p => p.product && p.quantity)
@@ -913,6 +913,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
         unit: 'kg',
         origin: '',
         destination: '',
+        departureDate: '',
         estimatedDeliveryDate: ''
       });
       // Resetear productos
@@ -1221,16 +1222,28 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
                     value={newShipmentForm.customerName} 
                     onValueChange={(value) => {
                       const selectedClient = clients.find((client: any) => client.name === value);
-                      setNewShipmentForm(prev => ({ 
-                        ...prev, 
+                      // Construir dirección de destino desde datos del cliente
+                      const addressParts = [
+                        selectedClient?.street_address,
+                        selectedClient?.colonia,
+                        selectedClient?.municipality,
+                        selectedClient?.city,
+                        selectedClient?.state,
+                        selectedClient?.postal_code ? `CP ${selectedClient.postal_code}` : null,
+                      ].filter(Boolean);
+                      const destination = addressParts.length > 0 ? addressParts.join(', ') : '';
+
+                      setNewShipmentForm(prev => ({
+                        ...prev,
                         customerName: value,
                         customerId: selectedClient?.id || undefined,
-                        customerEmail: selectedClient?.email || prev.customerEmail
+                        customerEmail: selectedClient?.email || selectedClient?.email_contacto || prev.customerEmail,
+                        destination: destination || prev.destination,
                       }));
                       if (selectedClient) {
                         toast({
                           title: "Cliente seleccionado",
-                          description: `${selectedClient.name}${selectedClient.email ? ` (${selectedClient.email})` : ''}`,
+                          description: `${selectedClient.name}${destination ? ` — ${destination}` : ''}`,
                         });
                       }
                     }}
@@ -1404,14 +1417,26 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="estimatedDeliveryDate">Fecha Estimada de Entrega</Label>
-              <Input
-                id="estimatedDeliveryDate"
-                type="date"
-                value={newShipmentForm.estimatedDeliveryDate}
-                onChange={(e) => setNewShipmentForm(prev => ({ ...prev, estimatedDeliveryDate: e.target.value }))}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="departureDate">Fecha de Embarque</Label>
+                <Input
+                  id="departureDate"
+                  type="date"
+                  value={newShipmentForm.departureDate}
+                  onChange={(e) => setNewShipmentForm(prev => ({ ...prev, departureDate: e.target.value }))}
+                />
+                <p className="text-xs text-gray-500">Fecha programada de salida</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="estimatedDeliveryDate">Fecha Estimada de Entrega</Label>
+                <Input
+                  id="estimatedDeliveryDate"
+                  type="date"
+                  value={newShipmentForm.estimatedDeliveryDate}
+                  onChange={(e) => setNewShipmentForm(prev => ({ ...prev, estimatedDeliveryDate: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
@@ -1708,7 +1733,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
   // Mutación para crear producto nuevo
   const createProductMutation = useMutation({
     mutationFn: async (name: string) => {
-      return await apiRequest('/api/products', {
+      return await apiRequestLegacy('/api/products', {
         method: 'POST',
         body: {
           name,
@@ -1731,7 +1756,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const addItemMutation = useMutation({
     mutationFn: async (item: { product: string; quantity: string; unit: string; description?: string }) => {
-      return await apiRequest(`/api/shipments/${shipment.id}/items`, {
+      return await apiRequestLegacy(`/api/shipments/${shipment.id}/items`, {
         method: 'POST',
         body: item
       });
@@ -1751,7 +1776,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, item }: { id: number; item: { product?: string; quantity?: string; unit?: string; description?: string } }) => {
-      return await apiRequest(`/api/shipments/${shipment.id}/items/${id}`, {
+      return await apiRequestLegacy(`/api/shipments/${shipment.id}/items/${id}`, {
         method: 'PATCH',
         body: item
       });
@@ -1771,7 +1796,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/shipments/${shipment.id}/items/${id}`, {
+      return await apiRequestLegacy(`/api/shipments/${shipment.id}/items/${id}`, {
         method: 'DELETE'
       });
     },
@@ -1792,7 +1817,7 @@ function EditShipmentInline({ shipment, onCancel, onSaved }: { shipment: Shipmen
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest(`/api/shipments/${shipment.id}`, {
+      return await apiRequestLegacy(`/api/shipments/${shipment.id}`, {
         method: 'PATCH',
         body: {
           purchaseOrder: form.purchaseOrder,
