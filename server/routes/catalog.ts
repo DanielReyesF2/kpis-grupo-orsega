@@ -15,7 +15,7 @@ router.get("/api/clients-db", jwtAuthMiddleware, async (req, res) => {
     const user = authReq.user;
     const { companyId, search } = req.query;
 
-    let whereClause = "WHERE is_active = true";
+    let whereClause = "WHERE (is_active = true OR is_active IS NULL)";
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -80,7 +80,7 @@ router.get("/api/clients-db/:id", jwtAuthMiddleware, async (req, res) => {
         is_active as "isActive", notes,
         created_at as "createdAt", updated_at as "updatedAt"
       FROM clients
-      WHERE id = $1 AND is_active = true
+      WHERE id = $1 AND (is_active = true OR is_active IS NULL)
     `, [clientId]);
 
     if (result.length === 0) {
@@ -99,7 +99,7 @@ router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
   try {
     const companyIdParam = req.query.companyId as string | undefined;
 
-    let whereClause = "WHERE is_active = true";
+    let whereClause = "WHERE (is_active = true OR is_active IS NULL)";
     const params: any[] = [];
 
     if (companyIdParam && companyIdParam !== 'all') {
