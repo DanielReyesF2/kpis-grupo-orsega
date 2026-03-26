@@ -10,9 +10,7 @@ interface TransportRequestData {
 }
 
 export async function sendTransportRequest(data: TransportRequestData) {
-  const baseUrl = process.env.NODE_ENV === 'production'
-    ? 'https://your-domain.replit.app'
-    : 'http://localhost:5000'
+  const baseUrl = process.env.APP_URL || 'http://localhost:5000'
 
   const confirmUrl = `${baseUrl}/api/shipments/${data.shipment.id}/confirm?token=${data.confirmToken}&pickupAt=${encodeURIComponent(data.pickupWindow || '')}`
   const rejectUrl = `${baseUrl}/api/shipments/${data.shipment.id}/reject?token=${data.rejectToken}`
