@@ -116,7 +116,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <SalesKPICard
-            title={`Ventas USD ${salesStats?.currentMonthLabel || ''}`}
+            title={`Ventas ${resolvedCompanyId === 1 ? 'USD' : 'MXN'} ${salesStats?.currentMonthLabel || ''}`}
             value={formatCurrency(salesStats?.currentMonthRevenue || 0, resolvedCompanyId)}
             subtitle={`${salesStats?.activeClients || 0} clientes activos`}
             icon={DollarSign}
