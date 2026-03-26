@@ -127,7 +127,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
             variant="success"
           />
           <SalesKPICard
-            title={`Volumen KG ${salesStats?.currentMonthLabel || ''}`}
+            title={`Volumen ${salesStats?.unit || 'KG'} ${salesStats?.currentMonthLabel || ''}`}
             value={`${formatNumber(salesStats?.currentMonthVolume || 0)} ${salesStats?.unit || 'KG'}`}
             subtitle={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'} acumulado YTD`}
             icon={Weight}

@@ -778,8 +778,10 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
       WHERE company_id = $1
     `;
     const unitResult = await sql(unitQuery, [companyId, defaultUnit]);
-    unit = unitResult[0]?.unidad || defaultUnit;
-    console.log(`[getSalesMetrics] ✓ Unidad: ${unit}`);
+    const rawUnit = unitResult[0]?.unidad || defaultUnit;
+    // Normalizar unidad: Dura siempre KG, Orsega siempre unidades
+    unit = companyId === 1 ? 'KG' : 'unidades';
+    console.log(`[getSalesMetrics] ✓ Unidad: ${unit} (raw: ${rawUnit})`);
   } catch (error) {
     console.error(`[getSalesMetrics] ❌ Error obteniendo unidad:`, error);
     unit = defaultUnit;
