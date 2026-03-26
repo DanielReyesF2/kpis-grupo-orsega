@@ -45,11 +45,12 @@ const router = Router();
 
       let shipments: any[];
 
-      // Usar companyId del query param, o del usuario autenticado como fallback
+      // Usar companyId del query param: "all" o vacío = ambas empresas
       const user = getAuthUser(req as AuthRequest);
-      const resolvedCompanyId = companyId
-        ? parseInt(companyId as string)
-        : (user.companyId as number | undefined);
+      const companyIdParam = companyId as string | undefined;
+      const resolvedCompanyId = companyIdParam && companyIdParam !== 'all'
+        ? parseInt(companyIdParam)
+        : undefined;
 
       if (resolvedCompanyId) {
         shipments = await storage.getShipmentsByCompany(resolvedCompanyId);

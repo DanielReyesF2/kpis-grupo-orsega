@@ -94,16 +94,17 @@ router.get("/api/clients-db/:id", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/clients - Alias para LogisticsPage (retorna clientes activos filtrados por empresa)
+// GET /api/clients - Retorna clientes activos, opcionalmente filtrados por empresa
 router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
   try {
-    const user = (req as any).user;
-    const companyId = req.query.companyId
-      ? parseInt(req.query.companyId as string)
-      : user?.companyId;
+    const companyIdParam = req.query.companyId as string | undefined;
 
-    if (!companyId) {
-      return res.status(400).json({ error: 'companyId is required' });
+    let whereClause = "WHERE is_active = true";
+    const params: any[] = [];
+
+    if (companyIdParam && companyIdParam !== 'all') {
+      whereClause += " AND company_id = $1";
+      params.push(parseInt(companyIdParam));
     }
 
     const result = await sql(`
@@ -115,9 +116,9 @@ router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
         condicion_dias, email_contacto,
         is_active, company_id
       FROM clients
-      WHERE is_active = true AND company_id = $1
+      ${whereClause}
       ORDER BY name
-    `, [companyId]);
+    `, params);
 
     res.json(result);
   } catch (error) {

@@ -245,9 +245,18 @@ const ShipmentCard = ({
       {/* Header compacto */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-base">{getPriorityIcon(shipment.status)}</span>
-        <div className="flex-1">
-          <div className="font-semibold text-sm">{shipment.trackingCode}</div>
-          <div className="text-xs text-muted-foreground">{shipment.customerName}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-sm">{shipment.trackingCode}</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+              shipment.companyId === 1
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-emerald-100 text-emerald-700'
+            }`}>
+              {shipment.companyId === 1 ? 'DURA' : 'ORS'}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground truncate">{shipment.customerName}</div>
         </div>
         <GripVertical className="h-3 w-3 text-muted-foreground" />
       </div>
@@ -623,7 +632,7 @@ const KanbanColumn = ({
   );
 };
 
-export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }) {
+export function DragDropKanban({ onShowHistory, companyFilter = 'all' }: { onShowHistory?: () => void; companyFilter?: 'all' | '1' | '2' }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [detailsDialog, setDetailsDialog] = useState<{
@@ -723,25 +732,29 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
 
   // Obtener envíos con paginación inteligente
   const { data: shipmentsResponse, isLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
-    queryKey: ['/api/shipments', { page: shipmentsPage, limit: 50, loadMoreClosed }],
+    queryKey: ['/api/shipments', { page: shipmentsPage, limit: 50, loadMoreClosed, companyFilter }],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: shipmentsPage.toString(),
         limit: '50'
       });
-      
+
+      // Company filter from parent
+      if (companyFilter && companyFilter !== 'all') {
+        params.append('companyId', companyFilter);
+      }
+
       // SMART FILTER: Para optimización, solo cargar últimos 30 días inicialmente
-      // Esto mejora performance cuando hay 300+ shipments cerrados acumulados
       if (!loadMoreClosed) {
         params.append('since', '30d');
       }
-      
+
       const response = await fetch(`/api/shipments?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
         }
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch shipments');
       return await response.json();
     },
