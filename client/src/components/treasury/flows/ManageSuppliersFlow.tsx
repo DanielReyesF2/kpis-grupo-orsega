@@ -108,7 +108,7 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <Button onClick={onBack} variant="ghost" size="lg" className="h-12 text-lg">
+        <Button onClick={onBack} variant="default" size="lg" className="h-12 text-lg bg-slate-700 hover:bg-slate-800">
           <ArrowLeft className="h-5 w-5 mr-2" />
           Volver
         </Button>

@@ -223,11 +223,11 @@ export default function TreasuryPage() {
               <Upload className="h-4 w-4 mr-2" />
               Subir Factura
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setViewMode("suppliers")}>
+            <Button variant="default" size="sm" onClick={() => setViewMode("suppliers")} className="bg-slate-700 hover:bg-slate-800">
               <Users className="h-4 w-4 mr-2" />
               Proveedores
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setViewMode("history")}>
+            <Button variant="default" size="sm" onClick={() => setViewMode("history")} className="bg-slate-600 hover:bg-slate-700">
               <History className="h-4 w-4 mr-2" />
               Historial
             </Button>
