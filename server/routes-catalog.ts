@@ -37,7 +37,12 @@ catalogRouter.get('/clients', async (req, res) => {
     }
 
     const result = await sql(`
-      SELECT c.id, c.code, c.name, c.contact, c.email, c.company_id, c.is_active, c.notes, c.created_at, c.updated_at,
+      SELECT c.id, c.code, c.name, c.contact, c.email, c.company_id, c.is_active, c.notes,
+             c.street_address, c.colonia, c.municipality, c.city, c.state, c.postal_code,
+             c.rfc, c.razon_social, c.num_exterior, c.num_interior, c.entre_calle,
+             c.forma_pago, c.metodo_pago, c.moneda, c.regimen_fiscal,
+             c.condicion_dias, c.email_contacto,
+             c.created_at, c.updated_at,
              comp.name as company_name
       FROM clients c
       LEFT JOIN companies comp ON c.company_id = comp.id

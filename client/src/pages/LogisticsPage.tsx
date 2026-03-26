@@ -38,13 +38,30 @@ import { Loader2 } from 'lucide-react';
 interface Client {
   id: string;
   name: string;
-  rfc?: string;
+  code?: string;
+  contact?: string;
   email?: string;
-  phone?: string;
-  billing_addr?: string;
-  shipping_addr?: string;
+  email_contacto?: string;
+  rfc?: string;
+  razon_social?: string;
+  street_address?: string;
+  colonia?: string;
+  municipality?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  num_exterior?: string;
+  num_interior?: string;
+  entre_calle?: string;
+  forma_pago?: string;
+  metodo_pago?: string;
+  moneda?: string;
+  regimen_fiscal?: string;
+  condicion_dias?: string;
   is_active: boolean;
   company_id?: number;
+  company_name?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +127,7 @@ export default function LogisticsPage() {
   const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [clientSearch, setClientSearch] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -316,15 +334,15 @@ export default function LogisticsPage() {
       )}
 
       {/* Clients Modal */}
-      <Dialog open={activeModal === 'clients'} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <Dialog open={activeModal === 'clients'} onOpenChange={(open) => { if (!open) { setActiveModal(null); setClientSearch(''); } }}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
                 Clientes ({clients.length})
               </DialogTitle>
-              <Button 
+              <Button
                 data-testid="button-new-client"
                 onClick={() => {
                   setEditingClient(null);
@@ -336,10 +354,16 @@ export default function LogisticsPage() {
               </Button>
             </div>
           </DialogHeader>
-          <div className="grid gap-4 mt-4">
+          <Input
+            placeholder="Buscar por nombre, RFC, ciudad, estado..."
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+            className="mb-4"
+          />
+          <div className="grid gap-3">
             {clientsLoading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
                 <p className="mt-2 text-gray-600">Cargando clientes...</p>
               </div>
             ) : clients.length === 0 ? (
@@ -348,15 +372,29 @@ export default function LogisticsPage() {
                 <p className="text-gray-600">No hay clientes registrados</p>
               </div>
             ) : (
-              clients.map((client: Client) => (
-                <Card key={client.id} className="border border-gray-200">
+              clients
+                .filter((c: Client) => {
+                  if (!clientSearch) return true;
+                  const q = clientSearch.toLowerCase();
+                  return (
+                    c.name?.toLowerCase().includes(q) ||
+                    c.rfc?.toLowerCase().includes(q) ||
+                    c.city?.toLowerCase().includes(q) ||
+                    c.state?.toLowerCase().includes(q) ||
+                    c.razon_social?.toLowerCase().includes(q) ||
+                    c.email?.toLowerCase().includes(q)
+                  );
+                })
+                .map((client: Client) => (
+                <Card key={client.id} className="border border-gray-200 hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg text-gray-900">{client.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        {/* Header: Name + Company Badge */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-base text-gray-900 truncate">{client.name}</h3>
                           {client.company_id && (
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                               client.company_id === 1
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-emerald-100 text-emerald-700'
@@ -364,59 +402,97 @@ export default function LogisticsPage() {
                               {client.company_id === 1 ? 'DURA' : 'ORSEGA'}
                             </span>
                           )}
+                          {client.code && (
+                            <span className="text-xs text-gray-400 shrink-0">#{client.code}</span>
+                          )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
-                          {client.rfc && <p><span className="font-medium">RFC:</span> {client.rfc}</p>}
-                          {client.email && <p><span className="font-medium">Email:</span> {client.email}</p>}
-                          {client.phone && <p><span className="font-medium">Teléfono:</span> {client.phone}</p>}
-                          {client.billing_addr && <p><span className="font-medium">Dir. Facturación:</span> {client.billing_addr}</p>}
-                          {client.shipping_addr && <p><span className="font-medium">Dir. Envío:</span> {client.shipping_addr}</p>}
+
+                        {/* Razón Social */}
+                        {client.razon_social && client.razon_social !== client.name && (
+                          <p className="text-xs text-gray-500 mb-2">Razón Social: {client.razon_social}</p>
+                        )}
+
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1 text-xs text-gray-600">
+                          {/* Column 1: Fiscal */}
+                          <div className="space-y-1">
+                            {client.rfc && <p><span className="font-medium text-gray-700">RFC:</span> {client.rfc}</p>}
+                            {client.regimen_fiscal && <p><span className="font-medium text-gray-700">Régimen:</span> {client.regimen_fiscal}</p>}
+                            {client.forma_pago && <p><span className="font-medium text-gray-700">Forma Pago:</span> {client.forma_pago}</p>}
+                            {client.metodo_pago && <p><span className="font-medium text-gray-700">Método:</span> {client.metodo_pago}</p>}
+                            {client.moneda && <p><span className="font-medium text-gray-700">Moneda:</span> {client.moneda}</p>}
+                            {client.condicion_dias && <p><span className="font-medium text-gray-700">Condición:</span> {client.condicion_dias} días</p>}
+                          </div>
+
+                          {/* Column 2: Address */}
+                          <div className="space-y-1">
+                            {client.street_address && (
+                              <p><span className="font-medium text-gray-700">Dirección:</span> {client.street_address}
+                                {client.num_exterior ? ` #${client.num_exterior}` : ''}
+                                {client.num_interior ? ` Int. ${client.num_interior}` : ''}
+                              </p>
+                            )}
+                            {client.colonia && <p><span className="font-medium text-gray-700">Colonia:</span> {client.colonia}</p>}
+                            {client.municipality && <p><span className="font-medium text-gray-700">Municipio:</span> {client.municipality}</p>}
+                            {(client.city || client.state) && (
+                              <p><span className="font-medium text-gray-700">Ciudad:</span> {[client.city, client.state].filter(Boolean).join(', ')}</p>
+                            )}
+                            {client.postal_code && <p><span className="font-medium text-gray-700">C.P.:</span> {client.postal_code}</p>}
+                            {client.entre_calle && <p><span className="font-medium text-gray-700">Entre calles:</span> {client.entre_calle}</p>}
+                          </div>
+
+                          {/* Column 3: Contact */}
+                          <div className="space-y-1">
+                            {client.email && client.email !== 'sin-email@pendiente.com' && (
+                              <p><span className="font-medium text-gray-700">Email:</span> {client.email}</p>
+                            )}
+                            {client.email_contacto && (
+                              <p><span className="font-medium text-gray-700">Email Contacto:</span> {client.email_contacto}</p>
+                            )}
+                            {client.contact && <p><span className="font-medium text-gray-700">Contacto:</span> {client.contact}</p>}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={client.is_active ? "default" : "secondary"}>
-                          {client.is_active ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            data-testid={`button-edit-client-${client.id}`}
-                            onClick={() => {
-                              setEditingClient(client);
-                              setIsClientFormOpen(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              if (confirm(`¿Estás seguro de que deseas eliminar a ${client.name}?`)) {
-                                try {
-                                  // Soft delete: marcar como inactivo
-                                  await apiRequest('PATCH', `/api/clients/${client.id}`, {
-                                    is_active: false
-                                  });
-                                  toast({
-                                    title: "Cliente eliminado",
-                                    description: `${client.name} ha sido marcado como inactivo.`,
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
-                                } catch (error: any) {
-                                  toast({
-                                    title: "Error",
-                                    description: error.message || "No se pudo eliminar el cliente.",
-                                    variant: "destructive",
-                                  });
-                                }
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 ml-3 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid={`button-edit-client-${client.id}`}
+                          onClick={() => {
+                            setEditingClient(client);
+                            setIsClientFormOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (confirm(`¿Estás seguro de que deseas eliminar a ${client.name}?`)) {
+                              try {
+                                await apiRequest('PATCH', `/api/clients/${client.id}`, {
+                                  is_active: false
+                                });
+                                toast({
+                                  title: "Cliente eliminado",
+                                  description: `${client.name} ha sido marcado como inactivo.`,
+                                });
+                                queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error",
+                                  description: error.message || "No se pudo eliminar el cliente.",
+                                  variant: "destructive",
+                                });
                               }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -731,10 +807,10 @@ function ClientFormDialog({
     defaultValues: {
       name: client?.name || '',
       email: client?.email || '',
-      phone: client?.phone || '',
+      phone: client?.contact || '',
       rfc: client?.rfc || '',
-      billing_addr: client?.billing_addr || '',
-      shipping_addr: client?.shipping_addr || '',
+      billing_addr: client?.street_address || '',
+      shipping_addr: '',
       is_active: client?.is_active ?? true,
       company_id: client?.company_id?.toString() || '',
     },
@@ -746,10 +822,10 @@ function ClientFormDialog({
       form.reset({
         name: client.name || '',
         email: client.email || '',
-        phone: client.phone || '',
+        phone: client.contact || '',
         rfc: client.rfc || '',
-        billing_addr: client.billing_addr || '',
-        shipping_addr: client.shipping_addr || '',
+        billing_addr: client.street_address || '',
+        shipping_addr: '',
         is_active: client.is_active ?? true,
         company_id: client.company_id?.toString() || '',
       });
