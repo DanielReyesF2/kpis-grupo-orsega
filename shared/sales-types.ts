@@ -101,6 +101,10 @@ export interface SalesMetrics {
   activeAlerts: number;
   /** Revenue del mes actual (importe) */
   currentMonthRevenue: number;
+  /** Volumen KG del mes actual */
+  currentMonthVolume: number;
+  /** Utilidad bruta del mes actual */
+  currentMonthGrossProfit: number;
   /** Etiqueta del mes actual (e.g. "Marzo 2026") */
   currentMonthLabel: string;
 
