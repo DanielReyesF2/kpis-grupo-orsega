@@ -127,18 +127,18 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
             variant="success"
           />
           <SalesKPICard
-            title="Volumen KG"
-            value={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'}`}
-            subtitle="Acumulado del año"
+            title={`Volumen KG ${salesStats?.currentMonthLabel || ''}`}
+            value={`${formatNumber(salesStats?.currentMonthVolume || 0)} ${salesStats?.unit || 'KG'}`}
+            subtitle={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'} acumulado YTD`}
             icon={Weight}
             variant="default"
           />
           <SalesKPICard
-            title="Utilidad Bruta"
-            value={formatCurrency(salesStats?.grossProfit || 0, resolvedCompanyId)}
-            subtitle="Acumulada YTD"
+            title={`Utilidad Bruta ${salesStats?.currentMonthLabel || ''}`}
+            value={formatCurrency(salesStats?.currentMonthGrossProfit || 0, resolvedCompanyId)}
+            subtitle={`${formatCurrency(salesStats?.grossProfit || 0, resolvedCompanyId)} acumulada YTD`}
             icon={Banknote}
-            variant={(salesStats?.grossProfit || 0) > 0 ? "success" : "warning"}
+            variant={(salesStats?.currentMonthGrossProfit || 0) > 0 ? "success" : "warning"}
           />
         </div>
       )}

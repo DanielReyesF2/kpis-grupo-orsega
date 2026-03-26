@@ -714,6 +714,28 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.error(`[getSalesMetrics] ❌ Error revenue mes actual:`, error);
   }
 
+  // 5c. VOLUMEN KG y UTILIDAD BRUTA del MES ACTUAL
+  let currentMonthVolume = 0;
+  let currentMonthGrossProfit = 0;
+  try {
+    console.log(`[getSalesMetrics] [5c/12] Volumen KG y Ut. Bruta mes ${lastDataYear}-${lastDataMonth}...`);
+    const monthMetricsQuery = `
+      SELECT
+        COALESCE(SUM(cantidad), 0) as total_volume,
+        COALESCE(SUM(utilidad_bruta), 0) as gross_profit
+      FROM ventas
+      WHERE company_id = $1
+        AND anio = $2
+        AND mes = $3
+    `;
+    const monthMetricsResult = await sql(monthMetricsQuery, [companyId, lastDataYear, lastDataMonth]);
+    currentMonthVolume = parseFloat(monthMetricsResult[0]?.total_volume || '0');
+    currentMonthGrossProfit = parseFloat(monthMetricsResult[0]?.gross_profit || '0');
+    console.log(`[getSalesMetrics] ✓ Volumen mes: ${currentMonthVolume}, Ut. Bruta mes: ${currentMonthGrossProfit}`);
+  } catch (error) {
+    console.error(`[getSalesMetrics] ❌ Error volumen/ut.bruta mes actual:`, error);
+  }
+
   // 6. Calcular CRECIMIENTO mes vs mismo mes año anterior
   const growth = volumePreviousYear > 0
     ? parseFloat(((volumeCurrentYear - volumePreviousYear) / volumePreviousYear * 100).toFixed(1))
@@ -977,6 +999,8 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     growth,
     activeAlerts: activeAlertsCount,
     currentMonthRevenue,
+    currentMonthVolume,
+    currentMonthGrossProfit,
     currentMonthLabel,
 
     // Métricas extendidas
