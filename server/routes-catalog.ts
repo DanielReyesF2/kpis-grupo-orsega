@@ -25,19 +25,26 @@ export const catalogRouter = Router()
 // CLIENTS
 catalogRouter.get('/clients', async (req, res) => {
   try {
-    const authUser = (req as AuthRequest).user;
-    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : authUser?.companyId;
-    const companyId = companyIdParam ?? 1;
-    console.log(`🔵 [GET /clients] Endpoint llamado, companyId=${companyId}`);
+    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : undefined;
+    console.log(`🔵 [GET /clients] Endpoint llamado, companyId=${companyIdParam ?? 'ALL'}`);
+
+    let whereClause = 'WHERE c.is_active = TRUE';
+    const params: any[] = [];
+
+    if (companyIdParam) {
+      whereClause += ' AND c.company_id = $1';
+      params.push(companyIdParam);
+    }
+
     const result = await sql(`
       SELECT c.id, c.code, c.name, c.contact, c.email, c.company_id, c.is_active, c.notes, c.created_at, c.updated_at,
              comp.name as company_name
       FROM clients c
       LEFT JOIN companies comp ON c.company_id = comp.id
-      WHERE c.is_active = TRUE AND c.company_id = $1
+      ${whereClause}
       ORDER BY c.name
-    `, [companyId])
-    console.log(`📊 [GET /clients] Retornando ${result.rows.length} clientes para empresa ${companyId}`);
+    `, params)
+    console.log(`📊 [GET /clients] Retornando ${result.rows.length} clientes`);
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching clients:', error)
