@@ -64,6 +64,7 @@ interface Shipment {
   companyId?: number | null;
   customerId?: number | null;
   drumCount?: number | null;
+  departureDate?: string | null;
   // Include cycle times data to eliminate N+1 queries
   cycleTimes?: {
     hoursTotalCycle?: string | null;
@@ -290,13 +291,57 @@ const ShipmentCard = ({
         <span className="text-muted-foreground font-medium truncate flex-1">{shipment.destination}</span>
       </div>
 
-      {/* Fecha en línea */}
-      {shipment.estimatedDeliveryDate && (
-        <div className="text-xs text-muted-foreground">
-          📅 {new Date(shipment.estimatedDeliveryDate).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short'
-          })}
+      {/* Fechas con indicador visual de timing */}
+      {(shipment.departureDate || shipment.estimatedDeliveryDate) && (
+        <div className="space-y-1 text-xs">
+          {shipment.departureDate && (() => {
+            const dep = new Date(shipment.departureDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            dep.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((dep.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const isShipped = shipment.status === 'in_transit' || shipment.status === 'delivered' || shipment.status === 'cancelled';
+            const indicator = isShipped
+              ? { icon: '✅', color: 'text-green-600' }
+              : diffDays < 0
+                ? { icon: '🔴', color: 'text-red-600 font-semibold' }
+                : diffDays === 0
+                  ? { icon: '🟡', color: 'text-amber-600 font-semibold' }
+                  : { icon: '🟢', color: 'text-green-600' };
+            return (
+              <div className={`flex items-center gap-1 ${indicator.color}`}>
+                <span>{indicator.icon}</span>
+                <span>Embarque: {dep.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                {!isShipped && diffDays < 0 && <span className="text-[10px]">({Math.abs(diffDays)}d atraso)</span>}
+                {!isShipped && diffDays === 0 && <span className="text-[10px]">(hoy)</span>}
+              </div>
+            );
+          })()}
+          {shipment.estimatedDeliveryDate && (() => {
+            const eta = new Date(shipment.estimatedDeliveryDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            eta.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((eta.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const isDelivered = shipment.status === 'delivered' || shipment.status === 'cancelled';
+            const indicator = isDelivered
+              ? { icon: '✅', color: 'text-green-600' }
+              : diffDays < 0
+                ? { icon: '🔴', color: 'text-red-600 font-semibold' }
+                : diffDays === 0
+                  ? { icon: '🟡', color: 'text-amber-600 font-semibold' }
+                  : diffDays <= 2
+                    ? { icon: '🟡', color: 'text-amber-600' }
+                    : { icon: '🟢', color: 'text-green-600' };
+            return (
+              <div className={`flex items-center gap-1 ${indicator.color}`}>
+                <span>{indicator.icon}</span>
+                <span>Entrega: {eta.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                {!isDelivered && diffDays < 0 && <span className="text-[10px]">({Math.abs(diffDays)}d atraso)</span>}
+                {!isDelivered && diffDays === 0 && <span className="text-[10px]">(hoy)</span>}
+              </div>
+            );
+          })()}
         </div>
       )}
 
