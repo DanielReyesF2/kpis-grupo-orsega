@@ -483,13 +483,19 @@ export class DatabaseStorage implements IStorage {
         return user;
       }
       
-      // Si no es un email, buscar por la parte antes del @ en el email
-      // Ejemplo: "omarnavarro" debe encontrar "omarnavarro@duraintal.com"
+      // Buscar por nombre (case-insensitive)
+      const lowerUsername = username.toLowerCase();
+      const [userByName] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(${users.name}) = ${lowerUsername}`);
+      if (userByName) return userByName;
+
+      // Fallback: buscar por la parte antes del @ en el email
       const allUsers = await db.select().from(users);
-      
       return allUsers.find(user => {
         const emailParts = user.email.toLowerCase().split('@');
-        return emailParts.length > 0 && emailParts[0] === username.toLowerCase();
+        return emailParts.length > 0 && emailParts[0] === lowerUsername;
       });
     } catch (error) {
       console.error("Error getting user by username:", error);
