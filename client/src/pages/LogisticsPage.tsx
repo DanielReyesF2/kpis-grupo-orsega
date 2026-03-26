@@ -110,7 +110,6 @@ export default function LogisticsPage() {
   const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-  const [companyFilter, setCompanyFilter] = useState<'all' | '1' | '2'>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -119,38 +118,36 @@ export default function LogisticsPage() {
     queryKey: ['/api/companies'],
   });
 
-  const companyParam = companyFilter === 'all' ? '' : `companyId=${companyFilter}`;
-
+  // All queries fetch ALL companies — unified view
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ['/api/clients', companyFilter],
+    queryKey: ['/api/clients'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/clients${companyParam ? `?${companyParam}` : ''}`);
+      const res = await apiRequest('GET', '/api/clients');
       return res.json();
     },
   });
 
   const { data: providers = [], isLoading: providersLoading } = useQuery<Provider[]>({
-    queryKey: ['/api/providers', companyFilter],
+    queryKey: ['/api/providers'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/providers${companyParam ? `?${companyParam}` : ''}`);
+      const res = await apiRequest('GET', '/api/providers');
       return res.json();
     },
   });
 
-  // Obtener productos filtrados por empresa
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ['/api/products', companyFilter],
+    queryKey: ['/api/products'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/products${companyParam ? `?${companyParam}` : ''}`);
+      const res = await apiRequest('GET', '/api/products');
       return res.json();
     },
   });
 
   // Obtener envíos (para stat cards)
   const { data: shipmentsResponse, isLoading: shipmentsLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
-    queryKey: ['/api/shipments', companyFilter],
+    queryKey: ['/api/shipments'],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/shipments${companyParam ? `?${companyParam}` : ''}`);
+      const res = await apiRequest('GET', '/api/shipments');
       return res.json();
     },
   });
@@ -177,7 +174,7 @@ export default function LogisticsPage() {
 
   return (
     <AppLayout title="Módulo de Logística">
-      {/* Header: Dashboard button + Company Filter */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <Link href="/">
           <Button>
@@ -185,31 +182,6 @@ export default function LogisticsPage() {
             Dashboard
           </Button>
         </Link>
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          <Button
-            variant={companyFilter === 'all' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCompanyFilter('all')}
-          >
-            Todas
-          </Button>
-          <Button
-            variant={companyFilter === '1' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCompanyFilter('1')}
-            className={companyFilter === '1' ? 'bg-blue-600 hover:bg-blue-700' : ''}
-          >
-            Dura
-          </Button>
-          <Button
-            variant={companyFilter === '2' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setCompanyFilter('2')}
-            className={companyFilter === '2' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-          >
-            Orsega
-          </Button>
-        </div>
         {import.meta.env.MODE === 'production' && (
           <div className="text-xs text-muted-foreground font-mono">
             v{buildVersion}
@@ -314,7 +286,7 @@ export default function LogisticsPage() {
 
       {/* Main Content - Active View with History Button */}
       {activeTab === 'active' ? (
-        <DragDropKanban onShowHistory={() => setActiveTab('history')} companyFilter={companyFilter} />
+        <DragDropKanban onShowHistory={() => setActiveTab('history')} />
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">

@@ -632,7 +632,7 @@ const KanbanColumn = ({
   );
 };
 
-export function DragDropKanban({ onShowHistory, companyFilter = 'all' }: { onShowHistory?: () => void; companyFilter?: 'all' | '1' | '2' }) {
+export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [detailsDialog, setDetailsDialog] = useState<{
@@ -732,17 +732,12 @@ export function DragDropKanban({ onShowHistory, companyFilter = 'all' }: { onSho
 
   // Obtener envíos con paginación inteligente
   const { data: shipmentsResponse, isLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
-    queryKey: ['/api/shipments', { page: shipmentsPage, limit: 50, loadMoreClosed, companyFilter }],
+    queryKey: ['/api/shipments', { page: shipmentsPage, limit: 50, loadMoreClosed }],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: shipmentsPage.toString(),
         limit: '50'
       });
-
-      // Company filter from parent
-      if (companyFilter && companyFilter !== 'all') {
-        params.append('companyId', companyFilter);
-      }
 
       // SMART FILTER: Para optimización, solo cargar últimos 30 días inicialmente
       if (!loadMoreClosed) {
