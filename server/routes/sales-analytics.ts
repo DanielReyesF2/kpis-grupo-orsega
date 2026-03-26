@@ -12,6 +12,23 @@ import { z } from 'zod';
 const router = Router();
 
 // ============================================
+// Helper: Exclude cancelled transactions
+// Cached check — only queries information_schema once per server start
+// ============================================
+let _hasStatusCol: boolean | null = null;
+async function getExcludeCancelledFilter(alias?: string): Promise<string> {
+  if (_hasStatusCol === null) {
+    const colCheck = await sql(
+      `SELECT COUNT(*) as cnt FROM information_schema.columns WHERE table_name = 'ventas' AND column_name = 'status'`
+    );
+    _hasStatusCol = parseInt(colCheck[0]?.cnt || '0') > 0;
+  }
+  if (!_hasStatusCol) return '';
+  const col = alias ? `${alias}.status` : 'status';
+  return `AND (${col} IS NULL OR UPPER(${col}) <> 'CANCELADA')`;
+}
+
+// ============================================
 // ============================================
 // EMAIL TEST ENDPOINT (para probar Resend)
 // ============================================
@@ -145,6 +162,9 @@ router.get("/api/sales-comparison", jwtAuthMiddleware, async (req, res) => {
     const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
     const targetMonth = month ? parseInt(month as string) : new Date().getMonth() + 1;
 
+    const cancelFilterCur = await getExcludeCancelledFilter('current_year');
+    const cancelFilterPrev = await getExcludeCancelledFilter('previous_year');
+
     const comparison = await sql(`
       SELECT
         current_year.client_id,
@@ -164,9 +184,11 @@ router.get("/api/sales-comparison", jwtAuthMiddleware, async (req, res) => {
         AND current_year.company_id = previous_year.company_id
         AND current_year.mes = previous_year.mes
         AND current_year.anio = previous_year.anio + 1
+        ${cancelFilterPrev}
       WHERE current_year.company_id = $1
         AND current_year.anio = $2
         AND current_year.mes = $3
+        ${cancelFilterCur}
       GROUP BY
         current_year.client_id,
         current_year.cliente,
@@ -260,6 +282,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'No company access' });
     }
 
+    const cancelFilter = await getExcludeCancelledFilter();
     let monthlyData;
 
     // Si se especifica un año, filtrar por ese año completo
@@ -277,6 +300,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
         FROM ventas
         WHERE company_id = $1
           AND EXTRACT(YEAR FROM fecha) = $2
+          ${cancelFilter}
         GROUP BY EXTRACT(YEAR FROM fecha), EXTRACT(MONTH FROM fecha)
         ORDER BY sale_month ASC
       `, [resolvedCompanyId, selectedYear]);
@@ -310,6 +334,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
         FROM ventas
         WHERE company_id = $1
           AND EXTRACT(YEAR FROM fecha) = $2
+          ${cancelFilter}
         GROUP BY EXTRACT(YEAR FROM fecha), EXTRACT(MONTH FROM fecha)
         ORDER BY sale_month DESC
         LIMIT $3
@@ -331,6 +356,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
           FROM ventas
           WHERE company_id = $1
             AND EXTRACT(YEAR FROM fecha) = $2
+            ${cancelFilter}
           GROUP BY EXTRACT(YEAR FROM fecha), EXTRACT(MONTH FROM fecha)
           ORDER BY sale_month DESC
           LIMIT $3
@@ -403,11 +429,14 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
         availableYearsCheck.map((r: any) => ({ year: r.sale_year, count: r.count })));
     }
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Verificar si hay datos de 2026 para incluir automáticamente
     const year2026Check = await sql(`
       SELECT COUNT(*) as count
       FROM ventas
       WHERE company_id = $1 AND anio = 2026
+        ${cancelFilter}
     `, [resolvedCompanyId]);
 
     const has2026Data = parseInt(year2026Check[0]?.count || '0') > 0;
@@ -447,6 +476,7 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
         FROM ventas
         WHERE company_id = $1
           AND anio = ANY(ARRAY[$2, $3, $4]::integer[])
+          ${cancelFilter}
         GROUP BY anio, mes
         ORDER BY anio, mes
       `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1], yearsToCompare[2]]);
@@ -463,6 +493,7 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
         FROM ventas
         WHERE company_id = $1
           AND anio = ANY(ARRAY[$2, $3]::integer[])
+          ${cancelFilter}
         GROUP BY anio, mes
         ORDER BY anio, mes
       `, [resolvedCompanyId, yearsToCompare[0], yearsToCompare[1]]);
@@ -628,6 +659,8 @@ router.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) =>
       return res.status(403).json({ error: 'No company access' });
     }
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Obtener datos mensuales agrupados por año
     const monthlyData = await sql(`
       SELECT
@@ -639,6 +672,7 @@ router.get("/api/sales-multi-year-trend", jwtAuthMiddleware, async (req, res) =>
         MAX(unidad) as unit
       FROM ventas
       WHERE company_id = $1
+        ${cancelFilter}
       GROUP BY anio, mes
       ORDER BY anio, mes
     `, [resolvedCompanyId]);
@@ -705,6 +739,8 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
     const currentYear = new Date().getFullYear();
     const lastYear = currentYear - 1;
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Análisis de clientes: última compra, volumen actual vs anterior, tendencia
     const clientAnalysis = await sql(`
       WITH client_stats AS (
@@ -719,6 +755,7 @@ router.get("/api/sales-churn-risk", jwtAuthMiddleware, async (req, res) => {
           MAX(unidad) as unit
         FROM ventas
         WHERE company_id = $1
+          ${cancelFilter}
         GROUP BY cliente
       )
       SELECT
@@ -839,6 +876,8 @@ router.get("/api/sales-client-trends", jwtAuthMiddleware, async (req, res) => {
     const currentYear = new Date().getFullYear();
     const lastYear = currentYear - 1;
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     const clientTrends = await sql(`
       SELECT
         cliente as client_name,
@@ -850,6 +889,7 @@ router.get("/api/sales-client-trends", jwtAuthMiddleware, async (req, res) => {
       FROM ventas
       WHERE company_id = $1
         AND anio IN ($2, $3)
+        ${cancelFilter}
       GROUP BY cliente
       ORDER BY SUM(CASE WHEN anio = $2 THEN cantidad ELSE 0 END) DESC
       LIMIT $4
@@ -925,6 +965,8 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
 
     params.push(parseInt(limit as string) || 5);
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Buscar top clientes según el período seleccionado
     let topClients = await sql(`
       SELECT
@@ -937,6 +979,7 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
       WHERE company_id = $1
         ${dateFilter}
         AND cliente IS NOT NULL AND cliente <> ''
+        ${cancelFilter}
       GROUP BY cliente
       ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
       LIMIT $${params.length}
@@ -957,6 +1000,7 @@ router.get("/api/sales-top-clients", jwtAuthMiddleware, async (req, res) => {
           AND fecha >= CURRENT_DATE - INTERVAL '12 months'
           AND fecha <= CURRENT_DATE
           AND cliente IS NOT NULL AND cliente <> ''
+          ${cancelFilter}
         GROUP BY cliente
         ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $2
@@ -1024,6 +1068,8 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
 
     params.push(parseInt(limit as string) || 5);
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Buscar top productos según el período seleccionado
     let topProducts = await sql(`
       SELECT
@@ -1037,6 +1083,7 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
       WHERE company_id = $1
         ${dateFilter}
         AND producto IS NOT NULL AND producto <> ''
+        ${cancelFilter}
       GROUP BY producto
       ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
       LIMIT $${params.length}
@@ -1057,6 +1104,7 @@ router.get("/api/sales-top-products", jwtAuthMiddleware, async (req, res) => {
           AND fecha >= CURRENT_DATE - INTERVAL '12 months'
           AND fecha <= CURRENT_DATE
           AND producto IS NOT NULL AND producto <> ''
+          ${cancelFilter}
         GROUP BY producto
         ORDER BY ${sortBy === 'revenue' ? 'total_revenue' : 'total_volume'} DESC
         LIMIT $2
@@ -1853,6 +1901,8 @@ router.get("/api/client-purchase-behavior", jwtAuthMiddleware, async (req, res) 
       return res.status(403).json({ error: 'No company access' });
     }
 
+    const cancelFilter = await getExcludeCancelledFilter();
+
     // Get monthly purchase data for each client in 2024-2025
     let query = `
       WITH monthly_data AS (
@@ -1867,6 +1917,7 @@ router.get("/api/client-purchase-behavior", jwtAuthMiddleware, async (req, res) 
         WHERE company_id = $1
           AND anio IN (2024, 2025)
           AND cliente IS NOT NULL AND cliente <> ''
+          ${cancelFilter}
         GROUP BY cliente, anio, mes
       ),
       client_totals AS (
@@ -1912,6 +1963,7 @@ router.get("/api/client-purchase-behavior", jwtAuthMiddleware, async (req, res) 
           WHERE company_id = $1
             AND anio IN (2024, 2025)
             AND cliente IS NOT NULL AND cliente <> ''
+            ${cancelFilter}
           GROUP BY cliente, anio, mes
         ),
         client_totals AS (

@@ -55,22 +55,6 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch monthly trends to calculate total revenue
-  const { data: monthlyTrends } = useQuery({
-    queryKey: ['/api/sales-monthly-trends', resolvedCompanyId],
-    queryFn: async () => {
-      const res = await apiRequest('GET', `/api/sales-monthly-trends?companyId=${resolvedCompanyId}`);
-      if (!res.ok) {
-        return [];
-      }
-      return await res.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Calculate total revenue from monthly trends
-  const totalRevenue = monthlyTrends?.reduce((sum: number, month: any) => sum + (month.amount || 0), 0) || 0;
-
   // Calculate growth percentage
   const growthPercent = salesStats?.growth || 0;
 
@@ -132,13 +116,13 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <SalesKPICard
-            title="Ventas USD"
-            value={formatCurrency(salesStats?.totalRevenue || totalRevenue, resolvedCompanyId)}
+            title={`Ventas USD ${salesStats?.currentMonthLabel || ''}`}
+            value={formatCurrency(salesStats?.currentMonthRevenue || 0, resolvedCompanyId)}
             subtitle={`${salesStats?.activeClients || 0} clientes activos`}
             icon={DollarSign}
             trend={growthPercent !== undefined ? {
               value: growthPercent,
-              label: "vs año anterior"
+              label: "vs mismo mes año anterior"
             } : undefined}
             variant="success"
           />
@@ -154,7 +138,7 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
             value={formatCurrency(salesStats?.grossProfit || 0, resolvedCompanyId)}
             subtitle="Acumulada YTD"
             icon={Banknote}
-            variant={salesStats?.grossProfit > 0 ? "success" : "warning"}
+            variant={(salesStats?.grossProfit || 0) > 0 ? "success" : "warning"}
           />
         </div>
       )}

@@ -59,6 +59,9 @@ export default function SalesPage() {
   const getInitialCompany = () => {
     if (location === "/sales/dura") return 1;
     if (location === "/sales/orsega") return 2;
+    // Check localStorage for company toggle selection (used on / route)
+    const stored = localStorage.getItem('selectedCompanyId');
+    if (stored) return Number(stored);
     return user?.companyId || 1;
   };
 
@@ -96,8 +99,8 @@ export default function SalesPage() {
         console.log('[SalesPage] Cambiando viewMode de', viewMode, 'a', view);
         setViewMode(view as ViewMode);
       }
-    } else if (!view && location.includes('/sales')) {
-      // Si no hay view param pero estamos en /sales, usar dashboard
+    } else if (!view && (location.includes('/sales') || location === '/')) {
+      // Si no hay view param pero estamos en /sales o /, usar dashboard
       if (viewMode !== "dashboard") {
         console.log('[SalesPage] Cambiando viewMode a dashboard (no hay view param)');
         setViewMode("dashboard");
@@ -140,6 +143,19 @@ export default function SalesPage() {
       window.removeEventListener('hashchange', handleHashChange);
     };
   }, []); // Solo ejecutar una vez al montar
+
+  // Listen for company toggle changes from Sidebar (used on / route)
+  useEffect(() => {
+    const handleCompanyChanged = (e: Event) => {
+      const companyId = (e as CustomEvent).detail?.companyId;
+      if (companyId && companyId !== selectedCompany) {
+        setSelectedCompany(companyId);
+      }
+    };
+    window.addEventListener('companyChanged', handleCompanyChanged);
+    return () => window.removeEventListener('companyChanged', handleCompanyChanged);
+  }, [selectedCompany]);
+
   const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
 
   // Determinar qué empresas puede ver el usuario
@@ -318,7 +334,7 @@ export default function SalesPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Volumen del Mes</p>
+                      <p className={`text-sm font-medium ${companyColors.titleColor} mb-1`}>Volumen {stats?.currentMonthLabel || 'del Mes'}</p>
                       <p className={`text-4xl font-bold ${companyColors.valueColor}`}>
                         {isLoadingStats ? (
                           <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
@@ -387,7 +403,7 @@ export default function SalesPage() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/30">
-                    Mismo período 2024
+                    vs mismo mes año anterior
                   </p>
                 </CardContent>
               </Card>

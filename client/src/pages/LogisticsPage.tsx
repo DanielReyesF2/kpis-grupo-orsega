@@ -280,7 +280,7 @@ export default function LogisticsPage() {
                   <Box className="w-5 h-5 text-primary mr-2" />
                   <span className="text-sm text-muted-foreground font-medium">Productos</span>
                 </div>
-                <span className="text-lg font-semibold">{productsLoading ? '...' : products.filter((p: Product) => p.is_active).length}</span>
+                <span className="text-lg font-semibold">{productsLoading ? '...' : products.filter((p: Product) => p.is_active !== false).length}</span>
               </div>
             </CardContent>
           </Card>
@@ -586,7 +586,7 @@ export default function LogisticsPage() {
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
                 <Box className="w-5 h-5 text-primary" />
-                Productos ({products.filter((p: Product) => p.is_active).length})
+                Productos ({products.filter((p: Product) => p.is_active !== false).length})
               </DialogTitle>
               <Button 
                 onClick={() => {
@@ -606,7 +606,7 @@ export default function LogisticsPage() {
               <div className="text-center py-8 text-gray-500">No hay productos registrados</div>
             ) : (
               products
-                .filter((product: Product) => product.is_active)
+                .filter((product: Product) => product.is_active !== false)
                 .map((product: Product) => {
                   const company = companies.find((c: any) => c.id === product.company_id);
                   return (

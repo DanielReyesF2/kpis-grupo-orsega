@@ -101,7 +101,7 @@ async function updateProducts() {
 
       if (existing) {
         // Si existe pero está inactivo, reactivarlo
-        if (!existing.is_active) {
+        if (existing.is_active === false) {
           await sql`
             UPDATE products 
             SET is_active = true, updated_at = NOW()

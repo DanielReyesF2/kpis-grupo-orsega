@@ -297,9 +297,9 @@ export async function handleVentas2026Upload(
           INSERT INTO ventas (
             company_id, submodulo, client_id, cliente, product_id, producto,
             cantidad, unidad, fecha,
-            factura, folio, precio_unitario, importe,
+            factura, folio, precio_unitario, importe, importe_mn,
             tipo_cambio, familia_producto, upload_id, utilidad_bruta
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         `, [
           resolvedCompanyId,
           submodulo,
@@ -314,10 +314,11 @@ export async function handleVentas2026Upload(
           tx.folio, // folio
           tx.precioUnitario,
           tx.importe,
+          tx.importeMN, // Populate importe_mn
           tx.tipoCambio,
           tx.familiaProducto,
           uploadId,
-          tx.utilidadBruta // Nueva columna de utilidad bruta
+          tx.utilidadBruta
         ]);
 
         transaccionesInsertadas++;

@@ -104,11 +104,18 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
       dataPoint[String(year)] = item[`${metric.prefix}_${year}`] || 0;
     });
 
-    const base2024 = item[`${metric.prefix}_2024`] || 0;
-    yearsToShow.forEach((year) => {
-      if (year !== 2024 && base2024 > 0) {
+    // Calcular porcentaje de diferencia vs año anterior (usando metric.prefix para toggle)
+    yearsToShow.forEach((year, idx) => {
+      if (idx > 0) {
+        const prevYear = yearsToShow[idx - 1];
+        const baseValue = item[`${metric.prefix}_${prevYear}`] || 0;
         const currentValue = item[`${metric.prefix}_${year}`] || 0;
-        dataPoint[`percent_${year}`] = ((currentValue - base2024) / base2024) * 100;
+        if (baseValue > 0 && currentValue > 0) {
+          dataPoint[`percent_${year}`] = ((currentValue - baseValue) / baseValue) * 100;
+          dataPoint[`prevYear_${year}`] = prevYear;
+        } else {
+          dataPoint[`percent_${year}`] = 0;
+        }
       } else {
         dataPoint[`percent_${year}`] = 0;
       }
@@ -213,9 +220,9 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                               <span className="font-medium">{entry.name}:</span>
                               <span>{formatValue(value)}</span>
                             </div>
-                            {year !== 2024 && percentChange !== undefined && percentChange !== 0 && (
+                            {percentChange !== undefined && percentChange !== 0 && entry.payload[`prevYear_${year}`] && (
                               <div className={`text-xs ml-5 mt-0.5 ${percentChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% vs 2024
+                                {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% vs {entry.payload[`prevYear_${year}`]}
                               </div>
                             )}
                           </div>
@@ -242,7 +249,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                   opacity={hasData ? 1 : 0.3}
                   name={`${year}${!hasData ? ' (sin datos)' : ''}`}
                 >
-                  {year !== 2024 && hasData && (
+                  {index > 0 && hasData && (
                     <LabelList
                       dataKey={`percent_${year}`}
                       position="top"

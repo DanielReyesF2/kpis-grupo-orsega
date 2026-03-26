@@ -99,7 +99,11 @@ export interface SalesMetrics {
   growth: number;
   /** Cantidad de alertas activas */
   activeAlerts: number;
-  
+  /** Revenue del mes actual (importe) */
+  currentMonthRevenue: number;
+  /** Etiqueta del mes actual (e.g. "Marzo 2026") */
+  currentMonthLabel: string;
+
   // Nuevas métricas
   /** Métricas detalladas de clientes activos */
   activeClientsMetrics: ActiveClientsMetrics;
