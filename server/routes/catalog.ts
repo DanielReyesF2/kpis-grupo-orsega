@@ -45,10 +45,13 @@ router.get("/api/clients-db", jwtAuthMiddleware, async (req, res) => {
 
     const result = await sql(`
       SELECT
-        id, name, email, phone, contact_person, company, address,
-        company_id as "companyId", client_code as "clientCode", city, state, postal_code, country,
-        requires_receipt as "requiresReceipt", email_notifications as "emailNotifications", customer_type as "customerType",
-        payment_terms as "paymentTerms", is_active as "isActive", created_at as "createdAt"
+        id, name, email, contact, street_address,
+        company_id as "companyId", code, city, state, postal_code,
+        colonia, municipality, rfc, razon_social,
+        num_exterior, num_interior, entre_calle,
+        forma_pago, metodo_pago, moneda, regimen_fiscal,
+        condicion_dias, email_contacto,
+        is_active as "isActive", created_at as "createdAt"
       FROM clients
       ${whereClause}
       ORDER BY name
@@ -68,10 +71,14 @@ router.get("/api/clients-db/:id", jwtAuthMiddleware, async (req, res) => {
 
     const result = await sql(`
       SELECT
-        id, name, email, phone, contact_person, company, address,
-        company_id as "companyId", client_code as "clientCode", city, state, postal_code, country,
-        requires_receipt as "requiresReceipt", email_notifications as "emailNotifications", customer_type as "customerType",
-        payment_terms as "paymentTerms", is_active as "isActive", notes, created_at as "createdAt", updated_at as "updatedAt"
+        id, name, email, contact, street_address,
+        company_id as "companyId", code, city, state, postal_code,
+        colonia, municipality, rfc, razon_social,
+        num_exterior, num_interior, entre_calle,
+        forma_pago, metodo_pago, moneda, regimen_fiscal,
+        condicion_dias, email_contacto,
+        is_active as "isActive", notes,
+        created_at as "createdAt", updated_at as "updatedAt"
       FROM clients
       WHERE id = $1 AND is_active = true
     `, [clientId]);
@@ -101,10 +108,12 @@ router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
 
     const result = await sql(`
       SELECT
-        id, name, email, phone, contact_person as contact_name,
-        address as billing_addr, address as shipping_addr,
-        client_code as rfc, is_active, company_id,
-        email_notifications
+        id, name, email, contact, street_address,
+        colonia, municipality, city, state, postal_code,
+        rfc, razon_social, num_exterior, num_interior, entre_calle,
+        forma_pago, metodo_pago, moneda, regimen_fiscal,
+        condicion_dias, email_contacto,
+        is_active, company_id
       FROM clients
       WHERE is_active = true AND company_id = $1
       ORDER BY name
@@ -278,36 +287,43 @@ router.post("/api/clients", jwtAuthMiddleware, validateTenantFromBody('companyId
 
     const result = await sql(`
       INSERT INTO clients (
-        name, email, phone, contact_person, company, address,
-        payment_terms, requires_receipt, reminder_frequency, is_active,
-        notes, company_id, client_code, secondary_email, city, state,
-        postal_code, country, email_notifications, customer_type
+        name, email, contact, street_address,
+        is_active, notes, company_id, code, city, state,
+        postal_code, colonia, municipality,
+        rfc, razon_social, num_exterior, num_interior, entre_calle,
+        forma_pago, metodo_pago, moneda, regimen_fiscal,
+        condicion_dias, email_contacto
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+        $21, $22, $23, $24
       )
       RETURNING *
     `, [
       validatedData.name,
       validatedData.email || null,
-      validatedData.phone || null,
-      validatedData.contactPerson || null,
-      validatedData.company || null,
-      validatedData.address || null,
-      validatedData.paymentTerms || null,
-      validatedData.requiresReceipt ?? true,
-      validatedData.reminderFrequency || null,
+      validatedData.contact || null,
+      validatedData.streetAddress || null,
       validatedData.isActive ?? true,
       validatedData.notes || null,
-      validatedData.companyId || null,
-      validatedData.clientCode || null,
-      validatedData.secondaryEmail || null,
+      validatedData.companyId,
+      validatedData.code || null,
       validatedData.city || null,
       validatedData.state || null,
       validatedData.postalCode || null,
-      validatedData.country || 'México',
-      validatedData.emailNotifications ?? true,
-      validatedData.customerType || null,
+      validatedData.colonia || null,
+      validatedData.municipality || null,
+      validatedData.rfc || null,
+      validatedData.razonSocial || null,
+      validatedData.numExterior || null,
+      validatedData.numInterior || null,
+      validatedData.entreCalle || null,
+      validatedData.formaPago || null,
+      validatedData.metodoPago || null,
+      validatedData.moneda || null,
+      validatedData.regimenFiscal || null,
+      validatedData.condicionDias || null,
+      validatedData.emailContacto || null,
     ]);
 
     res.status(201).json(result[0]);

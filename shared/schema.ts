@@ -575,32 +575,41 @@ export type CycleTimeMetrics = z.infer<typeof cycleTimeMetricsSchema>;
 // Clients schema - Tabla para los clientes de ambas empresas (basada en estructura existente)
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
+  code: text("code"), // Código interno del cliente
   name: text("name").notNull(), // Nombre o razón social del cliente
-  email: text("email").notNull(), // Email principal para notificaciones
-  phone: text("phone"), // Teléfono del cliente
-  contactPerson: text("contact_person"), // Nombre del contacto principal (campo existente)
-  company: text("company"), // Empresa/organización del cliente (campo existente)
-  address: text("address"), // Dirección del cliente
-  paymentTerms: integer("payment_terms"), // Términos de pago (campo existente como integer)
+  contact: text("contact"), // Nombre del contacto principal
+  email: text("email"), // Email principal para notificaciones
+  companyId: integer("company_id").notNull(), // Empresa a la que pertenece (Dura=1 o Orsega=2)
+  isActive: boolean("is_active").default(true), // Cliente activo
+  notes: text("notes"), // Notas adicionales
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-  requiresReceipt: boolean("requires_receipt").default(true), // Si requiere acuse de recibo (campo existente)
-  reminderFrequency: integer("reminder_frequency"), // Frecuencia de recordatorios (campo existente)
-  isActive: boolean("is_active").default(true), // Cliente activo (campo existente)
-  notes: text("notes"), // Notas adicionales (campo existente)
-  // Nuevos campos que agregamos
-  companyId: integer("company_id"), // Empresa a la que pertenece (Dura=1 o Orsega=2)
-  clientCode: text("client_code"), // Código interno del cliente
-  secondaryEmail: text("secondary_email"), // Email secundario opcional
+  // Dirección
+  streetAddress: text("street_address"), // Calle y número
+  colonia: text("colonia"), // Colonia/barrio
+  municipality: text("municipality"), // Municipio/delegación
   city: text("city"), // Ciudad
   state: text("state"), // Estado/Provincia
   postalCode: text("postal_code"), // Código postal
-  country: text("country").default("México"), // País
-  emailNotifications: boolean("email_notifications").default(true), // Si recibe notificaciones por email
-  customerType: text("customer_type"), // Tipo de cliente (distribuidor, mayorista, etc.)
-  requiresPaymentComplement: boolean("requires_payment_complement").default(false), // Si requiere complemento de pago para cerrar compras
-  colonia: text("colonia"), // Colonia/barrio del cliente
-  municipality: text("municipality"), // Municipio/delegación del cliente
+  // Datos fiscales y comerciales
+  rfc: text("rfc"), // RFC del cliente
+  razonSocial: text("razon_social"), // Razón social completa
+  numExterior: text("num_exterior"), // Número exterior
+  numInterior: text("num_interior"), // Número interior
+  entreCalle: text("entre_calle"), // Entre calles / referencia
+  paymentTermsDays: integer("payment_terms_days"), // Condición de pago en días
+  paymentMethod: text("payment_method"), // Código SAT forma de pago
+  paymentType: text("payment_type"), // PPD, PUE
+  currency: text("currency"), // USD, MXN
+  taxRegime: text("tax_regime"), // Código SAT régimen fiscal
+  contactEmail: text("contact_email"), // Email de contacto (puede diferir del fiscal)
+  // Columnas legacy (mantener para compatibilidad con imports)
+  formaPago: text("forma_pago"),
+  metodoPago: text("metodo_pago"),
+  moneda: text("moneda"),
+  regimenFiscal: text("regimen_fiscal"),
+  condicionDias: text("condicion_dias"),
+  emailContacto: text("email_contacto"),
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true, updatedAt: true });

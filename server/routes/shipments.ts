@@ -7,7 +7,7 @@ import { sendEmail as sendGridEmail, getShipmentStatusEmailTemplate } from '../s
 import { z } from 'zod';
 import { validateTenantAccess } from '../middleware/tenant-validation';
 import { generateCollectionOrderExcel } from '../collection-order-excel';
-import { emailService } from '../email-service';
+import { triggerN8nLogistics } from '../n8n-logistics';
 import { calculatePalletDistribution } from '@shared/collection-order-utils';
 
 const router = Router();
@@ -746,14 +746,15 @@ const router = Router();
       pickupDate: validated.pickupDate,
       drumCount: validated.drumCount,
       pickupWindow: validated.pickupWindow,
-      clientName: client?.company || client?.name || shipment.customerName,
-      clientAddress: client?.address || shipment.destination,
+      companyId: shipment.companyId, // Determines origin/billing in Excel
+      clientName: client?.razonSocial || client?.name || shipment.customerName,
+      clientAddress: client?.streetAddress || shipment.destination,
       clientColonia: client?.colonia || undefined,
       clientCp: client?.postalCode || undefined,
       clientMunicipality: client?.municipality || undefined,
       clientState: client?.state || undefined,
-      clientContact: client?.contactPerson || shipment.customerName,
-      clientPhone: client?.phone || shipment.customerPhone || undefined,
+      clientContact: client?.contact || shipment.customerName,
+      clientPhone: shipment.customerPhone || undefined,
       trackingCode: shipment.trackingCode,
       product: shipment.product,
     };
@@ -855,30 +856,23 @@ const router = Router();
       const filename = `Orden_Recoleccion_${shipment.trackingCode}_${validated.pickupDate}.xlsx`;
       const pickupDateFormatted = new Date(validated.pickupDate).toLocaleDateString('es-MX');
 
-      const emailResult = await emailService.sendEmail({
+      const emailResult = await triggerN8nLogistics({
+        event: 'collection_order',
         to: provider.email,
         subject: `Orden de Recolección - ${shipment.customerName} - ${pickupDateFormatted}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Orden de Recolección</h2>
-            <p>Estimado equipo de ${provider.name},</p>
-            <p>Adjuntamos la orden de recolección con los siguientes datos:</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p><strong>Cliente:</strong> ${shipment.customerName}</p>
-              <p><strong>Fecha de recolección:</strong> ${pickupDateFormatted}</p>
-              <p><strong>Tambos:</strong> ${validated.drumCount}</p>
-              <p><strong>Código:</strong> ${shipment.trackingCode}</p>
-            </div>
-            <p>Por favor revisar el archivo adjunto y confirmar disponibilidad.</p>
-            <p>Saludos cordiales,<br><strong>Jesús Espinoza</strong><br>Logística - Dura International</p>
-          </div>
-        `,
-        attachments: [{
-          content: buffer,
+        data: {
+          customerName: shipment.customerName,
+          trackingCode: shipment.trackingCode,
+          drumCount: validated.drumCount,
+          pickupDate: validated.pickupDate,
+          providerName: provider.name,
+        },
+        attachment: {
           filename,
+          contentBase64: buffer.toString('base64'),
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        }],
-      }, 'logistics');
+        },
+      });
 
       // Log the send action
       await logCollectionOrder({
