@@ -539,6 +539,8 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
   let activeAlertsCount = 0;
   let lastDataYear = 2025;
   let lastDataMonth = 1;
+  let totalRevenue = 0;
+  let grossProfit = 0;
 
   // ========================================================================
   // 1. Obtener el rango de datos disponibles
@@ -649,6 +651,27 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     console.log(`[getSalesMetrics] ✓ Volumen mes ${lastDataYear}-${lastDataMonth}: ${volumeCurrentYear}`);
   } catch (error) {
     console.error(`[getSalesMetrics] ❌ Error volumen mes actual:`, error);
+  }
+
+  // ========================================================================
+  // 4b. REVENUE TOTAL y UTILIDAD BRUTA YTD del último año con datos
+  // ========================================================================
+  try {
+    console.log(`[getSalesMetrics] [4b/12] Revenue y Utilidad Bruta año ${maxYear}...`);
+    const revenueGrossQuery = `
+      SELECT
+        COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_revenue,
+        COALESCE(SUM(utilidad_bruta), 0) as gross_profit
+      FROM ventas
+      WHERE company_id = $1
+        AND anio = $2
+    `;
+    const revenueGrossResult = await sql(revenueGrossQuery, [companyId, maxYear]);
+    totalRevenue = parseFloat(revenueGrossResult[0]?.total_revenue || '0');
+    grossProfit = parseFloat(revenueGrossResult[0]?.gross_profit || '0');
+    console.log(`[getSalesMetrics] ✓ Revenue ${maxYear}: ${totalRevenue}, Utilidad Bruta: ${grossProfit}`);
+  } catch (error) {
+    console.error(`[getSalesMetrics] ❌ Error revenue/utilidad bruta:`, error);
   }
 
   // ========================================================================
@@ -967,6 +990,8 @@ export async function getSalesMetrics(companyId: number): Promise<SalesMetrics> 
     clientChurn,
     monthsBelowAverage,
     profitability,
+    totalRevenue,
+    grossProfit,
 
     // Metadata
     period: {

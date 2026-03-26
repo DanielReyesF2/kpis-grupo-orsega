@@ -146,19 +146,23 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       ocrConfidence: 0,
     };
 
-    // Obtener cliente/proveedor
-    let client = null;
+    // Obtener proveedor/supplier para verificar si requiere REP
+    let supplier: any = null;
     if (scheduledPayment.supplierId) {
-      client = await storage.getClient(scheduledPayment.supplierId);
+      const { suppliers: suppliersTable } = await import('@shared/schema');
+      const [supplierRow] = await db.select()
+        .from(suppliersTable)
+        .where(eq(suppliersTable.id, scheduledPayment.supplierId));
+      supplier = supplierRow || null;
     }
-    if (!client && scheduledPayment.supplierName) {
-      client = {
+    // Fallback: crear objeto con REP=false si no se encuentra el supplier
+    if (!supplier) {
+      supplier = {
         id: scheduledPayment.supplierId || 0,
         name: scheduledPayment.supplierName,
         companyId: scheduledPayment.companyId,
-        email: null,
-        requiresPaymentComplement: false,
-      } as any;
+        requiresRep: false,
+      };
     }
 
     // Subir archivo a storage (R2 o local)
@@ -204,8 +208,8 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
     const newVoucher: InsertPaymentVoucher = {
       companyId: scheduledPayment.companyId,
       payerCompanyId: scheduledPayment.companyId,
-      clientId: client?.id || scheduledPayment.supplierId || 0,
-      clientName: client?.name || scheduledPayment.supplierName || 'Cliente',
+      clientId: supplier?.id || scheduledPayment.supplierId || 0,
+      clientName: supplier?.name || scheduledPayment.supplierName || 'Proveedor',
       scheduledPaymentId: scheduledPaymentId,
       status: finalStatus as any,
       voucherFileUrl: voucherUrl, // URL de R2 o local
@@ -245,10 +249,10 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
     });
 
     // Actualizar scheduled payment con voucherId y estado
-    // SIEMPRE cambiar el estado basado en si el cliente requiere REP
+    // Usar supplier.requiresRep (del proveedor/supplier, NO del cliente)
     // Si requiere REP → voucher_uploaded (En seguimiento REP)
     // Si NO requiere REP → payment_completed (Pagada)
-    const requiresREP = client?.requiresPaymentComplement === true;
+    const requiresREP = supplier?.requiresRep === true;
     const newStatus = requiresREP ? 'voucher_uploaded' : 'payment_completed';
 
     await db.update(scheduledPayments)

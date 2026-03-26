@@ -32,15 +32,10 @@ router.get("/api/kpis", jwtAuthMiddleware, async (req, res) => {
         kpiType: salesKpiTypeToCardType(identifySalesKpiType(kpi.name || kpi.kpiName || ''))
       }));
 
-    if (companyId !== undefined) {
-      if (companyId !== 1 && companyId !== 2) {
-        return res.status(400).json({ error: "Invalid company ID. Use 1 for Dura or 2 for Orsega." });
-      }
-      const result = await storage.getKpis(companyId);
-      return res.json(addKpiType(result));
+    if (!companyId || (companyId !== 1 && companyId !== 2)) {
+      return res.status(400).json({ error: "Invalid or missing company ID. Use 1 for Dura or 2 for Orsega." });
     }
-
-    const result = await storage.getKpis();
+    const result = await storage.getKpis(companyId);
     res.json(addKpiType(result));
   } catch (error: any) {
     console.error("❌ Error fetching KPIs:", error);

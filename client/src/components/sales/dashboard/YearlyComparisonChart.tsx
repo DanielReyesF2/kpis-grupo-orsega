@@ -1,7 +1,8 @@
 /**
- * Gráfico comparativo anual (año actual vs año anterior)
+ * Gráfico comparativo anual con toggle USD / KG / Utilidad Bruta
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { ChartCard } from "@/components/salesforce/layout/ChartCard";
@@ -18,10 +19,17 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
   LabelList,
 } from "recharts";
-import { formatCurrency } from "@/lib/sales-utils";
+import { formatCurrency, formatNumber } from "@/lib/sales-utils";
+
+type MetricView = "usd" | "kg" | "gp";
+
+const METRIC_CONFIG: Record<MetricView, { label: string; prefix: string; dataKey: string; totalsKey: string }> = {
+  usd: { label: "USD", prefix: "amt", dataKey: "amt", totalsKey: "amt" },
+  kg: { label: "KG", prefix: "qty", dataKey: "qty", totalsKey: "qty" },
+  gp: { label: "Ut. Bruta", prefix: "gp", dataKey: "gp", totalsKey: "gp" },
+};
 
 interface YearlyComparisonChartProps {
   companyId: number;
@@ -30,15 +38,15 @@ interface YearlyComparisonChartProps {
 }
 
 export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyComparisonChartProps) {
-  // Por defecto: comparar 2024 vs 2025 (SIEMPRE, independientemente del año actual)
-  // Cuando haya datos de 2026, se mostrarán automáticamente los 3 años
-  const defaultYear1 = year1 || 2024; // SIEMPRE 2024 por defecto
-  const defaultYear2 = year2 || 2025; // SIEMPRE 2025 por defecto
+  const [metricView, setMetricView] = useState<MetricView>("usd");
+
+  const defaultYear1 = year1 || 2024;
+  const defaultYear2 = year2 || 2025;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/sales-yearly-comparison', companyId, defaultYear1, defaultYear2],
     queryFn: async () => {
-      const params = new URLSearchParams({ 
+      const params = new URLSearchParams({
         companyId: String(companyId),
         year1: String(defaultYear1),
         year2: String(defaultYear2)
@@ -49,15 +57,12 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
       }
       return await res.json();
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 
   if (isLoading) {
     return (
-      <ChartCard
-        title="Comparativo Anual"
-        subtitle="Año actual vs año anterior"
-      >
+      <ChartCard title="Comparativo Anual" subtitle="Cargando...">
         <LoadingState variant="chart" />
       </ChartCard>
     );
@@ -65,10 +70,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
 
   if (error) {
     return (
-      <ChartCard
-        title="Comparativo Anual"
-        subtitle="Año actual vs año anterior"
-      >
+      <ChartCard title="Comparativo Anual" subtitle="Error">
         <ErrorState variant="card" message="Error al cargar comparativo anual" />
       </ChartCard>
     );
@@ -76,10 +78,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
 
   if (!data || !data.data || data.data.length === 0) {
     return (
-      <ChartCard
-        title="Comparativo Anual"
-        subtitle="Año actual vs año anterior"
-      >
+      <ChartCard title="Comparativo Anual" subtitle="">
         <EmptyState
           icon={BarChart3}
           title="Sin datos comparativos"
@@ -90,29 +89,27 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
     );
   }
 
-  // Detectar si hay datos de 2026 para mostrar 3 años
-  // Siempre usar 2024 y 2025 por defecto, agregar 2026 solo si hay datos
   const availableYears = data.availableYears || [];
   const has2026 = availableYears.includes(2026);
   const yearsToShow = has2026 ? [2024, 2025, 2026] : [2024, 2025];
+  const metric = METRIC_CONFIG[metricView];
 
-  // Preparar datos para el gráfico (soporta 2 o 3 años) con porcentajes
+  // Build chart data based on selected metric
   const chartData = data.data.map((item: any) => {
     const dataPoint: any = {
-      mes: item.mes.substring(0, 3), // Primeras 3 letras del mes
+      mes: item.mes.substring(0, 3),
     };
-    
-    // Agregar datos de todos los años disponibles
+
     yearsToShow.forEach((year) => {
-      dataPoint[String(year)] = item[`amt_${year}`] || 0;
+      dataPoint[String(year)] = item[`${metric.prefix}_${year}`] || 0;
     });
-    
-    // Calcular porcentaje de diferencia vs año anterior
+
+    // Calcular porcentaje de diferencia vs año anterior (usando metric.prefix para toggle)
     yearsToShow.forEach((year, idx) => {
       if (idx > 0) {
         const prevYear = yearsToShow[idx - 1];
-        const baseValue = item[`amt_${prevYear}`] || 0;
-        const currentValue = item[`amt_${year}`] || 0;
+        const baseValue = item[`${metric.prefix}_${prevYear}`] || 0;
+        const currentValue = item[`${metric.prefix}_${year}`] || 0;
         if (baseValue > 0 && currentValue > 0) {
           dataPoint[`percent_${year}`] = ((currentValue - baseValue) / baseValue) * 100;
           dataPoint[`prevYear_${year}`] = prevYear;
@@ -123,27 +120,60 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
         dataPoint[`percent_${year}`] = 0;
       }
     });
-    
+
     return dataPoint;
   });
 
-  // Colores más contrastantes y distinguibles
-  const barColors = [
-    '#1B5E9E', // Azul oscuro para 2024
-    '#2E7D32', // Verde para 2025
-    '#F57C00'  // Naranja para 2026
-  ];
+  const barColors = ['#1B5E9E', '#2E7D32', '#F57C00'];
+
+  const formatValue = (value: number): string => {
+    if (metricView === "kg") {
+      return `${formatNumber(Math.round(value))} KG`;
+    }
+    return formatCurrency(value, companyId);
+  };
+
+  const formatYAxis = (value: number): string => {
+    if (metricView === "kg") {
+      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+      return String(value);
+    }
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+    return `$${value}`;
+  };
+
+  const metricLabel = metricView === "usd" ? "Revenue" : metricView === "kg" ? "Volumen" : "Utilidad Bruta";
+  const subtitle = has2026
+    ? `${yearsToShow.join(' vs ')} - ${metricLabel} por mes`
+    : `2024 vs 2025 - ${metricLabel} por mes`;
 
   return (
     <ChartCard
       title="Comparativo Anual"
-      subtitle={has2026 
-        ? `${yearsToShow.join(' vs ')} - Revenue por mes`
-        : `2024 vs 2025 - Revenue por mes`}
+      subtitle={subtitle}
     >
+      {/* Metric Toggle */}
+      <div className="flex gap-1 mb-4 bg-muted p-1 rounded-lg w-fit">
+        {(Object.entries(METRIC_CONFIG) as [MetricView, typeof METRIC_CONFIG[MetricView]][]).map(([key, config]) => (
+          <button
+            key={key}
+            onClick={() => setMetricView(key)}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              metricView === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {config.label}
+          </button>
+        ))}
+      </div>
+
       <div className="h-96 py-4">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart 
+          <BarChart
             data={chartData}
             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
           >
@@ -160,11 +190,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
               axisLine={false}
               tickLine={false}
               width={80}
-              tickFormatter={(value) => {
-                if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-                if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-                return `$${value}`;
-              }}
+              tickFormatter={formatYAxis}
             />
             <Tooltip
               contentStyle={{
@@ -183,8 +209,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                         const year = parseInt(entry.dataKey);
                         const value = entry.value as number;
                         const percentChange = entry.payload[`percent_${year}`];
-                        const formattedValue = formatCurrency(value, companyId);
-                        
+
                         return (
                           <div key={index} className="mb-1">
                             <div className="flex items-center gap-2">
@@ -193,7 +218,7 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                                 style={{ backgroundColor: entry.color }}
                               />
                               <span className="font-medium">{entry.name}:</span>
-                              <span>{formattedValue}</span>
+                              <span>{formatValue(value)}</span>
                             </div>
                             {percentChange !== undefined && percentChange !== 0 && entry.payload[`prevYear_${year}`] && (
                               <div className={`text-xs ml-5 mt-0.5 ${percentChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -209,15 +234,15 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
                 return null;
               }}
             />
-            <Legend 
+            <Legend
               wrapperStyle={{ paddingTop: "20px" }}
               iconType="square"
             />
             {yearsToShow.map((year, index) => {
-              const hasData = data.totals && (data.totals[`amt_${year}`] || 0) > 0;
+              const hasData = data.totals && (data.totals[`${metric.totalsKey}_${year}`] || 0) > 0;
               return (
                 <Bar
-                  key={year}
+                  key={`${year}-${metricView}`}
                   dataKey={String(year)}
                   fill={barColors[index]}
                   radius={[6, 6, 0, 0]}
@@ -245,23 +270,24 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
           </BarChart>
         </ResponsiveContainer>
       </div>
-      
+
       {/* Resumen de totales */}
       {data.totals && (
         <div className={`mt-4 pt-4 border-t grid gap-4 text-sm ${has2026 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {yearsToShow.map((year) => {
-            const total = data.totals[`amt_${year}`] || 0;
+            const total = data.totals[`${metric.totalsKey}_${year}`] || 0;
             const isLastYear = year === yearsToShow[yearsToShow.length - 1];
             const prevYear = yearsToShow[yearsToShow.indexOf(year) - 1];
-            const percent = prevYear && data.totals[`amt_${prevYear}`] > 0
-              ? ((total - data.totals[`amt_${prevYear}`]) / data.totals[`amt_${prevYear}`]) * 100
+            const prevTotal = prevYear ? (data.totals[`${metric.totalsKey}_${prevYear}`] || 0) : 0;
+            const percent = prevYear && prevTotal > 0
+              ? ((total - prevTotal) / prevTotal) * 100
               : undefined;
 
             return (
               <div key={year}>
                 <p className="text-muted-foreground mb-1">Total {year}</p>
                 <p className="text-lg font-semibold">
-                  {formatCurrency(total, companyId)}
+                  {formatValue(total)}
                 </p>
                 {percent !== undefined && isLastYear && (
                   <p className={`text-xs mt-1 ${percent >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -276,4 +302,3 @@ export function YearlyComparisonChart({ companyId, year1, year2 }: YearlyCompari
     </ChartCard>
   );
 }
-

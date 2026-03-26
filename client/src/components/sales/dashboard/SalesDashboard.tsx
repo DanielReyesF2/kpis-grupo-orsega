@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, DollarSign, Users, Target, X, Upload, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, DollarSign, Weight, Banknote, Target, X, Upload } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 
@@ -104,21 +104,21 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
         </div>
       )}
 
-      {/* KPIs Principales - Grid 4 columnas */}
+      {/* KPIs Principales - Grid 3 columnas: USD / KG / Utilidad Bruta */}
       {isLoadingStats ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : statsError ? (
         <ErrorState variant="page" message="Error al cargar métricas de ventas" />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <SalesKPICard
-            title={`Revenue ${salesStats?.currentMonthLabel || 'Mes Actual'}`}
+            title={`Ventas USD ${salesStats?.currentMonthLabel || ''}`}
             value={formatCurrency(salesStats?.currentMonthRevenue || 0, resolvedCompanyId)}
-            subtitle={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'} vendidos`}
+            subtitle={`${salesStats?.activeClients || 0} clientes activos`}
             icon={DollarSign}
             trend={growthPercent !== undefined ? {
               value: growthPercent,
@@ -127,25 +127,18 @@ export function SalesDashboard({ companyId }: SalesDashboardProps) {
             variant="success"
           />
           <SalesKPICard
-            title="Clientes del Mes"
-            value={salesStats?.activeClients || 0}
-            subtitle={`${salesStats?.activeClientsMetrics?.last3Months || 0} últimos 3 meses`}
-            icon={Users}
+            title="Volumen KG"
+            value={`${formatNumber(salesStats?.currentVolume || 0)} ${salesStats?.unit || 'KG'}`}
+            subtitle="Acumulado del año"
+            icon={Weight}
             variant="default"
           />
           <SalesKPICard
-            title="Crecimiento"
-            value={`${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(1)}%`}
-            subtitle="vs mismo mes año anterior"
-            icon={TrendingUp}
-            variant={growthPercent >= 0 ? "success" : "danger"}
-          />
-          <SalesKPICard
-            title="Retención"
-            value={`${(salesStats?.retentionRate?.rate || 0).toFixed(1)}%`}
-            subtitle={`${salesStats?.retentionRate?.retainedClients || 0} clientes retenidos`}
-            icon={Target}
-            variant="default"
+            title="Utilidad Bruta"
+            value={formatCurrency(salesStats?.grossProfit || 0, resolvedCompanyId)}
+            subtitle="Acumulada YTD"
+            icon={Banknote}
+            variant={(salesStats?.grossProfit || 0) > 0 ? "success" : "warning"}
           />
         </div>
       )}

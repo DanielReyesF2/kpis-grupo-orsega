@@ -294,6 +294,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
           EXTRACT(MONTH FROM fecha)::int as sale_month,
           COALESCE(SUM(cantidad), 0) as total_volume,
           COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
+          COALESCE(SUM(utilidad_bruta), 0) as total_gross_profit,
           COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -327,6 +328,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
           EXTRACT(MONTH FROM fecha)::int as sale_month,
           COALESCE(SUM(cantidad), 0) as total_volume,
           COALESCE(NULLIF(SUM(importe), 0), SUM(importe_mn), 0) as total_amount,
+          COALESCE(SUM(utilidad_bruta), 0) as total_gross_profit,
           COUNT(DISTINCT cliente) FILTER (WHERE cliente IS NOT NULL AND cliente <> '') as active_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -378,6 +380,7 @@ router.get("/api/sales-monthly-trends", jwtAuthMiddleware, async (req, res) => {
         monthFull: `${monthNames[saleMonth - 1]} ${saleYear}`,
         volume: parseFloat(row.total_volume || '0'),
         amount: parseFloat(row.total_amount || '0'),
+        grossProfit: parseFloat(row.total_gross_profit || '0'),
         clients: parseInt(row.active_clients || '0'),
         year: saleYear,
         monthNum: saleMonth
@@ -467,6 +470,7 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
           anio as sale_year,
           COALESCE(SUM(cantidad), 0) as total_quantity,
           ${amountExpr} as total_amount,
+          COALESCE(SUM(utilidad_bruta), 0) as total_gross_profit,
           COUNT(DISTINCT cliente) as unique_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -483,6 +487,7 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
           anio as sale_year,
           COALESCE(SUM(cantidad), 0) as total_quantity,
           ${amountExpr} as total_amount,
+          COALESCE(SUM(utilidad_bruta), 0) as total_gross_profit,
           COUNT(DISTINCT cliente) as unique_clients,
           MAX(unidad) as unit
         FROM ventas
@@ -535,9 +540,11 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
         if (yearData) {
           dataPoint[`qty_${year}`] = Number(yearData.total_quantity) || 0;
           dataPoint[`amt_${year}`] = Number(yearData.total_amount) || 0;
+          dataPoint[`gp_${year}`] = Number(yearData.total_gross_profit) || 0;
         } else {
           dataPoint[`qty_${year}`] = 0;
           dataPoint[`amt_${year}`] = 0;
+          dataPoint[`gp_${year}`] = 0;
         }
 
         // Log detallado para el primer mes y año 2024
@@ -579,11 +586,13 @@ router.get("/api/sales-yearly-comparison", jwtAuthMiddleware, async (req, res) =
       yearsToCompare.forEach((year) => {
         totalsObj[`qty_${year}`] = (totalsObj[`qty_${year}`] || 0) + (row[`qty_${year}`] || 0);
         totalsObj[`amt_${year}`] = (totalsObj[`amt_${year}`] || 0) + (row[`amt_${year}`] || 0);
+        totalsObj[`gp_${year}`] = (totalsObj[`gp_${year}`] || 0) + (row[`gp_${year}`] || 0);
       });
       return totalsObj;
     }, yearsToCompare.reduce((acc: any, year) => {
       acc[`qty_${year}`] = 0;
       acc[`amt_${year}`] = 0;
+      acc[`gp_${year}`] = 0;
       return acc;
     }, {}));
 

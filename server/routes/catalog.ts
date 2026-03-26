@@ -87,9 +87,18 @@ router.get("/api/clients-db/:id", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/clients - Alias para LogisticsPage (retorna clientes activos)
+// GET /api/clients - Alias para LogisticsPage (retorna clientes activos filtrados por empresa)
 router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
   try {
+    const user = (req as any).user;
+    const companyId = req.query.companyId
+      ? parseInt(req.query.companyId as string)
+      : user?.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({ error: 'companyId is required' });
+    }
+
     const result = await sql(`
       SELECT
         id, name, email, phone, contact_person as contact_name,
@@ -97,9 +106,9 @@ router.get("/api/clients", jwtAuthMiddleware, async (req, res) => {
         client_code as rfc, is_active, company_id,
         email_notifications
       FROM clients
-      WHERE is_active = true
+      WHERE is_active = true AND company_id = $1
       ORDER BY name
-    `);
+    `, [companyId]);
 
     res.json(result);
   } catch (error) {
