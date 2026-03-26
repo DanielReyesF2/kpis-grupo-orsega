@@ -102,6 +102,7 @@ export default function NewShipmentPage() {
   const [shipmentItems, setShipmentItems] = useState<ShipmentItemForm[]>([
     { product: "", quantity: "", unit: "KG", description: "" }
   ]);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   
   // Configuración de pasos del asistente
   const totalSteps = 4;
@@ -230,6 +231,7 @@ export default function NewShipmentPage() {
         departureDate: new Date(values.departureDate).toISOString(),
         estimatedDeliveryDate: new Date(values.estimatedDeliveryDate).toISOString(),
         companyId: companyIdNum, // Usar el valor ya convertido y validado
+        customerId: selectedClientId, // Vincular con cliente de la BD
         carbonFootprint: carbonFootprintNumber, // Guardar como número
         items: validItems // Agregar items al request
       };
@@ -543,8 +545,12 @@ export default function NewShipmentPage() {
                               onValueChange={(value) => {
                                 field.onChange(value);
                                 
-                                // Resetear el producto seleccionado si cambia la empresa
+                                // Resetear el producto y cliente seleccionado si cambia la empresa
                                 form.setValue("product", "");
+                                form.setValue("customerName", "");
+                                form.setValue("customerEmail", "");
+                                form.setValue("destination", "");
+                                setSelectedClientId(null);
                                 
                                 // Generar nuevo código de seguimiento basado en la empresa seleccionada
                                 const newTrackingCode = generateTrackingCode(value);
@@ -581,13 +587,49 @@ export default function NewShipmentPage() {
                         name="customerName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Nombre del Cliente</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="Nombre completo del cliente"
-                              />
-                            </FormControl>
+                            <FormLabel>Nombre del Cliente *</FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                const client = clients?.find((c: any) => c.id.toString() === value);
+                                if (client) {
+                                  field.onChange(client.name);
+                                  setSelectedClientId(client.id);
+                                  // Auto-fill email
+                                  if (client.email) {
+                                    form.setValue("customerEmail", client.email);
+                                  }
+                                  // Auto-fill destination from address parts
+                                  const destParts = [
+                                    client.street_address,
+                                    client.colonia,
+                                    client.city,
+                                    client.state,
+                                    client.postal_code ? `CP ${client.postal_code}` : null,
+                                  ].filter(Boolean);
+                                  if (destParts.length > 0) {
+                                    form.setValue("destination", destParts.join(", "));
+                                  }
+                                }
+                              }}
+                              value={selectedClientId?.toString() || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona un cliente" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {isLoadingClients ? (
+                                  <SelectItem value="loading" disabled>Cargando clientes...</SelectItem>
+                                ) : (
+                                  clients?.map((client: any) => (
+                                    <SelectItem key={client.id} value={client.id.toString()}>
+                                      {client.name}
+                                    </SelectItem>
+                                  )) || []
+                                )}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}

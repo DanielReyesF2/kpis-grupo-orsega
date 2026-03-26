@@ -1,9 +1,9 @@
 import ExcelJS from 'exceljs';
 import { calculatePalletDistribution } from '@shared/collection-order-utils';
 
-// --- Constantes hardcodeadas (origen siempre igual) ---
+// --- Configuración por empresa ---
 
-const ORIGIN_WAREHOUSE = {
+const ORIGIN_DURA = {
   company: 'DURA INTERNATIONAL',
   address: 'Camino al Alemán 373, int Bodega B5-A',
   colonia: 'NEXTIPAC',
@@ -16,9 +16,28 @@ const ORIGIN_WAREHOUSE = {
   pickupWindow: 'DE 10:00 A 16:00 HRS',
 };
 
-const BILLING = {
+const ORIGIN_ORSEGA = {
+  company: 'GRUPO ORSEGA',
+  address: 'Camino al Alemán 373, int B5',
+  colonia: 'NEXTIPAC',
+  cp: '45220',
+  municipality: 'ZAPOPAN',
+  state: 'JALISCO',
+  reference: 'DENTRO DE BODEGA ELITE NEXTIPAC II INDUSTRIAL',
+  contact: 'THALIA RODRIGUEZ',
+  phone: '33 1587 6361',
+  pickupWindow: 'DE 10:00 A 16:00 HRS',
+};
+
+const BILLING_DURA = {
   company: 'DURA INTERNATIONAL',
   rfc: 'DIN100908DS8',
+  paymentMethod: 'CRÉDITO / FLETE X COBRAR',
+};
+
+const BILLING_ORSEGA = {
+  company: 'GRUPO ORSEGA',
+  rfc: 'GOR920226B20',
   paymentMethod: 'CRÉDITO / FLETE X COBRAR',
 };
 
@@ -28,10 +47,20 @@ const PRODUCT_DEFAULTS = {
   dimensions: '60X60X90',
 };
 
+const COMPANY_CONFIG: Record<number, { origin: typeof ORIGIN_DURA; billing: typeof BILLING_DURA }> = {
+  1: { origin: ORIGIN_DURA, billing: BILLING_DURA },
+  2: { origin: ORIGIN_ORSEGA, billing: BILLING_ORSEGA },
+};
+
+function getCompanyConfig(companyId: number) {
+  return COMPANY_CONFIG[companyId] || COMPANY_CONFIG[1];
+}
+
 export interface CollectionOrderData {
   pickupDate: string; // ISO date string
   drumCount: number;
   pickupWindow?: string;
+  companyId: number; // 1=Dura, 2=Orsega — determines origin/billing
   // Client/destination data
   clientName: string;
   clientAddress?: string;
@@ -145,6 +174,7 @@ export async function generateCollectionOrderExcel(data: CollectionOrderData): P
   ];
 
   const dist = calculatePalletDistribution(data.drumCount);
+  const { origin: ORIGIN_WAREHOUSE, billing: BILLING } = getCompanyConfig(data.companyId);
   const pickupWindow = data.pickupWindow || ORIGIN_WAREHOUSE.pickupWindow;
   let r = 1;
 

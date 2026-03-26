@@ -17,7 +17,7 @@ interface Client {
   id: number;
   name: string;
   email: string;
-  requires_payment_complement: boolean;
+  companyId: number;
 }
 
 /**
@@ -102,22 +102,12 @@ export class TreasuryAutomation {
                 </table>
               </div>
 
-              ${client.requiresPaymentComplement ? `
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <h4 style="color: #856404; margin-top: 0;">⚠️ Complemento de Pago Requerido</h4>
-                  <p style="color: #856404; margin-bottom: 0;">
-                    Para completar el proceso, necesitamos que nos envíes el complemento de pago correspondiente.
-                    Te enviaremos un recordatorio en caso de que no lo recibamos.
-                  </p>
-                </div>
-              ` : `
-                <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin: 20px 0;">
                   <h4 style="color: #155724; margin-top: 0;">✅ Pago Completado</h4>
                   <p style="color: #155724; margin-bottom: 0;">
                     Este pago no requiere complemento adicional. El proceso ha sido completado exitosamente.
                   </p>
                 </div>
-              `}
 
               <div style="text-align: center; margin-top: 30px;">
                 <p style="color: #666; font-size: 14px;">
@@ -144,26 +134,21 @@ export class TreasuryAutomation {
           reference,
           bank,
           date: new Date().toLocaleDateString('es-MX'),
-          requiresComplement: !!client.requiresPaymentComplement,
+          requiresComplement: false,
         },
       });
 
       // Actualizar estado del comprobante
       await db.update(paymentVouchers)
         .set({ 
-          status: client.requiresPaymentComplement ? 'pendiente_complemento' : 'factura_pagada',
+          status: 'factura_pagada',
           updatedAt: new Date()
         })
         .where(eq(paymentVouchers.id, voucherId));
 
-      // Programar recordatorio si es necesario
-      if (client.requiresPaymentComplement) {
-        await this.scheduleComplementReminder(voucherId, clientId);
-      }
-
-      return { 
-        success: true, 
-        message: `Comprobante enviado a ${client.email}. ${client.requiresPaymentComplement ? 'Recordatorio programado.' : 'Pago completado.'}` 
+      return {
+        success: true,
+        message: `Comprobante enviado a ${client.email}. Pago completado.`
       };
 
     } catch (error) {
@@ -320,13 +305,13 @@ export class TreasuryAutomation {
       }
 
       // 3. Determinar siguiente estado
-      const nextStatus = client.requiresPaymentComplement ? 'pendiente_complemento' : 'factura_pagada';
+      const nextStatus = 'factura_pagada';
 
       console.log(`✅ [TreasuryAutomation] Flujo automático completado para voucher ${voucherId}, empresa ${companyId}`);
 
       return {
         success: true,
-        message: `Comprobante enviado automáticamente a ${client.name}. ${client.requiresPaymentComplement ? 'Recordatorios programados.' : 'Proceso completado.'}`,
+        message: `Comprobante enviado automáticamente a ${client.name}. Proceso completado.`,
         nextStatus
       };
 
