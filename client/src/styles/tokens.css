@@ -118,18 +118,7 @@
   --z-tooltip: 1070;
 }
 
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-gray-900: #FFFFFF;
-    --color-gray-800: #F5F5F5;
-    --color-gray-700: #E0E0E0;
-    --color-gray-600: #BDBDBD;
-    --color-gray-100: #1A1A1A;
-    --color-white: #1A1A1A;
-    --color-black: #FFFFFF;
-  }
-}
+/* Dark mode is handled by .dark class in theme.css, not prefers-color-scheme */
 
 /* Utility classes for spacing */
 .spacing-xxs { gap: var(--spacing-xxs); }
