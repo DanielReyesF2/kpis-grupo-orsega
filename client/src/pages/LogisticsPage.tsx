@@ -119,12 +119,10 @@ const providerFormSchema = z.object({
 });
 
 export default function LogisticsPage() {
-  const [activeModal, setActiveModal] = useState<'clients' | 'providers' | 'products' | null>(null);
+  const [activeModal, setActiveModal] = useState<'clients' | 'products' | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isClientFormOpen, setIsClientFormOpen] = useState(false);
-  const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [clientSearch, setClientSearch] = useState('');
@@ -141,14 +139,6 @@ export default function LogisticsPage() {
     queryKey: ['/api/clients'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/clients');
-      return res.json();
-    },
-  });
-
-  const { data: providers = [], isLoading: providersLoading } = useQuery<Provider[]>({
-    queryKey: ['/api/providers'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/providers');
       return res.json();
     },
   });
@@ -276,18 +266,6 @@ export default function LogisticsPage() {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('providers')}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Truck className="w-5 h-5 text-success mr-2" />
-                  <span className="text-sm text-muted-foreground">Proveedores</span>
-                </div>
-                <span className="text-lg font-semibold">{providers.length}</span>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('products')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -503,135 +481,6 @@ export default function LogisticsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Providers Modal */}
-      <Dialog open={activeModal === 'providers'} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-green-600" />
-                Proveedores de Transporte ({providers.length})
-              </DialogTitle>
-              <Button 
-                data-testid="button-new-provider"
-                onClick={() => {
-                  setEditingProvider(null);
-                  setIsProviderFormOpen(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Proveedor
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="grid gap-4 mt-4">
-            {providersLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Cargando proveedores...</p>
-              </div>
-            ) : providers.length === 0 ? (
-              <div className="text-center py-8">
-                <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No hay proveedores registrados</p>
-              </div>
-            ) : (
-              providers.map((provider: Provider) => (
-                <Card key={provider.id} className="border border-gray-200">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-gray-900">{provider.name}</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
-                          {provider.contact_name && <p><span className="font-medium">Contacto:</span> {provider.contact_name}</p>}
-                          {provider.email && <p><span className="font-medium">Email:</span> {provider.email}</p>}
-                          {provider.phone && <p><span className="font-medium">Teléfono:</span> {provider.phone}</p>}
-                          {provider.rating && (
-                            <div className="flex items-center">
-                              <span className="font-medium mr-2">Rating:</span>
-                              <div className="flex">
-                                {[...Array(5)].map((_, i) => (
-                                  <span key={i} className={i < provider.rating! ? 'text-yellow-400' : 'text-gray-300'}>
-                                    ⭐
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {provider.channels && provider.channels.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-sm font-medium text-gray-600 mb-2">Canales de comunicación:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {provider.channels.map((channel, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {channel.type}: {channel.value} {channel.isDefault && '(Principal)'}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={provider.is_active ? "default" : "secondary"}>
-                          {provider.is_active ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            data-testid={`button-edit-provider-${provider.id}`}
-                            onClick={() => {
-                              setEditingProvider(provider);
-                              setIsProviderFormOpen(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              if (confirm(`¿Estás seguro de que deseas eliminar a ${provider.name}?`)) {
-                                try {
-                                  // Soft delete: marcar como inactivo usando DELETE o PATCH
-                                  try {
-                                    await apiRequest('DELETE', `/api/providers/${provider.id}`);
-                                  } catch {
-                                    // Si DELETE falla, usar PATCH para soft delete
-                                    await apiRequest('PATCH', `/api/providers/${provider.id}`, {
-                                      is_active: false
-                                    });
-                                  }
-                                  toast({
-                                    title: "Proveedor eliminado",
-                                    description: `${provider.name} ha sido marcado como inactivo.`,
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ['/api/providers'] });
-                                } catch (error: any) {
-                                  toast({
-                                    title: "Error",
-                                    description: error.message || "No se pudo eliminar el proveedor.",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Client Form Dialog */}
       <ClientFormDialog
         isOpen={isClientFormOpen}
@@ -640,18 +489,6 @@ export default function LogisticsPage() {
           setEditingClient(null);
         }}
         client={editingClient}
-        queryClient={queryClient}
-        toast={toast}
-      />
-
-      {/* Provider Form Dialog */}
-      <ProviderFormDialog
-        isOpen={isProviderFormOpen}
-        onClose={() => {
-          setIsProviderFormOpen(false);
-          setEditingProvider(null);
-        }}
-        provider={editingProvider}
         queryClient={queryClient}
         toast={toast}
       />
