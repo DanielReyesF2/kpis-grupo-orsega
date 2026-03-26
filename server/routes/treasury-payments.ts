@@ -136,13 +136,20 @@ router.post("/api/treasury/payments/cleanup-duplicates", jwtAuthMiddleware, asyn
       return res.status(400).json({ error: 'supplierName es requerido' });
     }
 
-    // Buscar duplicados por nombre de proveedor
+    // Filter by company to prevent cross-tenant data deletion
+    const user = (req as any).user;
+    const companyId = user?.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    // Buscar duplicados por nombre de proveedor filtrado por empresa
     const duplicates = await sql(`
       SELECT id, supplier_name, amount, due_date, created_at
       FROM scheduled_payments
-      WHERE LOWER(supplier_name) LIKE LOWER($1)
+      WHERE LOWER(supplier_name) LIKE LOWER($1) AND company_id = $2
       ORDER BY created_at DESC
-    `, [`%${supplierName}%`]);
+    `, [`%${supplierName}%`, companyId]);
 
     if (duplicates.length <= 1) {
       return res.json({

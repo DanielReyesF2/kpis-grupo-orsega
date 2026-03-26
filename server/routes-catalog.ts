@@ -173,17 +173,24 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' })
     }
     
+    // Add company_id validation to prevent cross-tenant updates
+    const userCompanyId = (req as AuthRequest).user?.companyId;
     values.push(parseInt(req.params.id))
+    let whereClause = `WHERE id = $${index}`;
+    if (userCompanyId) {
+      values.push(userCompanyId)
+      whereClause += ` AND company_id = $${index + 1}`;
+    }
     const result = await sql(`
       UPDATE clients SET ${fields.join(', ')}, updated_at = NOW()
-      WHERE id = $${index}
+      ${whereClause}
       RETURNING *
     `, values)
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Client not found' })
     }
-    
+
     console.log(`✅ [PATCH /clients/${req.params.id}] Cliente actualizado: ${result.rows[0].name}`)
     res.json(result.rows[0])
   } catch (error) {
@@ -198,17 +205,23 @@ catalogRouter.patch('/clients/:id', async (req, res) => {
 
 catalogRouter.delete('/clients/:id', async (req, res) => {
   try {
-    console.log(`🔵 [DELETE /clients/${req.params.id}] Eliminando cliente`);
+    const authUser = (req as AuthRequest).user;
+    const companyId = authUser?.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
+    console.log(`🔵 [DELETE /clients/${req.params.id}] Eliminando cliente (companyId=${companyId})`);
     const result = await sql(`
       UPDATE clients SET is_active = FALSE, updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1 AND company_id = $2
       RETURNING *
-    `, [req.params.id])
-    
+    `, [req.params.id, companyId])
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Client not found' })
+      return res.status(404).json({ error: 'Client not found or not in your company' })
     }
-    
+
     console.log(`✅ [DELETE /clients/${req.params.id}] Cliente eliminado: ${result.rows[0].name}`)
     res.json({ message: 'Client deleted successfully', client: result.rows[0] })
   } catch (error) {
@@ -315,14 +328,20 @@ catalogRouter.patch('/providers/:id', async (req, res) => {
 // DELETE provider
 catalogRouter.delete('/providers/:id', async (req, res) => {
   try {
+    const authUser = (req as AuthRequest).user;
+    const companyId = authUser?.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'No company access' });
+    }
+
     const result = await sql(`
       UPDATE provider SET is_active = FALSE, updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1 AND company_id = $2
       RETURNING *
-    `, [req.params.id])
-    
+    `, [req.params.id, companyId])
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Provider not found' })
+      return res.status(404).json({ error: 'Provider not found or not in your company' })
     }
     
     res.json({ message: 'Provider deleted successfully', provider: result.rows[0] })
@@ -472,18 +491,24 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
 catalogRouter.delete('/suppliers/:id', async (req, res) => {
   try {
     const { id } = req.params
-    console.log(`🔵 [DELETE /suppliers/${id}] Eliminando proveedor`);
-    
-    const result = await sql(`
-      DELETE FROM suppliers 
-      WHERE id = $1
-      RETURNING name
-    `, [id])
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Supplier not found' })
+    const authUser = (req as AuthRequest).user;
+    const companyId = authUser?.companyId;
+    if (!companyId) {
+      return res.status(403).json({ error: 'No company access' });
     }
-    
+
+    console.log(`🔵 [DELETE /suppliers/${id}] Eliminando proveedor (companyId=${companyId})`);
+
+    const result = await sql(`
+      DELETE FROM suppliers
+      WHERE id = $1 AND company_id = $2
+      RETURNING name
+    `, [id, companyId])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Supplier not found or not in your company' })
+    }
+
     console.log(`✅ [DELETE /suppliers/${id}] Proveedor eliminado: ${result.rows[0].name}`)
     res.json({ message: 'Supplier deleted successfully' })
   } catch (error) {

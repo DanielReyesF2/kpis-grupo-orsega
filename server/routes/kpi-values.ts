@@ -132,7 +132,7 @@ router.get("/api/kpi-values", jwtAuthMiddleware, async (req, res) => {
 
     // Cuando se consultan todos los valores, calcular en tiempo real los de ventas
     const allValues = await storage.getKpiValues(companyIdParam);
-    const allKpis = await storage.getKpis();
+    const allKpis = await storage.getKpis(companyIdParam);
 
     // Filtrar KPIs de ventas y calcular sus valores en tiempo real
     const salesKpis = allKpis.filter(kpi => {

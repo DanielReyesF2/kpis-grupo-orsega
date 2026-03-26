@@ -116,6 +116,10 @@ export interface SalesMetrics {
   monthsBelowAverage: number;
   /** Porcentaje de rentabilidad/margen bruto */
   profitability: number;
+  /** Revenue total YTD (USD o MXN según empresa) */
+  totalRevenue: number;
+  /** Utilidad bruta acumulada YTD */
+  grossProfit: number;
   
   // Metadata
   /** Información del período analizado */
