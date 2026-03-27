@@ -9,17 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, apiRequestLegacy } from "@/lib/queryClient";
-import { 
-  Package, 
-  MapPin, 
-  Calendar, 
+import {
+  Package,
+  MapPin,
+  Calendar,
   GripVertical,
   Plus,
   Truck,
   Download,
   Clock,
   X,
-  History
+  History,
+  CheckCircle2,
+  AlertCircle,
+  Mail
 } from "lucide-react";
 import {
   Dialog,
@@ -64,6 +67,14 @@ interface Shipment {
   customerId?: number | null;
   drumCount?: number | null;
   departureDate?: string | null;
+  // Last collection order send status
+  lastCollectionOrder?: {
+    providerName: string;
+    providerEmail: string;
+    emailSent: boolean;
+    emailError: string | null;
+    sentAt: string;
+  } | null;
   // Include cycle times data to eliminate N+1 queries
   cycleTimes?: {
     hoursTotalCycle?: string | null;
@@ -362,9 +373,42 @@ const ShipmentCard = ({
         </div>
       )}
 
+      {/* Indicador de estado de envío de correo */}
+      {shipment.lastCollectionOrder && (
+        <div className={`mt-2 px-2 py-1.5 rounded text-xs flex items-start gap-1.5 ${
+          shipment.lastCollectionOrder.emailSent
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {shipment.lastCollectionOrder.emailSent ? (
+            <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-green-600" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-red-600" />
+          )}
+          <div className="min-w-0">
+            <p className="font-medium truncate">
+              {shipment.lastCollectionOrder.emailSent
+                ? `Enviado a ${shipment.lastCollectionOrder.providerName}`
+                : 'Error de envío'}
+            </p>
+            <p className="text-[10px] opacity-75">
+              {new Date(shipment.lastCollectionOrder.sentAt).toLocaleDateString('es-MX', {
+                day: '2-digit', month: 'short', year: 'numeric',
+              })}{' '}
+              {new Date(shipment.lastCollectionOrder.sentAt).toLocaleTimeString('es-MX', {
+                hour: '2-digit', minute: '2-digit',
+              })}
+            </p>
+            {shipment.lastCollectionOrder.emailError && (
+              <p className="text-[10px] text-red-600 truncate">{shipment.lastCollectionOrder.emailError}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Botón para solicitar envío (genera Excel de orden de recolección y envía al proveedor) */}
       {shipment.status === 'pending' && onCollectionOrder && (
-        <div className="mt-3 pt-2 border-t border-border">
+        <div className="mt-2 pt-2 border-t border-border">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -373,7 +417,7 @@ const ShipmentCard = ({
             className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-2 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1.5 font-medium"
           >
             <Truck className="h-3.5 w-3.5" />
-            Solicitar Envío
+            {shipment.lastCollectionOrder ? 'Reenviar Solicitud' : 'Solicitar Envío'}
           </button>
         </div>
       )}

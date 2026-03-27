@@ -82,9 +82,38 @@ const router = Router();
       const total = shipments.length;
       const paginatedShipments = shipments.slice(offset, offset + limitNum);
 
+      // Enrich with last collection order send status (batch query, not N+1)
+      const shipmentIds = paginatedShipments.map((s: any) => s.id);
+      let lastSendByShipment: Record<number, any> = {};
+      if (shipmentIds.length > 0) {
+        const placeholders = shipmentIds.map((_: number, i: number) => `$${i + 1}`).join(',');
+        const sendRows = await sql(`
+          SELECT DISTINCT ON (shipment_id)
+            shipment_id, action, provider_name, provider_email,
+            email_message_id, email_error, created_at
+          FROM collection_orders
+          WHERE shipment_id IN (${placeholders}) AND action = 'sent'
+          ORDER BY shipment_id, created_at DESC
+        `, shipmentIds);
+        for (const row of sendRows) {
+          lastSendByShipment[row.shipment_id] = {
+            providerName: row.provider_name,
+            providerEmail: row.provider_email,
+            emailSent: !row.email_error,
+            emailError: row.email_error,
+            sentAt: row.created_at,
+          };
+        }
+      }
+
+      const enrichedShipments = paginatedShipments.map((s: any) => ({
+        ...s,
+        lastCollectionOrder: lastSendByShipment[s.id] || null,
+      }));
+
       // Response with pagination metadata
       res.json({
-        shipments: paginatedShipments,
+        shipments: enrichedShipments,
         pagination: {
           page: pageNum,
           limit: limitNum,
