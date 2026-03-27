@@ -449,10 +449,25 @@ const KanbanColumn = ({
   isLoadingMore?: boolean;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [sendFilter, setSendFilter] = useState<'all' | 'unsent' | 'sent'>('all');
+
   // Incluir cancelled en la columna de delivered (simplificación)
-  const filteredShipments = status === 'delivered' 
+  const statusFiltered = status === 'delivered'
     ? shipments.filter(s => s.status === 'delivered' || s.status === 'cancelled')
     : shipments.filter(s => s.status === status);
+
+  // Aplicar filtro de envío solo en columna "pending"
+  const filteredShipments = status === 'pending' && sendFilter !== 'all'
+    ? statusFiltered.filter(s =>
+        sendFilter === 'sent'
+          ? s.lastCollectionOrder?.emailSent === true
+          : !s.lastCollectionOrder?.emailSent
+      )
+    : statusFiltered;
+
+  // Conteos para los tabs del filtro
+  const sentCount = status === 'pending' ? statusFiltered.filter(s => s.lastCollectionOrder?.emailSent === true).length : 0;
+  const unsentCount = status === 'pending' ? statusFiltered.filter(s => !s.lastCollectionOrder?.emailSent).length : 0;
   
   // Agrupar por mes solo para columna entregados (ahora incluye cancelled)
   const groupedShipments = useMemo(() => {
@@ -617,9 +632,31 @@ const KanbanColumn = ({
               )}
             </div>
           </CardTitle>
+          {/* Filtro de estado de envío — solo columna "Por embarcar" */}
+          {status === 'pending' && statusFiltered.length > 0 && (
+            <div className="flex gap-1 mt-2">
+              {([
+                { key: 'all' as const, label: 'Todos', count: statusFiltered.length },
+                { key: 'unsent' as const, label: 'Sin enviar', count: unsentCount },
+                { key: 'sent' as const, label: 'Enviados', count: sentCount },
+              ]).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSendFilter(tab.key)}
+                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                    sendFilter === tab.key
+                      ? 'bg-white text-slate-900'
+                      : 'bg-white/20 text-white/80 hover:bg-white/30'
+                  }`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          <div 
+          <div
             className={`space-y-3 max-h-96 overflow-y-auto transition-all ${
               isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-3' : ''
             }`}
@@ -687,7 +724,13 @@ const KanbanColumn = ({
               <div className="text-center text-gray-500 py-12">
                 <div className="text-4xl mb-2">{config.icon}</div>
                 <div className="text-sm font-medium">
-                  {isDragOver ? "Suelta la tarjeta aquí" : "No hay envíos"}
+                  {isDragOver
+                    ? "Suelta la tarjeta aquí"
+                    : status === 'pending' && sendFilter === 'unsent'
+                      ? "Todos los envíos ya fueron solicitados"
+                      : status === 'pending' && sendFilter === 'sent'
+                        ? "Ningún envío ha sido solicitado aún"
+                        : "No hay envíos"}
                 </div>
                 <div className="text-xs opacity-75 mt-1">
                   {isDragOver ? "para cambiar el estado" : config.description.toLowerCase()}
