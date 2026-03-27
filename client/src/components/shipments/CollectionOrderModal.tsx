@@ -181,11 +181,11 @@ export function CollectionOrderModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-blue-600" />
-            Orden de Recolección
+            <Truck className="h-5 w-5 text-primary" />
+            Solicitar Envío
           </DialogTitle>
           <DialogDescription>
-            Genera el Excel para el transportista con los datos de recolección
+            Genera la orden de recolección y la envía al proveedor de transporte
           </DialogDescription>
         </DialogHeader>
 

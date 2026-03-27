@@ -29,7 +29,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { RequestShipmentModal } from './RequestShipmentModal';
 import { CollectionOrderModal } from './CollectionOrderModal';
 import { ReportModal } from '../reports/ReportModal';
 
@@ -106,12 +105,10 @@ const StatusBadge = ({ status }: { status: string }) => {
 const ShipmentCard = ({
   shipment,
   onCardClick,
-  onRequestTransport,
   onCollectionOrder
 }: {
   shipment: Shipment;
   onCardClick: (shipment: Shipment) => void;
-  onRequestTransport?: (shipment: Shipment) => void;
   onCollectionOrder?: (shipment: Shipment) => void;
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -365,33 +362,19 @@ const ShipmentCard = ({
         </div>
       )}
 
-      {/* Botones para pendientes */}
-      {shipment.status === 'pending' && (onRequestTransport || onCollectionOrder) && (
-        <div className="mt-3 pt-2 border-t border-border space-y-1.5">
-          {onRequestTransport && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRequestTransport(shipment);
-              }}
-              className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
-            >
-              <Truck className="h-3 w-3" />
-              Solicitar envío
-            </button>
-          )}
-          {onCollectionOrder && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCollectionOrder(shipment);
-              }}
-              className="w-full text-xs bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1"
-            >
-              <Package className="h-3 w-3" />
-              Orden de Recolección
-            </button>
-          )}
+      {/* Botón para solicitar envío (genera Excel de orden de recolección y envía al proveedor) */}
+      {shipment.status === 'pending' && onCollectionOrder && (
+        <div className="mt-3 pt-2 border-t border-border">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCollectionOrder(shipment);
+            }}
+            className="w-full text-xs bg-primary hover:bg-primary/90 text-white py-2 px-2 rounded transition-colors duration-200 flex items-center justify-center gap-1.5 font-medium"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Solicitar Envío
+          </button>
         </div>
       )}
     </div>
@@ -405,7 +388,6 @@ const KanbanColumn = ({
   allShipmentsCount,
   onDrop,
   onCardClick,
-  onRequestTransport,
   onCollectionOrder,
   showLoadMoreButton,
   onLoadMore,
@@ -417,7 +399,6 @@ const KanbanColumn = ({
   allShipmentsCount?: number;
   onDrop: (shipment: Shipment, newStatus: string) => void;
   onCardClick: (shipment: Shipment) => void;
-  onRequestTransport?: (shipment: Shipment) => void;
   onCollectionOrder?: (shipment: Shipment) => void;
   showLoadMoreButton?: boolean;
   onLoadMore?: () => void;
@@ -622,7 +603,6 @@ const KanbanColumn = ({
                     key={shipment.id}
                     shipment={shipment}
                     onCardClick={onCardClick}
-                    onRequestTransport={onRequestTransport}
                     onCollectionOrder={onCollectionOrder}
                   />
                 ))}
@@ -688,14 +668,6 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     shipment: null
   });
   const [editDialog, setEditDialog] = useState<{
-    isOpen: boolean;
-    shipment: Shipment | null;
-  }>({
-    isOpen: false,
-    shipment: null
-  });
-
-  const [requestDialog, setRequestDialog] = useState<{
     isOpen: boolean;
     shipment: Shipment | null;
   }>({
@@ -821,21 +793,34 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     return (shipmentsResponse as {pagination?: any}).pagination;
   }, [shipmentsResponse]);
 
-  // Obtener proveedores para el modal de solicitud (filtrados por empresa del formulario)
-  const formCompanyId = newShipmentForm.companyId ? parseInt(newShipmentForm.companyId) : 1;
-  const { data: providers = [] } = useQuery<any[]>({
-    queryKey: ['/api/providers', formCompanyId],
+  // Obtener proveedores de transporte (ambas empresas — logística es cross-company)
+  const { data: providersDura = [] } = useQuery<any[]>({
+    queryKey: ['/api/providers', 1],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/providers?companyId=${formCompanyId}`);
+      const res = await apiRequest('GET', '/api/providers?companyId=1');
       return res.json();
     },
   });
+  const { data: providersOrsega = [] } = useQuery<any[]>({
+    queryKey: ['/api/providers', 2],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/providers?companyId=2');
+      return res.json();
+    },
+  });
+  // Merge and deduplicate by id
+  const providers = useMemo(() => {
+    const map = new Map<string, any>();
+    [...providersDura, ...providersOrsega].forEach(p => map.set(p.id, p));
+    return Array.from(map.values());
+  }, [providersDura, providersOrsega]);
 
   // Obtener clientes de la base de datos (filtrados por empresa del formulario)
+  const clientCompanyId = newShipmentForm.companyId ? parseInt(newShipmentForm.companyId) : 1;
   const { data: clients = [], isLoading: isLoadingClients } = useQuery<any[]>({
-    queryKey: ['/api/clients', formCompanyId],
+    queryKey: ['/api/clients', clientCompanyId],
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/clients?companyId=${formCompanyId}`);
+      const res = await apiRequest('GET', `/api/clients?companyId=${clientCompanyId}`);
       return res.json();
     },
   });
@@ -1018,33 +1003,11 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     });
   };
 
-  const handleRequestTransport = (shipment: Shipment) => {
-    setRequestDialog({
-      isOpen: true,
-      shipment
-    });
-  };
 
   const handleCollectionOrder = (shipment: Shipment) => {
     setCollectionOrderDialog({
       isOpen: true,
       shipment
-    });
-  };
-
-  const handleRequestSubmit = async (requestData: any) => {
-    // TODO: Implementar llamada al backend
-    console.log('Datos de solicitud:', requestData);
-    console.log('Envío:', requestDialog.shipment);
-    
-    toast({
-      title: "Solicitud enviada",
-      description: "La solicitud de transporte se ha enviado al proveedor",
-    });
-    
-    setRequestDialog({
-      isOpen: false,
-      shipment: null
     });
   };
 
@@ -1171,7 +1134,6 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           allShipmentsCount={shipments.length}
           onDrop={handleDrop}
           onCardClick={handleCardClick}
-          onRequestTransport={handleRequestTransport}
           onCollectionOrder={handleCollectionOrder}
         />
         <KanbanColumn 
@@ -1718,18 +1680,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
         </DialogContent>
       </Dialog>
 
-      {/* Modal de solicitud de transporte */}
-      {requestDialog.shipment && (
-        <RequestShipmentModal
-          shipment={requestDialog.shipment}
-          providers={providers}
-          isOpen={requestDialog.isOpen}
-          onClose={() => setRequestDialog({ isOpen: false, shipment: null })}
-          onSubmit={handleRequestSubmit}
-        />
-      )}
-
-      {/* Modal de orden de recolección */}
+      {/* Modal de solicitud de envío — genera Excel de orden de recolección y envía al proveedor */}
       {collectionOrderDialog.shipment && (
         <CollectionOrderModal
           shipment={collectionOrderDialog.shipment}
