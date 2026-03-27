@@ -793,27 +793,14 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     return (shipmentsResponse as {pagination?: any}).pagination;
   }, [shipmentsResponse]);
 
-  // Obtener proveedores de transporte (ambas empresas — logística es cross-company)
-  const { data: providersDura = [] } = useQuery<any[]>({
-    queryKey: ['/api/providers', 1],
+  // Obtener proveedores de transporte (compartidos entre empresas)
+  const { data: providers = [] } = useQuery<any[]>({
+    queryKey: ['/api/providers'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/providers?companyId=1');
+      const res = await apiRequest('GET', '/api/providers');
       return res.json();
     },
   });
-  const { data: providersOrsega = [] } = useQuery<any[]>({
-    queryKey: ['/api/providers', 2],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/providers?companyId=2');
-      return res.json();
-    },
-  });
-  // Merge and deduplicate by id
-  const providers = useMemo(() => {
-    const map = new Map<string, any>();
-    [...providersDura, ...providersOrsega].forEach(p => map.set(p.id, p));
-    return Array.from(map.values());
-  }, [providersDura, providersOrsega]);
 
   // Obtener clientes de la base de datos (filtrados por empresa del formulario)
   const clientCompanyId = newShipmentForm.companyId ? parseInt(newShipmentForm.companyId) : 1;

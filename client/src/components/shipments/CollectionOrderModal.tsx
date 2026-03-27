@@ -274,62 +274,9 @@ export function CollectionOrderModal({
               Datos de Recolección
             </h3>
             <div className="space-y-4">
-              {/* # de Tambos */}
+              {/* 1. Proveedor — lo primero que se selecciona */}
               <div className="space-y-2">
-                <Label htmlFor="drumCount"># de Tambos *</Label>
-                <Input
-                  id="drumCount"
-                  type="number"
-                  min={1}
-                  value={drumCount}
-                  onChange={(e) => setDrumCount(e.target.value)}
-                  placeholder="Ej: 10"
-                />
-              </div>
-
-              {/* Preview en vivo */}
-              {drums > 0 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg space-y-2 text-sm border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center gap-2">
-                    <Scale className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium">Peso:</span>
-                    <span>{distribution.totalWeightKg.toLocaleString("es-MX")} kg</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium">Tarimas:</span>
-                    <span>{distribution.totalTarimas}</span>
-                  </div>
-                  {distribution.description && (
-                    <p className="text-xs text-muted-foreground">{distribution.description}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Fecha de recolección */}
-              <div className="space-y-2">
-                <Label htmlFor="pickupDate">Fecha de recolección</Label>
-                <Input
-                  id="pickupDate"
-                  type="date"
-                  value={pickupDate}
-                  onChange={(e) => setPickupDate(e.target.value)}
-                />
-              </div>
-
-              {/* Horario */}
-              <div className="space-y-2">
-                <Label htmlFor="pickupWindow">Horario</Label>
-                <Input
-                  id="pickupWindow"
-                  value={pickupWindow}
-                  onChange={(e) => setPickupWindow(e.target.value)}
-                />
-              </div>
-
-              {/* Proveedor */}
-              <div className="space-y-2">
-                <Label htmlFor="provider">Proveedor de transporte</Label>
+                <Label htmlFor="provider">Proveedor de transporte *</Label>
                 <Select value={providerId} onValueChange={setProviderId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un proveedor" />
@@ -346,6 +293,59 @@ export function CollectionOrderModal({
                 {providerId && selectedProvider && !selectedProvider.email && (
                   <p className="text-xs text-destructive">Este proveedor no tiene email configurado</p>
                 )}
+              </div>
+
+              {/* 2. # de Tambos */}
+              <div className="space-y-2">
+                <Label htmlFor="drumCount"># de Tambos *</Label>
+                <Input
+                  id="drumCount"
+                  type="number"
+                  min={1}
+                  value={drumCount}
+                  onChange={(e) => setDrumCount(e.target.value)}
+                  placeholder="Ej: 10"
+                />
+              </div>
+
+              {/* Preview en vivo de peso/tarimas */}
+              {drums > 0 && (
+                <div className="p-3 bg-primary/5 rounded-lg space-y-2 text-sm border border-primary/20">
+                  <div className="flex items-center gap-2">
+                    <Scale className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Peso:</span>
+                    <span>{distribution.totalWeightKg.toLocaleString("es-MX")} kg</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Tarimas:</span>
+                    <span>{distribution.totalTarimas}</span>
+                  </div>
+                  {distribution.description && (
+                    <p className="text-xs text-muted-foreground">{distribution.description}</p>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Fecha de recolección */}
+              <div className="space-y-2">
+                <Label htmlFor="pickupDate">Fecha de recolección</Label>
+                <Input
+                  id="pickupDate"
+                  type="date"
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                />
+              </div>
+
+              {/* 4. Horario */}
+              <div className="space-y-2">
+                <Label htmlFor="pickupWindow">Horario</Label>
+                <Input
+                  id="pickupWindow"
+                  value={pickupWindow}
+                  onChange={(e) => setPickupWindow(e.target.value)}
+                />
               </div>
             </div>
           </div>

@@ -245,16 +245,23 @@ catalogRouter.delete('/clients/:id', async (req, res) => {
 // PROVIDERS
 catalogRouter.get('/providers', async (req, res) => {
   try {
-    const authUser = (req as AuthRequest).user;
-    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : authUser?.companyId;
-    const companyId = companyIdParam ?? 1;
-    console.log(`🔵 [GET /providers] Endpoint llamado, companyId=${companyId}`);
-    const result = await sql(`
-      SELECT * FROM provider
-      WHERE is_active = TRUE AND company_id = $1
-      ORDER BY name
-    `, [companyId])
-    console.log(`📊 [GET /providers] Retornando ${result.rows.length} proveedores para empresa ${companyId}`);
+    // Transport providers are shared across companies — return all active by default
+    const companyIdParam = req.query.companyId ? Number(req.query.companyId) : null;
+    let result;
+    if (companyIdParam) {
+      result = await sql(`
+        SELECT * FROM provider
+        WHERE is_active = TRUE AND (company_id = $1 OR company_id IS NULL)
+        ORDER BY name
+      `, [companyIdParam]);
+    } else {
+      result = await sql(`
+        SELECT * FROM provider
+        WHERE is_active = TRUE
+        ORDER BY name
+      `);
+    }
+    console.log(`📊 [GET /providers] Retornando ${result.rows.length} proveedores`);
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching providers:', error)
