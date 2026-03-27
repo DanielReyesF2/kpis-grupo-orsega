@@ -857,6 +857,14 @@ const router = Router();
       const filename = `Orden_Recoleccion_${shipment.trackingCode}_${validated.pickupDate}.xlsx`;
       const pickupDateFormatted = new Date(validated.pickupDate).toLocaleDateString('es-MX');
 
+      // Company-specific sender info for email template
+      const companyId = shipment.companyId ?? 1;
+      const companyInfo: Record<number, { name: string; sender: string; senderRole: string }> = {
+        1: { name: 'Dura International', sender: 'Jesús Espinoza', senderRole: 'Logística' },
+        2: { name: 'Grupo Orsega', sender: 'Thalia Rodríguez', senderRole: 'Logística' },
+      };
+      const company = companyInfo[companyId] || companyInfo[1];
+
       const emailResult = await triggerN8nLogistics({
         event: 'collection_order',
         to: provider.email,
@@ -867,6 +875,9 @@ const router = Router();
           drumCount: validated.drumCount,
           pickupDate: validated.pickupDate,
           providerName: provider.name,
+          companyName: company.name,
+          senderName: company.sender,
+          senderRole: company.senderRole,
         },
         attachment: {
           filename,
