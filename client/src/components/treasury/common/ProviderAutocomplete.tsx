@@ -33,13 +33,9 @@ export function ProviderAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
-    queryKey: ["/api/suppliers", companyId],
-    queryFn: async () => {
-      const url = companyId ? `/api/suppliers?companyId=${companyId}` : "/api/suppliers";
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch suppliers");
-      return res.json();
-    },
+    queryKey: [
+      companyId ? `/api/suppliers?companyId=${companyId}` : "/api/suppliers",
+    ],
     staleTime: 60000,
   });
 
@@ -94,7 +90,9 @@ export function ProviderAutocomplete({
                 </div>
               ) : filteredSuppliers.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  {companyId ? "No se encontraron proveedores para esta empresa" : "Selecciona primero la empresa"}
+                  {companyId
+                    ? "No se encontraron proveedores para esta empresa"
+                    : "Selecciona primero la empresa"}
                 </div>
               ) : (
                 filteredSuppliers.slice(0, 10).map((supplier) => (
@@ -111,7 +109,9 @@ export function ProviderAutocomplete({
                     <div className="flex items-center justify-between w-full">
                       <div className="text-left flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-base">{supplier.name}</p>
+                          <p className="font-semibold text-base">
+                            {supplier.name}
+                          </p>
                           {supplier.requires_rep && (
                             <Badge variant="outline" className="text-xs">
                               REP
@@ -170,7 +170,9 @@ export function ProviderAutocomplete({
           {selectedSupplier.requires_rep && selectedSupplier.rep_frequency && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <Calendar className="h-3 w-3" />
-              <span>Recordatorio cada {selectedSupplier.rep_frequency} días</span>
+              <span>
+                Recordatorio cada {selectedSupplier.rep_frequency} días
+              </span>
             </div>
           )}
         </div>
@@ -178,4 +180,3 @@ export function ProviderAutocomplete({
     </div>
   );
 }
-
