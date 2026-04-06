@@ -503,9 +503,47 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Supplier not found' })
     }
-    
-    console.log(`✅ [PATCH /suppliers/${id}] Proveedor actualizado: ${result.rows[0].name}`)
-    res.json(result.rows[0])
+
+    const updatedSupplier = result.rows[0];
+
+    // Cascada: si cambió requires_rep, mover vouchers en el Kanban
+    if (validatedData.requiresRep !== undefined) {
+      const supplierName = updatedSupplier.name;
+      const companyId = updatedSupplier.company_id;
+
+      if (updatedSupplier.requires_rep === false) {
+        // REP NO → mover de "Esperando REP" a "Por pagar"
+        const moved = await sql(`
+          UPDATE payment_vouchers
+          SET status = 'pago_programado', updated_at = NOW()
+          WHERE LOWER(TRIM(client_name)) = LOWER(TRIM($1))
+            AND company_id = $2
+            AND status = 'pendiente_complemento'
+          RETURNING id, client_name
+        `, [supplierName, companyId]);
+
+        if (moved.rows.length > 0) {
+          console.log(`📋 [Supplier Cascade] ${supplierName} → REP NO: ${moved.rows.length} voucher(s) movidos a "Por pagar"`);
+        }
+      } else {
+        // REP SÍ → mover de "Por pagar" a "Esperando REP"
+        const moved = await sql(`
+          UPDATE payment_vouchers
+          SET status = 'pendiente_complemento', updated_at = NOW()
+          WHERE LOWER(TRIM(client_name)) = LOWER(TRIM($1))
+            AND company_id = $2
+            AND status = 'pago_programado'
+          RETURNING id, client_name
+        `, [supplierName, companyId]);
+
+        if (moved.rows.length > 0) {
+          console.log(`📋 [Supplier Cascade] ${supplierName} → REP SÍ: ${moved.rows.length} voucher(s) movidos a "Esperando REP"`);
+        }
+      }
+    }
+
+    console.log(`✅ [PATCH /suppliers/${id}] Proveedor actualizado: ${updatedSupplier.name}`)
+    res.json(updatedSupplier)
   } catch (error) {
     console.error('❌ Error updating supplier:', error)
     res.status(400).json({ error: 'Failed to update supplier' })
