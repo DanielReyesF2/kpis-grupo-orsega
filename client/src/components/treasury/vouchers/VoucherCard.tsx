@@ -41,6 +41,9 @@ export interface PaymentVoucher {
   extractedCurrency: string | null;
   extractedTrackingKey?: string | null;
   ocrConfidence: number | null;
+  complementFileUrl?: string | null;
+  complementFileName?: string | null;
+  complementFileType?: string | null;
   notes: string | null;
   createdAt: string;
 }

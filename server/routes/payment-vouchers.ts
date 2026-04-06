@@ -203,6 +203,13 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       finalStatus = 'pendiente_complemento';
     }
 
+    // Si el proveedor NO requiere REP, saltar "Esperando REP" → ir a "Por pagar"
+    const requiresREPForStatus = supplier?.requiresRep === true;
+    if (!requiresREPForStatus && finalStatus === 'pendiente_complemento') {
+      finalStatus = 'pago_programado';
+      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} NO requiere REP, status → pago_programado`);
+    }
+
     // Crear comprobante vinculado
     console.log(`📝 [Upload Voucher] Preparando datos del voucher...`);
     const newVoucher: InsertPaymentVoucher = {
@@ -597,6 +604,62 @@ router.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req, res) =
       return res.status(400).json({ error: 'Validación fallida', details: error.errors });
     }
     res.status(500).json({ error: 'Error al eliminar el comprobante' });
+  }
+});
+
+// POST /api/payment-vouchers/:id/upload-rep - Subir REP (complemento de pago) y transicionar status
+router.post("/api/payment-vouchers/:id/upload-rep", jwtAuthMiddleware, voucherUpload.single('file'), async (req, res) => {
+  try {
+    const voucherId = parseInt(req.params.id);
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se proporcionó archivo REP' });
+    }
+
+    // Verificar que el voucher existe y está en status correcto
+    const voucher = await db.query.paymentVouchers.findFirst({
+      where: eq(paymentVouchers.id, voucherId),
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ error: 'Comprobante no encontrado' });
+    }
+
+    if (voucher.status !== 'pendiente_complemento') {
+      return res.status(400).json({
+        error: `No se puede subir REP en status "${voucher.status}". Solo aplica para comprobantes en "Esperando REP".`
+      });
+    }
+
+    // Subir archivo a storage
+    console.log(`📤 [Upload REP] Subiendo REP para voucher ${voucherId}...`);
+    const uploadResult = await uploadFile(
+      file.buffer,
+      'complementos',
+      file.originalname,
+      file.mimetype
+    );
+    console.log(`✅ [Upload REP] Archivo subido a ${uploadResult.storage}: ${uploadResult.url}`);
+
+    // Actualizar voucher con archivo REP y transicionar status
+    const updatedVoucher = await storage.updatePaymentVoucher(voucherId, {
+      complementFileUrl: uploadResult.url,
+      complementFileName: file.originalname,
+      complementFileType: file.mimetype,
+      status: 'complemento_recibido',
+    });
+
+    console.log(`✅ [Upload REP] Voucher ${voucherId} actualizado: status → complemento_recibido`);
+
+    res.json({
+      success: true,
+      voucher: updatedVoucher,
+      message: 'REP recibido exitosamente',
+    });
+  } catch (error) {
+    console.error('❌ [Upload REP] Error:', error);
+    res.status(500).json({ error: 'Error al subir REP' });
   }
 });
 
