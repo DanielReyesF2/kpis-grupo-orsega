@@ -772,13 +772,16 @@ const router = Router();
 
     // Now fetch client with updated data
     const client = shipment.customerId ? await storage.getClient(shipment.customerId) : null;
+    // Prioridad: shipment.destination (dirección del envío específico) > client.streetAddress (catálogo)
+    // Jesús puede modificar la dirección de entrega al generar la solicitud,
+    // esa dirección vive en shipment.destination y debe reflejarse en el Excel.
     return {
       pickupDate: validated.pickupDate,
       drumCount: validated.drumCount,
       pickupWindow: validated.pickupWindow,
       companyId: shipment.companyId, // Determines origin/billing in Excel
       clientName: client?.razonSocial || client?.name || shipment.customerName,
-      clientAddress: client?.streetAddress || shipment.destination,
+      clientAddress: shipment.destination || client?.streetAddress,
       clientColonia: client?.colonia || undefined,
       clientCp: client?.postalCode || undefined,
       clientMunicipality: client?.municipality || undefined,

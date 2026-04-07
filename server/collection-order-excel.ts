@@ -5,7 +5,7 @@ import { calculatePalletDistribution } from '@shared/collection-order-utils';
 
 const ORIGIN_DURA = {
   company: 'DURA INTERNATIONAL',
-  address: 'Camino al Alemán 373, int Bodega B5-A',
+  address: 'Camino al Alemán 373, int Bodega B5-A,',
   colonia: 'NEXTIPAC',
   cp: '45220',
   municipality: 'ZAPOPAN',
@@ -14,6 +14,7 @@ const ORIGIN_DURA = {
   contact: 'JESÚS ESPINOZA',
   phone: '33 1809 2852',
   pickupWindow: 'DE 10:00 A 16:00 HRS',
+  requestedBy: 'DANIEL MARQUEZ',
 };
 
 const ORIGIN_ORSEGA = {
@@ -27,18 +28,23 @@ const ORIGIN_ORSEGA = {
   contact: 'THALIA RODRIGUEZ',
   phone: '33 1587 6361',
   pickupWindow: 'DE 10:00 A 16:00 HRS',
+  requestedBy: 'THALIA RODRIGUEZ',
 };
 
 const BILLING_DURA = {
   company: 'DURA INTERNATIONAL',
   rfc: 'DIN100908DS8',
-  paymentMethod: 'CRÉDITO / FLETE X COBRAR',
+  contact: 'DANIEL MARQUEZ',
+  paymentMethod: 'CRÉDITO',
+  paymentNote: 'FLETE X COBRAR',
 };
 
 const BILLING_ORSEGA = {
   company: 'GRUPO ORSEGA',
   rfc: 'GOR920226B20',
-  paymentMethod: 'CRÉDITO / FLETE X COBRAR',
+  contact: 'THALIA RODRIGUEZ',
+  paymentMethod: 'CRÉDITO',
+  paymentNote: 'FLETE X COBRAR',
 };
 
 const PRODUCT_DEFAULTS = {
@@ -57,11 +63,10 @@ function getCompanyConfig(companyId: number) {
 }
 
 export interface CollectionOrderData {
-  pickupDate: string; // ISO date string
+  pickupDate: string;
   drumCount: number;
   pickupWindow?: string;
-  companyId: number; // 1=Dura, 2=Orsega — determines origin/billing
-  // Client/destination data
+  companyId: number;
   clientName: string;
   clientAddress?: string;
   clientColonia?: string;
@@ -70,228 +75,429 @@ export interface CollectionOrderData {
   clientState?: string;
   clientContact?: string;
   clientPhone?: string;
-  // Shipment context
   trackingCode?: string;
   product?: string;
+  requestedBy?: string;
 }
 
-// Styling helpers
-const HEADER_FILL: ExcelJS.FillPattern = {
-  type: 'pattern',
-  pattern: 'solid',
-  fgColor: { argb: 'FF1F4E79' },
+// --- Styling ---
+
+const NAVY_FILL: ExcelJS.FillPattern = {
+  type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' },
 };
 
-const HEADER_FONT: Partial<ExcelJS.Font> = {
-  bold: true,
-  color: { argb: 'FFFFFFFF' },
-  size: 10,
-  name: 'Calibri',
+const LIGHT_BLUE_FILL: ExcelJS.FillPattern = {
+  type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' },
 };
 
-const LABEL_FONT: Partial<ExcelJS.Font> = {
-  bold: true,
-  size: 9,
-  name: 'Calibri',
-};
+const WHITE_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9, name: 'Calibri' };
+const LABEL_FONT: Partial<ExcelJS.Font> = { bold: true, size: 8, name: 'Calibri' };
+const VALUE_FONT: Partial<ExcelJS.Font> = { bold: true, size: 10, name: 'Calibri' };
+const SMALL_FONT: Partial<ExcelJS.Font> = { size: 7, name: 'Calibri' };
+const TITLE_FONT: Partial<ExcelJS.Font> = { bold: true, size: 14, name: 'Calibri' };
+const RED_FONT: Partial<ExcelJS.Font> = { bold: true, size: 8, name: 'Calibri', color: { argb: 'FFFF0000' } };
 
-const VALUE_FONT: Partial<ExcelJS.Font> = {
-  size: 9,
-  name: 'Calibri',
-};
-
-const THIN_BORDER: Partial<ExcelJS.Borders> = {
-  top: { style: 'thin' },
-  left: { style: 'thin' },
-  bottom: { style: 'thin' },
-  right: { style: 'thin' },
+const BORDER: Partial<ExcelJS.Borders> = {
+  top: { style: 'thin' }, left: { style: 'thin' },
+  bottom: { style: 'thin' }, right: { style: 'thin' },
 };
 
 function formatDate(isoDate: string): string {
   const d = new Date(isoDate);
-  return d.toLocaleDateString('es-MX', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const day = d.getUTCDate();
+  const month = d.getUTCMonth() + 1;
+  const year = String(d.getUTCFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
 }
 
-function addSectionHeader(ws: ExcelJS.Worksheet, row: number, text: string, colStart: number, colEnd: number) {
-  ws.mergeCells(row, colStart, row, colEnd);
-  const cell = ws.getCell(row, colStart);
-  cell.value = text;
-  cell.fill = HEADER_FILL;
-  cell.font = HEADER_FONT;
-  cell.alignment = { horizontal: 'center', vertical: 'middle' };
-  cell.border = THIN_BORDER;
-  ws.getRow(row).height = 22;
+/** Set cell with border, font, alignment, optional fill */
+function setCell(
+  ws: ExcelJS.Worksheet,
+  row: number, col: number,
+  value: string,
+  font: Partial<ExcelJS.Font>,
+  opts?: { fill?: ExcelJS.FillPattern; hAlign?: 'left' | 'center' | 'right'; wrap?: boolean }
+) {
+  const cell = ws.getCell(row, col);
+  cell.value = value;
+  cell.font = font;
+  cell.border = BORDER;
+  cell.alignment = {
+    horizontal: opts?.hAlign || 'left',
+    vertical: 'middle',
+    wrapText: opts?.wrap ?? true,
+  };
+  if (opts?.fill) cell.fill = opts.fill;
 }
 
-function addLabelValue(ws: ExcelJS.Worksheet, row: number, labelCol: number, labelColEnd: number, label: string, valueCol: number, valueColEnd: number, value: string) {
-  ws.mergeCells(row, labelCol, row, labelColEnd);
-  const labelCell = ws.getCell(row, labelCol);
-  labelCell.value = label;
-  labelCell.font = LABEL_FONT;
-  labelCell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
-  labelCell.border = THIN_BORDER;
+/** Merge cells and set value */
+function mergeSet(
+  ws: ExcelJS.Worksheet,
+  r1: number, c1: number, r2: number, c2: number,
+  value: string, font: Partial<ExcelJS.Font>,
+  opts?: { fill?: ExcelJS.FillPattern; hAlign?: 'left' | 'center' | 'right'; wrap?: boolean }
+) {
+  ws.mergeCells(r1, c1, r2, c2);
+  setCell(ws, r1, c1, value, font, opts);
+}
 
-  ws.mergeCells(row, valueCol, row, valueColEnd);
-  const valueCell = ws.getCell(row, valueCol);
-  valueCell.value = value;
-  valueCell.font = VALUE_FONT;
-  valueCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-  valueCell.border = THIN_BORDER;
+/** Apply borders to a range */
+function borderRange(ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2: number) {
+  for (let r = r1; r <= r2; r++) {
+    for (let c = c1; c <= c2; c++) {
+      ws.getCell(r, c).border = BORDER;
+    }
+  }
+}
+
+// Abbreviation → state mapping for auto-highlight
+const CITY_ABBR_TO_STATES: Record<string, string[]> = {
+  'AGS': ['AGUASCALIENTES'],
+  'CAN': ['CANCUN', 'QUINTANA ROO'],
+  'CDJ': ['CIUDAD JUAREZ', 'CHIHUAHUA'],
+  'CHIH': ['CHIHUAHUA'],
+  'DGO': ['DURANGO'],
+  'GDL': ['GUADALAJARA', 'JALISCO'],
+  'LEON': ['LEON', 'GUANAJUATO'],
+  'MER': ['MERIDA', 'YUCATAN'],
+  'MEX': ['MEXICO', 'ESTADO DE MEXICO', 'EDOMEX', 'CDMX', 'CIUDAD DE MEXICO'],
+  'MTY': ['MONTERREY', 'NUEVO LEON'],
+  'MOR': ['MORELIA', 'MICHOACAN'],
+  'NLAR': ['NUEVO LAREDO', 'TAMAULIPAS'],
+  'PUE': ['PUEBLA'],
+  'PTOVALL': ['PUERTO VALLARTA'],
+  'QRO': ['QUERETARO'],
+  'REY': ['REYNOSA'],
+  'SALT': ['SALTILLO', 'COAHUILA'],
+  'SLP': ['SAN LUIS POTOSI'],
+  'TAM': ['TAMPICO'],
+  'TOL': ['TOLUCA'],
+  'TOR': ['TORREON'],
+  'TUX': ['TUXTLA', 'CHIAPAS'],
+  'VER': ['VERACRUZ'],
+  'VHSA': ['VILLAHERMOSA', 'TABASCO'],
+};
+
+function matchDestinationAbbr(state?: string, municipality?: string): string | null {
+  if (!state && !municipality) return null;
+  const upperState = (state || '').toUpperCase().trim();
+  const upperMuni = (municipality || '').toUpperCase().trim();
+
+  for (const [abbr, matches] of Object.entries(CITY_ABBR_TO_STATES)) {
+    for (const m of matches) {
+      if (upperState.includes(m) || upperMuni.includes(m)) return abbr;
+    }
+  }
+  return null;
 }
 
 /**
- * Genera un archivo Excel con el formato de Orden de Recolección (estilo Potosinos).
+ * Genera un archivo Excel con el formato homologado de Flete Potosinos.
  */
 export async function generateCollectionOrderExcel(data: CollectionOrderData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Nova - Econova';
   workbook.created = new Date();
 
-  const ws = workbook.addWorksheet('Orden de Recolección', {
-    pageSetup: {
-      paperSize: 9, // A4
-      orientation: 'portrait',
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 1,
-    },
+  const ws = workbook.addWorksheet('Hoja1', {
+    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1 },
   });
 
-  // Column widths (8 columns)
+  // 12 columns
   ws.columns = [
-    { width: 16 }, // A
-    { width: 16 }, // B
-    { width: 16 }, // C
-    { width: 16 }, // D
-    { width: 16 }, // E
-    { width: 16 }, // F
-    { width: 16 }, // G
-    { width: 16 }, // H
+    { width: 14 },  // A
+    { width: 22 },  // B
+    { width: 12 },  // C
+    { width: 14 },  // D
+    { width: 12 },  // E
+    { width: 12 },  // F
+    { width: 6 },   // G (spacer)
+    { width: 16 },  // H
+    { width: 14 },  // I
+    { width: 16 },  // J
+    { width: 12 },  // K
+    { width: 14 },  // L
   ];
 
   const dist = calculatePalletDistribution(data.drumCount);
-  const { origin: ORIGIN_WAREHOUSE, billing: BILLING } = getCompanyConfig(data.companyId);
-  const pickupWindow = data.pickupWindow || ORIGIN_WAREHOUSE.pickupWindow;
+  const { origin: O, billing: B } = getCompanyConfig(data.companyId);
+  const pickupWindow = data.pickupWindow || O.pickupWindow;
+  const requestedBy = data.requestedBy || O.requestedBy;
+  const matchedAbbr = matchDestinationAbbr(data.clientState, data.clientMunicipality);
+
   let r = 1;
 
-  // ============================
-  // TÍTULO: ORDEN DE RECOLECCIÓN
-  // ============================
-  addSectionHeader(ws, r, 'ORDEN DE RECOLECCIÓN', 1, 8);
+  // ==============================
+  // TÍTULO
+  // ==============================
+  borderRange(ws, r, 1, r, 12);
+  r++;
+  mergeSet(ws, r, 1, r, 12, 'ORDEN DE RECOLECCIÓN', TITLE_FONT, { hAlign: 'center' });
   ws.getRow(r).height = 28;
-  ws.getCell(r, 1).font = { ...HEADER_FONT, size: 14 };
+  r++;
+  r++; // blank row
+
+  // Subtítulo "recoleccion"
+  mergeSet(ws, r, 3, r, 5, 'recoleccion', { ...LABEL_FONT, size: 9 }, { hAlign: 'center' });
   r++;
 
-  // Fecha y folio
-  addLabelValue(ws, r, 1, 2, 'FECHA:', 3, 4, formatDate(data.pickupDate));
-  addLabelValue(ws, r, 5, 6, 'FOLIO:', 7, 8, data.trackingCode || '');
-  r += 2;
-
-  // =========================
-  // SECCIÓN: ORIGEN
-  // =========================
-  addSectionHeader(ws, r, 'ORIGEN', 1, 8);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'EMPRESA:', 3, 8, ORIGIN_WAREHOUSE.company);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'DIRECCIÓN:', 3, 8, ORIGIN_WAREHOUSE.address);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'COLONIA:', 3, 4, ORIGIN_WAREHOUSE.colonia);
-  addLabelValue(ws, r, 5, 6, 'C.P.:', 7, 8, ORIGIN_WAREHOUSE.cp);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'MUNICIPIO:', 3, 4, ORIGIN_WAREHOUSE.municipality);
-  addLabelValue(ws, r, 5, 6, 'ESTADO:', 7, 8, ORIGIN_WAREHOUSE.state);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'REFERENCIA:', 3, 8, ORIGIN_WAREHOUSE.reference);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'CONTACTO:', 3, 4, ORIGIN_WAREHOUSE.contact);
-  addLabelValue(ws, r, 5, 6, 'TELÉFONO:', 7, 8, ORIGIN_WAREHOUSE.phone);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'HORARIO:', 3, 8, pickupWindow);
-  r += 2;
-
-  // =========================
-  // SECCIÓN: PAQUETE / CONTENIDO
-  // =========================
-  addSectionHeader(ws, r, 'PAQUETE / CONTENIDO', 1, 8);
+  // Fecha
+  mergeSet(ws, r, 1, r, 2, 'FECHA DE LA RECOLECCION', LABEL_FONT, { hAlign: 'left' });
+  mergeSet(ws, r, 3, r, 5, formatDate(data.pickupDate), VALUE_FONT, { hAlign: 'center' });
   r++;
 
-  // Table header row
-  const pktHeaders = ['CLAVE PROD.', 'DESCRIPCIÓN', 'PIEZAS', 'PESO (KG)', 'TARIMAS', 'DIMENSIONES', 'CONTENIDO', 'DISTRIBUCIÓN'];
-  pktHeaders.forEach((h, i) => {
-    const cell = ws.getCell(r, i + 1);
-    cell.value = h;
-    cell.font = { ...LABEL_FONT, size: 8 };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E2F3' } };
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    cell.border = THIN_BORDER;
+  // ==============================
+  // PAQUETE (S) header — right side, same row area
+  // ==============================
+  const paqueteHeaderRow = r;
+  mergeSet(ws, paqueteHeaderRow, 8, paqueteHeaderRow, 12, 'PAQUETE (S)', WHITE_FONT, { fill: NAVY_FILL, hAlign: 'center' });
+  ws.getRow(paqueteHeaderRow).height = 20;
+  r++;
+
+  // ==============================
+  // ORIGEN header — left side
+  // ==============================
+  mergeSet(ws, r, 1, r, 2, 'ORIGEN', WHITE_FONT, { fill: NAVY_FILL, hAlign: 'left' });
+  borderRange(ws, r, 3, r, 6);
+
+  // Paquete: NO. DE PIEZAS / CLAVE PRODUCTO row
+  mergeSet(ws, r, 8, r, 9, 'NO. DE PIEZAS', LABEL_FONT, { hAlign: 'right' });
+  setCell(ws, r, 10, String(data.drumCount), VALUE_FONT, { hAlign: 'center' });
+  setCell(ws, r, 11, 'CLAVE PRODUCTO', LABEL_FONT);
+  setCell(ws, r, 12, PRODUCT_DEFAULTS.claveProducto, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // NOMBRE DE LA EMPRESA O PERSONA label
+  mergeSet(ws, r, 1, r, 6, 'NOMBRE DE LA EMPRESA O PERSONA', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  // Paquete: DESCRIPCION
+  mergeSet(ws, r, 8, r, 9, 'DESCRIPCION', LABEL_FONT, { hAlign: 'right' });
+  mergeSet(ws, r, 10, r, 12, data.product || PRODUCT_DEFAULTS.description, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // Company name value
+  mergeSet(ws, r, 1, r, 6, O.company, VALUE_FONT, { hAlign: 'center' });
+  // Paquete: PESO
+  mergeSet(ws, r, 8, r, 9, 'PESO', LABEL_FONT, { hAlign: 'right' });
+  mergeSet(ws, r, 10, r, 12, `${dist.totalWeightKg} KGS`, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // PERSONA QUE SOLICITA LA RECOLECCION | HORARIO
+  mergeSet(ws, r, 1, r, 3, 'PERSONA QUE SOLICITA LA RECOLECCION', SMALL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 4, r, 6, 'HORARIO (mínimo 3 hrs de espacio)', SMALL_FONT, { fill: LIGHT_BLUE_FILL });
+  // Paquete: MEDIDAS
+  mergeSet(ws, r, 8, r, 9, 'MEDIDAS', LABEL_FONT, { hAlign: 'right' });
+  mergeSet(ws, r, 10, r, 12, PRODUCT_DEFAULTS.dimensions, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // Values
+  mergeSet(ws, r, 1, r, 3, requestedBy, VALUE_FONT, { hAlign: 'center' });
+  mergeSet(ws, r, 4, r, 6, pickupWindow, VALUE_FONT, { hAlign: 'center' });
+  // Paquete: CONTENIDO
+  mergeSet(ws, r, 8, r, 9, 'CONTENIDO', LABEL_FONT, { hAlign: 'right' });
+  mergeSet(ws, r, 10, r, 12, dist.description, VALUE_FONT, { hAlign: 'center', wrap: true });
+  r++;
+
+  // DIRECCION label
+  mergeSet(ws, r, 1, r, 6, 'DIRECCION', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  // Paquete: EN QUE VIENE label
+  mergeSet(ws, r, 8, r, 12, 'EN QUE VIENE ( TARIMA,CAJA,ATADO,BULTO,ETC.) o CLAVE DE EMPAQUE.', SMALL_FONT, { fill: LIGHT_BLUE_FILL, wrap: true });
+  r++;
+
+  // Address value
+  mergeSet(ws, r, 1, r, 6, O.address, VALUE_FONT, { hAlign: 'center' });
+  // Paquete: TARIMA value
+  mergeSet(ws, r, 8, r, 12, 'TARIMA', VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // COLONIA | C.P.
+  mergeSet(ws, r, 1, r, 1, 'COLONIA', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 2, r, 4, '', LABEL_FONT); // empty for colonia
+  setCell(ws, r, 5, 'C.P.', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, '', LABEL_FONT);
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  // Colonia / CP values
+  mergeSet(ws, r, 1, r, 1, '', LABEL_FONT);
+  mergeSet(ws, r, 2, r, 4, O.colonia, VALUE_FONT, { hAlign: 'center' });
+  setCell(ws, r, 5, '', LABEL_FONT);
+  setCell(ws, r, 6, O.cp, VALUE_FONT, { hAlign: 'center' });
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  // CRUZA CON
+  mergeSet(ws, r, 1, r, 2, 'CRUZA CON.', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 6, '', LABEL_FONT);
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  // Reference value
+  mergeSet(ws, r, 1, r, 6, O.reference, { ...VALUE_FONT, size: 8 }, { hAlign: 'left', wrap: true });
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  // MUNICIPIO / ESTADO
+  mergeSet(ws, r, 1, r, 2, 'MUNICIPIO/DELEGACION', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 4, '', LABEL_FONT);
+  setCell(ws, r, 5, 'ESTADO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, '', LABEL_FONT);
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  mergeSet(ws, r, 1, r, 2, '', LABEL_FONT);
+  mergeSet(ws, r, 3, r, 4, O.municipality, VALUE_FONT, { hAlign: 'center' });
+  setCell(ws, r, 5, '', LABEL_FONT);
+  setCell(ws, r, 6, O.state, VALUE_FONT, { hAlign: 'center' });
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  // PERSONA DE CONTACTO / TELÉFONO
+  mergeSet(ws, r, 1, r, 2, 'PERSONA DE CONTACTO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 4, '', LABEL_FONT);
+  setCell(ws, r, 5, 'TELÉFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, '', LABEL_FONT);
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  mergeSet(ws, r, 1, r, 2, '', LABEL_FONT);
+  mergeSet(ws, r, 3, r, 4, O.contact, VALUE_FONT, { hAlign: 'center' });
+  setCell(ws, r, 5, '', LABEL_FONT);
+  setCell(ws, r, 6, O.phone, VALUE_FONT, { hAlign: 'center' });
+  borderRange(ws, r, 8, r, 12);
+  r++;
+
+  r++; // spacer
+
+  // ==============================
+  // DESTINO header with city abbreviations
+  // ==============================
+  const cityRow1 = ['DESTINO', 'AGS', 'CAN', 'CDJ', 'CHIH', 'DGO', 'GDL', 'LEON', 'MER', 'MEX', 'MTY', 'MOR', 'NLAR', 'PUE', 'PTOVALL', 'QRO', 'REY'];
+  // We'll use columns 1-12 but pack abbreviations in
+  setCell(ws, r, 1, 'DESTINO', WHITE_FONT, { fill: NAVY_FILL, hAlign: 'center' });
+
+  // Pack city abbreviations across columns 2-12
+  const abbrs1 = ['AGS', 'CAN', 'CDJ', 'CHIH', 'DGO', 'GDL', 'LEON', 'MER', 'MEX', 'MTY', 'MOR'];
+  abbrs1.forEach((a, i) => {
+    const font = (matchedAbbr === a) ? RED_FONT : { ...LABEL_FONT, size: 7 };
+    setCell(ws, r, i + 2, a, font, { hAlign: 'center' });
   });
-  ws.getRow(r).height = 24;
   r++;
 
-  // Table data row
-  const pktValues = [
-    PRODUCT_DEFAULTS.claveProducto,
-    data.product || PRODUCT_DEFAULTS.description,
-    String(data.drumCount),
-    String(dist.totalWeightKg),
-    String(dist.totalTarimas),
-    PRODUCT_DEFAULTS.dimensions,
-    PRODUCT_DEFAULTS.description,
-    dist.description,
-  ];
-  pktValues.forEach((v, i) => {
-    const cell = ws.getCell(r, i + 1);
-    cell.value = v;
-    cell.font = VALUE_FONT;
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    cell.border = THIN_BORDER;
+  // Second row: more abbreviations + OCURRE/DOMICILIO
+  setCell(ws, r, 1, 'OCURRE', RED_FONT, { hAlign: 'left' });
+  const abbrs2 = ['NLAR', 'PUE', 'PTOVALL', 'QRO', 'REY', 'SALT', 'SLP', 'TAM', 'TOL', 'TOR', 'TUX'];
+  abbrs2.forEach((a, i) => {
+    const font = (matchedAbbr === a) ? RED_FONT : { ...LABEL_FONT, size: 7 };
+    setCell(ws, r, i + 2, a, font, { hAlign: 'center' });
   });
-  ws.getRow(r).height = 36;
-  r += 2;
-
-  // =========================
-  // SECCIÓN: DESTINO
-  // =========================
-  addSectionHeader(ws, r, 'DESTINO', 1, 8);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'EMPRESA:', 3, 8, data.clientName);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'DIRECCIÓN:', 3, 8, data.clientAddress || '');
-  r++;
-  addLabelValue(ws, r, 1, 2, 'COLONIA:', 3, 4, data.clientColonia || '');
-  addLabelValue(ws, r, 5, 6, 'C.P.:', 7, 8, data.clientCp || '');
-  r++;
-  addLabelValue(ws, r, 1, 2, 'MUNICIPIO:', 3, 4, data.clientMunicipality || '');
-  addLabelValue(ws, r, 5, 6, 'ESTADO:', 7, 8, data.clientState || '');
-  r++;
-  addLabelValue(ws, r, 1, 2, 'CONTACTO:', 3, 4, data.clientContact || '');
-  addLabelValue(ws, r, 5, 6, 'TELÉFONO:', 7, 8, data.clientPhone || '');
-  r += 2;
-
-  // =========================
-  // SECCIÓN: FACTURAR A
-  // =========================
-  addSectionHeader(ws, r, 'FACTURAR A', 1, 8);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'EMPRESA:', 3, 8, BILLING.company);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'RFC:', 3, 8, BILLING.rfc);
-  r += 2;
-
-  // =========================
-  // SECCIÓN: FORMA DE PAGO
-  // =========================
-  addSectionHeader(ws, r, 'FORMA DE PAGO', 1, 8);
-  r++;
-  addLabelValue(ws, r, 1, 2, 'MÉTODO:', 3, 8, BILLING.paymentMethod);
   r++;
 
-  // Generate buffer
+  setCell(ws, r, 1, 'DOMICILIO', RED_FONT, { hAlign: 'left' });
+  const abbrs3 = ['VER', 'VHSA'];
+  abbrs3.forEach((a, i) => {
+    const font = (matchedAbbr === a) ? RED_FONT : { ...LABEL_FONT, size: 7 };
+    setCell(ws, r, i + 2, a, font, { hAlign: 'center' });
+  });
+  borderRange(ws, r, 1, r, 12);
+  r++;
+
+  r++; // spacer
+
+  // ==============================
+  // DESTINO details (left) + FACTURAR A (right)
+  // ==============================
+
+  // Labels
+  mergeSet(ws, r, 1, r, 2, 'NOMBRE DE LA EMPRESA O PERSONA', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 6, '', LABEL_FONT);
+  // FACTURAR A header
+  mergeSet(ws, r, 8, r, 12, 'FACTURAR A:', LABEL_FONT, { fill: LIGHT_BLUE_FILL, hAlign: 'left' });
+  r++;
+
+  // Destination company
+  mergeSet(ws, r, 1, r, 6, data.clientName, VALUE_FONT, { hAlign: 'center' });
+  mergeSet(ws, r, 8, r, 12, B.company, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // DIRECCIÓN
+  mergeSet(ws, r, 1, r, 1, 'DIRECCIÓN', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 2, r, 6, '', LABEL_FONT);
+  setCell(ws, r, 8, 'RFC.', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 12, '', LABEL_FONT);
+  r++;
+
+  mergeSet(ws, r, 1, r, 1, '', LABEL_FONT);
+  mergeSet(ws, r, 2, r, 6, data.clientAddress || '', VALUE_FONT, { hAlign: 'left', wrap: true });
+  setCell(ws, r, 8, '', LABEL_FONT);
+  mergeSet(ws, r, 9, r, 12, B.rfc, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // COLONIA / CP
+  setCell(ws, r, 1, 'COLONIA', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 2, r, 4, data.clientColonia || '', VALUE_FONT, { hAlign: 'left' });
+  setCell(ws, r, 5, 'C.P.:', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, data.clientCp || '', VALUE_FONT, { hAlign: 'center' });
+
+  setCell(ws, r, 8, 'PERSONA DE CONTACTO', SMALL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 12, '', LABEL_FONT);
+  r++;
+
+  // MUNICIPIO / ESTADO
+  mergeSet(ws, r, 1, r, 2, 'MUCIPIO O DELG.', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 4, data.clientMunicipality || '', VALUE_FONT, { hAlign: 'left' });
+  setCell(ws, r, 5, 'ESTADO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, data.clientState || '', VALUE_FONT, { hAlign: 'left' });
+
+  setCell(ws, r, 8, '', LABEL_FONT);
+  mergeSet(ws, r, 9, r, 12, B.contact, VALUE_FONT, { hAlign: 'center' });
+  r++;
+
+  // CONTACTO / TELÉFONO
+  mergeSet(ws, r, 1, r, 2, 'PERSONA DE CONTACTO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 3, r, 4, data.clientContact || '', VALUE_FONT, { hAlign: 'left' });
+  setCell(ws, r, 5, 'TELÉFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 6, data.clientPhone || '', VALUE_FONT, { hAlign: 'left' });
+
+  // DIRECCION billing (blank for now)
+  setCell(ws, r, 8, 'DIRECCION', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 12, '', LABEL_FONT);
+  r++;
+
+  // Billing: remaining fields
+  borderRange(ws, r, 1, r, 6);
+
+  setCell(ws, r, 8, 'COLONIA', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 10, '', LABEL_FONT);
+  setCell(ws, r, 11, 'C.P.', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 12, '', LABEL_FONT);
+  r++;
+
+  borderRange(ws, r, 1, r, 6);
+
+  mergeSet(ws, r, 8, r, 8, 'MUNICIPIO/DELEGACION', SMALL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 10, '', LABEL_FONT);
+  setCell(ws, r, 11, 'ESTADO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  setCell(ws, r, 12, '', LABEL_FONT);
+  r++;
+
+  borderRange(ws, r, 1, r, 6);
+
+  setCell(ws, r, 8, 'TELEFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+  mergeSet(ws, r, 9, r, 10, '', LABEL_FONT);
+  mergeSet(ws, r, 11, r, 12, '', LABEL_FONT);
+  r++;
+
+  r++; // spacer
+
+  // ==============================
+  // FORMA DE PAGO
+  // ==============================
+  borderRange(ws, r, 1, r, 6);
+  mergeSet(ws, r, 8, r, 9, 'FORMA DE PAGO', LABEL_FONT, { fill: LIGHT_BLUE_FILL, hAlign: 'right' });
+  setCell(ws, r, 10, B.paymentMethod, RED_FONT, { hAlign: 'center' });
+  mergeSet(ws, r, 11, r, 12, B.paymentNote, LABEL_FONT, { hAlign: 'left' });
+  r++;
+
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer);
 }
