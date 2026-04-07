@@ -1,0 +1,309 @@
+{
+  "name": "Logística DIGO - Emails",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "logistics-email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook Logística",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 460],
+      "webhookId": "logistics-email"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "transport_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Transport Request"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "shipment_status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Shipment Status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "collection_order",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Collection Order"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Switch por Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [480, 460]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center;\">\n    <h1 style=\"margin: 0;\">Solicitud de Transporte</h1>\n    <p style=\"margin: 5px 0 0 0;\">Sistema Logístico DIGO</p>\n  </div>\n  <div style=\"padding: 30px; background: #f8f9fa;\">\n    <p>Estimado proveedor,</p>\n    <p>Tenemos una nueva solicitud de transporte que requiere su atención:</p>\n    <div style=\"background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);\">\n      <h3 style=\"color: #333; margin-top: 0;\">Detalles del Envío</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Referencia:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.reference }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Cliente:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.client_name }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Origen:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.origin }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Destino:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.destination }}</td>\n        </tr>\n        {{ $json.data.shipment.incoterm ? '<tr><td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Incoterm:</td><td style=\"padding: 8px; border-bottom: 1px solid #eee;\">' + $json.data.shipment.incoterm + '</td></tr>' : '' }}\n        {{ $json.data.pickupWindow ? '<tr><td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Ventana de Recolección:</td><td style=\"padding: 8px; border-bottom: 1px solid #eee;\">' + $json.data.pickupWindow + '</td></tr>' : '' }}\n      </table>\n      {{ $json.data.notes ? '<div style=\"margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px;\"><strong>Notas adicionales:</strong><br>' + $json.data.notes + '</div>' : '' }}\n    </div>\n    <p><strong>¿Puede realizar este transporte?</strong></p>\n    <div style=\"text-align: center; margin: 30px 0;\">\n      <a href=\"{{ $json.data.confirmUrl }}\" style=\"display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px; font-weight: bold;\">✅ CONFIRMAR TRANSPORTE</a>\n      <a href=\"{{ $json.data.rejectUrl }}\" style=\"display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px; font-weight: bold;\">❌ RECHAZAR</a>\n    </div>\n    <div style=\"margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;\">\n      <p>Este correo fue enviado automáticamente por el Sistema Logístico DIGO.</p>\n    </div>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Gmail - Transport Request",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [780, 260]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: {{ $json.data.statusColor }}; color: white; padding: 20px; text-align: center;\">\n    <h1 style=\"margin: 0;\">{{ $json.data.statusDisplay }}</h1>\n    <p style=\"margin: 5px 0 0 0;\">Sistema de Seguimiento Econova</p>\n  </div>\n  <div style=\"padding: 30px; background: #f8f9fa;\">\n    <p style=\"font-size: 16px; color: #333;\">Estimado cliente,</p>\n    <p style=\"font-size: 16px; color: #333;\">{{ $json.data.statusMessage }}</p>\n    <div style=\"background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);\">\n      <h3 style=\"color: #333; margin-top: 0;\">Detalles del Envío</h3>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Código de Seguimiento:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee; font-family: monospace;\">{{ $json.data.shipment.trackingCode }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Origen:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.origin }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;\">Destino:</td>\n          <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">{{ $json.data.shipment.destination }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px; font-weight: bold;\">Estado Actual:</td>\n          <td style=\"padding: 8px; color: {{ $json.data.statusColor }}; font-weight: bold;\">{{ $json.data.statusDisplay }}</td>\n        </tr>\n      </table>\n    </div>\n    <div style=\"margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;\">\n      <p>Este correo fue enviado automáticamente por el Sistema de Seguimiento Econova.</p>\n      <p>Si tiene preguntas sobre su envío, por favor contáctenos respondiendo a este correo.</p>\n    </div>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Gmail - Shipment Status",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [780, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convertir el attachment base64 a binario para que Gmail pueda adjuntarlo\nconst item = $input.first();\nconst attachment = item.json.attachment;\n\nif (attachment && attachment.contentBase64) {\n  const binaryData = Buffer.from(attachment.contentBase64, 'base64');\n  \n  return [{\n    json: item.json,\n    binary: {\n      attachment: {\n        data: binaryData.toString('base64'),\n        mimeType: attachment.contentType,\n        fileName: attachment.filename,\n      }\n    }\n  }];\n}\n\n// Si no hay attachment, pasar el item sin cambios\nreturn [$input.first()];"
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Preparar Excel Adjunto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 680]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "ccRecipients": "={{ $json.cc || '' }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <h2 style=\"color: #2563eb;\">Orden de Recolección</h2>\n  <p>Estimado equipo de {{ $json.data.providerName }},</p>\n  <p>Adjuntamos la orden de recolección con los siguientes datos:</p>\n  <div style=\"background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n    <p><strong>Cliente:</strong> {{ $json.data.customerName }}</p>\n    <p><strong>Fecha de recolección:</strong> {{ $json.data.pickupDate }}</p>\n    <p><strong>Tambos:</strong> {{ $json.data.drumCount }}</p>\n    <p><strong>Código:</strong> {{ $json.data.trackingCode }}</p>\n  </div>\n  <p>Por favor revisar el archivo adjunto y confirmar disponibilidad.</p>\n  <p>Saludos cordiales,<br><strong>{{ $json.data.senderName }}</strong><br>{{ $json.data.senderRole }} - {{ $json.data.companyName }}</p>\n  <hr style=\"border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;\">\n  <p style=\"font-size: 11px; color: #9ca3af;\">This email was sent automatically with <a href=\"#\" style=\"color: #6366f1;\">n8n</a></p>\n</div>",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "attachment"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Gmail - Collection Order",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1020, 680]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Logística').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0007-4000-8000-000000000007",
+      "name": "Respond OK - Transport",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 260]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Logística').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0008-4000-8000-000000000008",
+      "name": "Respond OK - Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1020, 460]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"event\":\"{{ $('Webhook Logística').item.json.event }}\"}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-4000-8000-000000000009",
+      "name": "Respond OK - Collection",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1260, 680]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":\"Unknown event type\"}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "a1b2c3d4-0010-4000-8000-000000000010",
+      "name": "Respond Error - Unknown",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 880]
+    }
+  ],
+  "connections": {
+    "Webhook Logística": {
+      "main": [
+        [
+          {
+            "node": "Switch por Evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch por Evento": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Transport Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail - Shipment Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Excel Adjunto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Transport Request": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Transport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Shipment Status": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Excel Adjunto": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Collection Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Collection Order": {
+      "main": [
+        [
+          {
+            "node": "Respond OK - Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "versionId": "1"
+}
