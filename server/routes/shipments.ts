@@ -897,9 +897,16 @@ const router = Router();
       };
       const company = companyInfo[companyId] || companyInfo[1];
 
+      // CC fijos: Jesús logística + Jesús almacén siempre reciben copia
+      const ccRecipients = [
+        'jesus.espinoza@orsega.mx',
+        'jesusespinoza@grupoorsega.com',
+      ].join(', ');
+
       const emailResult = await triggerN8nLogistics({
         event: 'collection_order',
         to: provider.email,
+        cc: ccRecipients,
         subject: `Orden de Recolección - ${shipment.customerName} - ${pickupDateFormatted}`,
         data: {
           customerName: shipment.customerName,

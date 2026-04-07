@@ -1,6 +1,7 @@
 interface N8nLogisticsPayload {
   event: 'transport_request' | 'shipment_status' | 'collection_order';
   to: string;
+  cc?: string;
   subject: string;
   data: Record<string, any>;
   attachment?: { filename: string; contentBase64: string; contentType: string };
