@@ -303,11 +303,12 @@ const ShipmentCard = ({
       {(shipment.departureDate || shipment.estimatedDeliveryDate) && (
         <div className="space-y-1 text-xs">
           {shipment.departureDate && (() => {
+            // Parsear como UTC para evitar que timezone local cambie el día
             const dep = new Date(shipment.departureDate);
+            const depUTC = new Date(Date.UTC(dep.getUTCFullYear(), dep.getUTCMonth(), dep.getUTCDate()));
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            dep.setHours(0, 0, 0, 0);
-            const diffDays = Math.ceil((dep.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+            const diffDays = Math.round((depUTC.getTime() - todayUTC.getTime()) / (1000 * 60 * 60 * 24));
             const isShipped = shipment.status === 'in_transit' || shipment.status === 'delivered' || shipment.status === 'cancelled';
             const indicator = isShipped
               ? { icon: '✅', color: 'text-green-600' }
@@ -316,21 +317,23 @@ const ShipmentCard = ({
                 : diffDays === 0
                   ? { icon: '🟡', color: 'text-amber-600 font-semibold' }
                   : { icon: '🟢', color: 'text-green-600' };
+            const depLabel = depUTC.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
             return (
               <div className={`flex items-center gap-1 ${indicator.color}`}>
                 <span>{indicator.icon}</span>
-                <span>Embarque: {dep.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                <span>Embarque: {depLabel}</span>
                 {!isShipped && diffDays < 0 && <span className="text-[10px]">({Math.abs(diffDays)}d atraso)</span>}
                 {!isShipped && diffDays === 0 && <span className="text-[10px]">(hoy)</span>}
               </div>
             );
           })()}
           {shipment.estimatedDeliveryDate && (() => {
+            // Parsear como UTC para evitar que timezone local cambie el día
             const eta = new Date(shipment.estimatedDeliveryDate);
+            const etaUTC = new Date(Date.UTC(eta.getUTCFullYear(), eta.getUTCMonth(), eta.getUTCDate()));
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            eta.setHours(0, 0, 0, 0);
-            const diffDays = Math.ceil((eta.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+            const diffDays = Math.round((etaUTC.getTime() - todayUTC.getTime()) / (1000 * 60 * 60 * 24));
             const isDelivered = shipment.status === 'delivered' || shipment.status === 'cancelled';
             const indicator = isDelivered
               ? { icon: '✅', color: 'text-green-600' }
@@ -341,10 +344,11 @@ const ShipmentCard = ({
                   : diffDays <= 2
                     ? { icon: '🟡', color: 'text-amber-600' }
                     : { icon: '🟢', color: 'text-green-600' };
+            const etaLabel = etaUTC.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
             return (
               <div className={`flex items-center gap-1 ${indicator.color}`}>
                 <span>{indicator.icon}</span>
-                <span>Entrega: {eta.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                <span>Entrega: {etaLabel}</span>
                 {!isDelivered && diffDays < 0 && <span className="text-[10px]">({Math.abs(diffDays)}d atraso)</span>}
                 {!isDelivered && diffDays === 0 && <span className="text-[10px]">(hoy)</span>}
               </div>
