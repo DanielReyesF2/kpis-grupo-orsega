@@ -889,13 +889,17 @@ const router = Router();
       const filename = `Orden_Recoleccion_${shipment.trackingCode}_${validated.pickupDate}.xlsx`;
       const pickupDateFormatted = new Date(validated.pickupDate).toLocaleDateString('es-MX');
 
-      // Company-specific sender info for email template
+      // Usar nombre real del usuario que envía, no hardcodeado por empresa
       const companyId = shipment.companyId ?? 1;
-      const companyInfo: Record<number, { name: string; sender: string; senderRole: string }> = {
-        1: { name: 'Dura International', sender: 'Jesús Espinoza', senderRole: 'Logística' },
-        2: { name: 'Grupo Orsega', sender: 'Thalia Rodríguez', senderRole: 'Logística' },
+      const companyNames: Record<number, string> = {
+        1: 'Dura International',
+        2: 'Grupo Orsega',
       };
-      const company = companyInfo[companyId] || companyInfo[1];
+      const company = {
+        name: companyNames[companyId] || companyNames[1],
+        sender: user.name,
+        senderRole: 'Logística',
+      };
 
       // CC fijos: Jesús Daniel (logística) + Jesús Espinoza (almacén) siempre reciben copia
       const ccRecipients = [
