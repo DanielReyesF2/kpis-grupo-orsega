@@ -897,9 +897,9 @@ const router = Router();
       };
       const company = companyInfo[companyId] || companyInfo[1];
 
-      // CC fijos: Jesús logística + Jesús almacén siempre reciben copia
+      // CC fijos: Jesús Daniel (logística) + Jesús Espinoza (almacén) siempre reciben copia
       const ccRecipients = [
-        'jesus.espinoza@orsega.mx',
+        'jesusmarquez@grupoorsega.com',
         'jesusespinoza@grupoorsega.com',
       ].join(', ');
 
