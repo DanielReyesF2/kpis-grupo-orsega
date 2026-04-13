@@ -17,6 +17,10 @@ import {
   clients,
   paymentVouchers,
   scheduledPayments,
+  obligationCatalog,
+  tenantObligations,
+  obligationDossiers,
+  dossierEvidence,
   type InsertKpiDura,
   type InsertKpiOrsega,
   type KpiDura,
@@ -48,10 +52,15 @@ import type {
   UserActivationToken, InsertUserActivationToken,
   Client, InsertClient,
   PaymentVoucher, InsertPaymentVoucher,
-  ScheduledPayment, InsertScheduledPayment
+  ScheduledPayment, InsertScheduledPayment,
+  ObligationCatalog,
+  TenantObligation,
+  ObligationDossier,
+  DossierEvidence, InsertDossierEvidence,
+  TenantObligationWithCatalog
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, inArray, isNull, gte, lte } from "drizzle-orm";
 import type { IStorage } from "./storage";
 
 export class DatabaseStorage implements IStorage {
@@ -2475,6 +2484,260 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error getting shipment notification:", error);
       return null;
+    }
+  }
+  // ============================================
+  // Compliance Module
+  // ============================================
+
+  async getObligationCatalog(): Promise<ObligationCatalog[]> {
+    try {
+      return await db.select().from(obligationCatalog).orderBy(asc(obligationCatalog.id));
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting obligation catalog:', error);
+      return [];
+    }
+  }
+
+  async getCompanyObligations(companyId: number): Promise<TenantObligationWithCatalog[]> {
+    try {
+      const rows = await db
+        .select({
+          id: tenantObligations.id,
+          companyId: tenantObligations.companyId,
+          obligationCatalogId: tenantObligations.obligationCatalogId,
+          status: tenantObligations.status,
+          currentDueDate: tenantObligations.currentDueDate,
+          lastSubmittedAt: tenantObligations.lastSubmittedAt,
+          notes: tenantObligations.notes,
+          autoDiagnosed: tenantObligations.autoDiagnosed,
+          createdAt: tenantObligations.createdAt,
+          updatedAt: tenantObligations.updatedAt,
+          obligation: {
+            id: obligationCatalog.id,
+            code: obligationCatalog.code,
+            name: obligationCatalog.name,
+            authority: obligationCatalog.authority,
+            legalBasis: obligationCatalog.legalBasis,
+            periodicity: obligationCatalog.periodicity,
+            description: obligationCatalog.description,
+            appliesToCriteria: obligationCatalog.appliesToCriteria,
+            evidenceTemplate: obligationCatalog.evidenceTemplate,
+            category: obligationCatalog.category,
+            isVoluntary: obligationCatalog.isVoluntary,
+            createdAt: obligationCatalog.createdAt,
+          },
+        })
+        .from(tenantObligations)
+        .innerJoin(obligationCatalog, eq(tenantObligations.obligationCatalogId, obligationCatalog.id))
+        .where(eq(tenantObligations.companyId, companyId))
+        .orderBy(asc(obligationCatalog.category), asc(obligationCatalog.name));
+
+      return rows as TenantObligationWithCatalog[];
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting company obligations:', error);
+      return [];
+    }
+  }
+
+  async getObligationDossier(tenantObligationId: number, period: string): Promise<{ dossier: ObligationDossier; evidence: DossierEvidence[] } | null> {
+    try {
+      const [dossier] = await db
+        .select()
+        .from(obligationDossiers)
+        .where(
+          and(
+            eq(obligationDossiers.tenantObligationId, tenantObligationId),
+            eq(obligationDossiers.period, period),
+          ),
+        )
+        .limit(1);
+
+      if (!dossier) return null;
+
+      const evidence = await db
+        .select()
+        .from(dossierEvidence)
+        .where(eq(dossierEvidence.dossierId, dossier.id))
+        .orderBy(asc(dossierEvidence.uploadedAt));
+
+      return { dossier, evidence };
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting obligation dossier:', error);
+      return null;
+    }
+  }
+
+  async getCompanyDossiers(companyId: number, period?: string): Promise<Array<ObligationDossier & { obligationCode: string; obligationName: string }>> {
+    try {
+      const conditions = [eq(tenantObligations.companyId, companyId)];
+      if (period) {
+        conditions.push(eq(obligationDossiers.period, period));
+      }
+
+      const rows = await db
+        .select({
+          id: obligationDossiers.id,
+          tenantObligationId: obligationDossiers.tenantObligationId,
+          period: obligationDossiers.period,
+          status: obligationDossiers.status,
+          progressPct: obligationDossiers.progressPct,
+          startedAt: obligationDossiers.startedAt,
+          submittedAt: obligationDossiers.submittedAt,
+          reviewedBy: obligationDossiers.reviewedBy,
+          notes: obligationDossiers.notes,
+          createdAt: obligationDossiers.createdAt,
+          updatedAt: obligationDossiers.updatedAt,
+          obligationCode: obligationCatalog.code,
+          obligationName: obligationCatalog.name,
+        })
+        .from(obligationDossiers)
+        .innerJoin(tenantObligations, eq(obligationDossiers.tenantObligationId, tenantObligations.id))
+        .innerJoin(obligationCatalog, eq(tenantObligations.obligationCatalogId, obligationCatalog.id))
+        .where(and(...conditions))
+        .orderBy(asc(obligationCatalog.name));
+
+      return rows;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting company dossiers:', error);
+      return [];
+    }
+  }
+
+  async getUpcomingDeadlines(companyId: number, daysAhead: number = 90): Promise<Array<{ id: number; code: string; name: string; authority: string; dueDate: string; status: string }>> {
+    try {
+      const today = new Date();
+      const futureDate = new Date(today);
+      futureDate.setDate(futureDate.getDate() + daysAhead);
+      const todayStr = today.toISOString().split('T')[0];
+      const futureStr = futureDate.toISOString().split('T')[0];
+
+      const rows = await db
+        .select({
+          id: tenantObligations.id,
+          code: obligationCatalog.code,
+          name: obligationCatalog.name,
+          authority: obligationCatalog.authority,
+          dueDate: tenantObligations.currentDueDate,
+          status: tenantObligations.status,
+        })
+        .from(tenantObligations)
+        .innerJoin(obligationCatalog, eq(tenantObligations.obligationCatalogId, obligationCatalog.id))
+        .where(
+          and(
+            eq(tenantObligations.companyId, companyId),
+            gte(tenantObligations.currentDueDate, todayStr),
+            lte(tenantObligations.currentDueDate, futureStr),
+          ),
+        )
+        .orderBy(asc(tenantObligations.currentDueDate));
+
+      return rows.map(r => ({ ...r, dueDate: r.dueDate ?? '' }));
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting upcoming deadlines:', error);
+      return [];
+    }
+  }
+
+  async getComplianceScore(companyId: number): Promise<{ total: number; compliant: number; pending: number; expired: number; score: number }> {
+    try {
+      const obligations = await db
+        .select({ status: tenantObligations.status })
+        .from(tenantObligations)
+        .where(eq(tenantObligations.companyId, companyId));
+
+      const total = obligations.length;
+      const compliant = obligations.filter(o => o.status === 'compliant').length;
+      const pending = obligations.filter(o => o.status === 'pending').length;
+      const expired = obligations.filter(o => o.status === 'expired').length;
+      const score = total > 0 ? Math.round((compliant / total) * 100) : 0;
+
+      return { total, compliant, pending, expired, score };
+    } catch (error) {
+      console.error('[DatabaseStorage] Error getting compliance score:', error);
+      return { total: 0, compliant: 0, pending: 0, expired: 0, score: 0 };
+    }
+  }
+
+  async updateObligationStatus(id: number, status: string, notes?: string): Promise<TenantObligation | undefined> {
+    try {
+      const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+      if (notes !== undefined) updateData.notes = notes;
+
+      const [updated] = await db
+        .update(tenantObligations)
+        .set(updateData)
+        .where(eq(tenantObligations.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error updating obligation status:', error);
+      return undefined;
+    }
+  }
+
+  async addDossierEvidence(dossierId: number, evidence: Omit<InsertDossierEvidence, 'dossierId'>): Promise<DossierEvidence | undefined> {
+    try {
+      const [inserted] = await db
+        .insert(dossierEvidence)
+        .values({ ...evidence, dossierId })
+        .returning();
+
+      // Recalculate dossier progress
+      await this.updateDossierProgress(dossierId);
+
+      return inserted;
+    } catch (error) {
+      console.error('[DatabaseStorage] Error adding dossier evidence:', error);
+      return undefined;
+    }
+  }
+
+  async updateDossierProgress(dossierId: number): Promise<void> {
+    try {
+      // Get dossier → obligation → catalog to know expected evidence count
+      const [dossier] = await db
+        .select({
+          id: obligationDossiers.id,
+          tenantObligationId: obligationDossiers.tenantObligationId,
+        })
+        .from(obligationDossiers)
+        .where(eq(obligationDossiers.id, dossierId))
+        .limit(1);
+
+      if (!dossier) return;
+
+      const [obligation] = await db
+        .select({ evidenceTemplate: obligationCatalog.evidenceTemplate })
+        .from(tenantObligations)
+        .innerJoin(obligationCatalog, eq(tenantObligations.obligationCatalogId, obligationCatalog.id))
+        .where(eq(tenantObligations.id, dossier.tenantObligationId))
+        .limit(1);
+
+      if (!obligation) return;
+
+      const template = obligation.evidenceTemplate as Array<{ type: string; name: string }> | null;
+      const expectedCount = template?.length ?? 1;
+
+      // Count uploaded evidence
+      const evidenceRows = await db
+        .select({ id: dossierEvidence.id })
+        .from(dossierEvidence)
+        .where(eq(dossierEvidence.dossierId, dossierId));
+
+      const uploadedCount = evidenceRows.length;
+      const progressPct = Math.min(Math.round((uploadedCount / expectedCount) * 100), 100);
+
+      let status: string = 'not_started';
+      if (progressPct >= 100) status = 'complete';
+      else if (progressPct > 0) status = 'in_progress';
+
+      await db
+        .update(obligationDossiers)
+        .set({ progressPct, status, updatedAt: new Date() })
+        .where(eq(obligationDossiers.id, dossierId));
+    } catch (error) {
+      console.error('[DatabaseStorage] Error updating dossier progress:', error);
     }
   }
 }

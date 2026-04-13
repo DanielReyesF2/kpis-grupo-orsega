@@ -199,6 +199,17 @@ export function createMockStorage(): IStorage {
     createPaymentVoucher: vi.fn(),
     updatePaymentVoucher: vi.fn(),
     updatePaymentVoucherStatus: vi.fn(),
+
+    // Compliance operations
+    getObligationCatalog: vi.fn(),
+    getCompanyObligations: vi.fn(),
+    getObligationDossier: vi.fn(),
+    getCompanyDossiers: vi.fn(),
+    getUpcomingDeadlines: vi.fn(),
+    getComplianceScore: vi.fn(),
+    updateObligationStatus: vi.fn(),
+    addDossierEvidence: vi.fn(),
+    updateDossierProgress: vi.fn(),
   };
 }
 

@@ -25,6 +25,7 @@ import {
   X,
   Sparkles,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -296,6 +297,14 @@ function Sidebar() {
                 onClick={closeMenu}
               >
                 Análisis de Tendencias
+              </NavItem>
+              <NavItem
+                href="/compliance"
+                icon={<ShieldCheck className="h-4 w-4" />}
+                active={location === "/compliance"}
+                onClick={closeMenu}
+              >
+                Compliance
               </NavItem>
 
               <div className="my-3 border-t border-border" />

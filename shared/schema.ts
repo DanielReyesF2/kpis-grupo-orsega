@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar, numeric, smallint, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, pgEnum, real, varchar, numeric, smallint, date, unique } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1021,3 +1021,134 @@ export interface KpiDetail {
   period: string;
   comments: string | null;
 }
+
+// ============================================================
+// Compliance Module - Cumplimiento regulatorio
+// Catálogo de obligaciones, asignación por empresa, expedientes
+// progresivos, y evidencia de cumplimiento.
+// ============================================================
+
+// Catálogo compartido de obligaciones regulatorias
+export const obligationCatalog = pgTable("obligation_catalog", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(), // LAU, COA, RETC, etc.
+  name: varchar("name", { length: 200 }).notNull(),
+  authority: varchar("authority", { length: 100 }).notNull(), // SEMARNAT, COFEPRIS, SCT, STPS, CEMEFI, PROFEPA
+  legalBasis: text("legal_basis"), // Ley, NOM, o reglamento de referencia
+  periodicity: varchar("periodicity", { length: 50 }), // annual, biennial, one_time, per_event, per_product, triennial
+  description: text("description"),
+  appliesToCriteria: json("applies_to_criteria").$type<Record<string, unknown>>().default({}), // Criterios: giro, materiales, tamaño
+  evidenceTemplate: json("evidence_template").$type<Array<{ type: string; name: string }>>().default([]), // Evidencias requeridas
+  category: varchar("category", { length: 50 }), // environmental, chemical, safety, transport, voluntary
+  isVoluntary: boolean("is_voluntary").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertObligationCatalogSchema = createInsertSchema(obligationCatalog)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    code: z.string().min(1, "El código es requerido").max(50, "El código no puede exceder 50 caracteres"),
+    name: z.string().min(1, "El nombre es requerido").max(200, "El nombre no puede exceder 200 caracteres"),
+    authority: z.string().min(1, "La autoridad es requerida").max(100, "La autoridad no puede exceder 100 caracteres"),
+    legalBasis: z.string().max(500, "La base legal no puede exceder 500 caracteres").optional().nullable(),
+    periodicity: z.string().max(50).optional().nullable(),
+    description: z.string().max(2000, "La descripción no puede exceder 2000 caracteres").optional().nullable(),
+    category: z.string().max(50).optional().nullable(),
+  });
+export type InsertObligationCatalog = z.infer<typeof insertObligationCatalogSchema>;
+export type ObligationCatalog = typeof obligationCatalog.$inferSelect;
+
+// Obligaciones asignadas a cada empresa (diagnóstico)
+export const tenantObligations = pgTable("tenant_obligations", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(), // 1=Dura International, 2=Grupo Orsega
+  obligationCatalogId: integer("obligation_catalog_id").notNull().references(() => obligationCatalog.id),
+  status: varchar("status", { length: 30 }).notNull().default("pending"), // compliant, pending, expired, not_applicable
+  currentDueDate: date("current_due_date", { mode: "string" }), // Próxima fecha de vencimiento
+  lastSubmittedAt: timestamp("last_submitted_at"), // Última vez que se presentó
+  notes: text("notes"),
+  autoDiagnosed: boolean("auto_diagnosed").notNull().default(false), // true = asignada por sistema
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueCompanyObligation: unique("uq_company_obligation").on(table.companyId, table.obligationCatalogId),
+}));
+
+// Zod: status válidos para obligaciones
+export const obligationStatusEnum = z.enum(["compliant", "pending", "expired", "not_applicable"]);
+export type ObligationStatus = z.infer<typeof obligationStatusEnum>;
+
+export const insertTenantObligationSchema = createInsertSchema(tenantObligations)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    companyId: companyIdSchema,
+    status: obligationStatusEnum.default("pending"),
+    notes: z.string().max(2000, "Las notas no pueden exceder 2000 caracteres").optional().nullable(),
+  });
+export type InsertTenantObligation = z.infer<typeof insertTenantObligationSchema>;
+export type TenantObligation = typeof tenantObligations.$inferSelect;
+
+// Tipo extendido: obligación con datos del catálogo (para display)
+export type TenantObligationWithCatalog = TenantObligation & {
+  obligation: ObligationCatalog;
+};
+
+// Expediente por período para cada obligación (ej: COA 2026)
+export const obligationDossiers = pgTable("obligation_dossiers", {
+  id: serial("id").primaryKey(),
+  tenantObligationId: integer("tenant_obligation_id").notNull().references(() => tenantObligations.id),
+  period: varchar("period", { length: 20 }).notNull(), // "2026", "2026-Q1", "2026-H1"
+  status: varchar("status", { length: 30 }).notNull().default("not_started"), // not_started, in_progress, complete, submitted
+  progressPct: integer("progress_pct").notNull().default(0), // 0-100
+  startedAt: timestamp("started_at"),
+  submittedAt: timestamp("submitted_at"),
+  reviewedBy: varchar("reviewed_by", { length: 100 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueObligationPeriod: unique("uq_obligation_period").on(table.tenantObligationId, table.period),
+}));
+
+// Zod: status válidos para expedientes
+export const dossierStatusEnum = z.enum(["not_started", "in_progress", "complete", "submitted"]);
+export type DossierStatus = z.infer<typeof dossierStatusEnum>;
+
+export const insertObligationDossierSchema = createInsertSchema(obligationDossiers)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    period: z.string().min(1, "El período es requerido").max(20, "El período no puede exceder 20 caracteres"),
+    status: dossierStatusEnum.default("not_started"),
+    progressPct: z.number().int().min(0).max(100).default(0),
+    reviewedBy: z.string().max(100).optional().nullable(),
+    notes: z.string().max(2000, "Las notas no pueden exceder 2000 caracteres").optional().nullable(),
+  });
+export type InsertObligationDossier = z.infer<typeof insertObligationDossierSchema>;
+export type ObligationDossier = typeof obligationDossiers.$inferSelect;
+
+// Evidencia dentro de un expediente
+export const dossierEvidence = pgTable("dossier_evidence", {
+  id: serial("id").primaryKey(),
+  dossierId: integer("dossier_id").notNull().references(() => obligationDossiers.id),
+  evidenceType: varchar("evidence_type", { length: 100 }).notNull(), // lab_analysis, manifest, license, training_record, etc.
+  fileUrl: text("file_url"), // URL del archivo en S3/Drive
+  fileName: varchar("file_name", { length: 255 }),
+  dataJson: json("data_json").$type<Record<string, unknown>>(), // Datos estructurados (ej: lecturas de emisiones)
+  source: varchar("source", { length: 50 }).notNull().default("manual"), // manual, nova_whatsapp, drive_sync, auto
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+  uploadedBy: varchar("uploaded_by", { length: 100 }), // Nombre o ID de quien subió
+  verified: boolean("verified").notNull().default(false),
+  notes: text("notes"),
+});
+
+export const insertDossierEvidenceSchema = createInsertSchema(dossierEvidence)
+  .omit({ id: true, uploadedAt: true })
+  .extend({
+    evidenceType: z.string().min(1, "El tipo de evidencia es requerido").max(100, "El tipo no puede exceder 100 caracteres"),
+    fileName: z.string().max(255, "El nombre de archivo no puede exceder 255 caracteres").optional().nullable(),
+    source: z.string().max(50).default("manual"),
+    uploadedBy: z.string().max(100).optional().nullable(),
+    notes: z.string().max(2000, "Las notas no pueden exceder 2000 caracteres").optional().nullable(),
+  });
+export type InsertDossierEvidence = z.infer<typeof insertDossierEvidenceSchema>;
+export type DossierEvidence = typeof dossierEvidence.$inferSelect;

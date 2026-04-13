@@ -32,6 +32,7 @@ import salesActionsRouter from "./routes/sales-actions";
 import n8nRouter from "./routes/n8n";
 import filesRouter from "./routes/files";
 import docsRouter from "./routes/docs";
+import complianceRouter from "./routes/compliance";
 
 export function registerRoutes(app: express.Application) {
   // ========================================
@@ -75,6 +76,7 @@ export function registerRoutes(app: express.Application) {
   app.use(salesActionsRouter);
   app.use(filesRouter);
   app.use(docsRouter);
+  app.use(complianceRouter);
 
   return app;
 }

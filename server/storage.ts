@@ -18,7 +18,12 @@ import type {
   ShipmentCycleTimes, InsertShipmentCycleTimes,
   CycleTimeMetrics,
   Client, InsertClient,
-  PaymentVoucher, InsertPaymentVoucher
+  PaymentVoucher, InsertPaymentVoucher,
+  ObligationCatalog,
+  TenantObligation,
+  ObligationDossier,
+  DossierEvidence, InsertDossierEvidence,
+  TenantObligationWithCatalog
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -139,6 +144,17 @@ export interface IStorage {
   createPaymentVoucher(voucher: InsertPaymentVoucher): Promise<PaymentVoucher>;
   updatePaymentVoucher(id: number, voucher: Partial<PaymentVoucher>): Promise<PaymentVoucher | undefined>;
   updatePaymentVoucherStatus(id: number, status: string): Promise<PaymentVoucher | undefined>;
+
+  // Compliance operations
+  getObligationCatalog(): Promise<ObligationCatalog[]>;
+  getCompanyObligations(companyId: number): Promise<TenantObligationWithCatalog[]>;
+  getObligationDossier(tenantObligationId: number, period: string): Promise<{ dossier: ObligationDossier; evidence: DossierEvidence[] } | null>;
+  getCompanyDossiers(companyId: number, period?: string): Promise<Array<ObligationDossier & { obligationCode: string; obligationName: string }>>;
+  getUpcomingDeadlines(companyId: number, daysAhead?: number): Promise<Array<{ id: number; code: string; name: string; authority: string; dueDate: string; status: string }>>;
+  getComplianceScore(companyId: number): Promise<{ total: number; compliant: number; pending: number; expired: number; score: number }>;
+  updateObligationStatus(id: number, status: string, notes?: string): Promise<TenantObligation | undefined>;
+  addDossierEvidence(dossierId: number, evidence: Omit<InsertDossierEvidence, 'dossierId'>): Promise<DossierEvidence | undefined>;
+  updateDossierProgress(dossierId: number): Promise<void>;
 }
 
 // Production database storage
