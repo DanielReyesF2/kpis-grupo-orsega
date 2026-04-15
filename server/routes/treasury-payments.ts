@@ -49,12 +49,6 @@ router.get("/api/treasury/payments", jwtAuthMiddleware, async (req, res) => {
       paramIndex++;
     }
 
-    if (status) {
-      whereClause += ` AND status = $${paramIndex}`;
-      params.push(status as string);
-      paramIndex++;
-    }
-
     const result = await sql(`
       SELECT * FROM scheduled_payments
       ${whereClause}
