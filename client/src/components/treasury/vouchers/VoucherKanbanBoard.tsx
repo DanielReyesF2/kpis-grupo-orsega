@@ -88,7 +88,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDelete
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex-1 min-w-[280px] sm:min-w-[300px] max-w-[350px]"
+      className="flex-1 min-w-[280px]"
     >
       <Card
         ref={setNodeRef}
