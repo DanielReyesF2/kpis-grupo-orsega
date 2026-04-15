@@ -34,19 +34,24 @@ router.get("/api/treasury/payments", jwtAuthMiddleware, async (req, res) => {
       ? parseInt(companyIdParam as string)
       : (user.companyId as number | undefined);
 
-    let whereClause = "WHERE 1=1";
-    const params: any[] = [];
-    let paramIndex = 1;
+    // SEGURIDAD: Siempre filtrar por companyId para aislamiento multi-tenant
+    if (!companyId) {
+      return res.status(400).json({ error: 'companyId requerido' });
+    }
 
-    if (companyId) {
-      whereClause += ` AND company_id = $${paramIndex}`;
-      params.push(companyId);
+    let whereClause = "WHERE company_id = $1";
+    const params: (string | number | null)[] = [companyId];
+    let paramIndex = 2;
+
+    if (status) {
+      whereClause += ` AND status = $${paramIndex}`;
+      params.push(status as string);
       paramIndex++;
     }
 
     if (status) {
       whereClause += ` AND status = $${paramIndex}`;
-      params.push(status);
+      params.push(status as string);
       paramIndex++;
     }
 
@@ -110,20 +115,23 @@ router.post("/api/treasury/payments", jwtAuthMiddleware, async (req, res) => {
 // Usado por el diálogo de pago múltiple para mostrar qué facturas se pueden incluir
 router.get("/api/treasury/payments/payable-by-supplier/:supplierId", jwtAuthMiddleware, async (req, res) => {
   try {
+    const user = getAuthUser(req as AuthRequest);
     const supplierId = parseInt(req.params.supplierId);
-    const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+    const companyId = req.query.companyId
+      ? parseInt(req.query.companyId as string)
+      : (user.companyId as number | undefined);
 
     if (!supplierId || isNaN(supplierId)) {
       return res.status(400).json({ error: 'supplierId inválido' });
     }
 
-    let whereClause = `WHERE sp.supplier_id = $1 AND sp.payment_status != 'fully_paid'`;
-    const params: any[] = [supplierId];
-
-    if (companyId) {
-      whereClause += ` AND sp.company_id = $2`;
-      params.push(companyId);
+    // SEGURIDAD: Siempre filtrar por companyId
+    if (!companyId) {
+      return res.status(400).json({ error: 'companyId requerido' });
     }
+
+    const whereClause = `WHERE sp.supplier_id = $1 AND sp.company_id = $2 AND sp.payment_status != 'fully_paid'`;
+    const params: (string | number | null)[] = [supplierId, companyId];
 
     const result = await sql(`
       SELECT sp.id, sp.supplier_name, sp.amount, sp.currency, sp.due_date,

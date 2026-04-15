@@ -580,6 +580,14 @@ router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, nex
       });
     }
 
+    // SEGURIDAD: Validar que todas las facturas pertenecen a la empresa del usuario
+    const userCompanyId = user.companyId;
+    const unauthorizedPayment = payments.find(p => userCompanyId && p.companyId !== userCompanyId);
+    if (unauthorizedPayment) {
+      console.warn(`⚠️ [Multi-Pay] Usuario ${user.id} intentó pagar factura ${unauthorizedPayment.id} de otra empresa`);
+      return res.status(403).json({ error: 'No tienes acceso a una o más facturas seleccionadas' });
+    }
+
     // Validar que todas son del mismo proveedor y misma moneda
     const supplierIds = new Set(payments.map(p => p.supplierId));
     if (supplierIds.size > 1) {
@@ -613,71 +621,73 @@ router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, nex
       }
     }
 
-    // Subir archivo
+    // Subir archivo (fuera de transaction — si falla el upload, no hay nada que revertir en BD)
     const uploadResult = await uploadFile(file.buffer, 'comprobantes', file.originalname, file.mimetype);
     console.log(`✅ [Multi-Pay] Archivo subido a ${uploadResult.storage}`);
 
-    // Crear voucher
+    // Todo dentro de transacción para garantizar consistencia
     const firstPayment = payments[0];
     const totalAmount = invoices.reduce((sum, inv) => sum + inv.amountApplied, 0);
     const voucherStatus = requiresREP ? 'pendiente_complemento' : 'cierre_contable';
 
-    const newVoucher: InsertPaymentVoucher = {
-      companyId: firstPayment.companyId,
-      payerCompanyId: firstPayment.companyId,
-      clientId: supplierId || 0,
-      clientName: firstPayment.supplierName || 'Proveedor',
-      scheduledPaymentId: firstPayment.id, // referencia al primer pago para backwards compat
-      status: voucherStatus as any,
-      voucherFileUrl: uploadResult.url,
-      voucherFileName: file.originalname,
-      voucherFileType: file.mimetype,
-      extractedAmount: totalAmount,
-      extractedCurrency: firstPayment.currency,
-      ocrConfidence: 0,
-      uploadedBy: user.id,
-    };
-
-    const voucher = await storage.createPaymentVoucher(newVoucher);
-    console.log(`✅ [Multi-Pay] Voucher creado: ID ${voucher.id}`);
-
-    // Crear payment_applications y actualizar cada factura
-    for (const inv of invoices) {
-      // Crear payment_application
-      await db.insert(paymentApplications).values({
-        voucherId: voucher.id,
-        paymentId: inv.paymentId,
-        amountApplied: inv.amountApplied,
-      });
-
-      // Actualizar total_paid y payment_status
-      const payment = payments.find(p => p.id === inv.paymentId)!;
-      const newTotalPaid = (payment.totalPaid || 0) + inv.amountApplied;
-      const isFullyPaid = (payment.amount - newTotalPaid) < 1; // tolerancia $1
-      const newPaymentStatus = isFullyPaid ? 'fully_paid' : 'partially_paid';
-
-      // Solo transicionar status del scheduled_payment si está fully_paid
-      const spUpdate: any = {
-        totalPaid: newTotalPaid,
-        paymentStatus: newPaymentStatus,
-        updatedAt: new Date(),
+    const voucher = await db.transaction(async (tx) => {
+      // Crear voucher
+      const newVoucher: InsertPaymentVoucher = {
+        companyId: firstPayment.companyId,
+        payerCompanyId: firstPayment.companyId,
+        clientId: supplierId || 0,
+        clientName: firstPayment.supplierName || 'Proveedor',
+        scheduledPaymentId: firstPayment.id,
+        status: voucherStatus as any,
+        voucherFileUrl: uploadResult.url,
+        voucherFileName: file.originalname,
+        voucherFileType: file.mimetype,
+        extractedAmount: totalAmount,
+        extractedCurrency: firstPayment.currency,
+        ocrConfidence: 0,
+        uploadedBy: user.id,
       };
 
-      if (isFullyPaid) {
-        spUpdate.voucherId = voucher.id;
-        spUpdate.status = requiresREP ? 'voucher_uploaded' : 'payment_completed';
-        spUpdate.paidAt = new Date();
-        spUpdate.paidBy = user.id;
-      }
+      const [createdVoucher] = await tx.insert(paymentVouchers).values(newVoucher).returning();
+      console.log(`✅ [Multi-Pay] Voucher creado: ID ${createdVoucher.id}`);
 
-      await db.update(scheduledPayments)
-        .set(spUpdate)
+      // Crear payment_applications y actualizar cada factura
+      for (const inv of invoices) {
+        await tx.insert(paymentApplications).values({
+          voucherId: createdVoucher.id,
+          paymentId: inv.paymentId,
+          amountApplied: inv.amountApplied,
+        });
+
+        const payment = payments.find(p => p.id === inv.paymentId)!;
+        const newTotalPaid = (payment.totalPaid || 0) + inv.amountApplied;
+        const isFullyPaid = (payment.amount - newTotalPaid) < 1;
+        const newPaymentStatus = isFullyPaid ? 'fully_paid' : 'partially_paid';
+
+        const spUpdate: Record<string, unknown> = {
+          totalPaid: newTotalPaid,
+          paymentStatus: newPaymentStatus,
+          updatedAt: new Date(),
+        };
+
+        if (isFullyPaid) {
+          spUpdate.voucherId = createdVoucher.id;
+          spUpdate.status = requiresREP ? 'voucher_uploaded' : 'payment_completed';
+          spUpdate.paidAt = new Date();
+          spUpdate.paidBy = user.id;
+        }
+
+        await tx.update(scheduledPayments)
+          .set(spUpdate)
         .where(eq(scheduledPayments.id, inv.paymentId));
 
-      console.log(`  📝 [Multi-Pay] Factura ${inv.paymentId}: +$${inv.amountApplied} → total_paid=$${newTotalPaid} (${newPaymentStatus})`);
-    }
+        console.log(`  📝 [Multi-Pay] Factura ${inv.paymentId}: +$${inv.amountApplied} → total_paid=$${newTotalPaid} (${newPaymentStatus})`);
+      }
 
-    // Background analysis
+      return createdVoucher;
+    }); // fin transaction
+
+    // Background analysis (fuera de transaction — fire-and-forget)
     analyzeVoucherBackground({
       voucherId: voucher.id,
       scheduledPaymentId: firstPayment.id,
