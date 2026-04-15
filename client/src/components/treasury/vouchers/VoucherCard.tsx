@@ -63,6 +63,7 @@ interface VoucherCardProps {
   onResend?: () => void;
   onDownload?: () => void;
   onPay?: () => void;
+  onUploadRep?: () => void;
   isDragging?: boolean;
 }
 
@@ -74,6 +75,7 @@ export const VoucherCard = memo(function VoucherCard({
   onResend,
   onDownload,
   onPay,
+  onUploadRep,
   isDragging = false,
 }: VoucherCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -234,7 +236,7 @@ export const VoucherCard = memo(function VoucherCard({
               className="w-full h-9 font-medium bg-orange-500 hover:bg-orange-600 text-white"
               onClick={(e) => {
                 e.stopPropagation();
-                onClick();
+                onUploadRep ? onUploadRep() : onClick();
               }}
             >
               <Upload className="h-4 w-4 mr-2" />

@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
 import { PayVoucherModal } from "./PayVoucherModal";
 import { MultiInvoicePaymentDialog } from "../modals/MultiInvoicePaymentDialog";
+import { UploadRepModal } from "../modals/UploadRepModal";
 import { DeleteVoucherModal } from "../modals/DeleteVoucherModal";
 
 // Lazy load del panel de detalles para mejor performance
@@ -75,9 +76,10 @@ interface KanbanColumnProps {
   onVoucherClick: (voucher: PaymentVoucher) => void;
   onPayVoucher: (voucher: PaymentVoucher) => void;
   onDeleteVoucher: (voucher: PaymentVoucher) => void;
+  onUploadRep: (voucher: PaymentVoucher) => void;
 }
 
-function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDeleteVoucher }: KanbanColumnProps) {
+function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDeleteVoucher, onUploadRep }: KanbanColumnProps) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   const { setNodeRef, isOver } = useDroppable({
@@ -129,6 +131,7 @@ function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDelete
                     onClick={() => onVoucherClick(voucher)}
                     onPay={() => onPayVoucher(voucher)}
                     onDelete={() => onDeleteVoucher(voucher)}
+                    onUploadRep={() => onUploadRep(voucher)}
                   />
                 ))
               )}
@@ -149,6 +152,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
   const [activeVoucher, setActiveVoucher] = useState<PaymentVoucher | null>(null);
   const [selectedVoucher, setSelectedVoucher] = useState<PaymentVoucher | null>(null);
   const [payingVoucher, setPayingVoucher] = useState<PaymentVoucher | null>(null);
+  const [repVoucher, setRepVoucher] = useState<PaymentVoucher | null>(null);
   const [deletingVoucher, setDeletingVoucher] = useState<PaymentVoucher | null>(null);
   const [pendingMove, setPendingMove] = useState<{ voucher: PaymentVoucher; newStatus: keyof typeof STATUS_CONFIG } | null>(null);
 
@@ -279,6 +283,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
                 onVoucherClick={setSelectedVoucher}
                 onPayVoucher={setPayingVoucher}
                 onDeleteVoucher={setDeletingVoucher}
+                onUploadRep={setRepVoucher}
               />
             )
           )}
@@ -335,6 +340,20 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           }}
         />
       ) : null}
+
+      {/* Modal para subir REP */}
+      {repVoucher && (
+        <UploadRepModal
+          isOpen={!!repVoucher}
+          onClose={() => setRepVoucher(null)}
+          voucherId={repVoucher.id}
+          clientName={repVoucher.clientName || repVoucher.client_name || 'Proveedor'}
+          onSuccess={() => {
+            setRepVoucher(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+          }}
+        />
+      )}
 
       {/* Modal para eliminar voucher */}
       {deletingVoucher && (
