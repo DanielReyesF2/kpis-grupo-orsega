@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Download,
   CreditCard,
+  Upload,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -223,6 +224,21 @@ export const VoucherCard = memo(function VoucherCard({
             >
               <CreditCard className="h-4 w-4 mr-2" />
               Pagar
+            </Button>
+          )}
+
+          {/* Botón Subir REP - solo para pendiente_complemento */}
+          {voucher.status === 'pendiente_complemento' && (
+            <Button
+              size="sm"
+              className="w-full h-9 font-medium bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Subir REP
             </Button>
           )}
 

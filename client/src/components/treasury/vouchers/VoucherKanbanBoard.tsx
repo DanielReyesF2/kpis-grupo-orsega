@@ -308,8 +308,8 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
         />
       </Suspense>
 
-      {/* Modal para pagar voucher — usa pago múltiple si tiene proveedor vinculado */}
-      {payingVoucher && (payingVoucher.clientId || payingVoucher.client_id) ? (
+      {/* Modal para pagar voucher — usa pago múltiple si tiene proveedor vinculado (clientId > 0) */}
+      {payingVoucher && (payingVoucher.clientId > 0 || (payingVoucher.client_id && payingVoucher.client_id > 0)) ? (
         <MultiInvoicePaymentDialog
           isOpen={!!payingVoucher}
           onClose={() => setPayingVoucher(null)}
