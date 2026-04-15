@@ -192,10 +192,21 @@ function buildNovaUserContextLine(
   return line.length > 0 ? line.slice(0, 2000) : undefined;
 }
 
+/**
+ * Nombre para Nova — nunca devolver vacío si hay sesión JWT (el Brain solo inyecta
+ * <tenant_user> cuando user_display_name o contexto son no vacíos).
+ */
 function resolveNovaDisplayName(user: AuthRequest["user"]): string | undefined {
   if (!user) return undefined;
-  const raw = (user.name?.trim() || user.email?.trim() || "").slice(0, 200);
-  return raw || undefined;
+  const name = user.name?.trim();
+  if (name) return name.slice(0, 200);
+  const email = user.email?.trim();
+  if (email) {
+    const at = email.indexOf("@");
+    const local = at > 0 ? email.slice(0, at).trim() : email;
+    return (local || email).slice(0, 200);
+  }
+  return `Usuario ${user.id}`;
 }
 
 // ============================================================================
