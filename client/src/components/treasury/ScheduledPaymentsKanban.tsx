@@ -64,6 +64,19 @@ interface ScheduledPayment {
   paymentStatus?: string | null;
   createdAt: string;
   updatedAt: string;
+  // snake_case aliases — raw SQL API returns these names
+  company_id?: number;
+  supplier_id?: number | null;
+  supplier_name?: string | null;
+  due_date?: string;
+  payment_date?: string | null;
+  voucher_id?: number | null;
+  hydral_file_url?: string | null;
+  hydral_file_name?: string | null;
+  total_paid?: number | null;
+  payment_status?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 type ColumnId = 'esta_semana' | 'siguiente_semana' | 'atrasados' | 'pendiente_complemento' | 'cierre_contable';
@@ -208,16 +221,23 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
           </div>
 
           {/* Indicador de pago parcial */}
-          {payment.paymentStatus === 'partially_paid' && payment.totalPaid != null && (
-            <div className="flex items-center justify-between text-xs bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1">
-              <span className="text-orange-700 dark:text-orange-400 font-medium">
-                Pagado: {payment.currency} ${payment.totalPaid.toLocaleString()}
-              </span>
-              <span className="text-orange-600 dark:text-orange-300 font-bold">
-                Pendiente: ${(payment.amount - payment.totalPaid).toLocaleString()}
-              </span>
-            </div>
-          )}
+          {(() => {
+            const pStatus = payment.paymentStatus || payment.payment_status;
+            const tPaid = payment.totalPaid ?? payment.total_paid;
+            if (pStatus === 'partially_paid' && tPaid != null) {
+              return (
+                <div className="flex items-center justify-between text-xs bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1">
+                  <span className="text-orange-700 dark:text-orange-400 font-medium">
+                    Pagado: {payment.currency} ${tPaid.toLocaleString()}
+                  </span>
+                  <span className="text-orange-600 dark:text-orange-300 font-bold">
+                    Pendiente: ${(payment.amount - tPaid).toLocaleString()}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="space-y-1 text-xs">
             {payment.paymentDate && (
@@ -770,11 +790,20 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
       />
 
       {/* Modal de Pago — usa pago múltiple si tiene proveedor, simple si no */}
-      {uploadVoucherPayment && uploadVoucherPayment.supplierId ? (
+      {uploadVoucherPayment && (uploadVoucherPayment.supplierId || uploadVoucherPayment.supplier_id) ? (
         <MultiInvoicePaymentDialog
           isOpen={!!uploadVoucherPayment}
           onClose={() => setUploadVoucherPayment(null)}
-          triggerPayment={uploadVoucherPayment}
+          triggerPayment={{
+            ...uploadVoucherPayment,
+            // Normalizar snake_case → camelCase para el diálogo
+            companyId: uploadVoucherPayment.companyId || uploadVoucherPayment.company_id || 0,
+            supplierId: uploadVoucherPayment.supplierId || uploadVoucherPayment.supplier_id || null,
+            supplierName: uploadVoucherPayment.supplierName || uploadVoucherPayment.supplier_name || null,
+            dueDate: uploadVoucherPayment.dueDate || uploadVoucherPayment.due_date || '',
+            totalPaid: uploadVoucherPayment.totalPaid ?? uploadVoucherPayment.total_paid ?? null,
+            paymentStatus: uploadVoucherPayment.paymentStatus || uploadVoucherPayment.payment_status || null,
+          }}
           onSuccess={() => {
             setUploadVoucherPayment(null);
             queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
