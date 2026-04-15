@@ -39,6 +39,7 @@ interface Supplier {
   name: string;
   short_name?: string;
   email?: string;
+  currency?: string;
   company_id: number;
   requires_rep?: boolean;
   rep_frequency?: number;
@@ -165,6 +166,7 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
       if (response.ok) {
         const data = await response.json();
         if (data.extracted) {
+          const hasData = data.extracted.amount || data.extracted.dueDate || data.extracted.invoiceNumber;
           // Pre-fill form with extracted data
           if (data.extracted.amount) {
             setAmount(String(data.extracted.amount));
@@ -181,15 +183,33 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
           if (data.extracted.issuerName) {
             setExtractedIssuer(data.extracted.issuerName);
           }
-          toast({
-            title: "Datos extraídos",
-            description: "Los datos de la factura se han pre-llenado automáticamente",
-          });
+          if (hasData) {
+            toast({
+              title: "Datos extraídos",
+              description: "Los datos de la factura se han pre-llenado automáticamente",
+            });
+          } else {
+            toast({
+              title: "Extracción incompleta",
+              description: "No se pudieron extraer datos automáticamente. Verifica y llena los campos manualmente.",
+              variant: "destructive",
+            });
+          }
         }
+      } else {
+        toast({
+          title: "Error de análisis",
+          description: "No se pudo analizar la factura. Llena los campos manualmente.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("Error analyzing file:", error);
-      // No mostrar error - el usuario puede llenar manualmente
+      console.error("[UploadInvoiceFlow] Error analyzing file:", error);
+      toast({
+        title: "Error de análisis",
+        description: "No se pudo analizar la factura. Llena los campos manualmente.",
+        variant: "destructive",
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -371,7 +391,13 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
             <ProviderAutocomplete
               companyId={companyId}
               selectedSupplierId={selectedSupplier?.id || null}
-              onSelect={setSelectedSupplier}
+              onSelect={(supplier) => {
+                setSelectedSupplier(supplier);
+                // Pre-llenar moneda del proveedor
+                if (supplier?.currency === "USD" || supplier?.currency === "MXN") {
+                  setCurrency(supplier.currency as "MXN" | "USD");
+                }
+              }}
             />
           </CardContent>
         </Card>

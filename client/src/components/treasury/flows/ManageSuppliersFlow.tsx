@@ -30,6 +30,7 @@ interface Supplier {
   contact_name?: string;
   condicion_dias?: string;
   moneda?: string;
+  currency?: string;
   tipo_proveedor?: string;
   es_nacional?: boolean;
   location?: string;
@@ -275,13 +276,17 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
 
                       {/* Currency */}
                       <td className="p-3">
-                        {supplier.moneda ? (
+                        {supplier.currency ? (
                           <Badge variant="outline" className={`text-[10px] ${
-                            supplier.moneda === 'DOLARES' ? 'border-green-500 text-green-700' : 'border-gray-400 text-gray-600'
+                            supplier.currency === 'USD' ? 'border-green-500 text-green-700' : 'border-gray-400 text-gray-600'
                           }`}>
-                            {supplier.moneda === 'DOLARES' ? 'USD' : 'MXN'}
+                            {supplier.currency}
                           </Badge>
-                        ) : '-'}
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-gray-400 text-gray-600">
+                            MXN
+                          </Badge>
+                        )}
                       </td>
 
                       {/* REP */}

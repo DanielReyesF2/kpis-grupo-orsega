@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
+import pdfParse from 'pdf-parse';
 import { storage } from '../storage';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
@@ -102,6 +103,42 @@ router.post("/api/treasury/payments", jwtAuthMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error creating payment:', error);
     res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
+// GET /api/treasury/payments/payable-by-supplier/:supplierId - Facturas pendientes del mismo proveedor
+// Usado por el diálogo de pago múltiple para mostrar qué facturas se pueden incluir
+router.get("/api/treasury/payments/payable-by-supplier/:supplierId", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const supplierId = parseInt(req.params.supplierId);
+    const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+
+    if (!supplierId || isNaN(supplierId)) {
+      return res.status(400).json({ error: 'supplierId inválido' });
+    }
+
+    let whereClause = `WHERE sp.supplier_id = $1 AND sp.payment_status != 'fully_paid'`;
+    const params: any[] = [supplierId];
+
+    if (companyId) {
+      whereClause += ` AND sp.company_id = $2`;
+      params.push(companyId);
+    }
+
+    const result = await sql(`
+      SELECT sp.id, sp.supplier_name, sp.amount, sp.currency, sp.due_date,
+             sp.payment_date, sp.reference, sp.status, sp.total_paid, sp.payment_status,
+             (sp.amount - COALESCE(sp.total_paid, 0)) as remaining_balance
+      FROM scheduled_payments sp
+      ${whereClause}
+      ORDER BY sp.due_date ASC
+    `, params);
+
+    console.log(`📊 [Payable by Supplier] Supplier ${supplierId}: ${result.length} facturas pendientes`);
+    res.json(result);
+  } catch (error) {
+    console.error('[Payable by Supplier] Error:', error);
+    res.status(500).json({ error: 'Error al obtener facturas pendientes' });
   }
 });
 
@@ -557,6 +594,67 @@ router.put("/api/scheduled-payments/:id/status", jwtAuthMiddleware, async (req, 
   }
 });
 
+// Helper: Call Nova AI to extract invoice data from a file (PDF or image)
+async function callNovaForExtraction(file: Express.Multer.File): Promise<{
+  amount: number | null;
+  currency: string;
+  dueDate: string | null;
+  invoiceNumber: string | null;
+  taxId: string | null;
+  issuerName: string | null;
+} | null> {
+  const prompt = `Analiza esta factura/documento y extrae los siguientes datos en formato JSON:
+{
+  "amount": (número, monto total sin IVA),
+  "currency": "MXN" o "USD",
+  "dueDate": "YYYY-MM-DD" (fecha de vencimiento si existe),
+  "invoiceNumber": "folio o número de factura",
+  "taxId": "RFC del emisor",
+  "issuerName": "nombre del emisor/proveedor"
+}
+Solo responde con el JSON, sin explicaciones.`;
+
+  const result = await new Promise<string>((resolve, reject) => {
+    let answer = '';
+    const timeout = setTimeout(() => {
+      reject(new Error('Nova AI timeout (30s)'));
+    }, 30000);
+
+    novaAIClient.streamChat(
+      prompt,
+      [{ buffer: file.buffer, originalname: file.originalname, mimetype: file.mimetype }],
+      { pageContext: 'treasury' },
+      {
+        onToken: (text) => { answer += text; },
+        onToolStart: () => {},
+        onToolResult: () => {},
+        onDone: (res) => {
+          clearTimeout(timeout);
+          resolve(res.answer || answer);
+        },
+        onError: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
+      }
+    );
+  });
+
+  const jsonMatch = result.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      amount: parsed.amount || null,
+      currency: parsed.currency || 'MXN',
+      dueDate: parsed.dueDate || null,
+      invoiceNumber: parsed.invoiceNumber || null,
+      taxId: parsed.taxId || null,
+      issuerName: parsed.issuerName || null,
+    };
+  }
+  return null;
+}
+
 // POST /api/treasury/analyze-invoice - Analizar factura y extraer datos
 router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.single('file'), async (req, res) => {
   try {
@@ -582,74 +680,83 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
       try {
         const xmlContent = file.buffer.toString('utf-8');
         extractedData = parseCFDI(xmlContent);
-        console.log(`[Treasury] CFDI parsed:`, extractedData);
+        console.log(`[Treasury] CFDI XML parsed:`, extractedData);
       } catch (parseError) {
-        console.error('[Treasury] Error parsing CFDI:', parseError);
+        console.error('[Treasury] Error parsing CFDI XML:', parseError);
       }
     }
-    // For PDF/images, try Nova AI if available
+    // For PDFs: first try to extract embedded CFDI XML, then fallback to Nova AI
+    else if (file.mimetype === 'application/pdf') {
+      let cfdiExtracted = false;
+
+      // Step 1: Try deterministic extraction of CFDI XML from PDF
+      try {
+        console.log('[Treasury] Attempting CFDI extraction from PDF...');
+        const pdfData = await pdfParse(file.buffer);
+        const pdfText = pdfData.text || '';
+
+        // Also check raw buffer for XML signatures (some PDFs embed XML as attachments)
+        const rawText = file.buffer.toString('latin1');
+        const textToSearch = pdfText.length > rawText.length ? pdfText : rawText;
+
+        // Look for CFDI XML signature
+        const cfdiStart = textToSearch.match(/<(?:cfdi:)?Comprobante[\s>]/);
+        if (cfdiStart && cfdiStart.index !== undefined) {
+          // Extract from <Comprobante ...> to </Comprobante>
+          const startIdx = cfdiStart.index;
+          const endPattern = /<\/(?:cfdi:)?Comprobante>/;
+          const endMatch = textToSearch.substring(startIdx).match(endPattern);
+
+          if (endMatch && endMatch.index !== undefined) {
+            const xmlBlock = textToSearch.substring(startIdx, startIdx + endMatch.index + endMatch[0].length);
+            const cfdiData = parseCFDI(xmlBlock);
+
+            // Only use if we got at least amount or invoice number
+            if (cfdiData.amount || cfdiData.invoiceNumber) {
+              extractedData = cfdiData;
+              cfdiExtracted = true;
+              console.log(`[Treasury] CFDI extracted from PDF (deterministic):`, extractedData);
+            }
+          }
+        }
+
+        if (!cfdiExtracted) {
+          console.log('[Treasury] No CFDI XML found in PDF text/buffer');
+        }
+      } catch (pdfError) {
+        console.error('[Treasury] pdf-parse failed, will try Nova AI:', pdfError);
+      }
+
+      // Step 2: If no CFDI extracted, try Nova AI
+      if (!cfdiExtracted && novaAIClient.isConfigured()) {
+        try {
+          console.log('[Treasury] Using Nova AI for PDF analysis...');
+          const result = await callNovaForExtraction(file);
+          if (result) {
+            extractedData = result;
+            console.log(`[Treasury] Nova AI extracted from PDF:`, extractedData);
+          }
+        } catch (novaError) {
+          console.error('[Treasury] Nova AI PDF analysis failed:', novaError);
+        }
+      } else if (!cfdiExtracted) {
+        console.log('[Treasury] No CFDI in PDF and Nova AI not configured');
+      }
+    }
+    // For images (PNG, JPG): only Nova AI can help
     else if (novaAIClient.isConfigured()) {
       try {
-        console.log('[Treasury] Using Nova AI for document analysis...');
-
-        const prompt = `Analiza esta factura/documento y extrae los siguientes datos en formato JSON:
-{
-  "amount": (número, monto total sin IVA),
-  "currency": "MXN" o "USD",
-  "dueDate": "YYYY-MM-DD" (fecha de vencimiento si existe),
-  "invoiceNumber": "folio o número de factura",
-  "taxId": "RFC del emisor",
-  "issuerName": "nombre del emisor/proveedor"
-}
-Solo responde con el JSON, sin explicaciones.`;
-
-        // Use streaming chat with file attachment
-        const result = await new Promise<string>((resolve, reject) => {
-          let answer = '';
-          const timeout = setTimeout(() => {
-            reject(new Error('Nova AI timeout'));
-          }, 30000); // 30 second timeout
-
-          novaAIClient.streamChat(
-            prompt,
-            [{ buffer: file.buffer, originalname: file.originalname, mimetype: file.mimetype }],
-            { pageContext: 'treasury' },
-            {
-              onToken: (text) => { answer += text; },
-              onToolStart: () => {},
-              onToolResult: () => {},
-              onDone: (res) => {
-                clearTimeout(timeout);
-                resolve(res.answer || answer);
-              },
-              onError: (err) => {
-                clearTimeout(timeout);
-                reject(err);
-              },
-            }
-          );
-        });
-
-        // Try to parse JSON from Nova's response
-        const jsonMatch = result.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          extractedData = {
-            amount: parsed.amount || null,
-            currency: parsed.currency || 'MXN',
-            dueDate: parsed.dueDate || null,
-            invoiceNumber: parsed.invoiceNumber || null,
-            taxId: parsed.taxId || null,
-            issuerName: parsed.issuerName || null,
-          };
-          console.log(`[Treasury] Nova AI extracted:`, extractedData);
+        console.log('[Treasury] Using Nova AI for image analysis...');
+        const result = await callNovaForExtraction(file);
+        if (result) {
+          extractedData = result;
+          console.log(`[Treasury] Nova AI extracted from image:`, extractedData);
         }
       } catch (novaError) {
-        console.error('[Treasury] Nova AI analysis failed:', novaError);
-        // Continue with empty data - user can fill manually
+        console.error('[Treasury] Nova AI image analysis failed:', novaError);
       }
     } else {
-      console.log('[Treasury] Nova AI not configured, returning empty data');
+      console.log('[Treasury] Image file and Nova AI not configured, returning empty data');
     }
 
     res.json({

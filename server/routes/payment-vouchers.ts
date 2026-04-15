@@ -5,9 +5,9 @@ import rateLimit from 'express-rate-limit';
 import { storage } from '../storage';
 import { getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
-import { type InsertPaymentVoucher, paymentVouchers, deletedPaymentVouchers } from '@shared/schema';
+import { type InsertPaymentVoucher, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
 import { db } from '../db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
 import { analyzeVoucherBackground } from '../nova/nova-voucher-analyze';
 
@@ -149,19 +149,19 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
     // Obtener proveedor/supplier para verificar si requiere REP
     let supplier: any = null;
     if (scheduledPayment.supplierId) {
-      const { suppliers: suppliersTable } = await import('@shared/schema');
       const [supplierRow] = await db.select()
         .from(suppliersTable)
         .where(eq(suppliersTable.id, scheduledPayment.supplierId));
       supplier = supplierRow || null;
     }
-    // Fallback: crear objeto con REP=false si no se encuentra el supplier
+    // Fallback: si no se encuentra el supplier, defaultear a requiresRep=true (más seguro)
     if (!supplier) {
+      console.warn(`⚠️ [Upload Voucher] Supplier ID ${scheduledPayment.supplierId} no encontrado en BD, defaulteando requiresRep=true`);
       supplier = {
         id: scheduledPayment.supplierId || 0,
         name: scheduledPayment.supplierName,
         companyId: scheduledPayment.companyId,
-        requiresRep: false,
+        requiresRep: true,
       };
     }
 
@@ -176,38 +176,38 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
     const voucherUrl = uploadResult.url;
     console.log(`✅ [Upload Voucher] Archivo subido a ${uploadResult.storage}: ${voucherUrl}`);
 
-    // Determinar estado inicial
-    const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
-    const hasAllCriticalFields = criticalFields.every(field => {
-      const value = analysis[field as keyof typeof analysis];
-      return value !== null && value !== undefined;
-    });
-
-    let initialStatus: string;
-    if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
-      // Datos completos y confiables -> factura pagada
-      initialStatus = 'factura_pagada';
-    } else {
-      // Datos incompletos -> pendiente complemento para validar
-      initialStatus = 'pendiente_complemento';
-    }
-
-    // Verificar si el monto coincide (con tolerancia del 1%)
-    const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
-    let finalStatus = initialStatus;
-    if (amountDiff <= 0.01) {
-      // Monto coincide -> cerrar contablemente
-      finalStatus = 'cierre_contable';
-    } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
-      // Monto menor -> pendiente complemento
-      finalStatus = 'pendiente_complemento';
-    }
-
-    // Si el proveedor NO requiere REP, saltar "Esperando REP" → ir a "Por pagar"
+    // Determinar estado del voucher basándose en requiresRep del proveedor PRIMERO
     const requiresREPForStatus = supplier?.requiresRep === true;
-    if (!requiresREPForStatus && finalStatus === 'pendiente_complemento') {
-      finalStatus = 'pago_programado';
-      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} NO requiere REP, status → pago_programado`);
+    let finalStatus: string;
+
+    if (requiresREPForStatus) {
+      // Proveedor requiere REP → SIEMPRE ir a pendiente_complemento
+      // independientemente del resultado de OCR o match de monto
+      finalStatus = 'pendiente_complemento';
+      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} requiere REP → pendiente_complemento`);
+    } else {
+      // Proveedor NO requiere REP → aplicar lógica de OCR/monto
+      const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
+      const hasAllCriticalFields = criticalFields.every(field => {
+        const value = analysis[field as keyof typeof analysis];
+        return value !== null && value !== undefined;
+      });
+
+      if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
+        finalStatus = 'factura_pagada';
+      } else {
+        finalStatus = 'pago_programado';
+      }
+
+      // Verificar si el monto coincide (con tolerancia del 1%)
+      const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
+      if (amountDiff <= 0.01) {
+        finalStatus = 'cierre_contable';
+      } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
+        finalStatus = 'factura_pagada';
+      }
+
+      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} NO requiere REP, status → ${finalStatus}`);
     }
 
     // Crear comprobante vinculado
@@ -266,15 +266,22 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       .set({
         voucherId: voucher.id,
         status: newStatus,
-        paidAt: new Date(), // Siempre actualizar cuando se sube comprobante
-        paidBy: user.id, // Siempre actualizar cuando se sube comprobante
+        totalPaid: scheduledPayment.amount,
+        paymentStatus: 'fully_paid',
+        paidAt: new Date(),
+        paidBy: user.id,
         updatedAt: new Date(),
       })
       .where(eq(scheduledPayments.id, scheduledPaymentId));
 
-    console.log(`✅ [Upload Voucher] Scheduled payment ${scheduledPaymentId} actualizado: status=${newStatus} (requiere REP: ${requiresREP})`);
+    // Crear payment_application para mantener consistencia con pago múltiple
+    await db.insert(paymentApplications).values({
+      voucherId: voucher.id,
+      paymentId: scheduledPaymentId,
+      amountApplied: scheduledPayment.amount,
+    });
 
-    console.log(`✅ [Upload Voucher] Comprobante vinculado a cuenta por pagar ${scheduledPaymentId}, voucher ID: ${voucher.id}`);
+    console.log(`✅ [Upload Voucher] Scheduled payment ${scheduledPaymentId} actualizado: status=${newStatus}, fully_paid`);
 
     // Obtener el scheduled payment actualizado
     const [updatedPayment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
@@ -418,12 +425,10 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
     console.log(`💳 [Pay] Archivo subido a ${uploadResult.storage}: ${voucherFileUrl}`);
 
     // Verificar si el proveedor requiere REP
-    // Buscar el supplier/client para verificar requiresPaymentComplement
-    const { suppliers, scheduledPayments } = await import('@shared/schema');
+    // Default a true (más seguro: peor caso es ir a pendiente_complemento, no saltarse REP)
+    let requiresREP = true;
 
-    let requiresREP = false;
-
-    // Primero intentar obtener el supplierId desde el scheduled payment
+    // Obtener supplierId desde el scheduled payment vinculado
     let supplierId = null;
     if (existingVoucher.scheduledPaymentId) {
       const [scheduledPayment] = await db.select()
@@ -434,16 +439,22 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
 
     if (supplierId) {
       const [supplier] = await db.select()
-        .from(suppliers)
-        .where(eq(suppliers.id, supplierId));
+        .from(suppliersTable)
+        .where(eq(suppliersTable.id, supplierId));
 
-      requiresREP = supplier?.requiresRep === true;
-      console.log(`💳 [Pay] Supplier ${supplier?.name} requiresREP: ${requiresREP}`);
+      if (supplier) {
+        requiresREP = supplier.requiresRep === true;
+        console.log(`💳 [Pay] Supplier ${supplier.name} requiresREP: ${requiresREP}`);
+      } else {
+        console.warn(`⚠️ [Pay] Supplier ID ${supplierId} no encontrado en BD, defaulteando requiresREP=true`);
+      }
+    } else {
+      console.warn(`⚠️ [Pay] Voucher ${voucherId} sin scheduledPaymentId o supplierId, defaulteando requiresREP=true`);
     }
 
     // Determinar nuevo status basado en REP
-    // Si requiere REP → pendiente_complemento
-    // Si NO requiere REP → cierre_contable
+    // Si requiere REP → pendiente_complemento (esperando complemento del proveedor)
+    // Si NO requiere REP → cierre_contable (completado)
     const newStatus = requiresREP ? 'pendiente_complemento' : 'cierre_contable';
     console.log(`💳 [Pay] Nuevo status: ${newStatus} (requiresREP: ${requiresREP})`);
 
@@ -462,14 +473,30 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
 
     // También actualizar el scheduled payment vinculado si existe
     if (existingVoucher.scheduledPaymentId) {
-      await db.update(scheduledPayments)
-        .set({
-          status: requiresREP ? 'voucher_uploaded' : 'payment_completed',
-          paidAt: new Date(),
-          paidBy: user.id,
-        })
+      const [linkedPayment] = await db.select()
+        .from(scheduledPayments)
         .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
-      console.log(`💳 [Pay] Scheduled payment ${existingVoucher.scheduledPaymentId} actualizado a ${requiresREP ? 'voucher_uploaded' : 'payment_completed'}`);
+
+      if (linkedPayment) {
+        await db.update(scheduledPayments)
+          .set({
+            status: requiresREP ? 'voucher_uploaded' : 'payment_completed',
+            totalPaid: linkedPayment.amount,
+            paymentStatus: 'fully_paid',
+            paidAt: new Date(),
+            paidBy: user.id,
+          })
+          .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
+
+        // Crear payment_application para consistencia
+        await db.insert(paymentApplications).values({
+          voucherId: voucherId,
+          paymentId: existingVoucher.scheduledPaymentId,
+          amountApplied: linkedPayment.amount,
+        });
+
+        console.log(`💳 [Pay] Scheduled payment ${existingVoucher.scheduledPaymentId}: fully_paid, payment_application creada`);
+      }
     }
 
     // Fire-and-forget background analysis via Nova 2.0
@@ -497,6 +524,183 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
     res.status(500).json({
       error: 'Error al procesar pago',
       details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+});
+
+// POST /api/payment-vouchers/multi-pay - Pago múltiple: un comprobante cubre N facturas
+// Crea un voucher + N payment_applications, actualiza total_paid/payment_status de cada factura
+router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, next) => {
+  voucherUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('❌ [Multi-Pay] Error de Multer:', err);
+      return res.status(400).json({ error: 'Error al procesar archivo', details: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const user = getAuthUser(req as AuthRequest);
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se subió ningún archivo de comprobante' });
+    }
+
+    // Validar body — viene como string en FormData
+    const invoicesRaw = req.body.invoices;
+    if (!invoicesRaw) {
+      return res.status(400).json({ error: 'No se proporcionaron facturas' });
+    }
+
+    const invoicesSchema = z.array(z.object({
+      paymentId: z.number().int().positive(),
+      amountApplied: z.number().positive(),
+    })).min(1);
+
+    let invoices: z.infer<typeof invoicesSchema>;
+    try {
+      invoices = invoicesSchema.parse(JSON.parse(invoicesRaw));
+    } catch (parseErr) {
+      return res.status(400).json({ error: 'Formato de facturas inválido', details: parseErr });
+    }
+
+    console.log(`💳 [Multi-Pay] Procesando pago múltiple: ${invoices.length} facturas`);
+
+    // Obtener todas las facturas para validar
+    const paymentIds = invoices.map(i => i.paymentId);
+
+    const payments = await db.select()
+      .from(scheduledPayments)
+      .where(inArray(scheduledPayments.id, paymentIds));
+
+    if (payments.length !== invoices.length) {
+      return res.status(400).json({
+        error: `Se encontraron ${payments.length} de ${invoices.length} facturas. Alguna no existe.`
+      });
+    }
+
+    // Validar que todas son del mismo proveedor y misma moneda
+    const supplierIds = new Set(payments.map(p => p.supplierId));
+    if (supplierIds.size > 1) {
+      return res.status(400).json({ error: 'Todas las facturas deben ser del mismo proveedor' });
+    }
+    const currencies = new Set(payments.map(p => p.currency));
+    if (currencies.size > 1) {
+      return res.status(400).json({ error: 'Todas las facturas deben tener la misma moneda' });
+    }
+
+    // Validar montos: amount_applied no puede exceder saldo pendiente
+    for (const inv of invoices) {
+      const payment = payments.find(p => p.id === inv.paymentId)!;
+      const remainingBalance = payment.amount - (payment.totalPaid || 0);
+      if (inv.amountApplied > remainingBalance + 1) { // tolerancia $1 por redondeo
+        return res.status(400).json({
+          error: `Monto aplicado ($${inv.amountApplied}) excede saldo pendiente ($${remainingBalance}) de factura ${payment.reference || payment.id}`
+        });
+      }
+    }
+
+    // Obtener supplier para requiresRep
+    const supplierId = payments[0].supplierId;
+    let requiresREP = true; // default seguro
+    if (supplierId) {
+      const [supplier] = await db.select()
+        .from(suppliersTable)
+        .where(eq(suppliersTable.id, supplierId));
+      if (supplier) {
+        requiresREP = supplier.requiresRep === true;
+      }
+    }
+
+    // Subir archivo
+    const uploadResult = await uploadFile(file.buffer, 'comprobantes', file.originalname, file.mimetype);
+    console.log(`✅ [Multi-Pay] Archivo subido a ${uploadResult.storage}`);
+
+    // Crear voucher
+    const firstPayment = payments[0];
+    const totalAmount = invoices.reduce((sum, inv) => sum + inv.amountApplied, 0);
+    const voucherStatus = requiresREP ? 'pendiente_complemento' : 'cierre_contable';
+
+    const newVoucher: InsertPaymentVoucher = {
+      companyId: firstPayment.companyId,
+      payerCompanyId: firstPayment.companyId,
+      clientId: supplierId || 0,
+      clientName: firstPayment.supplierName || 'Proveedor',
+      scheduledPaymentId: firstPayment.id, // referencia al primer pago para backwards compat
+      status: voucherStatus as any,
+      voucherFileUrl: uploadResult.url,
+      voucherFileName: file.originalname,
+      voucherFileType: file.mimetype,
+      extractedAmount: totalAmount,
+      extractedCurrency: firstPayment.currency,
+      ocrConfidence: 0,
+      uploadedBy: user.id,
+    };
+
+    const voucher = await storage.createPaymentVoucher(newVoucher);
+    console.log(`✅ [Multi-Pay] Voucher creado: ID ${voucher.id}`);
+
+    // Crear payment_applications y actualizar cada factura
+    for (const inv of invoices) {
+      // Crear payment_application
+      await db.insert(paymentApplications).values({
+        voucherId: voucher.id,
+        paymentId: inv.paymentId,
+        amountApplied: inv.amountApplied,
+      });
+
+      // Actualizar total_paid y payment_status
+      const payment = payments.find(p => p.id === inv.paymentId)!;
+      const newTotalPaid = (payment.totalPaid || 0) + inv.amountApplied;
+      const isFullyPaid = (payment.amount - newTotalPaid) < 1; // tolerancia $1
+      const newPaymentStatus = isFullyPaid ? 'fully_paid' : 'partially_paid';
+
+      // Solo transicionar status del scheduled_payment si está fully_paid
+      const spUpdate: any = {
+        totalPaid: newTotalPaid,
+        paymentStatus: newPaymentStatus,
+        updatedAt: new Date(),
+      };
+
+      if (isFullyPaid) {
+        spUpdate.voucherId = voucher.id;
+        spUpdate.status = requiresREP ? 'voucher_uploaded' : 'payment_completed';
+        spUpdate.paidAt = new Date();
+        spUpdate.paidBy = user.id;
+      }
+
+      await db.update(scheduledPayments)
+        .set(spUpdate)
+        .where(eq(scheduledPayments.id, inv.paymentId));
+
+      console.log(`  📝 [Multi-Pay] Factura ${inv.paymentId}: +$${inv.amountApplied} → total_paid=$${newTotalPaid} (${newPaymentStatus})`);
+    }
+
+    // Background analysis
+    analyzeVoucherBackground({
+      voucherId: voucher.id,
+      scheduledPaymentId: firstPayment.id,
+      fileName: file.originalname,
+      fileUrl: uploadResult.url,
+      companyId: firstPayment.companyId,
+      userId: user.id.toString(),
+    });
+
+    console.log(`✅ [Multi-Pay] Pago múltiple completado: ${invoices.length} facturas, voucher ${voucher.id}`);
+
+    res.status(201).json({
+      voucher,
+      invoicesProcessed: invoices.length,
+      totalAmount,
+      requiresREP,
+      message: `Pago registrado para ${invoices.length} factura(s). ${requiresREP ? 'Pendiente complemento REP.' : 'Cerrado contablemente.'}`,
+    });
+  } catch (error) {
+    console.error('❌ [Multi-Pay] Error:', error);
+    res.status(500).json({
+      error: 'Error al procesar pago múltiple',
+      details: error instanceof Error ? error.message : 'Error desconocido',
     });
   }
 });

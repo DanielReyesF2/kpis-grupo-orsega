@@ -408,7 +408,7 @@ catalogRouter.get('/suppliers', async (req, res) => {
     }
 
     const result = await sql(`
-      SELECT s.*, c.name as company_name
+      SELECT s.*, s.moneda as currency, c.name as company_name
       FROM suppliers s
       LEFT JOIN companies c ON s.company_id = c.id
       ${whereClause}
@@ -432,15 +432,16 @@ catalogRouter.post('/suppliers', validateTenantFromBody('companyId') as any, asy
     
     const result = await sql(`
       INSERT INTO suppliers (
-        name, short_name, email, location, requires_rep, 
+        name, short_name, email, location, moneda, requires_rep,
         rep_frequency, company_id, is_active, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *, moneda as currency
     `, [
       validatedData.name,
       validatedData.shortName,
       validatedData.email,
       validatedData.location,
+      validatedData.currency || 'MXN',
       validatedData.requiresRep,
       validatedData.repFrequency,
       validatedData.companyId,
@@ -473,25 +474,27 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
     }
     
     const result = await sql(`
-      UPDATE suppliers 
-      SET 
+      UPDATE suppliers
+      SET
         name = COALESCE($1, name),
         short_name = COALESCE($2, short_name),
         email = COALESCE($3, email),
         location = COALESCE($4, location),
-        requires_rep = COALESCE($5, requires_rep),
-        rep_frequency = COALESCE($6, rep_frequency),
-        company_id = COALESCE($7, company_id),
-        is_active = COALESCE($8, is_active),
-        notes = COALESCE($9, notes),
+        moneda = COALESCE($5, moneda),
+        requires_rep = COALESCE($6, requires_rep),
+        rep_frequency = COALESCE($7, rep_frequency),
+        company_id = COALESCE($8, company_id),
+        is_active = COALESCE($9, is_active),
+        notes = COALESCE($10, notes),
         updated_at = NOW()
-      WHERE id = $10
-      RETURNING *
+      WHERE id = $11
+      RETURNING *, moneda as currency
     `, [
       validatedData.name,
       validatedData.shortName,
       validatedData.email,
       validatedData.location,
+      validatedData.currency,
       validatedData.requiresRep,
       validatedData.repFrequency,
       validatedData.companyId,

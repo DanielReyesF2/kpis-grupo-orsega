@@ -11,6 +11,7 @@ interface Supplier {
   name: string;
   short_name?: string;
   email?: string;
+  currency?: string;
   company_id: number;
   requires_rep?: boolean;
   rep_frequency?: number;

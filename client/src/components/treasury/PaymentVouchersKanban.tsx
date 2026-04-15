@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, DollarSign, Calendar, Building2, Receipt, CheckCircle, Clock, FileCheck, Mail, RefreshCw, Send, AlertTriangle, ClipboardCheck } from "lucide-react";
+import { FileText, DollarSign, Calendar, Building2, Receipt, CheckCircle, Clock, FileCheck, Mail, RefreshCw, Send, AlertTriangle, ClipboardCheck, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -175,6 +175,23 @@ function SortableVoucherCard({ voucher, onClick }: VoucherCardProps) {
                   {(voucher.ocrConfidence * 100).toFixed(0)}%
                 </Badge>
               </div>
+            </div>
+          )}
+
+          {voucher.status === "pendiente_complemento" && (
+            <div className="pt-2 border-t">
+              <Button
+                size="sm"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClick();
+                }}
+              >
+                <Upload className="h-3.5 w-3.5 mr-1.5" />
+                Subir REP
+              </Button>
             </div>
           )}
         </CardContent>

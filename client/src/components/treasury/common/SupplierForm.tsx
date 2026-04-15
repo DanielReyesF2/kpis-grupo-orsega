@@ -18,6 +18,7 @@ interface Supplier {
   short_name?: string;
   email?: string;
   location?: string;
+  currency?: string;
   requires_rep?: boolean;
   rep_frequency?: number;
   company_id?: number;
@@ -40,6 +41,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
     shortName: "",
     email: "",
     location: "NAC",
+    currency: "MXN",
     requiresRep: false,
     repFrequency: 30,
     companyId: defaultCompanyId,
@@ -57,6 +59,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         shortName: supplier.short_name || "",
         email: supplier.email || "",
         location: supplier.location || "NAC",
+        currency: supplier.currency || "MXN",
         requiresRep: supplier.requires_rep || false,
         repFrequency: supplier.rep_frequency || 30,
         companyId: supplier.company_id || defaultCompanyId,
@@ -70,6 +73,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         shortName: "",
         email: "",
         location: "NAC",
+        currency: "MXN",
         requiresRep: false,
         repFrequency: 30,
         companyId: defaultCompanyId,
@@ -86,6 +90,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         shortName: data.shortName,
         email: data.email,
         location: data.location,
+        currency: data.currency,
         requiresRep: data.requiresRep,
         repFrequency: data.repFrequency,
         companyId: data.companyId,
@@ -112,6 +117,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
         shortName: data.shortName,
         email: data.email,
         location: data.location,
+        currency: data.currency,
         requiresRep: data.requiresRep,
         repFrequency: data.repFrequency,
         companyId: data.companyId,
@@ -236,6 +242,25 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Moneda */}
+          <div className="space-y-2">
+            <Label htmlFor="currency" className="text-base font-semibold">
+              Moneda
+            </Label>
+            <Select
+              value={formData.currency}
+              onValueChange={(value) => setFormData({ ...formData, currency: value })}
+            >
+              <SelectTrigger className="h-12 text-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MXN">MXN — Pesos Mexicanos</SelectItem>
+                <SelectItem value="USD">USD — Dólares</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* REP */}

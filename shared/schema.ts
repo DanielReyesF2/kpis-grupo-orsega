@@ -647,6 +647,7 @@ export const suppliers = pgTable("suppliers", {
   shortName: text("short_name"), // Nombre Corto (ej: "Potosinos")
   email: text("email"), // Contacto (correo)
   location: text("location"), // Ubicación (NAC, EXT)
+  currency: text("moneda").default("MXN"), // Moneda — mapea a columna "moneda" existente en BD (valores: MXN, USD)
   requiresRep: boolean("requires_rep").default(false), // REP (SI/NO)
   repFrequency: integer("rep_frequency"), // Frecuencia de recordatorio de REP (días)
   companyId: integer("company_id"), // 1 = Dura, 2 = Orsega
@@ -714,6 +715,9 @@ export const scheduledPayments = pgTable("scheduled_payments", {
   paidBy: integer("paid_by"), // user_id
   // Vinculación con comprobante
   voucherId: integer("voucher_id").references(() => paymentVouchers.id), // ID del comprobante asociado (payment_voucher)
+  // Pago múltiple / parcial
+  totalPaid: real("total_paid").default(0), // Cache: SUM de payment_applications.amount_applied
+  paymentStatus: text("payment_status").default("unpaid"), // unpaid, partially_paid, fully_paid
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -722,6 +726,19 @@ export const scheduledPayments = pgTable("scheduled_payments", {
 export const insertScheduledPaymentSchema = createInsertSchema(scheduledPayments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertScheduledPayment = z.infer<typeof insertScheduledPaymentSchema>;
 export type ScheduledPayment = typeof scheduledPayments.$inferSelect;
+
+// Aplicaciones de Pago — relación N:M entre vouchers y facturas (pago múltiple + parciales)
+export const paymentApplications = pgTable("payment_applications", {
+  id: serial("id").primaryKey(),
+  voucherId: integer("voucher_id").notNull().references(() => paymentVouchers.id),
+  paymentId: integer("payment_id").notNull().references(() => scheduledPayments.id),
+  amountApplied: real("amount_applied").notNull(), // Monto aplicado a esta factura en este pago
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPaymentApplicationSchema = createInsertSchema(paymentApplications).omit({ id: true, createdAt: true });
+export type InsertPaymentApplication = z.infer<typeof insertPaymentApplicationSchema>;
+export type PaymentApplication = typeof paymentApplications.$inferSelect;
 
 // Comprobantes de Pago
 export const paymentReceipts = pgTable("payment_receipts", {

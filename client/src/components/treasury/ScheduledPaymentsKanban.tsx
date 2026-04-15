@@ -33,6 +33,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { UploadVoucherToPaymentModal } from "./modals/UploadVoucherToPaymentModal";
+import { MultiInvoicePaymentDialog } from "./modals/MultiInvoicePaymentDialog";
 import { PaymentDocumentsView } from "./PaymentDocumentsView";
 import {
   Table,
@@ -59,6 +60,8 @@ interface ScheduledPayment {
   voucherId: number | null;
   hydralFileUrl: string | null;
   hydralFileName: string | null;
+  totalPaid?: number | null;
+  paymentStatus?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -203,6 +206,18 @@ function SortablePaymentCard({ payment, columnId, onViewDocuments, onUploadVouch
               {payment.currency} ${payment.amount.toLocaleString()}
             </Badge>
           </div>
+
+          {/* Indicador de pago parcial */}
+          {payment.paymentStatus === 'partially_paid' && payment.totalPaid != null && (
+            <div className="flex items-center justify-between text-xs bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1">
+              <span className="text-orange-700 dark:text-orange-400 font-medium">
+                Pagado: {payment.currency} ${payment.totalPaid.toLocaleString()}
+              </span>
+              <span className="text-orange-600 dark:text-orange-300 font-bold">
+                Pendiente: ${(payment.amount - payment.totalPaid).toLocaleString()}
+              </span>
+            </div>
+          )}
 
           <div className="space-y-1 text-xs">
             {payment.paymentDate && (
@@ -754,8 +769,18 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
         onUploadVoucher={setUploadVoucherPayment}
       />
 
-      {/* Modal de Upload de Comprobante */}
-      {uploadVoucherPayment && (
+      {/* Modal de Pago — usa pago múltiple si tiene proveedor, simple si no */}
+      {uploadVoucherPayment && uploadVoucherPayment.supplierId ? (
+        <MultiInvoicePaymentDialog
+          isOpen={!!uploadVoucherPayment}
+          onClose={() => setUploadVoucherPayment(null)}
+          triggerPayment={uploadVoucherPayment}
+          onSuccess={() => {
+            setUploadVoucherPayment(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+          }}
+        />
+      ) : uploadVoucherPayment ? (
         <UploadVoucherToPaymentModal
           isOpen={!!uploadVoucherPayment}
           onClose={() => setUploadVoucherPayment(null)}
@@ -765,7 +790,7 @@ export function ScheduledPaymentsKanban({ companyId }: ScheduledPaymentsKanbanPr
             queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
           }}
         />
-      )}
+      ) : null}
 
       {/* Modal de Detalles y Documentos */}
       <PaymentDocumentsView
