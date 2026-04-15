@@ -31,6 +31,12 @@ export interface PaymentVoucher {
   clientId: number;
   clientName: string;
   supplierId?: number;
+  scheduledPaymentId?: number | null;
+  // snake_case from raw SQL API
+  scheduled_payment_id?: number | null;
+  client_id?: number;
+  client_name?: string;
+  company_id?: number;
   status: "pago_programado" | "factura_pagada" | "pendiente_complemento" | "complemento_recibido" | "cierre_contable";
   voucherFileUrl: string;
   voucherFileName: string;

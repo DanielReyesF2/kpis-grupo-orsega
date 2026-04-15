@@ -40,6 +40,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
 import { PayVoucherModal } from "./PayVoucherModal";
+import { MultiInvoicePaymentDialog } from "../modals/MultiInvoicePaymentDialog";
 import { DeleteVoucherModal } from "../modals/DeleteVoucherModal";
 
 // Lazy load del panel de detalles para mejor performance
@@ -307,8 +308,28 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
         />
       </Suspense>
 
-      {/* Modal para pagar voucher */}
-      {payingVoucher && (
+      {/* Modal para pagar voucher — usa pago múltiple si tiene proveedor vinculado */}
+      {payingVoucher && (payingVoucher.clientId || payingVoucher.client_id) ? (
+        <MultiInvoicePaymentDialog
+          isOpen={!!payingVoucher}
+          onClose={() => setPayingVoucher(null)}
+          triggerPayment={{
+            id: payingVoucher.scheduledPaymentId || payingVoucher.scheduled_payment_id || payingVoucher.id,
+            companyId: payingVoucher.companyId || payingVoucher.company_id || 0,
+            supplierId: payingVoucher.clientId || payingVoucher.client_id || null,
+            supplierName: payingVoucher.clientName || payingVoucher.client_name || null,
+            amount: payingVoucher.extractedAmount || 0,
+            currency: payingVoucher.extractedCurrency || 'MXN',
+            dueDate: payingVoucher.createdAt,
+            reference: payingVoucher.extractedReference,
+          }}
+          onSuccess={() => {
+            setPayingVoucher(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/treasury/payments"] });
+          }}
+        />
+      ) : payingVoucher ? (
         <PayVoucherModal
           isOpen={!!payingVoucher}
           onClose={() => setPayingVoucher(null)}
@@ -318,7 +339,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
             queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
           }}
         />
-      )}
+      ) : null}
 
       {/* Modal para eliminar voucher */}
       {deletingVoucher && (
