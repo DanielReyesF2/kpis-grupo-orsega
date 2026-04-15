@@ -792,6 +792,14 @@ router.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req, res) =
       originalData: JSON.stringify(originalVoucher), // Backup completo
     });
 
+    // Eliminar payment_applications vinculadas al voucher (FK constraint)
+    await db.delete(paymentApplications).where(eq(paymentApplications.voucherId, voucherId));
+
+    // Limpiar referencia en scheduled_payments que apunten a este voucher
+    await db.update(scheduledPayments)
+      .set({ voucherId: null })
+      .where(eq(scheduledPayments.voucherId, voucherId));
+
     // Eliminar el voucher original
     await db.delete(paymentVouchers).where(eq(paymentVouchers.id, voucherId));
 
