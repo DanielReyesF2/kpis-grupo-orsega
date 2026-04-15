@@ -846,15 +846,15 @@ router.post("/api/payment-vouchers/:id/upload-rep", jwtAuthMiddleware, voucherUp
     );
     console.log(`✅ [Upload REP] Archivo subido a ${uploadResult.storage}: ${uploadResult.url}`);
 
-    // Actualizar voucher con archivo REP y transicionar status
+    // Actualizar voucher con archivo REP y transicionar directo a cierre contable
     const updatedVoucher = await storage.updatePaymentVoucher(voucherId, {
       complementFileUrl: uploadResult.url,
       complementFileName: file.originalname,
       complementFileType: file.mimetype,
-      status: 'complemento_recibido',
+      status: 'cierre_contable',
     });
 
-    console.log(`✅ [Upload REP] Voucher ${voucherId} actualizado: status → complemento_recibido`);
+    console.log(`✅ [Upload REP] Voucher ${voucherId} actualizado: status → cierre_contable`);
 
     res.json({
       success: true,

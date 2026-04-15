@@ -61,12 +61,6 @@ const STATUS_CONFIG = {
     color: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
     headerColor: "bg-yellow-100 dark:bg-yellow-900/30",
   },
-  complemento_recibido: {
-    label: "REP recibido",
-    icon: FileCheck,
-    color: "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800",
-    headerColor: "bg-purple-100 dark:bg-purple-900/30",
-  },
   cierre_contable: {
     label: "Completado",
     icon: CheckCircle,
@@ -229,13 +223,14 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
     const grouped = {
       pago_programado: [] as PaymentVoucher[],
       pendiente_complemento: [] as PaymentVoucher[],
-      complemento_recibido: [] as PaymentVoucher[],
       cierre_contable: [] as PaymentVoucher[],
     };
 
     vouchers.forEach((voucher) => {
-      // Mapear factura_pagada (legacy) a pago_programado
-      const status = voucher.status === 'factura_pagada' ? 'pago_programado' : voucher.status;
+      // Mapear statuses legacy/eliminados a las 3 columnas activas
+      let status = voucher.status;
+      if (status === 'factura_pagada') status = 'pago_programado' as any;
+      if (status === 'complemento_recibido') status = 'cierre_contable' as any;
       if (grouped[status as keyof typeof grouped]) {
         grouped[status as keyof typeof grouped].push(voucher);
       }
