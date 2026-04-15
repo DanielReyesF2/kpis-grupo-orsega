@@ -689,6 +689,7 @@ export const voucherStatusEnum = pgEnum('voucher_status', [
   'complemento_recibido',    // Complemento ya subido
   'cierre_contable'          // Finalizado contablemente
 ]);
+export type VoucherStatus = 'pago_programado' | 'factura_pagada' | 'pendiente_complemento' | 'complemento_recibido' | 'cierre_contable';
 
 // Pagos Programados
 export const scheduledPayments = pgTable("scheduled_payments", {

@@ -187,6 +187,30 @@ export const getQueryFn: <T>(options: {
     }
   };
 
+/** Upload de archivos con FormData. Usa la misma lógica de auth que apiRequest
+ * pero no setea Content-Type (el browser lo pone con boundary para multipart). */
+export async function apiUpload(
+  method: string,
+  url: string,
+  formData: FormData
+): Promise<Response> {
+  const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const absoluteUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+  console.log(`🔵 [apiUpload] ${method} ${absoluteUrl}`);
+  const res = await fetch(absoluteUrl, {
+    method,
+    headers,
+    body: formData,
+    credentials: "include",
+  });
+  await throwIfResNotOk(res);
+  return res;
+}
+
 // Wrapper para compatibilidad con la interfaz anterior de apiRequest
 export async function apiRequestLegacy(
   url: string,

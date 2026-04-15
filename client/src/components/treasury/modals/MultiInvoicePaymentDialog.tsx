@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, X, DollarSign, Calendar, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiUpload } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { PDFPreview } from "../common/PDFPreview";
@@ -119,19 +119,7 @@ export function MultiInvoicePaymentDialog({
         }))
       ));
 
-      const response = await fetch('/api/payment-vouchers/multi-pay', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al procesar pago');
-      }
-
+      const response = await apiUpload('POST', '/api/payment-vouchers/multi-pay', formData);
       return await response.json();
     },
     onSuccess: (data) => {

@@ -11,20 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { X } from "lucide-react";
-
-interface Supplier {
-  id: number;
-  name: string;
-  short_name?: string;
-  email?: string;
-  location?: string;
-  currency?: string;
-  requires_rep?: boolean;
-  rep_frequency?: number;
-  company_id?: number;
-  is_active?: boolean;
-  notes?: string;
-}
+import type { SupplierAPI as Supplier } from "../types";
 
 interface SupplierFormProps {
   isOpen: boolean;

@@ -33,17 +33,7 @@ import { queryClient } from "@/lib/queryClient";
 import { CompanySelector } from "../common/CompanySelector";
 import { ProviderAutocomplete } from "../common/ProviderAutocomplete";
 import { PDFPreview } from "../common/PDFPreview";
-
-interface Supplier {
-  id: number;
-  name: string;
-  short_name?: string;
-  email?: string;
-  currency?: string;
-  company_id: number;
-  requires_rep?: boolean;
-  rep_frequency?: number;
-}
+import type { SupplierAPI as Supplier } from "../types";
 
 interface UploadInvoiceFlowProps {
   onBack: () => void;

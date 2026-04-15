@@ -8,41 +8,7 @@ import { ArrowLeft, Plus, Search, Edit, Trash2, Building2 } from "lucide-react";
 import { SupplierForm } from "@/components/treasury/common/SupplierForm";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-
-interface Supplier {
-  id: number;
-  name: string;
-  short_name?: string;
-  code?: string;
-  email?: string;
-  rfc?: string;
-  razon_social?: string;
-  street_address?: string;
-  colonia?: string;
-  municipality?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  num_exterior?: string;
-  num_interior?: string;
-  entre_calle?: string;
-  phone?: string;
-  contact_name?: string;
-  condicion_dias?: string;
-  moneda?: string;
-  currency?: string;
-  tipo_proveedor?: string;
-  es_nacional?: boolean;
-  location?: string;
-  requires_rep?: boolean;
-  rep_frequency?: number;
-  company_id?: number;
-  company_name?: string;
-  is_active?: boolean;
-  notes?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import type { SupplierAPI as Supplier } from "../types";
 
 interface ManageSuppliersFlowProps {
   onBack: () => void;

@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { storage } from '../storage';
 import { getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
-import { type InsertPaymentVoucher, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
+import { type InsertPaymentVoucher, type VoucherStatus, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
 import { db } from '../db';
 import { eq, inArray, sql as drizzleSql, sum } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
@@ -218,7 +218,7 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       clientId: supplier?.id || scheduledPayment.supplierId || 0,
       clientName: supplier?.name || scheduledPayment.supplierName || 'Proveedor',
       scheduledPaymentId: scheduledPaymentId,
-      status: finalStatus as any,
+      status: finalStatus as VoucherStatus,
       voucherFileUrl: voucherUrl, // URL de R2 o local
       voucherFileName: file.originalname,
       voucherFileType: file.mimetype,
@@ -460,7 +460,7 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
 
     // Actualizar el voucher con los datos del comprobante de pago
     const updatedVoucher = await storage.updatePaymentVoucher(voucherId, {
-      status: newStatus as any,
+      status: newStatus as VoucherStatus,
       // Guardar datos del comprobante en campos adicionales si los hay
       extractedAmount: analysis?.extractedAmount || existingVoucher.extractedAmount,
       extractedDate: analysis?.extractedDate || existingVoucher.extractedDate,
@@ -638,7 +638,7 @@ router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, nex
         clientId: supplierId || 0,
         clientName: firstPayment.supplierName || 'Proveedor',
         scheduledPaymentId: firstPayment.id,
-        status: voucherStatus as any,
+        status: voucherStatus as VoucherStatus,
         voucherFileUrl: uploadResult.url,
         voucherFileName: file.originalname,
         voucherFileType: file.mimetype,

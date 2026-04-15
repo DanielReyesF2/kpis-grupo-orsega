@@ -7,14 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { Building2, Plus } from "lucide-react";
-
-interface Supplier {
-  id: string | number;
-  name: string;
-  short_name?: string;
-  requires_rep?: boolean;
-  created_at?: string;
-}
+import type { SupplierAPI as Supplier } from "../types";
 
 interface SuppliersModuleProps {
   suppliers?: Supplier[];

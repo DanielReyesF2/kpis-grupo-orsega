@@ -5,19 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Check, Mail, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
-
-interface Supplier {
-  id: number;
-  name: string;
-  short_name?: string;
-  email?: string;
-  currency?: string;
-  company_id: number;
-  requires_rep?: boolean;
-  rep_frequency?: number;
-  location?: string;
-  is_active?: boolean;
-}
+import type { SupplierAPI as Supplier } from "../types";
 
 interface ProviderAutocompleteProps {
   companyId: number | null;

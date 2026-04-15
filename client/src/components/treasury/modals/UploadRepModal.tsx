@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiUpload } from "@/lib/queryClient";
 import { PDFPreview } from "../common/PDFPreview";
 
 interface UploadRepModalProps {
@@ -34,19 +34,7 @@ export function UploadRepModal({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`/api/payment-vouchers/${voucherId}/upload-rep`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al subir REP');
-      }
-
+      const response = await apiUpload('POST', `/api/payment-vouchers/${voucherId}/upload-rep`, formData);
       return await response.json();
     },
     onSuccess: () => {
