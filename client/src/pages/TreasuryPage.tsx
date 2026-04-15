@@ -121,30 +121,36 @@ export default function TreasuryPage() {
   const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
   const nextWeekEnd = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
 
-  // Estados sincronizados con ScheduledPaymentsKanban
+  // IDs de vouchers que aún están "por pagar" en el Kanban (no procesados completamente)
+  const vouchersPendingIds = new Set(
+    vouchers
+      .filter((v: any) => v.status === 'pago_programado' || v.status === 'factura_pagada')
+      .map((v: any) => v.scheduledPaymentId || v.scheduled_payment_id)
+      .filter(Boolean)
+  );
+
+  // Un pago se muestra en resumen semanal si:
+  // 1. Tiene status pendiente (no se ha subido voucher), O
+  // 2. Su voucher aún está en "Por pagar" en el Kanban (aún no procesado)
   const PENDING_STATUSES = ['idrall_imported', 'pending_approval', 'approved', 'payment_scheduled', 'payment_pending', 'pago_programado', 'pending'];
-  // Los pagos con voucher ya subido no deben mostrarse en las tarjetas de semana
-  // porque ya aparecen en el Kanban en "Pendiente REP" o "Cierre Contable"
 
-  const paymentsThisWeek = payments.filter((p) => {
-    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
-    if (!PENDING_STATUSES.includes(p.status)) return false;
+  const isPaymentPending = (p: any) => {
+    if (PENDING_STATUSES.includes(p.status)) return true;
+    // Incluir si su voucher sigue en "Por pagar" en el Kanban
+    if (vouchersPendingIds.has(p.id)) return true;
+    return false;
+  };
+
+  const filterByDateRange = (p: any, start: Date, end: Date) => {
     const dateStr = p.paymentDate || p.dueDate;
     if (!dateStr) return false;
     const date = new Date(dateStr);
     date.setHours(0, 0, 0, 0);
-    return date >= weekStart && date <= weekEnd;
-  });
+    return date >= start && date <= end;
+  };
 
-  const paymentsNextWeek = payments.filter((p) => {
-    // Solo mostrar pagos que están pendientes de pagar (sin voucher aún)
-    if (!PENDING_STATUSES.includes(p.status)) return false;
-    const dateStr = p.paymentDate || p.dueDate;
-    if (!dateStr) return false;
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
-    return date >= nextWeekStart && date <= nextWeekEnd;
-  });
+  const paymentsThisWeek = payments.filter((p) => isPaymentPending(p) && filterByDateRange(p, weekStart, weekEnd));
+  const paymentsNextWeek = payments.filter((p) => isPaymentPending(p) && filterByDateRange(p, nextWeekStart, nextWeekEnd));
 
   const totalThisWeek = paymentsThisWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalNextWeek = paymentsNextWeek.reduce((sum, p) => sum + (p.amount || 0), 0);
