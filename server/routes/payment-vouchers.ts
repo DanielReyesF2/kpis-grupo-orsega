@@ -7,7 +7,7 @@ import { getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import { type InsertPaymentVoucher, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
 import { db } from '../db';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql as drizzleSql, sum } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
 import { analyzeVoucherBackground } from '../nova/nova-voucher-analyze';
 
@@ -782,38 +782,78 @@ router.delete("/api/payment-vouchers/:id", jwtAuthMiddleware, async (req, res) =
       return res.status(404).json({ error: 'Comprobante no encontrado' });
     }
 
-    // Guardar en la tabla de eliminados (soft delete)
-    await db.insert(deletedPaymentVouchers).values({
-      originalVoucherId: originalVoucher.id,
-      companyId: originalVoucher.companyId,
-      payerCompanyId: originalVoucher.payerCompanyId,
-      clientId: originalVoucher.clientId,
-      clientName: originalVoucher.clientName,
-      status: originalVoucher.status,
-      voucherFileUrl: originalVoucher.voucherFileUrl,
-      voucherFileName: originalVoucher.voucherFileName,
-      extractedAmount: originalVoucher.extractedAmount,
-      extractedCurrency: originalVoucher.extractedCurrency,
-      extractedReference: originalVoucher.extractedReference,
-      extractedBank: originalVoucher.extractedBank,
-      originalCreatedAt: originalVoucher.createdAt,
-      deletionReason: reason,
-      deletedBy: userId,
-      originalData: JSON.stringify(originalVoucher), // Backup completo
+    // Obtener IDs de facturas afectadas ANTES de borrar (para recalcular después)
+    const affectedApplications = await db.select({ paymentId: paymentApplications.paymentId })
+      .from(paymentApplications)
+      .where(eq(paymentApplications.voucherId, voucherId));
+    const affectedPaymentIds = affectedApplications.map(a => a.paymentId);
+
+    // Todo en transacción para garantizar consistencia
+    await db.transaction(async (tx) => {
+      // 1. Soft delete — backup en tabla de eliminados
+      await tx.insert(deletedPaymentVouchers).values({
+        originalVoucherId: originalVoucher.id,
+        companyId: originalVoucher.companyId,
+        payerCompanyId: originalVoucher.payerCompanyId,
+        clientId: originalVoucher.clientId,
+        clientName: originalVoucher.clientName,
+        status: originalVoucher.status,
+        voucherFileUrl: originalVoucher.voucherFileUrl,
+        voucherFileName: originalVoucher.voucherFileName,
+        extractedAmount: originalVoucher.extractedAmount,
+        extractedCurrency: originalVoucher.extractedCurrency,
+        extractedReference: originalVoucher.extractedReference,
+        extractedBank: originalVoucher.extractedBank,
+        originalCreatedAt: originalVoucher.createdAt,
+        deletionReason: reason,
+        deletedBy: userId,
+        originalData: JSON.stringify(originalVoucher),
+      });
+
+      // 2. Eliminar payment_applications vinculadas (FK constraint)
+      await tx.delete(paymentApplications).where(eq(paymentApplications.voucherId, voucherId));
+
+      // 3. Limpiar referencia en scheduled_payments
+      await tx.update(scheduledPayments)
+        .set({ voucherId: null })
+        .where(eq(scheduledPayments.voucherId, voucherId));
+
+      // 4. Eliminar el voucher
+      await tx.delete(paymentVouchers).where(eq(paymentVouchers.id, voucherId));
+
+      // 5. Recalcular totalPaid y paymentStatus de cada factura afectada
+      for (const paymentId of affectedPaymentIds) {
+        const [result] = await tx
+          .select({ total: drizzleSql<number>`COALESCE(SUM(${paymentApplications.amountApplied}), 0)` })
+          .from(paymentApplications)
+          .where(eq(paymentApplications.paymentId, paymentId));
+
+        const newTotalPaid = Number(result?.total) || 0;
+
+        const [payment] = await tx.select({ amount: scheduledPayments.amount })
+          .from(scheduledPayments)
+          .where(eq(scheduledPayments.id, paymentId));
+
+        const newPaymentStatus = newTotalPaid < 1
+          ? 'unpaid'
+          : (payment && (payment.amount - newTotalPaid) < 1)
+            ? 'fully_paid'
+            : 'partially_paid';
+
+        await tx.update(scheduledPayments)
+          .set({
+            totalPaid: newTotalPaid,
+            paymentStatus: newPaymentStatus,
+            // Si ya no hay pagos, revertir status a pendiente
+            ...(newTotalPaid < 1 ? { status: 'idrall_imported', paidAt: null, paidBy: null } : {}),
+          })
+          .where(eq(scheduledPayments.id, paymentId));
+
+        console.log(`  📝 [Delete Voucher] Factura ${paymentId}: totalPaid recalculado → $${newTotalPaid} (${newPaymentStatus})`);
+      }
     });
 
-    // Eliminar payment_applications vinculadas al voucher (FK constraint)
-    await db.delete(paymentApplications).where(eq(paymentApplications.voucherId, voucherId));
-
-    // Limpiar referencia en scheduled_payments que apunten a este voucher
-    await db.update(scheduledPayments)
-      .set({ voucherId: null })
-      .where(eq(scheduledPayments.voucherId, voucherId));
-
-    // Eliminar el voucher original
-    await db.delete(paymentVouchers).where(eq(paymentVouchers.id, voucherId));
-
-    console.log(`🗑️ [Delete Voucher] Voucher ${voucherId} eliminado por usuario ${userId}. Razón: ${reason}`);
+    console.log(`🗑️ [Delete Voucher] Voucher ${voucherId} eliminado por usuario ${userId}. Razón: ${reason}. ${affectedPaymentIds.length} facturas recalculadas.`);
 
     res.json({
       success: true,
