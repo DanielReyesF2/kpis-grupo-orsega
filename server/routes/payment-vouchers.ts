@@ -428,13 +428,17 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
     // Default a true (más seguro: peor caso es ir a pendiente_complemento, no saltarse REP)
     let requiresREP = true;
 
-    // Obtener supplierId desde el scheduled payment vinculado
-    let supplierId = null;
+    // Buscar supplierId: primero desde scheduled_payment, fallback al voucher.clientId
+    let supplierId: number | null = null;
     if (existingVoucher.scheduledPaymentId) {
       const [scheduledPayment] = await db.select()
         .from(scheduledPayments)
         .where(eq(scheduledPayments.id, existingVoucher.scheduledPaymentId));
-      supplierId = scheduledPayment?.supplierId;
+      supplierId = scheduledPayment?.supplierId ?? null;
+    }
+    // Fallback: usar clientId del voucher directamente
+    if (!supplierId && existingVoucher.clientId && existingVoucher.clientId > 0) {
+      supplierId = existingVoucher.clientId;
     }
 
     if (supplierId) {
@@ -444,12 +448,12 @@ router.post("/api/payment-vouchers/:id/pay", jwtAuthMiddleware, (req, res, next)
 
       if (supplier) {
         requiresREP = supplier.requiresRep === true;
-        console.log(`💳 [Pay] Supplier ${supplier.name} requiresREP: ${requiresREP}`);
+        console.log(`💳 [Pay] Supplier ${supplier.name} (id=${supplierId}) requiresREP: ${requiresREP}`);
       } else {
         console.warn(`⚠️ [Pay] Supplier ID ${supplierId} no encontrado en BD, defaulteando requiresREP=true`);
       }
     } else {
-      console.warn(`⚠️ [Pay] Voucher ${voucherId} sin scheduledPaymentId o supplierId, defaulteando requiresREP=true`);
+      console.warn(`⚠️ [Pay] Voucher ${voucherId} sin supplierId ni clientId, defaulteando requiresREP=true`);
     }
 
     // Determinar nuevo status basado en REP
