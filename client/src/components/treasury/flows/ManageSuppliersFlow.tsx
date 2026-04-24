@@ -33,6 +33,21 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
     staleTime: 30000,
   });
 
+  const toggleRepMutation = useMutation({
+    mutationFn: async ({ id, requiresRep }: { id: number; requiresRep: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/suppliers/${id}`, { requiresRep });
+      return response.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
+      toast({ title: variables.requiresRep ? "REP activado" : "REP desactivado" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await apiRequest("DELETE", `/api/suppliers/${id}`);
@@ -257,11 +272,17 @@ export function ManageSuppliersFlow({ onBack }: ManageSuppliersFlowProps) {
 
                       {/* REP */}
                       <td className="p-3 text-center">
-                        <Badge className={`text-xs ${
-                          supplier.requires_rep
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                        }`}>
+                        <Badge
+                          className={`text-xs cursor-pointer transition-colors ${
+                            supplier.requires_rep
+                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          }`}
+                          onClick={() => toggleRepMutation.mutate({
+                            id: supplier.id,
+                            requiresRep: !supplier.requires_rep,
+                          })}
+                        >
                           {supplier.requires_rep ? 'SI' : 'NO'}
                         </Badge>
                       </td>
