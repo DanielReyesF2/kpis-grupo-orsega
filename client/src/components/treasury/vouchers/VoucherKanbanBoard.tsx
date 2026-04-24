@@ -348,6 +348,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           onClose={() => setRepVoucher(null)}
           voucherId={repVoucher.id}
           clientName={repVoucher.clientName || repVoucher.client_name || 'Proveedor'}
+          clientId={repVoucher.clientId || repVoucher.client_id}
           onSuccess={() => {
             setRepVoucher(null);
             queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });

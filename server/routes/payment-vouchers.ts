@@ -7,7 +7,7 @@ import { getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import { type InsertPaymentVoucher, type VoucherStatus, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
 import { db } from '../db';
-import { eq, inArray, sql as drizzleSql, sum } from 'drizzle-orm';
+import { eq, and, ne, inArray, sql as drizzleSql, sum } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
 import { analyzeVoucherBackground } from '../nova/nova-voucher-analyze';
 
@@ -922,6 +922,117 @@ router.post("/api/payment-vouchers/:id/upload-rep", jwtAuthMiddleware, voucherUp
   } catch (error) {
     console.error('❌ [Upload REP] Error:', error);
     res.status(500).json({ error: 'Error al subir REP' });
+  }
+});
+
+// GET /api/payment-vouchers/:id/rep-siblings - Vouchers hermanos del mismo proveedor esperando REP
+// Busca por client_id (ID numérico), NUNCA por nombre, para evitar mismatches
+router.get("/api/payment-vouchers/:id/rep-siblings", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const voucherId = parseInt(req.params.id);
+
+    // Buscar el voucher trigger para obtener su client_id y company_id
+    const triggerVoucher = await db.query.paymentVouchers.findFirst({
+      where: eq(paymentVouchers.id, voucherId),
+    });
+
+    if (!triggerVoucher) {
+      return res.status(404).json({ error: 'Comprobante no encontrado' });
+    }
+
+    if (!triggerVoucher.clientId) {
+      // Sin proveedor vinculado, no hay hermanos
+      return res.json([]);
+    }
+
+    // Buscar hermanos por client_id (ID numérico) + company_id + status pendiente_complemento
+    const siblings = await db.query.paymentVouchers.findMany({
+      where: and(
+        eq(paymentVouchers.clientId, triggerVoucher.clientId),
+        eq(paymentVouchers.companyId, triggerVoucher.companyId),
+        eq(paymentVouchers.status, 'pendiente_complemento'),
+        ne(paymentVouchers.id, voucherId),
+      ),
+      orderBy: (pv, { desc }) => [desc(pv.createdAt)],
+    });
+
+    console.log(`📋 [REP Siblings] Voucher ${voucherId} (client_id=${triggerVoucher.clientId}): ${siblings.length} hermano(s) encontrados`);
+    res.json(siblings);
+  } catch (error) {
+    console.error('❌ [REP Siblings] Error:', error);
+    res.status(500).json({ error: 'Error al buscar vouchers hermanos' });
+  }
+});
+
+// POST /api/payment-vouchers/bulk-upload-rep - Subir UN REP para N vouchers
+// Sube el archivo una vez y lo aplica a todos los vouchers seleccionados
+router.post("/api/payment-vouchers/bulk-upload-rep", jwtAuthMiddleware, voucherUpload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No se proporcionó archivo REP' });
+    }
+
+    const voucherIdsRaw = req.body.voucherIds;
+    if (!voucherIdsRaw) {
+      return res.status(400).json({ error: 'No se proporcionaron IDs de vouchers' });
+    }
+
+    const voucherIds: number[] = JSON.parse(voucherIdsRaw);
+    if (!Array.isArray(voucherIds) || voucherIds.length === 0) {
+      return res.status(400).json({ error: 'Lista de vouchers vacía' });
+    }
+
+    // Validar que todos los vouchers existen y están en pendiente_complemento
+    const vouchers = await db.query.paymentVouchers.findMany({
+      where: inArray(paymentVouchers.id, voucherIds),
+    });
+
+    const invalidVouchers = vouchers.filter(v => v.status !== 'pendiente_complemento');
+    if (invalidVouchers.length > 0) {
+      return res.status(400).json({
+        error: `${invalidVouchers.length} voucher(s) no están en "Esperando REP"`,
+        invalidIds: invalidVouchers.map(v => v.id),
+      });
+    }
+
+    if (vouchers.length !== voucherIds.length) {
+      return res.status(400).json({ error: 'Algunos vouchers no fueron encontrados' });
+    }
+
+    // Subir archivo UNA sola vez
+    console.log(`📤 [Bulk REP] Subiendo REP para ${voucherIds.length} vouchers...`);
+    const uploadResult = await uploadFile(
+      file.buffer,
+      'complementos',
+      file.originalname,
+      file.mimetype
+    );
+    console.log(`✅ [Bulk REP] Archivo subido a ${uploadResult.storage}: ${uploadResult.url}`);
+
+    // Aplicar a todos los vouchers seleccionados
+    const updated: number[] = [];
+    for (const vid of voucherIds) {
+      await storage.updatePaymentVoucher(vid, {
+        complementFileUrl: uploadResult.url,
+        complementFileName: file.originalname,
+        complementFileType: file.mimetype,
+        status: 'cierre_contable',
+      });
+      updated.push(vid);
+    }
+
+    console.log(`✅ [Bulk REP] ${updated.length} voucher(s) actualizados → cierre_contable`);
+
+    res.json({
+      success: true,
+      updatedCount: updated.length,
+      updatedIds: updated,
+      message: `REP aplicado a ${updated.length} comprobante(s)`,
+    });
+  } catch (error) {
+    console.error('❌ [Bulk REP] Error:', error);
+    res.status(500).json({ error: 'Error al procesar REP masivo' });
   }
 });
 

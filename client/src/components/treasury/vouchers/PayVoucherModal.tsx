@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Upload, FileText, X, Receipt, CreditCard, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiUpload } from "@/lib/queryClient";
 import { PDFPreview } from "../common/PDFPreview";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -34,19 +34,7 @@ export function PayVoucherModal({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`/api/payment-vouchers/${voucher.id}/pay`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al subir comprobante de pago');
-      }
-
+      const response = await apiUpload('POST', `/api/payment-vouchers/${voucher.id}/pay`, formData);
       return await response.json();
     },
     onSuccess: (data) => {
