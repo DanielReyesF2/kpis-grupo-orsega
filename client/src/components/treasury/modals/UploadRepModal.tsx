@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -61,32 +61,42 @@ export function UploadRepModal({
     staleTime: 30000,
   });
 
-  // Cuando llegan los hermanos, pre-seleccionar todos
   const allVoucherIds = [voucherId, ...siblings.map(s => s.id)];
+
+  // Pre-seleccionar todos cuando llegan los hermanos
+  useEffect(() => {
+    if (siblings.length > 0) {
+      setSelectedIds(new Set(allVoucherIds));
+    }
+  }, [siblings.length]);
 
   const toggleVoucher = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      // El trigger siempre se queda seleccionado
-      if (id === voucherId) return next;
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        // No permitir deseleccionar el último
+        if (next.size <= 1) return next;
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
 
   const selectAll = () => setSelectedIds(new Set(allVoucherIds));
-  const deselectSiblings = () => setSelectedIds(new Set([voucherId]));
+  const deselectAll = () => setSelectedIds(new Set([voucherId]));
 
-  const isBulk = selectedIds.size > 1;
+  const hasSiblings = siblings.length > 0;
 
-  // Mutation: bulk o individual
+  // Mutation: bulk si hay hermanos disponibles, individual si no
   const uploadMutation = useMutation({
     mutationFn: async (uploadFile: File) => {
       const formData = new FormData();
       formData.append('file', uploadFile);
 
-      if (isBulk) {
+      if (hasSiblings) {
+        // Siempre usar bulk cuando hay hermanos — envía solo los seleccionados
         formData.append('voucherIds', JSON.stringify(Array.from(selectedIds)));
         const response = await apiUpload('POST', '/api/payment-vouchers/bulk-upload-rep', formData);
         return await response.json();
@@ -96,7 +106,7 @@ export function UploadRepModal({
       }
     },
     onSuccess: (data) => {
-      const count = isBulk ? data.updatedCount : 1;
+      const count = hasSiblings ? data.updatedCount : 1;
       toast({
         title: "REP subido exitosamente",
         description: count > 1
@@ -147,8 +157,6 @@ export function UploadRepModal({
   const getRef = (s: RepSibling) => s.extractedReference ?? s.extracted_reference ?? null;
   const getDate = (s: RepSibling) => s.createdAt || s.created_at || '';
 
-  const hasSiblings = siblings.length > 0;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`${hasSiblings ? 'max-w-3xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}>
@@ -182,80 +190,63 @@ export function UploadRepModal({
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={deselectSiblings}
+                    onClick={deselectAll}
                   >
                     Solo este
                   </Button>
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-[250px] overflow-y-auto">
-                {/* Trigger voucher — siempre primero, siempre seleccionado */}
-                <Card className="p-3 border-orange-300 bg-orange-50/50">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={true}
-                      disabled
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">
-                          Este pago
-                        </span>
-                        <Badge variant="outline" className="text-[10px] border-orange-400 text-orange-600">
-                          Seleccionado
-                        </Badge>
-                      </div>
-                    </div>
-                    <Badge className="bg-orange-500 text-xs">Esperando REP</Badge>
-                  </div>
-                </Card>
-
-                {/* Siblings */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {loadingSiblings ? (
                   <div className="text-center py-3 text-sm text-muted-foreground">
                     Buscando otros pagos del mismo proveedor...
                   </div>
                 ) : (
-                  siblings.map((sibling) => {
-                    const isSelected = selectedIds.has(sibling.id);
-                    const amount = getAmount(sibling);
-                    const ref = getRef(sibling);
-                    const date = getDate(sibling);
+                  allVoucherIds.map((vid) => {
+                    const sibling = siblings.find(s => s.id === vid);
+                    const isSelected = selectedIds.has(vid);
+                    const isTrigger = vid === voucherId;
+                    // Use trigger props or sibling data
+                    const ref = isTrigger ? null : (sibling ? getRef(sibling) : null);
+                    const amount = isTrigger ? null : (sibling ? getAmount(sibling) : null);
+                    const currency = isTrigger ? 'MXN' : (sibling ? getCurrency(sibling) : 'MXN');
+                    const date = isTrigger ? '' : (sibling ? getDate(sibling) : '');
                     return (
                       <Card
-                        key={sibling.id}
+                        key={vid}
                         className={`p-3 cursor-pointer transition-colors ${
                           isSelected ? 'border-orange-300 bg-orange-50/30' : 'border-border hover:border-orange-200'
                         }`}
-                        onClick={() => toggleVoucher(sibling.id)}
+                        onClick={() => toggleVoucher(vid)}
                       >
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={isSelected}
-                            onCheckedChange={() => toggleVoucher(sibling.id)}
+                            onCheckedChange={() => toggleVoucher(vid)}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium truncate">
-                                {ref || `Pago #${sibling.id}`}
+                                {ref || `Pago #${vid}`}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {date && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(date), "dd MMM yyyy", { locale: es })}
-                                </span>
-                              )}
-                              {amount !== null && (
-                                <span className="font-medium text-foreground">
-                                  {getCurrency(sibling)} ${amount.toLocaleString()}
-                                </span>
-                              )}
-                            </div>
+                            {(date || amount !== null) && (
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                {date && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {format(new Date(date), "dd MMM yyyy", { locale: es })}
+                                  </span>
+                                )}
+                                {amount !== null && (
+                                  <span className="font-medium text-foreground">
+                                    {currency} ${amount.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <Badge className="bg-orange-500 text-xs shrink-0">Esperando REP</Badge>
                         </div>
                       </Card>
                     );
@@ -264,16 +255,14 @@ export function UploadRepModal({
               </div>
 
               {/* Summary */}
-              {selectedIds.size > 1 && (
-                <Card className="p-3 mt-3 bg-orange-100/50 border-orange-200">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-800">
-                      {selectedIds.size} pago{selectedIds.size > 1 ? 's' : ''} será{selectedIds.size > 1 ? 'n' : ''} completado{selectedIds.size > 1 ? 's' : ''} con este REP
-                    </span>
-                  </div>
-                </Card>
-              )}
+              <Card className="p-3 mt-3 bg-orange-100/50 border-orange-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm font-medium text-orange-800">
+                    {selectedIds.size} de {allVoucherIds.length} factura{allVoucherIds.length > 1 ? 's' : ''} seleccionada{selectedIds.size > 1 ? 's' : ''} para este REP
+                  </span>
+                </div>
+              </Card>
             </div>
           ) : (
             /* Sin hermanos — info card simple como antes */
@@ -345,13 +334,13 @@ export function UploadRepModal({
             </Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!file || uploadMutation.isPending}
+              disabled={!file || uploadMutation.isPending || selectedIds.size === 0}
               onClick={() => file && uploadMutation.mutate(file)}
             >
               {uploadMutation.isPending
                 ? "Subiendo..."
-                : isBulk
-                  ? `Confirmar REP (${selectedIds.size} pagos)`
+                : hasSiblings
+                  ? `Confirmar REP (${selectedIds.size} de ${allVoucherIds.length})`
                   : "Confirmar REP"
               }
             </Button>
