@@ -755,6 +755,8 @@ const router = Router();
     drumCount: z.number().int().min(1).max(1000),
     pickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido (YYYY-MM-DD)"),
     pickupWindow: z.string().optional(),
+    appointmentRequired: z.boolean().optional(),
+    appointmentNotes: z.string().max(500).optional(),
     // Client address overrides (saved to client record and used in Excel)
     clientColonia: z.string().max(200).optional(),
     clientMunicipality: z.string().max(200).optional(),
@@ -790,6 +792,8 @@ const router = Router();
       clientPhone: shipment.customerPhone || undefined,
       trackingCode: shipment.trackingCode,
       product: shipment.product,
+      appointmentRequired: validated.appointmentRequired,
+      appointmentNotes: validated.appointmentNotes,
     };
   }
 

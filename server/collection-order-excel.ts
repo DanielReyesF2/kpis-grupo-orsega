@@ -78,6 +78,8 @@ export interface CollectionOrderData {
   trackingCode?: string;
   product?: string;
   requestedBy?: string;
+  appointmentRequired?: boolean;
+  appointmentNotes?: string;
 }
 
 // --- Styling ---
@@ -96,6 +98,11 @@ const VALUE_FONT: Partial<ExcelJS.Font> = { bold: true, size: 10, name: 'Calibri
 const SMALL_FONT: Partial<ExcelJS.Font> = { size: 7, name: 'Calibri' };
 const TITLE_FONT: Partial<ExcelJS.Font> = { bold: true, size: 14, name: 'Calibri' };
 const RED_FONT: Partial<ExcelJS.Font> = { bold: true, size: 8, name: 'Calibri', color: { argb: 'FFFF0000' } };
+const GREEN_BOLD_FONT: Partial<ExcelJS.Font> = { bold: true, size: 10, name: 'Calibri', color: { argb: 'FF006100' } };
+
+const GREEN_FILL: ExcelJS.FillPattern = {
+  type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' },
+};
 
 const BORDER: Partial<ExcelJS.Borders> = {
   top: { style: 'thin' }, left: { style: 'thin' },
@@ -452,16 +459,33 @@ export async function generateCollectionOrderExcel(data: CollectionOrderData): P
   mergeSet(ws, r, 9, r, 12, B.contact, VALUE_FONT, { hAlign: 'center' });
   r++;
 
-  // CONTACTO / TELÉFONO
+  // CONTACTO / TELÉFONO + CITA
   mergeSet(ws, r, 1, r, 2, 'PERSONA DE CONTACTO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
-  mergeSet(ws, r, 3, r, 4, data.clientContact || '', VALUE_FONT, { hAlign: 'left' });
-  setCell(ws, r, 5, 'TELÉFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
-  setCell(ws, r, 6, data.clientPhone || '', VALUE_FONT, { hAlign: 'left' });
+  if (data.appointmentRequired) {
+    // Cita: contacto en col 3, cita en cols 4-6 con fondo verde
+    setCell(ws, r, 3, data.clientContact || '', VALUE_FONT, { hAlign: 'left' });
+    const citaText = data.appointmentNotes
+      ? `SERVICIO CON CITA ${data.appointmentNotes}`
+      : 'SERVICIO CON CITA';
+    mergeSet(ws, r, 4, r, 6, citaText, GREEN_BOLD_FONT, { fill: GREEN_FILL, hAlign: 'center', wrap: true });
+  } else {
+    mergeSet(ws, r, 3, r, 4, data.clientContact || '', VALUE_FONT, { hAlign: 'left' });
+    setCell(ws, r, 5, 'TELÉFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+    setCell(ws, r, 6, data.clientPhone || '', VALUE_FONT, { hAlign: 'left' });
+  }
 
   // DIRECCION billing (blank for now)
   setCell(ws, r, 8, 'DIRECCION', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
   mergeSet(ws, r, 9, r, 12, '', LABEL_FONT);
   r++;
+
+  // Si lleva cita, agregar teléfono en fila separada
+  if (data.appointmentRequired) {
+    mergeSet(ws, r, 1, r, 2, 'TELÉFONO', LABEL_FONT, { fill: LIGHT_BLUE_FILL });
+    mergeSet(ws, r, 3, r, 6, data.clientPhone || '', VALUE_FONT, { hAlign: 'left' });
+    borderRange(ws, r, 8, r, 12);
+    r++;
+  }
 
   // Billing: remaining fields
   borderRange(ws, r, 1, r, 6);

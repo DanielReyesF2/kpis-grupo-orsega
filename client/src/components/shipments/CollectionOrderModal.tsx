@@ -15,6 +15,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Truck,
   Package,
@@ -27,6 +29,7 @@ import {
   Mail,
   Check,
   AlertCircle,
+  CalendarClock,
 } from "lucide-react";
 import { calculatePalletDistribution } from "@shared/collection-order-utils";
 
@@ -98,6 +101,10 @@ export function CollectionOrderModal({
   const [clientMunicipality, setClientMunicipality] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
 
+  // Appointment / cita
+  const [appointmentRequired, setAppointmentRequired] = useState(false);
+  const [appointmentNotes, setAppointmentNotes] = useState("");
+
   const drums = parseInt(drumCount) || 0;
   const distribution = useMemo(() => calculatePalletDistribution(drums), [drums]);
 
@@ -112,6 +119,8 @@ export function CollectionOrderModal({
     drumCount: drums,
     pickupDate,
     pickupWindow,
+    appointmentRequired,
+    ...(appointmentRequired && appointmentNotes.trim() ? { appointmentNotes: appointmentNotes.trim() } : {}),
     ...(clientColonia.trim() ? { clientColonia: clientColonia.trim() } : {}),
     ...(clientMunicipality.trim() ? { clientMunicipality: clientMunicipality.trim() } : {}),
     ...extra,
@@ -346,6 +355,34 @@ export function CollectionOrderModal({
                   value={pickupWindow}
                   onChange={(e) => setPickupWindow(e.target.value)}
                 />
+              </div>
+
+              {/* 5. ¿Lleva cita? */}
+              <div className="space-y-3 p-3 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-green-600" />
+                    <Label htmlFor="appointment" className="font-semibold">¿Lleva cita?</Label>
+                  </div>
+                  <Switch
+                    id="appointment"
+                    checked={appointmentRequired}
+                    onCheckedChange={setAppointmentRequired}
+                  />
+                </div>
+                {appointmentRequired && (
+                  <div className="space-y-1">
+                    <Label htmlFor="appointmentNotes" className="text-xs">Fecha, hora e instrucciones de la cita</Label>
+                    <Textarea
+                      id="appointmentNotes"
+                      value={appointmentNotes}
+                      onChange={(e) => setAppointmentNotes(e.target.value)}
+                      placeholder="Ej: 20/04/2026 10:00 AM — preguntar por Maria Castillo"
+                      rows={2}
+                      className="text-sm"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
