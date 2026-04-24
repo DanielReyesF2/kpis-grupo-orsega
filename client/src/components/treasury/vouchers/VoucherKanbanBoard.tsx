@@ -39,6 +39,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VoucherCard, type PaymentVoucher } from "./VoucherCard";
+import { GroupedVoucherCard } from "./GroupedVoucherCard";
 import { PayVoucherModal } from "./PayVoucherModal";
 import { MultiInvoicePaymentDialog } from "../modals/MultiInvoicePaymentDialog";
 import { UploadRepModal } from "../modals/UploadRepModal";
@@ -79,12 +80,33 @@ interface KanbanColumnProps {
   onUploadRep: (voucher: PaymentVoucher) => void;
 }
 
+// Agrupa vouchers por clientId para renderizar tarjetas agrupadas
+function groupVouchersBySupplier(vouchers: PaymentVoucher[]) {
+  const groups: { key: string; vouchers: PaymentVoucher[] }[] = [];
+  const seen = new Map<number, number>(); // clientId → index in groups
+
+  for (const v of vouchers) {
+    const cid = v.clientId || v.client_id || 0;
+    if (cid > 0 && seen.has(cid)) {
+      groups[seen.get(cid)!].vouchers.push(v);
+    } else {
+      const idx = groups.length;
+      if (cid > 0) seen.set(cid, idx);
+      groups.push({ key: cid > 0 ? `group-${cid}` : `single-${v.id}`, vouchers: [v] });
+    }
+  }
+
+  return groups;
+}
+
 function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDeleteVoucher, onUploadRep }: KanbanColumnProps) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
+
+  const grouped = groupVouchersBySupplier(vouchers);
 
   return (
     <motion.div
@@ -124,16 +146,27 @@ function KanbanColumn({ status, vouchers, onVoucherClick, onPayVoucher, onDelete
                   </p>
                 </div>
               ) : (
-                vouchers.map((voucher) => (
-                  <VoucherCard
-                    key={voucher.id}
-                    voucher={voucher}
-                    onClick={() => onVoucherClick(voucher)}
-                    onPay={() => onPayVoucher(voucher)}
-                    onDelete={() => onDeleteVoucher(voucher)}
-                    onUploadRep={() => onUploadRep(voucher)}
-                  />
-                ))
+                grouped.map((group) =>
+                  group.vouchers.length === 1 ? (
+                    <VoucherCard
+                      key={group.key}
+                      voucher={group.vouchers[0]}
+                      onClick={() => onVoucherClick(group.vouchers[0])}
+                      onPay={() => onPayVoucher(group.vouchers[0])}
+                      onDelete={() => onDeleteVoucher(group.vouchers[0])}
+                      onUploadRep={() => onUploadRep(group.vouchers[0])}
+                    />
+                  ) : (
+                    <GroupedVoucherCard
+                      key={group.key}
+                      vouchers={group.vouchers}
+                      onVoucherClick={onVoucherClick}
+                      onPay={onPayVoucher}
+                      onDelete={onDeleteVoucher}
+                      onUploadRep={onUploadRep}
+                    />
+                  )
+                )
               )}
             </div>
           </SortableContext>
