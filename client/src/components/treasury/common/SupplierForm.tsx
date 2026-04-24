@@ -88,6 +88,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
       toast({ title: "Éxito", description: "Proveedor creado correctamente" });
       onClose();
     },
@@ -115,6 +116,7 @@ export function SupplierForm({ isOpen, onClose, supplier }: SupplierFormProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-vouchers"] });
       toast({ title: "Éxito", description: "Proveedor actualizado correctamente" });
       onClose();
     },

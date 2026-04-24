@@ -511,6 +511,7 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
 
     // Cascada: si cambió requires_rep, mover vouchers en el Kanban
     if (validatedData.requiresRep !== undefined) {
+      const supplierId = updatedSupplier.id;
       const supplierName = updatedSupplier.name;
       const companyId = updatedSupplier.company_id;
 
@@ -519,28 +520,28 @@ catalogRouter.patch('/suppliers/:id', async (req, res) => {
         const moved = await sql(`
           UPDATE payment_vouchers
           SET status = 'pago_programado', updated_at = NOW()
-          WHERE LOWER(TRIM(client_name)) = LOWER(TRIM($1))
+          WHERE client_id = $1
             AND company_id = $2
             AND status = 'pendiente_complemento'
           RETURNING id, client_name
-        `, [supplierName, companyId]);
+        `, [supplierId, companyId]);
 
         if (moved.rows.length > 0) {
-          console.log(`📋 [Supplier Cascade] ${supplierName} → REP NO: ${moved.rows.length} voucher(s) movidos a "Por pagar"`);
+          console.log(`📋 [Supplier Cascade] ${supplierName} (id=${supplierId}) → REP NO: ${moved.rows.length} voucher(s) movidos a "Por pagar"`);
         }
       } else {
         // REP SÍ → mover de "Por pagar" a "Esperando REP"
         const moved = await sql(`
           UPDATE payment_vouchers
           SET status = 'pendiente_complemento', updated_at = NOW()
-          WHERE LOWER(TRIM(client_name)) = LOWER(TRIM($1))
+          WHERE client_id = $1
             AND company_id = $2
             AND status = 'pago_programado'
           RETURNING id, client_name
-        `, [supplierName, companyId]);
+        `, [supplierId, companyId]);
 
         if (moved.rows.length > 0) {
-          console.log(`📋 [Supplier Cascade] ${supplierName} → REP SÍ: ${moved.rows.length} voucher(s) movidos a "Esperando REP"`);
+          console.log(`📋 [Supplier Cascade] ${supplierName} (id=${supplierId}) → REP SÍ: ${moved.rows.length} voucher(s) movidos a "Esperando REP"`);
         }
       }
     }
