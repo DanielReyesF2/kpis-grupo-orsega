@@ -1,24 +1,20 @@
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Link } from 'wouter';
-import { 
-  Package, 
-  Users, 
-  Truck, 
-  Plus, 
-  Clock,
+import {
+  Users,
+  Plus,
   ArrowLeft,
   X,
   Trash2,
   Save,
   Box,
-  CheckCircle2,
   History,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -187,108 +183,42 @@ export default function LogisticsPage() {
   }, [shipmentsResponse]);
 
 
-  // Get build version for debugging (only in production)
-  const buildVersion = import.meta.env.MODE === 'production' 
-    ? (import.meta.env.VITE_BUILD_VERSION as string | undefined) || 'dev'
-    : 'dev';
-
   return (
     <AppLayout title="Módulo de Logística">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <Link href="/">
           <Button>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Dashboard
           </Button>
         </Link>
-        {import.meta.env.MODE === 'production' && (
-          <div className="text-xs text-muted-foreground font-mono">
-            v{buildVersion}
-          </div>
-        )}
-      </div>
 
-      {/* Main Stats - Shipments Focus */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Featured Shipment Stats */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-warning">En Tránsito</p>
-                  <p className="text-4xl font-bold">
-                    {shipments.filter((s: Shipment) => s.status === 'in_transit').length}
-                  </p>
-                </div>
-                <div className="bg-warning/15 p-3 rounded-full">
-                  <Package className="w-10 h-10 text-warning" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-primary">Por embarcar</p>
-                  <p className="text-4xl font-bold">
-                    {shipments.filter((s: Shipment) => s.status === 'pending').length}
-                  </p>
-                </div>
-                <div className="bg-primary/15 p-3 rounded-full">
-                  <Clock className="w-10 h-10 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tarjeta destacada para Entregados */}
-          <Card className="border-2 border-success/30 bg-gradient-to-br from-success/5 to-success/10">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-success">Entregados</p>
-                  <p className="text-5xl font-extrabold text-success">
-                    {shipments.filter((s: Shipment) => s.status === 'delivered' || s.status === 'cancelled').length}
-                  </p>
-                </div>
-                <div className="bg-success/20 p-3 rounded-full">
-                  <CheckCircle2 className="w-12 h-12 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-
-        {/* Secondary Stats - Database Info */}
-        <div className="space-y-4 max-h-full overflow-y-auto">
-          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('clients')}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="w-5 h-5 text-primary mr-2" />
-                  <span className="text-sm text-muted-foreground">Clientes</span>
-                </div>
-                <span className="text-lg font-semibold">{clients.length}</span>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => setActiveModal('products')}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Box className="w-5 h-5 text-primary mr-2" />
-                  <span className="text-sm text-muted-foreground font-medium">Productos</span>
-                </div>
-                <span className="text-lg font-semibold">{productsLoading ? '...' : products.filter((p: Product) => p.is_active !== false).length}</span>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setActiveModal('clients')}
+          >
+            <Users className="w-4 h-4" />
+            Clientes
+            <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-xs font-semibold">
+              {clientsLoading ? '…' : clients.length}
+            </Badge>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setActiveModal('products')}
+          >
+            <Box className="w-4 h-4" />
+            Productos
+            <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-xs font-semibold">
+              {productsLoading ? '…' : products.filter((p: Product) => p.is_active !== false).length}
+            </Badge>
+          </Button>
         </div>
       </div>
 
