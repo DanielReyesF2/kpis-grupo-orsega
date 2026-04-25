@@ -298,6 +298,7 @@ export const shipments = pgTable("shipments", {
   customerEmail: text("customer_email"), // Email del cliente para notificaciones
   customerPhone: text("customer_phone"), // Teléfono del cliente para notificaciones
   invoiceNumber: text("invoice_number"), // Número de factura (requerido para pasar a en tránsito)
+  guideNumber: text("guide_number"), // Número de guía del transportista (waybill)
   destination: text("destination").notNull(), // Destino del envío
   origin: text("origin").notNull(), // Origen del envío
   product: text("product").notNull(), // Producto que se envía
@@ -428,6 +429,7 @@ export const updateShipmentStatusSchema = z.object({
   comments: z.string().optional(),
   location: z.string().optional(),
   invoiceNumber: z.string().optional(),
+  guideNumber: z.string().optional(),
 });
 
 // Collection Orders - Historial de órdenes de recolección generadas/enviadas

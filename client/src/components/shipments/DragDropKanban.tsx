@@ -62,6 +62,7 @@ interface Shipment {
   actualDeliveryDate?: string | null;
   updatedAt?: string | null;
   invoiceNumber?: string | null;
+  guideNumber?: string | null;
   purchaseOrder?: string | null;
   companyId?: number | null;
   customerId?: number | null;
@@ -354,6 +355,16 @@ const ShipmentCard = ({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Número de Guía — visible cuando ya fue capturado */}
+      {shipment.guideNumber && (
+        <div className="mt-1 flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">Guía:</span>
+          <span className="font-mono font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-amber-800">
+            {shipment.guideNumber}
+          </span>
         </div>
       )}
 
@@ -786,6 +797,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     targetStatus: ''
   });
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [guideNumber, setGuideNumber] = useState('');
   const [newShipmentForm, setNewShipmentForm] = useState({
     companyId: '1',
     trackingCode: '',
@@ -935,15 +947,15 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
 
   // Mutación para actualizar estado
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ shipmentId, status, invoiceNumber }: { shipmentId: number; status: string; invoiceNumber?: string }) => {
+    mutationFn: async ({ shipmentId, status, invoiceNumber, guideNumber }: { shipmentId: number; status: string; invoiceNumber?: string; guideNumber?: string }) => {
       return await apiRequestLegacy(`/api/shipments/${shipmentId}/status`, {
         method: 'PATCH',
         body: {
           status,
           invoiceNumber,
+          guideNumber,
           sendNotification: true,
           comments: `Estado actualizado mediante drag & drop a ${status}`
-          // Omitimos location en lugar de enviar null
         }
       });
     },
@@ -959,6 +971,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
       if (invoiceDialog.isOpen) {
         setInvoiceDialog({ isOpen: false, shipment: null, targetStatus: '' });
         setInvoiceNumber('');
+        setGuideNumber('');
       }
     },
     onError: (error: any) => {
@@ -1045,6 +1058,7 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
         targetStatus: newStatus
       });
       setInvoiceNumber('');
+      setGuideNumber('');
     } else {
       // Actualizar directamente
       updateStatusMutation.mutate({ 
@@ -1070,7 +1084,8 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
     updateStatusMutation.mutate({
       shipmentId: invoiceDialog.shipment.id,
       status: invoiceDialog.targetStatus,
-      invoiceNumber: invoiceNumber.trim()
+      invoiceNumber: invoiceNumber.trim(),
+      guideNumber: guideNumber.trim() || undefined,
     });
   };
 
@@ -1713,10 +1728,10 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-amber-600" />
-              Número de Factura Requerido
+              Datos para En Tránsito
             </DialogTitle>
             <DialogDescription>
-              Para mover el envío <strong>{invoiceDialog.shipment?.trackingCode}</strong> a "En Tránsito" es necesario ingresar el número de factura.
+              Para mover el envío <strong>{invoiceDialog.shipment?.trackingCode}</strong> a "En Tránsito", ingresa el número de factura y opcionalmente el número de guía.
             </DialogDescription>
           </DialogHeader>
           
@@ -1730,13 +1745,27 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
                 placeholder="Ej: FAC-2025-001"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && invoiceNumber.trim()) {
+                    handleInvoiceSubmit();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="guide-number">Número de Guía</Label>
+              <Input
+                id="guide-number"
+                value={guideNumber}
+                onChange={(e) => setGuideNumber(e.target.value)}
+                placeholder="Ej: 1234567890"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && invoiceNumber.trim()) {
                     handleInvoiceSubmit();
                   }
                 }}
               />
               <p className="text-xs text-gray-500">
-                Este número quedará registrado en el sistema y no se volverá a solicitar.
+                Número de guía del transportista (opcional). Se mostrará en la tarjeta del embarque.
               </p>
             </div>
           </div>

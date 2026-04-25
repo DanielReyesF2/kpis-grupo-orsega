@@ -535,9 +535,12 @@ const router = Router();
         updatedAt: new Date()
       };
 
-      // Agregar invoiceNumber si se proporciona
+      // Agregar invoiceNumber y guideNumber si se proporcionan
       if (validatedData.invoiceNumber) {
         updateData.invoiceNumber = validatedData.invoiceNumber;
+      }
+      if (validatedData.guideNumber) {
+        updateData.guideNumber = validatedData.guideNumber;
       }
 
       // KPIs de Logística: Capturar timestamps automáticamente según el estado

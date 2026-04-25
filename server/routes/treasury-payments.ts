@@ -327,7 +327,7 @@ router.post("/api/scheduled-payments/confirm", jwtAuthMiddleware, async (req, re
     // Crear cuenta por pagar usando storage
     const scheduledPaymentData = {
       companyId: validatedData.payerCompanyId,
-      supplierId: validatedData.supplierId || null,
+      supplierId: validatedData.supplierId || null, // Se resolverá abajo para el voucher
       supplierName: validatedData.supplierName,
       amount: validatedData.amount,
       currency: validatedData.currency || 'MXN',
@@ -399,11 +399,28 @@ router.post("/api/scheduled-payments/confirm", jwtAuthMiddleware, async (req, re
       companyId: updatedPayment.companyId,
     });
 
-    // ✅ NUEVO: Crear paymentVoucher con status pago_programado para el Kanban
+    // Resolver supplierId: si no viene, buscar por nombre en suppliers
+    let resolvedSupplierId = validatedData.supplierId || null;
+    if (!resolvedSupplierId && validatedData.supplierName) {
+      const matchResult = await sql(`
+        SELECT id FROM suppliers
+        WHERE company_id = $1
+          AND (LOWER(TRIM(name)) = LOWER(TRIM($2)) OR LOWER(TRIM(short_name)) = LOWER(TRIM($2)) OR LOWER(TRIM(razon_social)) = LOWER(TRIM($2)))
+        LIMIT 1
+      `, [validatedData.payerCompanyId, validatedData.supplierName]);
+      if (matchResult.length > 0) {
+        resolvedSupplierId = matchResult[0].id;
+        console.log(`🔗 [Confirm Invoice] Auto-resolved supplier "${validatedData.supplierName}" → ID ${resolvedSupplierId}`);
+      } else {
+        console.warn(`⚠️ [Confirm Invoice] No se encontró supplier para "${validatedData.supplierName}" en company ${validatedData.payerCompanyId}`);
+      }
+    }
+
+    // Crear paymentVoucher con status pago_programado para el Kanban
     const voucherData = {
       companyId: validatedData.payerCompanyId,
       payerCompanyId: validatedData.payerCompanyId,
-      clientId: validatedData.supplierId || 0, // Usar supplierId si existe
+      clientId: resolvedSupplierId || 0,
       clientName: validatedData.supplierName,
       scheduledPaymentId: createdScheduledPayment.id,
       status: 'pago_programado' as const, // ✅ Nuevo status para Kanban
@@ -861,5 +878,128 @@ function parseCFDI(xmlContent: string): {
 
   return result;
 }
+
+// GET /api/treasury/pending-rep-reminders - Vouchers pendientes de REP para N8N
+// N8N llama este endpoint para saber a quién mandar recordatorio de complemento
+router.get("/api/treasury/pending-rep-reminders", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const minDays = parseInt(req.query.minDays as string) || 3;
+    const companyIdParam = req.query.companyId as string | undefined;
+
+    // Query vouchers en pendiente_complemento con más de minDays días
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - minDays);
+
+    let query = `
+      SELECT
+        pv.id as voucher_id,
+        pv.client_name,
+        pv.extracted_amount,
+        pv.extracted_currency,
+        pv.updated_at as status_changed_at,
+        pv.company_id,
+        c.email as client_email,
+        c.name as client_name_full,
+        EXTRACT(DAY FROM NOW() - pv.updated_at)::int as days_pending
+      FROM payment_vouchers pv
+      LEFT JOIN clients c ON c.id = pv.client_id
+      WHERE pv.status = 'pendiente_complemento'
+        AND pv.updated_at <= $1
+    `;
+    const params: any[] = [cutoffDate];
+    let paramIndex = 2;
+
+    if (companyIdParam) {
+      query += ` AND pv.company_id = $${paramIndex}`;
+      params.push(parseInt(companyIdParam));
+      paramIndex++;
+    }
+
+    // Excluir los que ya recibieron recordatorio hoy
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    query += `
+      AND NOT EXISTS (
+        SELECT 1 FROM email_outbox eo
+        WHERE eo.voucher_id = pv.id
+          AND eo.created_at >= $${paramIndex}
+          AND (eo.subject ILIKE '%recordatorio%' OR eo.subject ILIKE '%complemento%')
+      )
+    `;
+    params.push(todayStart);
+
+    query += ` ORDER BY pv.updated_at ASC`;
+
+    const results = await sql(query, params);
+
+    // Enriquecer con tier de recordatorio
+    const REMINDER_TIERS = [
+      { minDays: 14, label: '3er recordatorio (urgente)', tier: 3 },
+      { minDays: 7, label: '2do recordatorio', tier: 2 },
+      { minDays: 3, label: '1er recordatorio', tier: 1 },
+    ];
+
+    const reminders = results
+      .filter((r: any) => r.client_email) // Solo los que tienen email
+      .map((r: any) => {
+        const daysPending = r.days_pending || 0;
+        const reminderTier = REMINDER_TIERS.find(t => daysPending >= t.minDays) || REMINDER_TIERS[2];
+
+        return {
+          voucherId: r.voucher_id,
+          clientName: r.client_name_full || r.client_name,
+          clientEmail: r.client_email,
+          amount: r.extracted_amount,
+          currency: r.extracted_currency || 'MXN',
+          daysPending,
+          statusChangedAt: r.status_changed_at,
+          reminderTier: reminderTier.tier,
+          reminderLabel: reminderTier.label,
+          companyId: r.company_id,
+        };
+      });
+
+    console.log(`[Treasury] Pending REP reminders: ${reminders.length} (de ${results.length} vouchers pendientes)`);
+    res.json(reminders);
+  } catch (error) {
+    console.error('[Treasury] Error fetching pending REP reminders:', error);
+    res.status(500).json({ error: 'Error al obtener recordatorios pendientes' });
+  }
+});
+
+// POST /api/treasury/rep-reminder-sent - N8N confirma que envió el recordatorio
+// Registra en email_outbox para la idempotencia del GET
+router.post("/api/treasury/rep-reminder-sent", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const bodySchema = z.object({
+      voucherId: z.number(),
+      emailTo: z.string().email(),
+      reminderTier: z.number().min(1).max(3),
+      success: z.boolean(),
+      messageId: z.string().optional(),
+    });
+
+    const data = bodySchema.parse(req.body);
+
+    await sql(`
+      INSERT INTO email_outbox (voucher_id, email_to, email_cc, subject, html_content, status, message_id, sent_at)
+      VALUES ($1, $2, '{}', $3, $4, $5, $6, $7)
+    `, [
+      data.voucherId,
+      `{${data.emailTo}}`,
+      `Recordatorio #${data.reminderTier} — Complemento de Pago Pendiente`,
+      `Recordatorio automático #${data.reminderTier} enviado via N8N. Resultado: ${data.success ? 'enviado' : 'fallido'}`,
+      data.success ? 'sent' : 'failed',
+      data.messageId || null,
+      data.success ? new Date() : null,
+    ]);
+
+    console.log(`[Treasury] REP reminder logged: voucher ${data.voucherId} → ${data.emailTo} (tier ${data.reminderTier})`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Treasury] Error logging REP reminder:', error);
+    res.status(500).json({ error: 'Error al registrar recordatorio' });
+  }
+});
 
 export default router;

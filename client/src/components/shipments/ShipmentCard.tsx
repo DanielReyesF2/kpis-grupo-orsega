@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel, Lock } from "lucide-react";
+import { X, Truck, Calendar, MapPin, Package, User, Phone, Mail, AlertTriangle, Clock, Check, RotateCw, Leaf, Ruler, Fuel, Lock, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ShipmentMap } from "./ShipmentMap";
 import { getCoordinates } from "@/utils/geo-utils";
@@ -281,6 +281,13 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                           <div className="flex items-center space-x-2">
                             <Phone className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">Teléfono del conductor:</span> {shipment.driverPhone}
+                          </div>
+                        )}
+                        {shipment.guideNumber && (
+                          <div className="flex items-center space-x-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">No. de Guía:</span>
+                            <span className="font-mono text-sm bg-amber-50 px-2 py-0.5 rounded border border-amber-200">{shipment.guideNumber}</span>
                           </div>
                         )}
                       </div>
