@@ -23,10 +23,11 @@ const router = Router();
         since // Filtro temporal: 'YYYY-MM-DD' o días como '30d'
       } = req.query;
 
-      // Parse parameters
-      const limitNum = parseInt(limit as string);
-      const pageNum = parseInt(page as string);
-      const offset = (pageNum - 1) * limitNum;
+      // Parse parameters — "all" disables pagination
+      const noPagination = (limit as string).toLowerCase() === 'all';
+      const limitNum = noPagination ? Infinity : parseInt(limit as string);
+      const pageNum = noPagination ? 1 : parseInt(page as string);
+      const offset = noPagination ? 0 : (pageNum - 1) * limitNum;
 
       // Calculate temporal filter
       let sinceDate: Date | undefined;
@@ -78,9 +79,9 @@ const router = Router();
         return dateB.getTime() - dateA.getTime();
       });
 
-      // Apply pagination
+      // Apply pagination (skip when limit=all)
       const total = shipments.length;
-      const paginatedShipments = shipments.slice(offset, offset + limitNum);
+      const paginatedShipments = noPagination ? shipments : shipments.slice(offset, offset + limitNum);
 
       // Enrich with last collection order send status (batch query, not N+1)
       const shipmentIds = paginatedShipments.map((s: any) => s.id);

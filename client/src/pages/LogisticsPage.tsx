@@ -163,11 +163,11 @@ export default function LogisticsPage() {
     },
   });
 
-  // Obtener envíos (para stat cards)
+  // Obtener TODOS los envíos (sin paginación) para stats, calendario y kanban
   const { data: shipmentsResponse, isLoading: shipmentsLoading } = useQuery<{shipments: Shipment[], pagination?: any} | Shipment[]>({
-    queryKey: ['/api/shipments'],
+    queryKey: ['/api/shipments', 'all'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/shipments');
+      const res = await apiRequest('GET', '/api/shipments?limit=all');
       return res.json();
     },
   });
