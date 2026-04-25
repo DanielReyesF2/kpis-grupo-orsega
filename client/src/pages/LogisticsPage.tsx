@@ -24,6 +24,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DragDropKanban } from '@/components/shipments/DragDropKanban';
 import { ShipmentsHistory } from '@/components/shipments/ShipmentsHistory';
+import { ShipmentCalendar } from '@/components/shipments/ShipmentCalendar';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -90,8 +91,19 @@ interface Product {
 }
 
 interface Shipment {
-  id: string;
+  id: number;
+  trackingCode: string;
+  customerName: string;
+  product: string;
+  origin: string;
+  destination: string;
   status: string;
+  departureDate?: string | null;
+  estimatedDeliveryDate?: string | null;
+  actualDeliveryDate?: string | null;
+  companyId?: number | null;
+  carrier?: string | null;
+  guideNumber?: string | null;
 }
 
 
@@ -279,6 +291,9 @@ export default function LogisticsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Calendario de embarques */}
+      <ShipmentCalendar shipments={shipments} className="mb-6" />
 
       {/* Main Content - Active View with History Button */}
       {activeTab === 'active' ? (
