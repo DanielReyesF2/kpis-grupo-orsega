@@ -154,11 +154,26 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
         .where(eq(suppliersTable.id, scheduledPayment.supplierId));
       supplier = supplierRow || null;
     }
-    // Fallback: si no se encuentra el supplier, defaultear a requiresRep=true (más seguro)
+    // Fallback: si no hay supplierId, buscar por nombre en la tabla de suppliers
+    if (!supplier && scheduledPayment.supplierName) {
+      const [matchedSupplier] = await db.select()
+        .from(suppliersTable)
+        .where(
+          and(
+            eq(suppliersTable.companyId, scheduledPayment.companyId),
+            drizzleSql`LOWER(TRIM(${suppliersTable.name})) = LOWER(TRIM(${scheduledPayment.supplierName}))`,
+          )
+        );
+      if (matchedSupplier) {
+        supplier = matchedSupplier;
+        console.log(`🔗 [Upload Voucher] Auto-resolved supplier "${scheduledPayment.supplierName}" → ID ${matchedSupplier.id}`);
+      }
+    }
+    // Si aún no hay match, defaultear a requiresRep=true (más seguro)
     if (!supplier) {
-      console.warn(`⚠️ [Upload Voucher] Supplier ID ${scheduledPayment.supplierId} no encontrado en BD, defaulteando requiresRep=true`);
+      console.warn(`⚠️ [Upload Voucher] No se encontró supplier para "${scheduledPayment.supplierName}", defaulteando requiresRep=true`);
       supplier = {
-        id: scheduledPayment.supplierId || 0,
+        id: 0,
         name: scheduledPayment.supplierName,
         companyId: scheduledPayment.companyId,
         requiresRep: true,
@@ -255,33 +270,16 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
       userId: user.id.toString(),
     });
 
-    // Actualizar scheduled payment con voucherId y estado
-    // Usar supplier.requiresRep (del proveedor/supplier, NO del cliente)
-    // Si requiere REP → voucher_uploaded (En seguimiento REP)
-    // Si NO requiere REP → payment_completed (Pagada)
-    const requiresREP = supplier?.requiresRep === true;
-    const newStatus = requiresREP ? 'voucher_uploaded' : 'payment_completed';
-
+    // Vincular voucher al scheduled payment — SIN marcar como pagado
+    // El pago se confirma explícitamente desde el Kanban (botón "Pagar")
     await db.update(scheduledPayments)
       .set({
         voucherId: voucher.id,
-        status: newStatus,
-        totalPaid: scheduledPayment.amount,
-        paymentStatus: 'fully_paid',
-        paidAt: new Date(),
-        paidBy: user.id,
         updatedAt: new Date(),
       })
       .where(eq(scheduledPayments.id, scheduledPaymentId));
 
-    // Crear payment_application para mantener consistencia con pago múltiple
-    await db.insert(paymentApplications).values({
-      voucherId: voucher.id,
-      paymentId: scheduledPaymentId,
-      amountApplied: scheduledPayment.amount,
-    });
-
-    console.log(`✅ [Upload Voucher] Scheduled payment ${scheduledPaymentId} actualizado: status=${newStatus}, fully_paid`);
+    console.log(`✅ [Upload Voucher] Scheduled payment ${scheduledPaymentId} vinculado a voucher ${voucher.id} (sin marcar como pagado)`);
 
     // Obtener el scheduled payment actualizado
     const [updatedPayment] = await db.select().from(scheduledPayments).where(eq(scheduledPayments.id, scheduledPaymentId));
@@ -613,15 +611,31 @@ router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, nex
       }
     }
 
-    // Obtener supplier para requiresRep
-    const supplierId = payments[0].supplierId;
+    // Obtener supplier para requiresRep — con auto-resolve por nombre
+    let resolvedSupplierId = payments[0].supplierId || null;
     let requiresREP = true; // default seguro
-    if (supplierId) {
+    if (resolvedSupplierId) {
       const [supplier] = await db.select()
         .from(suppliersTable)
-        .where(eq(suppliersTable.id, supplierId));
+        .where(eq(suppliersTable.id, resolvedSupplierId));
       if (supplier) {
         requiresREP = supplier.requiresRep === true;
+      }
+    }
+    // Fallback: si no hay supplierId, buscar por nombre
+    if (!resolvedSupplierId && payments[0].supplierName) {
+      const [matchedSupplier] = await db.select()
+        .from(suppliersTable)
+        .where(
+          and(
+            eq(suppliersTable.companyId, payments[0].companyId),
+            drizzleSql`LOWER(TRIM(${suppliersTable.name})) = LOWER(TRIM(${payments[0].supplierName}))`,
+          )
+        );
+      if (matchedSupplier) {
+        resolvedSupplierId = matchedSupplier.id;
+        requiresREP = matchedSupplier.requiresRep === true;
+        console.log(`🔗 [Multi-Pay] Auto-resolved supplier "${payments[0].supplierName}" → ID ${matchedSupplier.id}`);
       }
     }
 
@@ -639,7 +653,7 @@ router.post("/api/payment-vouchers/multi-pay", jwtAuthMiddleware, (req, res, nex
       const newVoucher: InsertPaymentVoucher = {
         companyId: firstPayment.companyId,
         payerCompanyId: firstPayment.companyId,
-        clientId: supplierId || 0,
+        clientId: resolvedSupplierId || 0,
         clientName: firstPayment.supplierName || 'Proveedor',
         scheduledPaymentId: firstPayment.id,
         status: voucherStatus as VoucherStatus,

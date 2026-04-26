@@ -7,18 +7,17 @@
         "path": "treasury-rep-reminder",
         "options": {}
       },
-      "id": "webhook",
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
       "name": "Webhook REP",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 300],
-      "webhookId": "treasury-rep-reminder"
+      "position": [0, 300]
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.item.json.body || $input.item.json;\nconst data = d.data || d;\nconst tier = data.reminderTier || 1;\nconst days = data.daysPending || 3;\nconst name = data.clientName || 'Estimado proveedor';\n\nconst urgent = tier >= 3;\nconst headerColor = urgent ? '#991b1b' : tier >= 2 ? '#b91c1c' : '#ea580c';\nconst alertBg = urgent ? '#fee2e2' : '#fff3cd';\nconst alertBorder = urgent ? '#fecaca' : '#ffeaa7';\nconst alertText = urgent ? '#991b1b' : '#856404';\n\nconst html = `\n<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto\">\n  <div style=\"background:${headerColor};padding:24px;text-align:center;border-radius:8px 8px 0 0\">\n    <h1 style=\"color:#fff;margin:0;font-size:22px\">⏰ ${data.reminderLabel || 'Recordatorio'}</h1>\n    <p style=\"color:rgba(255,255,255,.8);margin:6px 0 0;font-size:14px\">Complemento de Pago Pendiente</p>\n  </div>\n  <div style=\"padding:30px;background:#f8f9fa\">\n    <p style=\"color:#333;font-size:18px\">Hola <strong>${name}</strong>,</p>\n    <p style=\"color:#555;line-height:1.6\">Te recordamos que necesitamos el <strong>complemento de pago (REP)</strong> para cerrar el proceso contable.</p>\n    <div style=\"background:${alertBg};border:1px solid ${alertBorder};padding:20px;border-radius:8px;margin:24px 0\">\n      <p style=\"color:${alertText};margin:0 0 10px;font-weight:bold\">📋 Acción Requerida</p>\n      <p style=\"color:${alertText};margin:0 0 10px\">Han pasado <strong>${days} días</strong> desde que se realizó el pago. Envía el complemento para cerrar el proceso.</p>\n      <p style=\"color:${alertText};margin:0;font-weight:bold\">Puedes enviarlo respondiendo a este correo.</p>\n    </div>\n    <p style=\"color:#888;font-size:13px;text-align:center;margin-top:30px\">Lolita — Equipo de Tesorería · Grupo Orsega</p>\n  </div>\n</div>`;\n\nreturn {\n  json: {\n    to: d.to || data.clientEmail,\n    subject: d.subject || `${data.reminderLabel} — Complemento de Pago Pendiente`,\n    html: html\n  }\n};"
+        "jsCode": "const d = $input.item.json.body || $input.item.json;\nconst data = d.data || d;\nconst tier = data.reminderTier || 1;\nconst days = data.daysPending || 3;\nconst name = data.clientName || 'Estimado proveedor';\n\n// Tono progresivo: amigable → firme → urgente\nconst themes = {\n  1: { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: '👋', greeting: '¡Hola', cta: 'Te agradeceríamos mucho si nos lo pudieras enviar.', subject: 'Recordatorio amigable' },\n  2: { color: '#d97706', bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: '📌', greeting: 'Hola', cta: 'Necesitamos el complemento para poder cerrar el proceso contable.', subject: '2do recordatorio' },\n  3: { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: '🚨', greeting: 'Hola', cta: 'Es muy importante que nos envíes el complemento a la brevedad para evitar retrasos en el proceso.', subject: '3er recordatorio — Urgente' }\n};\nconst t = themes[tier] || themes[1];\n\nconst html = `\n<div style=\"font-family:'Segoe UI',Arial,sans-serif;max-width:580px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden\">\n  <div style=\"background:${t.color};padding:28px 24px;text-align:center\">\n    <p style=\"font-size:36px;margin:0\">${t.icon}</p>\n    <h1 style=\"color:#fff;margin:8px 0 0;font-size:20px;font-weight:600\">${t.subject}</h1>\n  </div>\n  <div style=\"padding:32px 28px;background:#ffffff\">\n    <p style=\"color:#1f2937;font-size:16px;margin:0 0 16px\">${t.greeting} <strong>${name}</strong>,</p>\n    <p style=\"color:#4b5563;font-size:15px;line-height:1.7;margin:0 0 20px\">Esperamos que estés bien. Te escribimos porque llevamos <strong>${days} días</strong> esperando el <strong>complemento de pago (REP)</strong> de una factura que ya fue liquidada.</p>\n    <div style=\"background:${t.bg};border-left:4px solid ${t.color};padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 24px\">\n      <p style=\"color:${t.text};margin:0;font-size:14px;line-height:1.6\">${t.cta}</p>\n    </div>\n    <div style=\"background:#f9fafb;border-radius:8px;padding:16px 20px;margin:0 0 24px\">\n      <p style=\"color:#6b7280;margin:0 0 4px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px\">¿Cómo enviarlo?</p>\n      <p style=\"color:#374151;margin:0;font-size:14px;line-height:1.6\">Simplemente <strong>responde a este correo</strong> adjuntando el XML o PDF del complemento. Nosotros nos encargamos del resto.</p>\n    </div>\n    <p style=\"color:#6b7280;font-size:14px;line-height:1.6;margin:0\">Cualquier duda estamos para ayudarte. ¡Gracias por tu atención!</p>\n  </div>\n  <div style=\"padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center\">\n    <p style=\"color:#9ca3af;font-size:12px;margin:0\">Lolita — Equipo de Tesorería · <strong>Grupo Orsega</strong></p>\n  </div>\n</div>`;\n\nreturn {\n  json: {\n    to: d.to || data.clientEmail,\n    subject: d.subject || `${t.subject} — Complemento de Pago Pendiente`,\n    html: html\n  }\n};"
       },
-      "id": "build-email",
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
       "name": "Armar email HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -35,23 +34,17 @@
           "replyTo": "dolores@grupoorsega.com"
         }
       },
-      "id": "gmail-send",
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
       "name": "Gmail - Enviar Recordatorio",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [480, 300],
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "CHANGE_ME",
-          "name": "Gmail Lolita"
-        }
-      }
+      "position": [480, 300]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "respond-ok",
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -72,6 +65,9 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "America/Mexico_City"
+  },
+  "meta": {
+    "instanceId": "import"
   },
   "tags": [{ "name": "tesorería" }]
 }
