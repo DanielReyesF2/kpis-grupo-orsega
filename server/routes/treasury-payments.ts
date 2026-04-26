@@ -880,8 +880,13 @@ function parseCFDI(xmlContent: string): {
 }
 
 // GET /api/treasury/pending-rep-reminders - Vouchers pendientes de REP para N8N
-// N8N llama este endpoint para saber a quién mandar recordatorio de complemento
-router.get("/api/treasury/pending-rep-reminders", jwtAuthMiddleware, async (req, res) => {
+// Auth: x-n8n-token header (mismo token que otros endpoints N8N)
+router.get("/api/treasury/pending-rep-reminders", async (req, res) => {
+  const n8nToken = req.headers['x-n8n-token'];
+  const expectedToken = process.env.N8N_WEBHOOK_TOKEN;
+  if (!expectedToken || n8nToken !== expectedToken) {
+    return res.status(401).json({ error: 'Token N8N inválido' });
+  }
   try {
     const minDays = parseInt(req.query.minDays as string) || 3;
     const companyIdParam = req.query.companyId as string | undefined;
@@ -968,8 +973,13 @@ router.get("/api/treasury/pending-rep-reminders", jwtAuthMiddleware, async (req,
 });
 
 // POST /api/treasury/rep-reminder-sent - N8N confirma que envió el recordatorio
-// Registra en email_outbox para la idempotencia del GET
-router.post("/api/treasury/rep-reminder-sent", jwtAuthMiddleware, async (req, res) => {
+// Auth: x-n8n-token header (mismo token que otros endpoints N8N)
+router.post("/api/treasury/rep-reminder-sent", async (req, res) => {
+  const n8nToken = req.headers['x-n8n-token'];
+  const expectedToken = process.env.N8N_WEBHOOK_TOKEN;
+  if (!expectedToken || n8nToken !== expectedToken) {
+    return res.status(401).json({ error: 'Token N8N inválido' });
+  }
   try {
     const bodySchema = z.object({
       voucherId: z.number(),

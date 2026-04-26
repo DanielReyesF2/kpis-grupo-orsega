@@ -1,0 +1,148 @@
+{
+  "name": "REP Recordatorios Automáticos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "cron",
+      "name": "Diario 10 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://kpisdigo.up.railway.app/api/treasury/pending-rep-reminders?minDays=3",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-n8n-token", "value": "={{ $vars.N8N_WEBHOOK_TOKEN }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-pending",
+      "name": "GET Pendientes REP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-data",
+              "leftValue": "={{ $json.voucherId }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "has-reminders",
+      "name": "¿Hay pendientes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst tier = item.reminderTier || 1;\nconst days = item.daysPending || 3;\nconst name = item.clientName || 'Estimado proveedor';\nconst amt = item.amount ? Number(item.amount).toLocaleString('es-MX', {minimumFractionDigits:2}) : '0.00';\nconst cur = item.currency || 'MXN';\n\nconst urgent = tier >= 3;\nconst headerColor = urgent ? '#991b1b' : tier >= 2 ? '#b91c1c' : '#ea580c';\nconst alertBg = urgent ? '#fee2e2' : '#fff3cd';\nconst alertBorder = urgent ? '#fecaca' : '#ffeaa7';\nconst alertText = urgent ? '#991b1b' : '#856404';\n\nconst html = `\n<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto\">\n  <div style=\"background:${headerColor};padding:24px;text-align:center;border-radius:8px 8px 0 0\">\n    <h1 style=\"color:#fff;margin:0;font-size:22px\">⏰ ${item.reminderLabel}</h1>\n    <p style=\"color:rgba(255,255,255,.8);margin:6px 0 0;font-size:14px\">Complemento de Pago Pendiente</p>\n  </div>\n  <div style=\"padding:30px;background:#f8f9fa\">\n    <p style=\"color:#333;font-size:18px\">Hola <strong>${name}</strong>,</p>\n    <p style=\"color:#555;line-height:1.6\">Te recordamos que necesitamos el <strong>complemento de pago (REP)</strong> correspondiente a tu factura por <strong>$${amt} ${cur}</strong>.</p>\n    <div style=\"background:${alertBg};border:1px solid ${alertBorder};padding:20px;border-radius:8px;margin:24px 0\">\n      <p style=\"color:${alertText};margin:0 0 10px;font-weight:bold\">📋 Acción Requerida</p>\n      <p style=\"color:${alertText};margin:0 0 10px\">Han pasado <strong>${days} días</strong> desde que se realizó el pago. Envía el complemento para cerrar el proceso contable.</p>\n      <p style=\"color:${alertText};margin:0;font-weight:bold\">Puedes enviarlo respondiendo a este correo.</p>\n    </div>\n    <p style=\"color:#888;font-size:13px;text-align:center;margin-top:30px\">Lolita — Equipo de Tesorería · Grupo Orsega</p>\n  </div>\n</div>`;\n\nreturn {\n  json: {\n    ...item,\n    emailSubject: `${item.reminderLabel} — Complemento de Pago Pendiente`,\n    emailHtml: html\n  }\n};"
+      },
+      "id": "build-email",
+      "name": "Armar email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 240]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.clientEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailHtml }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "dolores@grupoorsega.com"
+        }
+      },
+      "id": "gmail-send",
+      "name": "Gmail - Enviar Recordatorio",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [960, 240],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CHANGE_ME",
+          "name": "Gmail Lolita"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kpisdigo.up.railway.app/api/treasury/rep-reminder-sent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-n8n-token", "value": "={{ $vars.N8N_WEBHOOK_TOKEN }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"voucherId\": {{ $('Armar email HTML').item.json.voucherId }},\n  \"emailTo\": \"{{ $('Armar email HTML').item.json.clientEmail }}\",\n  \"reminderTier\": {{ $('Armar email HTML').item.json.reminderTier }},\n  \"success\": {{ $json.id ? true : false }},\n  \"messageId\": \"{{ $json.id || $json.threadId || '' }}\"\n}",
+        "options": {}
+      },
+      "id": "log-sent",
+      "name": "Registrar en API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 240]
+    },
+    {
+      "parameters": {},
+      "id": "noop",
+      "name": "Sin pendientes hoy",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [720, 420]
+    }
+  ],
+  "connections": {
+    "Diario 10 AM": {
+      "main": [[{ "node": "GET Pendientes REP", "type": "main", "index": 0 }]]
+    },
+    "GET Pendientes REP": {
+      "main": [[{ "node": "¿Hay pendientes?", "type": "main", "index": 0 }]]
+    },
+    "¿Hay pendientes?": {
+      "main": [
+        [{ "node": "Armar email HTML", "type": "main", "index": 0 }],
+        [{ "node": "Sin pendientes hoy", "type": "main", "index": 0 }]
+      ]
+    },
+    "Armar email HTML": {
+      "main": [[{ "node": "Gmail - Enviar Recordatorio", "type": "main", "index": 0 }]]
+    },
+    "Gmail - Enviar Recordatorio": {
+      "main": [[{ "node": "Registrar en API", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Mexico_City"
+  },
+  "tags": [{ "name": "tesorería" }]
+}
