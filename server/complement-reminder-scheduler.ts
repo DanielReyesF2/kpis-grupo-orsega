@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { db } from './db';
 import { eq, and, lte, sql } from 'drizzle-orm';
 import { paymentVouchers, clients, emailOutbox } from '@shared/schema';
-import { emailService } from './email-service';
+import { triggerN8nTreasury } from './n8n-treasury';
 
 const SYSTEM_USER_ID = 23;
 
@@ -94,12 +94,21 @@ export async function runComplementReminders() {
         continue;
       }
 
-      // Send reminder via Resend
-      const result = await emailService.sendComplementRequest(
-        client.email,
-        client.name,
-        String(voucher.id)
-      );
+      // Send reminder via N8N → Gmail (same pattern as logistics)
+      const result = await triggerN8nTreasury({
+        event: 'complement_reminder',
+        to: client.email,
+        subject: `${tier.label} — Complemento de Pago Pendiente`,
+        data: {
+          clientName: client.name,
+          clientEmail: client.email,
+          voucherId: voucher.id,
+          daysPending: ageDays,
+          reminderTier: tier.ordinal,
+          reminderLabel: tier.label,
+          companyId: voucher.companyId,
+        },
+      });
 
       // Log to email_outbox
       const subject = `${tier.label} — Complemento de Pago Pendiente — ${client.name}`;
