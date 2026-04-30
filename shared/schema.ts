@@ -1301,13 +1301,21 @@ export const importOrderStatusSchema = z.enum(importOrderStatusValues);
 export type ImportOrderStatus = z.infer<typeof importOrderStatusSchema>;
 
 export const insertImportOrderSchema = createInsertSchema(importOrders)
-  .omit({ id: true, createdAt: true, updatedAt: true })
+  .omit({
+    id: true, createdAt: true, updatedAt: true,
+    reference: true,        // auto-generated server-side
+    status: true,           // defaults to 'oc_created'
+    ocDocumentKey: true,    // set server-side from file upload
+    ocDocumentName: true,   // set server-side from file upload
+    createdBy: true,        // set server-side from JWT
+  })
   .extend({
     companyId: companyIdSchema,
     supplierName: z.string().min(1, "El proveedor es requerido").max(200),
     supplierCountry: z.string().max(100).optional().nullable(),
     incoterm: z.string().max(20).optional().nullable(),
     currency: z.string().max(10).default("USD"),
+    totalValue: z.union([z.number(), z.string(), z.null()]).optional().nullable(),
     purchaseOrderNumber: z.string().max(100).optional().nullable(),
     destination: z.string().max(50).default("bodega_nextipac"),
     destinationDetail: z.string().max(200).optional().nullable(),
