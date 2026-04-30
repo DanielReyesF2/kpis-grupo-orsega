@@ -32,9 +32,10 @@ export default function ImportOrdersPage() {
   });
 
   // Fetch shipments for calendar
-  const { data: shipments = [] } = useQuery<any[]>({
+  const { data: shipmentsResponse } = useQuery<any>({
     queryKey: ["/api/shipments", { companyId: selectedCompany, limit: "all" }],
   });
+  const shipments: any[] = shipmentsResponse?.shipments || [];
 
   // Active orders (not completed/cancelled)
   const activeOrders = orders.filter(
