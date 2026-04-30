@@ -1172,3 +1172,159 @@ export const insertDossierEvidenceSchema = createInsertSchema(dossierEvidence)
   });
 export type InsertDossierEvidence = z.infer<typeof insertDossierEvidenceSchema>;
 export type DossierEvidence = typeof dossierEvidence.$inferSelect;
+
+// ================================================================
+// IMPORT ORDERS MODULE — Órdenes de importación (Logística)
+// ================================================================
+
+// Enum: status de la importación
+export const importOrderStatusEnum = pgEnum('import_order_status', [
+  'oc_created',               // OC Creada
+  'in_transit_to_customs',    // Camino a Aduana
+  'in_customs',               // En Aduana
+  'in_yard',                  // En Patio
+  'in_transit_to_warehouse',  // Camino a Bodega
+  'in_warehouse',             // En Bodega
+  'cancelled',                // Cancelada
+]);
+
+// Enum: tipo de checklist item
+export const importChecklistTypeEnum = pgEnum('import_checklist_type', [
+  'check',  // Checkbox
+  'file',   // Requiere archivo
+]);
+
+// Tabla principal: import_orders
+export const importOrders = pgTable("import_orders", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  reference: varchar("reference", { length: 30 }).notNull().unique(),
+  status: varchar("status", { length: 30 }).notNull().default("oc_created"),
+
+  // Documento OC original
+  ocDocumentKey: text("oc_document_key"),
+  ocDocumentName: varchar("oc_document_name", { length: 255 }),
+
+  // Proveedor
+  supplierName: varchar("supplier_name", { length: 200 }).notNull(),
+  supplierCountry: varchar("supplier_country", { length: 100 }),
+
+  // Datos de la OC
+  incoterm: varchar("incoterm", { length: 20 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  totalValue: numeric("total_value", { precision: 14, scale: 2 }),
+  purchaseOrderNumber: varchar("purchase_order_number", { length: 100 }),
+
+  // Destino
+  destination: varchar("destination", { length: 50 }).default("bodega_nextipac"),
+  destinationDetail: varchar("destination_detail", { length: 200 }),
+
+  // Fechas estimadas
+  estimatedShipDate: date("estimated_ship_date"),
+  estimatedArrivalDate: date("estimated_arrival_date"),
+  estimatedCustomsClearDate: date("estimated_customs_clear_date"),
+  estimatedWarehouseDate: date("estimated_warehouse_date"),
+
+  // Fechas reales
+  actualShipDate: date("actual_ship_date"),
+  actualArrivalDate: date("actual_arrival_date"),
+  actualCustomsClearDate: date("actual_customs_clear_date"),
+  actualWarehouseDate: date("actual_warehouse_date"),
+
+  // Datos de envío (se llenan en etapa 2+)
+  vesselName: varchar("vessel_name", { length: 200 }),
+  containerNumber: varchar("container_number", { length: 50 }),
+  billOfLadingNumber: varchar("bill_of_lading_number", { length: 100 }),
+
+  // Datos de aduana (se llenan en etapa 3+)
+  pedimentoNumber: varchar("pedimento_number", { length: 100 }),
+  customsBroker: varchar("customs_broker", { length: 200 }),
+
+  // Transporte local (etapa 5)
+  localCarrier: varchar("local_carrier", { length: 200 }),
+
+  notes: text("notes"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Tabla: productos de la importación
+export const importOrderItems = pgTable("import_order_items", {
+  id: serial("id").primaryKey(),
+  importOrderId: integer("import_order_id").notNull().references(() => importOrders.id),
+  productName: varchar("product_name", { length: 300 }).notNull(),
+  quantity: numeric("quantity", { precision: 14, scale: 2 }),
+  unit: varchar("unit", { length: 20 }),
+  unitPrice: numeric("unit_price", { precision: 14, scale: 4 }),
+  description: text("description"),
+});
+
+// Tabla: checklist items por etapa
+export const importOrderChecklistItems = pgTable("import_order_checklist_items", {
+  id: serial("id").primaryKey(),
+  importOrderId: integer("import_order_id").notNull().references(() => importOrders.id),
+  stage: varchar("stage", { length: 30 }).notNull(),
+  label: varchar("label", { length: 200 }).notNull(),
+  type: varchar("type", { length: 10 }).notNull().default("check"),
+  isRequired: boolean("is_required").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  completedBy: integer("completed_by"),
+
+  // Para type=file
+  fileKey: text("file_key"),
+  fileName: varchar("file_name", { length: 255 }),
+});
+
+// Tabla: log de actividad
+export const importOrderActivityLog = pgTable("import_order_activity_log", {
+  id: serial("id").primaryKey(),
+  importOrderId: integer("import_order_id").notNull().references(() => importOrders.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  fromStatus: varchar("from_status", { length: 30 }),
+  toStatus: varchar("to_status", { length: 30 }),
+  details: text("details"),
+  userId: integer("user_id"),
+  userName: varchar("user_name", { length: 200 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Zod schemas
+export const importOrderStatusValues = [
+  "oc_created", "in_transit_to_customs", "in_customs", "in_yard",
+  "in_transit_to_warehouse", "in_warehouse", "cancelled"
+] as const;
+export const importOrderStatusSchema = z.enum(importOrderStatusValues);
+export type ImportOrderStatus = z.infer<typeof importOrderStatusSchema>;
+
+export const insertImportOrderSchema = createInsertSchema(importOrders)
+  .omit({ id: true, createdAt: true, updatedAt: true })
+  .extend({
+    companyId: companyIdSchema,
+    supplierName: z.string().min(1, "El proveedor es requerido").max(200),
+    supplierCountry: z.string().max(100).optional().nullable(),
+    incoterm: z.string().max(20).optional().nullable(),
+    currency: z.string().max(10).default("USD"),
+    purchaseOrderNumber: z.string().max(100).optional().nullable(),
+    destination: z.string().max(50).default("bodega_nextipac"),
+    destinationDetail: z.string().max(200).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  });
+export type InsertImportOrder = z.infer<typeof insertImportOrderSchema>;
+export type ImportOrder = typeof importOrders.$inferSelect;
+
+export const insertImportOrderItemSchema = z.object({
+  productName: z.string().min(1, "El producto es requerido").max(300),
+  quantity: z.number().positive().optional().nullable(),
+  unit: z.string().max(20).optional().nullable(),
+  unitPrice: z.number().min(0).optional().nullable(),
+  description: z.string().max(1000).optional().nullable(),
+});
+export type InsertImportOrderItem = z.infer<typeof insertImportOrderItemSchema>;
+export type ImportOrderItem = typeof importOrderItems.$inferSelect;
+
+export type ImportOrderChecklistItem = typeof importOrderChecklistItems.$inferSelect;
+export type ImportOrderActivityLog = typeof importOrderActivityLog.$inferSelect;

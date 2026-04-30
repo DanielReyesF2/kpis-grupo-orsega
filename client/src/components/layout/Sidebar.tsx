@@ -26,6 +26,7 @@ import {
   Sparkles,
   BarChart3,
   ShieldCheck,
+  Ship,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -84,11 +85,17 @@ function Sidebar() {
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(
     location === "/treasury" || location.startsWith("/treasury/")
   );
+  const [isLogisticsOpen, setIsLogisticsOpen] = useState(
+    location === "/logistics" || location === "/import-orders"
+  );
 
   // Auto-expandir cuando se navega a una ruta
   useEffect(() => {
     if (location === "/treasury" || location.startsWith("/treasury/")) {
       setIsTreasuryOpen(true);
+    }
+    if (location === "/logistics" || location === "/import-orders") {
+      setIsLogisticsOpen(true);
     }
   }, [location]);
 
@@ -261,16 +268,50 @@ function Sidebar() {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Módulo de Logística */}
+          {/* Módulo de Logística (collapsible) */}
           {hasLogisticsAccess && (
-            <NavItem
-              href="/logistics"
-              icon={<Truck className="h-4 w-4" />}
-              active={location === "/logistics" || location.includes("/logistics/")}
-              onClick={closeMenu}
-            >
-              Logística
-            </NavItem>
+            <Collapsible open={isLogisticsOpen} onOpenChange={setIsLogisticsOpen}>
+              <CollapsibleTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-all duration-150",
+                    location === "/logistics" || location === "/import-orders"
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    <span>Logística</span>
+                  </div>
+                  {isLogisticsOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 mt-1">
+                <NavItem
+                  href="/import-orders"
+                  icon={<Ship className="h-4 w-4" />}
+                  active={location === "/import-orders"}
+                  onClick={closeMenu}
+                  indent
+                >
+                  Importaciones
+                </NavItem>
+                <NavItem
+                  href="/logistics"
+                  icon={<Truck className="h-4 w-4" />}
+                  active={location === "/logistics"}
+                  onClick={closeMenu}
+                  indent
+                >
+                  Embarques
+                </NavItem>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Centro de Control */}

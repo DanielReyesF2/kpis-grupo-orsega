@@ -33,6 +33,7 @@ import n8nRouter from "./routes/n8n";
 import filesRouter from "./routes/files";
 import docsRouter from "./routes/docs";
 import complianceRouter from "./routes/compliance";
+import importOrdersRouter from "./routes/import-orders";
 
 export function registerRoutes(app: express.Application) {
   // ========================================
@@ -77,6 +78,7 @@ export function registerRoutes(app: express.Application) {
   app.use(filesRouter);
   app.use(docsRouter);
   app.use(complianceRouter);
+  app.use(importOrdersRouter);
 
   return app;
 }

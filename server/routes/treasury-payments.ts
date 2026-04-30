@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
+import { DOMParser } from '@xmldom/xmldom';
 import { storage } from '../storage';
 import { sql, getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
@@ -633,10 +634,16 @@ async function callNovaForExtraction(file: Express.Multer.File): Promise<{
 }
 Solo responde con el JSON, sin explicaciones.`;
 
+  const abortController = new AbortController();
   const result = await new Promise<string>((resolve, reject) => {
     let answer = '';
+    let settled = false;
     const timeout = setTimeout(() => {
-      reject(new Error('Nova AI timeout (30s)'));
+      if (!settled) {
+        settled = true;
+        abortController.abort();
+        reject(new Error('Nova AI timeout (30s)'));
+      }
     }, 30000);
 
     novaAIClient.streamChat(
@@ -648,28 +655,58 @@ Solo responde con el JSON, sin explicaciones.`;
         onToolStart: () => {},
         onToolResult: () => {},
         onDone: (res) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timeout);
           resolve(res.answer || answer);
         },
         onError: (err) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timeout);
           reject(err);
         },
-      }
+      },
+      abortController.signal,
     );
   });
 
-  const jsonMatch = result.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    const parsed = JSON.parse(jsonMatch[0]);
+  const jsonBlock = extractBalancedJson(result);
+  if (!jsonBlock) return null;
+  try {
+    const parsed = JSON.parse(jsonBlock);
     return {
-      amount: parsed.amount || null,
+      amount: typeof parsed.amount === 'number' ? parsed.amount : null,
       currency: parsed.currency || 'MXN',
       dueDate: parsed.dueDate || null,
       invoiceNumber: parsed.invoiceNumber || null,
       taxId: parsed.taxId || null,
       issuerName: parsed.issuerName || null,
     };
+  } catch (parseError) {
+    console.error('[Treasury] Failed to parse Nova AI JSON response:', parseError);
+  }
+  return null;
+}
+
+/**
+ * Extrae el primer bloque JSON balanceado (respeta llaves anidadas).
+ * Un regex greedy captura basura extra; un lazy corta en sub-objetos.
+ */
+function extractBalancedJson(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return text.substring(start, i + 1); }
   }
   return null;
 }
@@ -693,15 +730,19 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
       taxId: null as string | null,
       issuerName: null as string | null,
     };
+    let extractionMethod: 'cfdi' | 'nova' | 'none' = 'none';
+    let extractionError: string | null = null;
 
     // For XML files (CFDI), parse directly
     if (file.mimetype === 'application/xml' || file.mimetype === 'text/xml') {
       try {
         const xmlContent = file.buffer.toString('utf-8');
         extractedData = parseCFDI(xmlContent);
+        extractionMethod = 'cfdi';
         console.log(`[Treasury] CFDI XML parsed:`, extractedData);
       } catch (parseError) {
         console.error('[Treasury] Error parsing CFDI XML:', parseError);
+        extractionError = 'Error al parsear CFDI XML';
       }
     }
     // For PDFs: first try to extract embedded CFDI XML, then fallback to Nova AI
@@ -734,6 +775,7 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
             if (cfdiData.amount || cfdiData.invoiceNumber) {
               extractedData = cfdiData;
               cfdiExtracted = true;
+              extractionMethod = 'cfdi';
               console.log(`[Treasury] CFDI extracted from PDF (deterministic):`, extractedData);
             }
           }
@@ -753,13 +795,19 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
           const result = await callNovaForExtraction(file);
           if (result) {
             extractedData = result;
+            extractionMethod = 'nova';
             console.log(`[Treasury] Nova AI extracted from PDF:`, extractedData);
+          } else {
+            extractionError = 'Nova AI no pudo extraer datos del documento';
           }
         } catch (novaError) {
-          console.error('[Treasury] Nova AI PDF analysis failed:', novaError);
+          const msg = novaError instanceof Error ? novaError.message : 'Error desconocido';
+          console.error('[Treasury] Nova AI PDF analysis failed:', msg);
+          extractionError = `Nova AI falló: ${msg}`;
         }
       } else if (!cfdiExtracted) {
         console.log('[Treasury] No CFDI in PDF and Nova AI not configured');
+        extractionError = 'Nova AI no está configurado';
       }
     }
     // For images (PNG, JPG): only Nova AI can help
@@ -769,18 +817,26 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
         const result = await callNovaForExtraction(file);
         if (result) {
           extractedData = result;
+          extractionMethod = 'nova';
           console.log(`[Treasury] Nova AI extracted from image:`, extractedData);
+        } else {
+          extractionError = 'Nova AI no pudo extraer datos de la imagen';
         }
       } catch (novaError) {
-        console.error('[Treasury] Nova AI image analysis failed:', novaError);
+        const msg = novaError instanceof Error ? novaError.message : 'Error desconocido';
+        console.error('[Treasury] Nova AI image analysis failed:', msg);
+        extractionError = `Nova AI falló: ${msg}`;
       }
     } else {
       console.log('[Treasury] Image file and Nova AI not configured, returning empty data');
+      extractionError = 'Nova AI no está configurado';
     }
 
     res.json({
       success: true,
       extracted: extractedData,
+      extractionMethod,
+      extractionError,
       fileName: file.originalname,
       fileSize: file.size,
     });
@@ -790,7 +846,7 @@ router.post("/api/treasury/analyze-invoice", jwtAuthMiddleware, analyzeUpload.si
   }
 });
 
-// Helper: Parse Mexican CFDI XML
+// Helper: Parse Mexican CFDI XML using a real DOM parser (not regex)
 function parseCFDI(xmlContent: string): {
   amount: number | null;
   currency: string;
@@ -808,71 +864,66 @@ function parseCFDI(xmlContent: string): {
     issuerName: null as string | null,
   };
 
-  // Extract Total amount
-  const totalMatch = xmlContent.match(/Total="([^"]+)"/i);
-  if (totalMatch) {
-    result.amount = parseFloat(totalMatch[1]);
+  const doc = new DOMParser({
+    onError: () => {},  // Silence warnings/errors — we validate fields after parsing
+  }).parseFromString(xmlContent, 'text/xml');
+  if (!doc || !doc.documentElement) return result;
+
+  const root = doc.documentElement;
+
+  // Total / SubTotal — root element attributes
+  const totalStr = root.getAttribute('Total') || root.getAttribute('total');
+  if (totalStr) {
+    result.amount = parseFloat(totalStr);
+  }
+  if (!result.amount || isNaN(result.amount)) {
+    const subStr = root.getAttribute('SubTotal') || root.getAttribute('subTotal');
+    if (subStr) result.amount = parseFloat(subStr);
+  }
+  if (result.amount && isNaN(result.amount)) result.amount = null;
+
+  // Currency (Moneda)
+  const moneda = root.getAttribute('Moneda') || root.getAttribute('moneda');
+  if (moneda) result.currency = moneda;
+
+  // Folio + Serie → invoiceNumber
+  const folio = root.getAttribute('Folio') || root.getAttribute('folio');
+  const serie = root.getAttribute('Serie') || root.getAttribute('serie');
+  if (serie && folio) {
+    result.invoiceNumber = `${serie}-${folio}`;
+  } else if (folio) {
+    result.invoiceNumber = folio;
+  } else if (serie) {
+    result.invoiceNumber = serie;
   }
 
-  // Extract SubTotal if Total not found
-  if (!result.amount) {
-    const subtotalMatch = xmlContent.match(/SubTotal="([^"]+)"/i);
-    if (subtotalMatch) {
-      result.amount = parseFloat(subtotalMatch[1]);
-    }
+  // Emisor — handles any namespace (cfdi:Emisor, tfd:Emisor, plain Emisor)
+  const emisor = root.getElementsByTagNameNS('*', 'Emisor')[0]
+    || doc.getElementsByTagName('Emisor')[0];
+  if (emisor) {
+    const rfc = emisor.getAttribute('Rfc') || emisor.getAttribute('rfc');
+    if (rfc) result.taxId = rfc;
+    const nombre = emisor.getAttribute('Nombre') || emisor.getAttribute('nombre');
+    if (nombre) result.issuerName = nombre;
   }
 
-  // Extract Currency (Moneda)
-  const currencyMatch = xmlContent.match(/Moneda="([^"]+)"/i);
-  if (currencyMatch) {
-    result.currency = currencyMatch[1];
-  }
-
-  // Extract Folio (invoice number)
-  const folioMatch = xmlContent.match(/Folio="([^"]+)"/i);
-  if (folioMatch) {
-    result.invoiceNumber = folioMatch[1];
-  }
-
-  // Extract Serie + Folio
-  const serieMatch = xmlContent.match(/Serie="([^"]+)"/i);
-  if (serieMatch && result.invoiceNumber) {
-    result.invoiceNumber = `${serieMatch[1]}-${result.invoiceNumber}`;
-  } else if (serieMatch) {
-    result.invoiceNumber = serieMatch[1];
-  }
-
-  // Extract RFC (Emisor)
-  const rfcMatch = xmlContent.match(/cfdi:Emisor[^>]*Rfc="([^"]+)"/i)
-    || xmlContent.match(/Emisor[^>]*Rfc="([^"]+)"/i);
-  if (rfcMatch) {
-    result.taxId = rfcMatch[1];
-  }
-
-  // Extract Emisor Name
-  const emisorNameMatch = xmlContent.match(/cfdi:Emisor[^>]*Nombre="([^"]+)"/i)
-    || xmlContent.match(/Emisor[^>]*Nombre="([^"]+)"/i);
-  if (emisorNameMatch) {
-    result.issuerName = emisorNameMatch[1];
-  }
-
-  // Extract Fecha (date) - use as due date if no payment terms
-  const fechaMatch = xmlContent.match(/Fecha="([^"]+)"/i);
-  if (fechaMatch) {
-    // CFDI date format: 2024-01-15T12:00:00
-    const dateStr = fechaMatch[1].split('T')[0];
+  // Fecha → base date for due date calculation
+  const fecha = root.getAttribute('Fecha') || root.getAttribute('fecha');
+  if (fecha) {
+    const dateStr = fecha.split('T')[0];
     result.dueDate = dateStr;
   }
 
-  // Try to find CondicionesDePago for actual due date
-  const condicionesMatch = xmlContent.match(/CondicionesDePago="([^"]+)"/i);
-  if (condicionesMatch) {
-    // Try to parse "30 días" or similar
-    const diasMatch = condicionesMatch[1].match(/(\d+)\s*d[ií]as?/i);
-    if (diasMatch && fechaMatch) {
-      const baseDate = new Date(fechaMatch[1]);
-      baseDate.setDate(baseDate.getDate() + parseInt(diasMatch[1]));
-      result.dueDate = baseDate.toISOString().split('T')[0];
+  // CondicionesDePago → "30 días" → calculate actual due date
+  const condiciones = root.getAttribute('CondicionesDePago') || root.getAttribute('condicionesDePago');
+  if (condiciones && fecha) {
+    const diasMatch = condiciones.match(/(\d+)\s*d[ií]as?/i);
+    if (diasMatch) {
+      const baseDate = new Date(fecha);
+      if (!isNaN(baseDate.getTime())) {
+        baseDate.setDate(baseDate.getDate() + parseInt(diasMatch[1]));
+        result.dueDate = baseDate.toISOString().split('T')[0];
+      }
     }
   }
 

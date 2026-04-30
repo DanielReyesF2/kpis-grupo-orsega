@@ -26,6 +26,7 @@ const NewShipmentPage = lazy(() => import("@/pages/NewShipmentPage"));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
 const SalesPage = lazy(() => import("@/pages/SalesPage"));
 const CompliancePage = lazy(() => import("@/pages/CompliancePage"));
+const ImportOrdersPage = lazy(() => import("@/pages/ImportOrdersPage"));
 
 function PageLoader() {
   return (
@@ -146,6 +147,14 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        )}
+      </Route>
+
+      <Route path="/import-orders">
+        {() => (
+          <ProtectedRoute logisticsOnly>
+            <ImportOrdersPage />
           </ProtectedRoute>
         )}
       </Route>

@@ -187,12 +187,17 @@ async function streamChat(
 
   const body = JSON.stringify(payload);
 
+  // Always enforce a network-level timeout, even if caller doesn't pass AbortSignal.
+  // Without this, a hung connection stays open forever.
+  const effectiveSignal =
+    abortSignal ?? AbortSignal.timeout(STREAM_TIMEOUT_MS);
+
   try {
     const response = await fetch(url, {
       method: "POST",
       headers,
       body,
-      signal: abortSignal,
+      signal: effectiveSignal,
     });
 
     if (!response.ok) {
@@ -217,7 +222,7 @@ async function streamChat(
     let gotDoneEvent = false;
 
     while (true) {
-      if (abortSignal?.aborted) return;
+      if (effectiveSignal.aborted) return;
 
       const { done, value } = await reader.read();
       if (done) break;

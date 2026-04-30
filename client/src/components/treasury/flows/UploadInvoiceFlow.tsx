@@ -174,9 +174,16 @@ export function UploadInvoiceFlow({ onBack, onSuccess }: UploadInvoiceFlowProps)
             setExtractedIssuer(data.extracted.issuerName);
           }
           if (hasData) {
+            const method = data.extractionMethod === 'cfdi' ? ' (CFDI)' : data.extractionMethod === 'nova' ? ' (AI)' : '';
             toast({
-              title: "Datos extraídos",
+              title: "Datos extraídos" + method,
               description: "Los datos de la factura se han pre-llenado automáticamente",
+            });
+          } else if (data.extractionError) {
+            toast({
+              title: "No se pudo extraer",
+              description: data.extractionError + ". Llena los campos manualmente.",
+              variant: "destructive",
             });
           } else {
             toast({
