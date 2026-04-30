@@ -21,8 +21,7 @@ router.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) =
           er.buy_rate,
           er.sell_rate,
           er.source,
-          -- Interpretar fecha como CDMX y convertir a UTC para enviar al frontend
-          (er.date AT TIME ZONE 'America/Mexico_City')::text as date,
+          er.date::timestamptz as date,
           er.notes,
           u.name as created_by_name,
           u.email as created_by_email
@@ -32,13 +31,7 @@ router.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) =
         LIMIT $1
       `, [parseInt(limit as string)]);
 
-      // Las fechas ya vienen con timezone correcto desde PostgreSQL
-      const formattedResult = result.map((row: any) => ({
-        ...row,
-        date: row.date.endsWith('Z') ? row.date : row.date + 'Z'
-      }));
-
-      res.json(formattedResult);
+      res.json(result);
     } catch (error) {
       logger.error('Error fetching exchange rates', error);
       res.status(500).json({ error: 'Failed to fetch exchange rates' });
@@ -755,11 +748,11 @@ router.get("/api/treasury/exchange-rates", jwtAuthMiddleware, async (req, res) =
         sellRate = buyRate;
       }
 
-      // Usar NOW() con timezone explcito para asegurar que la fecha tenga la hora exacta
+      // Guardar NOW() directo (UTC). El frontend convierte a hora México con toZonedTime.
       const result = await sql(`
         INSERT INTO exchange_rates (buy_rate, sell_rate, source, notes, created_by, date)
-        VALUES ($1, $2, $3, $4, $5, NOW() AT TIME ZONE 'America/Mexico_City')
-        RETURNING id, buy_rate, sell_rate, source, date::text as date, notes, created_by
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        RETURNING id, buy_rate, sell_rate, source, date::timestamptz as date, notes, created_by
       `, [buyRate, sellRate, source || null, notes || null, user.id]);
 
       const inserted = result[0];
