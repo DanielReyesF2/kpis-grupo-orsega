@@ -363,13 +363,19 @@ router.post(
         `;
       }
 
-      // Bulk insert checklist (single query instead of 26 individual inserts)
-      const checklistValues = DEFAULT_CHECKLIST.map((ci) => {
+      // Insert checklist items (parameterized — safe)
+      for (const ci of DEFAULT_CHECKLIST) {
         const isOcDoc = ci.stage === "oc_created" && ci.label === "Documento OC subido";
-        const isCompleted = isOcDoc && ocDocumentKey ? true : false;
-        return `(${order.id}, '${ci.stage}', '${ci.label.replace(/'/g, "''")}', '${ci.type}', ${ci.isRequired}, ${ci.sortOrder}, ${isCompleted}, ${isCompleted ? "NOW()" : "NULL"}, ${isCompleted ? user.id : "NULL"}, ${isOcDoc && ocDocumentKey ? `'${ocDocumentKey}'` : "NULL"}, ${isOcDoc && ocDocumentName ? `'${ocDocumentName.replace(/'/g, "''")}'` : "NULL"})`;
-      }).join(", ");
-      await sql(`INSERT INTO import_order_checklist_items (import_order_id, stage, label, type, is_required, sort_order, is_completed, completed_at, completed_by, file_key, file_name) VALUES ${checklistValues}`);
+        const isCompleted = isOcDoc && !!ocDocumentKey;
+        await sql`
+          INSERT INTO import_order_checklist_items
+            (import_order_id, stage, label, type, is_required, sort_order, is_completed, completed_at, completed_by, file_key, file_name)
+          VALUES
+            (${order.id}, ${ci.stage}, ${ci.label}, ${ci.type}, ${ci.isRequired}, ${ci.sortOrder},
+             ${isCompleted}, ${isCompleted ? new Date().toISOString() : null}, ${isCompleted ? user.id : null},
+             ${isOcDoc && ocDocumentKey ? ocDocumentKey : null}, ${isOcDoc && ocDocumentName ? ocDocumentName : null})
+        `;
+      }
 
       // Activity log
       await sql`
