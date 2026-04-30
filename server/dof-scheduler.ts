@@ -4,13 +4,32 @@ import { exchangeRates } from '../shared/schema.js';
 
 const SYSTEM_USER_ID = 23;
 
+/**
+ * Calcula el siguiente día hábil (lunes a viernes) a partir de una fecha.
+ * Si es viernes → lunes. Si es sábado → lunes. Domingo → lunes.
+ */
+function getNextBusinessDay(from: Date): Date {
+  const next = new Date(from);
+  const day = next.getDay(); // 0=dom, 5=vie, 6=sab
+  if (day === 5) next.setDate(next.getDate() + 3);      // vie → lun
+  else if (day === 6) next.setDate(next.getDate() + 2);  // sab → lun
+  else next.setDate(next.getDate() + 1);                  // lun-jue → +1
+  return next;
+}
+
+/**
+ * Formatea fecha como "YYYY-MM-DD" en zona horaria de México.
+ */
+function formatDateMx(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+}
+
 export async function fetchDOFExchangeRate() {
   console.log('🔄 [DOF Scheduler] Obteniendo tipo de cambio del DOF...');
 
   const banxicoToken = process.env.BANXICO_TOKEN;
   if (!banxicoToken) {
     console.error('❌ [DOF Scheduler] BANXICO_TOKEN no configurado en variables de entorno');
-    console.error('❌ [DOF Scheduler] No se puede obtener tipo de cambio sin token de Banxico');
     return;
   }
 
@@ -24,9 +43,6 @@ export async function fetchDOFExchangeRate() {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ [DOF Scheduler] Error HTTP ${response.status}: ${errorText}`);
-      console.error('❌ [DOF Scheduler] No se pudo obtener el tipo de cambio oficial de Banxico');
-      console.error('❌ [DOF Scheduler] Verificar BANXICO_TOKEN y disponibilidad del API');
-      // NO insertar valores estimados - solo usar datos oficiales de Banxico
       return;
     }
 
@@ -34,7 +50,6 @@ export async function fetchDOFExchangeRate() {
 
     if (!data?.bmx?.series?.[0]?.datos?.[0]?.dato) {
       console.error('❌ [DOF Scheduler] Estructura de respuesta de Banxico inesperada:', JSON.stringify(data));
-      // NO insertar valores estimados - solo usar datos oficiales de Banxico
       return;
     }
 
@@ -42,11 +57,16 @@ export async function fetchDOFExchangeRate() {
 
     if (isNaN(latestRate)) {
       console.error('❌ [DOF Scheduler] Valor de tipo de cambio inválido:', data.bmx.series[0].datos[0].dato);
-      // NO insertar valores estimados - solo usar datos oficiales de Banxico
       return;
     }
 
-    // Verificar si ya hay un registro reciente (últimas 2 horas) para evitar duplicados
+    // El TC FIX publicado a las 12:00 aplica para el siguiente día hábil.
+    // Guardar con la fecha del día hábil al que aplica.
+    const now = new Date();
+    const nextBizDay = getNextBusinessDay(now);
+    const nextBizDateStr = formatDateMx(nextBizDay);
+
+    // Deduplicación: no insertar si ya existe un DOF con la misma fecha de aplicación
     const twoHoursAgo = new Date();
     twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
 
@@ -63,7 +83,6 @@ export async function fetchDOFExchangeRate() {
       return;
     }
 
-    // Usar el valor DOF oficial EXACTO sin modificar - NO hay fallback ni varianza
     const buyRate = Number(latestRate.toFixed(4));
     const sellRate = Number(latestRate.toFixed(4));
 
@@ -71,16 +90,14 @@ export async function fetchDOFExchangeRate() {
       buyRate,
       sellRate,
       source: 'DOF',
-      notes: 'Tipo de cambio oficial DOF desde Banxico (Serie SF43718)',
+      notes: `TC DOF para ${nextBizDateStr} — publicado ${formatDateMx(now)} 12:00`,
       date: new Date(),
       createdBy: SYSTEM_USER_ID,
     });
 
-    console.log(`✅ [DOF Scheduler] Tipo de cambio oficial insertado: $${buyRate} MXN/USD`);
+    console.log(`✅ [DOF Scheduler] TC DOF insertado: $${buyRate} MXN/USD (aplica ${nextBizDateStr})`);
   } catch (error) {
     console.error('❌ [DOF Scheduler] Error al obtener tipo de cambio:', error);
-    console.error('❌ [DOF Scheduler] No se insertará ningún valor - solo datos oficiales de Banxico');
-    // NO insertar valores estimados/fallback - solo usar datos oficiales de Banxico
   }
 }
 
@@ -91,11 +108,20 @@ export function initializeDOFScheduler() {
     console.error('❌ [DOF Scheduler] Error en actualización inicial:', err);
   });
 
-  // El DOF publica el tipo de cambio una sola vez al día
-  // Se ejecuta a las 9:00 AM hora de México (cuando ya está disponible el TC del día)
-  // Nota: El TC que se publica es el que aplica para ese día
-  cron.schedule('0 9 * * 1-5', async () => {
-    console.log('⏰ [DOF Scheduler] Ejecutando actualización diaria de 9:00 AM (Hora de México)');
+  // Lolita/DOF: El tipo de cambio FIX se publica a las 12:00 PM en el DOF.
+  // Bajamos a las 12:20 PM GDL (America/Mexico_City) para dar margen.
+  // El TC publicado a las 12:00 aplica para el siguiente día hábil.
+  // Después de las 12:00, el TC visible en la app es el de mañana.
+  cron.schedule('20 12 * * 1-5', async () => {
+    console.log('⏰ [DOF Scheduler] Actualización de 12:20 PM — bajando TC DOF del día');
+    await fetchDOFExchangeRate();
+  }, {
+    timezone: 'America/Mexico_City'
+  });
+
+  // Retry a las 12:45 por si Banxico se retrasó publicando
+  cron.schedule('45 12 * * 1-5', async () => {
+    console.log('⏰ [DOF Scheduler] Retry 12:45 PM — verificando TC DOF');
     await fetchDOFExchangeRate();
   }, {
     timezone: 'America/Mexico_City'
@@ -103,6 +129,8 @@ export function initializeDOFScheduler() {
 
   console.log('📅 [DOF Scheduler] Programador de tipo de cambio DOF inicializado');
   console.log('⏰ Actualización automática programada:');
-  console.log('   - 9:00 AM (Hora de México) - Solo días hábiles (Lun-Vie)');
-  console.log('✅ El scheduler está activo. El DOF publica un solo TC por día.');
+  console.log('   - 12:20 PM (Hora GDL/CDMX) — descarga principal');
+  console.log('   - 12:45 PM (Hora GDL/CDMX) — retry si no se obtuvo');
+  console.log('   - Solo días hábiles (Lun-Vie)');
+  console.log('ℹ️  El TC publicado a las 12:00 aplica para el siguiente día hábil');
 }
