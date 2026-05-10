@@ -291,11 +291,11 @@ export default function ShipmentsPage() {
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           <div>
                             <p className="font-medium text-gray-500">Fecha de salida</p>
-                            <p>{shipment.departureDate && new Date(shipment.departureDate).toLocaleDateString()}</p>
+                            <p>{shipment.departureDate && new Date(shipment.departureDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })}</p>
                           </div>
                           <div>
                             <p className="font-medium text-gray-500">Entrega estimada</p>
-                            <p>{shipment.estimatedDeliveryDate && new Date(shipment.estimatedDeliveryDate).toLocaleDateString()}</p>
+                            <p>{shipment.estimatedDeliveryDate && new Date(shipment.estimatedDeliveryDate).toLocaleDateString('es-MX', { timeZone: 'UTC' })}</p>
                           </div>
                           <div>
                             <p className="font-medium text-gray-500">Transportista</p>
@@ -391,11 +391,11 @@ export default function ShipmentsPage() {
                               <div className="flex items-center gap-2">
                                 <Lock className="w-4 h-4 text-green-600 dark:text-green-400" />
                                 <span className="font-semibold text-green-700 dark:text-green-300">
-                                  <FormattedDate date={new Date(shipment.actualDeliveryDate || shipment.deliveredAt!)} />
+                                  <FormattedDate date={new Date(shipment.actualDeliveryDate || shipment.deliveredAt!)} utc />
                                 </span>
                               </div>
                             ) : shipment.estimatedDeliveryDate ? (
-                              <FormattedDate date={new Date(shipment.estimatedDeliveryDate)} />
+                              <FormattedDate date={new Date(shipment.estimatedDeliveryDate)} utc />
                             ) : (
                               "-"
                             )}

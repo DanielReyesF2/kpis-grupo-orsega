@@ -102,9 +102,13 @@ export function ShipmentCalendar({ shipments, className }: ShipmentCalendarProps
   const entriesByDate = useMemo(() => {
     const grouped: Record<string, CalendarEntry[]> = {};
 
+    // Extraer fecha como YYYY-MM-DD usando UTC para evitar desfase de timezone.
+    // Las fechas de embarque son "fechas de negocio" — representan el día que el
+    // usuario eligió, no un instante preciso en el tiempo.
     const addEntry = (dateStr: string | null | undefined, shipment: Shipment, type: "departure" | "delivery") => {
       if (!dateStr) return;
-      const dateKey = format(new Date(dateStr), "yyyy-MM-dd");
+      const d = new Date(dateStr);
+      const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
       if (!grouped[dateKey]) grouped[dateKey] = [];
       grouped[dateKey].push({ shipment, type });
     };

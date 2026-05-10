@@ -193,7 +193,7 @@ export function ReportModal({ isOpen, onClose, shipments }: ReportModalProps) {
           statusLabels[shipment.status as keyof typeof statusLabels] || shipment.status || "N/A",
           (shipment.product && shipment.product.length > 15) ? shipment.product.substring(0, 12) + "..." : (shipment.product || "N/A"),
           `${shipment.quantity || 0} ${shipment.unit || ""}`,
-          shipment.estimatedDeliveryDate ? format(new Date(shipment.estimatedDeliveryDate), "dd/MM") : "N/A"
+          shipment.estimatedDeliveryDate ? (() => { const d = new Date(shipment.estimatedDeliveryDate); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`; })() : "N/A"
         ];
         
         rowData.forEach((data, index) => {

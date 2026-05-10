@@ -234,7 +234,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">Fecha de salida:</span>{" "}
                           {shipment.departureDate ? (
-                            <FormattedDate date={new Date(shipment.departureDate)} />
+                            <FormattedDate date={new Date(shipment.departureDate)} utc />
                           ) : (
                             "No definida"
                           )}
@@ -244,7 +244,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">Fecha estimada de entrega:</span>{" "}
                           {shipment.estimatedDeliveryDate ? (
-                            <FormattedDate date={new Date(shipment.estimatedDeliveryDate)} />
+                            <FormattedDate date={new Date(shipment.estimatedDeliveryDate)} utc />
                           ) : (
                             "No definida"
                           )}
@@ -255,7 +255,7 @@ export function ShipmentCard({ shipment, onClose, onRefresh }: ShipmentCardProps
                             <Lock className="h-4 w-4 text-green-600 dark:text-green-400" />
                             <span className="font-medium text-green-700 dark:text-green-300">Fecha real de entrega:</span>{" "}
                             <span className="font-semibold text-green-700 dark:text-green-300">
-                              <FormattedDate date={new Date(shipment.actualDeliveryDate || (shipment as any).deliveredAt)} />
+                              <FormattedDate date={new Date(shipment.actualDeliveryDate || (shipment as any).deliveredAt)} utc />
                             </span>
                           </div>
                         )}

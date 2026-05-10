@@ -1651,12 +1651,13 @@ export function DragDropKanban({ onShowHistory }: { onShowHistory?: () => void }
                   <div>
                     <label className="text-sm font-medium text-gray-600">Fecha estimada de entrega</label>
                     <p className="text-base text-gray-900">
-                      {detailsDialog.shipment.estimatedDeliveryDate 
-                        ? new Date(detailsDialog.shipment.estimatedDeliveryDate).toLocaleDateString('es-ES', {
+                      {detailsDialog.shipment.estimatedDeliveryDate
+                        ? new Date(detailsDialog.shipment.estimatedDeliveryDate).toLocaleDateString('es-MX', {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric'
+                            day: 'numeric',
+                            timeZone: 'UTC'
                           })
                         : "No programada"
                       }

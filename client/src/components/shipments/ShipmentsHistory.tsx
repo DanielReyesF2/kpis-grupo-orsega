@@ -290,7 +290,8 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                                     {new Date(shipment.actualDeliveryDate || shipment.deliveredAt!).toLocaleDateString('es-MX', {
                                       year: 'numeric',
                                       month: 'short',
-                                      day: 'numeric'
+                                      day: 'numeric',
+                                      timeZone: 'UTC'
                                     })}
                                   </span>
                                 </div>
@@ -302,7 +303,8 @@ export function ShipmentsHistory({ shipments, onShipmentClick }: ShipmentsHistor
                                     {new Date(shipment.estimatedDeliveryDate).toLocaleDateString('es-MX', {
                                       year: 'numeric',
                                       month: 'short',
-                                      day: 'numeric'
+                                      day: 'numeric',
+                                      timeZone: 'UTC'
                                     })}
                                   </span>
                                 </div>
