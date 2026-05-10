@@ -377,18 +377,7 @@ app.use('/uploads', express.static(uploadsPath, {
 }));
 console.log(`✅ Archivos de /uploads disponibles públicamente`);
 
-// ✅ Servir archivos subidos (facturas, comprobantes, etc.)
-// Esta ruta permite acceder a /uploads/facturas/... y /uploads/comprobantes/...
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsDir, {
-  maxAge: '1d', // Cache por 1 día
-  etag: true,
-  lastModified: true,
-}));
-console.log(`📁 [Static] Sirviendo archivos de: ${uploadsDir} en /uploads`);
+// NOTA: Middleware de /uploads ya configurado arriba (línea 354). No duplicar.
 
 // Security helper: Redact sensitive data from logs
 function redactSensitiveData(obj: any): any {

@@ -125,7 +125,7 @@ router.get("/api/treasury/payments/payable-by-supplier/:supplierId", jwtAuthMidd
       return res.status(400).json({ error: 'companyId requerido' });
     }
 
-    const whereClause = `WHERE sp.supplier_id = $1 AND sp.company_id = $2 AND sp.payment_status != 'fully_paid'`;
+    const whereClause = `WHERE sp.supplier_id = $1 AND sp.company_id = $2 AND COALESCE(sp.payment_status, 'unpaid') != 'fully_paid'`;
     const params: (string | number | null)[] = [supplierId, companyId];
 
     const result = await sql(`

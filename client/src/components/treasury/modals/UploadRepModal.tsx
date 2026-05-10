@@ -23,6 +23,8 @@ interface RepSibling {
   extracted_currency?: string | null;
   extractedReference: string | null;
   extracted_reference?: string | null;
+  invoiceReference: string | null;
+  invoice_reference?: string | null;
   createdAt: string;
   created_at?: string;
 }
@@ -154,7 +156,7 @@ export function UploadRepModal({
   const getName = (s: RepSibling) => s.clientName || s.client_name || clientName;
   const getAmount = (s: RepSibling) => s.extractedAmount ?? s.extracted_amount ?? null;
   const getCurrency = (s: RepSibling) => s.extractedCurrency ?? s.extracted_currency ?? 'MXN';
-  const getRef = (s: RepSibling) => s.extractedReference ?? s.extracted_reference ?? null;
+  const getRef = (s: RepSibling) => s.invoiceReference ?? s.invoice_reference ?? s.extractedReference ?? s.extracted_reference ?? null;
   const getDate = (s: RepSibling) => s.createdAt || s.created_at || '';
 
   return (

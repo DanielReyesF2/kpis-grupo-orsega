@@ -349,7 +349,7 @@ export function VoucherKanbanBoard({ vouchers }: VoucherKanbanBoardProps) {
           triggerPayment={{
             id: payingVoucher.scheduledPaymentId || payingVoucher.scheduled_payment_id || payingVoucher.id,
             companyId: payingVoucher.companyId || payingVoucher.company_id || 0,
-            supplierId: payingVoucher.clientId || payingVoucher.client_id || null,
+            supplierId: (payingVoucher.clientId && payingVoucher.clientId > 0) ? payingVoucher.clientId : (payingVoucher.client_id && payingVoucher.client_id > 0) ? payingVoucher.client_id : null,
             supplierName: payingVoucher.clientName || payingVoucher.client_name || null,
             amount: payingVoucher.extractedAmount || 0,
             currency: payingVoucher.extractedCurrency || 'MXN',

@@ -7,7 +7,7 @@ import { getAuthUser, type AuthRequest } from './_helpers';
 import { jwtAuthMiddleware } from '../auth';
 import { type InsertPaymentVoucher, type VoucherStatus, paymentVouchers, deletedPaymentVouchers, scheduledPayments, paymentApplications, suppliers as suppliersTable } from '@shared/schema';
 import { db } from '../db';
-import { eq, and, ne, inArray, sql as drizzleSql, sum } from 'drizzle-orm';
+import { eq, and, ne, inArray, sql as drizzleSql, sum, desc } from 'drizzle-orm';
 import { uploadFile } from '../storage/file-storage';
 import { analyzeVoucherBackground } from '../nova/nova-voucher-analyze';
 
@@ -191,39 +191,12 @@ router.post("/api/scheduled-payments/:id/upload-voucher", jwtAuthMiddleware, upl
     const voucherUrl = uploadResult.url;
     console.log(`✅ [Upload Voucher] Archivo subido a ${uploadResult.storage}: ${voucherUrl}`);
 
-    // Determinar estado del voucher basándose en requiresRep del proveedor PRIMERO
-    const requiresREPForStatus = supplier?.requiresRep === true;
-    let finalStatus: string;
-
-    if (requiresREPForStatus) {
-      // Proveedor requiere REP → SIEMPRE ir a pendiente_complemento
-      // independientemente del resultado de OCR o match de monto
-      finalStatus = 'pendiente_complemento';
-      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} requiere REP → pendiente_complemento`);
-    } else {
-      // Proveedor NO requiere REP → aplicar lógica de OCR/monto
-      const criticalFields = ['extractedAmount', 'extractedDate', 'extractedBank', 'extractedReference', 'extractedCurrency'];
-      const hasAllCriticalFields = criticalFields.every(field => {
-        const value = analysis[field as keyof typeof analysis];
-        return value !== null && value !== undefined;
-      });
-
-      if (hasAllCriticalFields && analysis.ocrConfidence >= 0.7) {
-        finalStatus = 'factura_pagada';
-      } else {
-        finalStatus = 'pago_programado';
-      }
-
-      // Verificar si el monto coincide (con tolerancia del 1%)
-      const amountDiff = Math.abs((scheduledPayment.amount - (analysis.extractedAmount || 0)) / scheduledPayment.amount);
-      if (amountDiff <= 0.01) {
-        finalStatus = 'cierre_contable';
-      } else if (analysis.extractedAmount && analysis.extractedAmount < scheduledPayment.amount) {
-        finalStatus = 'factura_pagada';
-      }
-
-      console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} NO requiere REP, status → ${finalStatus}`);
-    }
+    // Siempre crear voucher en pago_programado — el status final se asigna
+    // al CONFIRMAR el pago (endpoint /pay o /multi-pay), no al subir el archivo.
+    // Esto permite que el voucher aparezca en "Por pagar" para que el usuario
+    // seleccione facturas, confirme monto, y entonces se mueva al status correcto.
+    const finalStatus = 'pago_programado';
+    console.log(`📋 [Upload Voucher] Proveedor ${supplier?.name} → status: pago_programado (pendiente confirmación de pago)`);
 
     // Crear comprobante vinculado
     console.log(`📝 [Upload Voucher] Preparando datos del voucher...`);
@@ -964,15 +937,30 @@ router.get("/api/payment-vouchers/:id/rep-siblings", jwtAuthMiddleware, async (r
     }
 
     // Buscar hermanos por client_id (ID numérico) + company_id + status pendiente_complemento
-    const siblings = await db.query.paymentVouchers.findMany({
-      where: and(
+    // JOIN a scheduled_payments para obtener el folio real (reference) del proveedor
+    const siblings = await db.select({
+      id: paymentVouchers.id,
+      clientId: paymentVouchers.clientId,
+      clientName: paymentVouchers.clientName,
+      companyId: paymentVouchers.companyId,
+      status: paymentVouchers.status,
+      extractedAmount: paymentVouchers.extractedAmount,
+      extractedCurrency: paymentVouchers.extractedCurrency,
+      extractedReference: paymentVouchers.extractedReference,
+      scheduledPaymentId: paymentVouchers.scheduledPaymentId,
+      createdAt: paymentVouchers.createdAt,
+      // Folio real del proveedor desde scheduled_payments
+      invoiceReference: scheduledPayments.reference,
+    })
+      .from(paymentVouchers)
+      .leftJoin(scheduledPayments, eq(paymentVouchers.scheduledPaymentId, scheduledPayments.id))
+      .where(and(
         eq(paymentVouchers.clientId, triggerVoucher.clientId),
         eq(paymentVouchers.companyId, triggerVoucher.companyId),
         eq(paymentVouchers.status, 'pendiente_complemento'),
         ne(paymentVouchers.id, voucherId),
-      ),
-      orderBy: (pv, { desc }) => [desc(pv.createdAt)],
-    });
+      ))
+      .orderBy(desc(paymentVouchers.createdAt));
 
     console.log(`📋 [REP Siblings] Voucher ${voucherId} (client_id=${triggerVoucher.clientId}): ${siblings.length} hermano(s) encontrados`);
     res.json(siblings);
